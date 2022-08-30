@@ -142,7 +142,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
-                value = state.registerValue(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames));
+                value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);

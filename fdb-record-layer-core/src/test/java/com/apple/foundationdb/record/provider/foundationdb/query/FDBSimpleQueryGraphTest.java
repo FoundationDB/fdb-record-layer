@@ -108,9 +108,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addQuantifier(qun);
                     final var nameValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
                     final var restNoValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
@@ -159,9 +159,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addQuantifier(qun);
                     final var nameValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
                     final var restNoValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
@@ -200,9 +200,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addQuantifier(qun);
                     final var nameValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
                     final var restNoValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
@@ -250,11 +250,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var explodeQun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), ImmutableList.of("reviews")))));
+                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "reviews"))));
 
                     graphExpansionBuilder.addQuantifier(outerQun);
                     graphExpansionBuilder.addQuantifier(explodeQun);
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(new FieldValue(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), ImmutableList.of("name")),
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "name"),
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "name")));
 
                     final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
@@ -281,14 +281,14 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var outerQuantifiedValue = QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType());
                     final var innerQuantifiedValue = QuantifiedObjectValue.of(innerQun.getAlias(), innerQun.getFlowedObjectType());
 
-                    final var outerReviewerIdValue = new FieldValue(outerQuantifiedValue, ImmutableList.of("review", "reviewer"));
-                    final var innerReviewerIdValue = new FieldValue(innerQuantifiedValue, ImmutableList.of("id"));
+                    final var outerReviewerIdValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "reviewer"));
+                    final var innerReviewerIdValue = FieldValue.ofFieldName(innerQuantifiedValue, "id");
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(outerReviewerIdValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, innerReviewerIdValue)));
 
-                    final var reviewerNameValue = new FieldValue(innerQuantifiedValue, ImmutableList.of("name"));
+                    final var reviewerNameValue = FieldValue.ofFieldName(innerQuantifiedValue, "name");
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewerNameValue.getResultType(), Optional.of("reviewerName")), reviewerNameValue));
-                    final var reviewRatingValue = new FieldValue(outerQuantifiedValue, ImmutableList.of("review", "rating"));
+                    final var reviewRatingValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "rating"));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewRatingValue.getResultType(), Optional.of("reviewRating")), reviewRatingValue));
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
@@ -364,11 +364,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     var explodeReviewsQun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), ImmutableList.of("reviews")))));
+                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
-                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(new FieldValue(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), ImmutableList.of("reviewer")),
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, new FieldValue(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), ImmutableList.of("id")))));
+                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), "id"))));
 
                     var explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
@@ -381,11 +381,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     explodeReviewsQun =
                             Quantifier.forEach(GroupExpressionRef.of(
-                                    new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), ImmutableList.of("reviews")))));
+                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
-                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(new FieldValue(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), ImmutableList.of("reviewer")),
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, new FieldValue(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), ImmutableList.of("id")))));
+                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), "id"))));
 
                     explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
@@ -398,10 +398,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var reviewer2QuantifiedValue = QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType());
                     final var restaurantQuantifiedValue = QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType());
 
-                    final var reviewer1NameValue = new FieldValue(reviewer1QuantifiedValue, ImmutableList.of("name"));
-                    final var reviewer2NameValue = new FieldValue(reviewer2QuantifiedValue, ImmutableList.of("name"));
-                    final var restaurantNameValue = new FieldValue(restaurantQuantifiedValue, ImmutableList.of("name"));
-                    final var restaurantNoValue = new FieldValue(restaurantQuantifiedValue, ImmutableList.of("rest_no"));
+                    final var reviewer1NameValue = FieldValue.ofFieldName(reviewer1QuantifiedValue, "name");
+                    final var reviewer2NameValue = FieldValue.ofFieldName(reviewer2QuantifiedValue, "name");
+                    final var restaurantNameValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "name");
+                    final var restaurantNoValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "rest_no");
 
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer1NameValue.getResultType(), Optional.of("reviewer1Name")), reviewer1NameValue));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer2NameValue.getResultType(), Optional.of("reviewer2Name")), reviewer2NameValue));
@@ -443,9 +443,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addQuantifier(qun);
                     final var nameValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
                     final var restNoValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
 
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addPredicate(new ConstantPredicate(true));

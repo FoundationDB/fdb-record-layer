@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.GenericM
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.PredicatedMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -49,6 +50,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -536,6 +538,14 @@ public class Quantifiers {
         }
 
         return translatedQuantifiersBuilder.build();
+    }
+
+    @Nonnull
+    public static Type getFlowedTypeForSetOperation(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+        return Streams.stream(quantifiers)
+                .findFirst()
+                .map(quantifier -> quantifier.getFlowedObjectType())
+                .orElseThrow(() -> new RecordCoreException("unable to resolve object type from quantifiers"));
     }
 
     /**

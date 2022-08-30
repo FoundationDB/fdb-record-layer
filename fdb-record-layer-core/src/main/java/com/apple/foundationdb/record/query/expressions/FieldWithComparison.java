@@ -106,7 +106,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return GraphExpansion.ofPredicate(new FieldValue(baseQuantifier.getFlowedObjectValue(), fieldNames).withComparison(comparison));
+        return GraphExpansion.ofPredicate(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames).withComparison(comparison));
     }
 
     @Override

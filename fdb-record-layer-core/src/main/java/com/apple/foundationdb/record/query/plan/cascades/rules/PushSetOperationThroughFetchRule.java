@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -181,7 +182,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final CorrelationIdentifier sourceAlias = CorrelationIdentifier.uniqueID();
 
-        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, new Type.Any());
+        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, Quantifiers.getFlowedTypeForSetOperation(quantifiersOverFetches));
         final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
 
         // if set operation is dynamic all aliases must be pushable

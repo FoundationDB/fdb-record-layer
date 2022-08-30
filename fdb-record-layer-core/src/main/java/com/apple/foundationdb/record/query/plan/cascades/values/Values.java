@@ -53,7 +53,7 @@ public class Values {
         final List<Type.Record.Field> fields = Objects.requireNonNull(resultType.getFields());
         final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < fields.size(); i++) {
-            resultBuilder.add(OrdinalFieldValue.of(recordValue, i));
+            resultBuilder.add(FieldValue.ofOrdinalNumber(recordValue, i));
         }
         return resultBuilder.build();
     }

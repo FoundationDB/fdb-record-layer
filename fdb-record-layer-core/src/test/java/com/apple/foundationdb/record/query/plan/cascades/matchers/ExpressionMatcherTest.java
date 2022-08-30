@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.matchers;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -219,7 +221,17 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
-        final var baseRef = GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", fullValueScan, true));
+        final var baseRef =
+                GroupExpressionRef.of(new RecordQueryIndexPlan("an_index",
+                        null,
+                        fullValueScan,
+                        IndexFetchMethod.SCAN_AND_FETCH,
+                        true,
+                        false,
+                        Optional.empty(),
+                        Type.Record.fromFields(false,
+                                ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
+                                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2"))))));
         final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
                 new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),

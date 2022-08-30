@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -33,9 +35,12 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,9 +51,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class CombineFilterRuleTest {
     private static PlannerRule<LogicalFilterExpression> rule = new CombineFilterRule();
     private static PlanContext blankContext = new FakePlanContext();
+
+    private static Type type = Type.Record.fromFields(false,
+            ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("testField")),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("testField2"))));
     private static RecordQueryPlan[] basePlans = {
-            new RecordQueryScanPlan(ScanComparisons.EMPTY, false),
-            new RecordQueryIndexPlan("not_an_index", IndexScanComparisons.byValue(), false)
+            new RecordQueryScanPlan(null, type, null, ScanComparisons.EMPTY, false, false, Optional.empty()),
+            new RecordQueryIndexPlan("not_an_index",
+                    null,
+                    IndexScanComparisons.byValue(),
+                    IndexFetchMethod.SCAN_AND_FETCH,
+                    false,
+                    false,
+                    Optional.empty(),
+                    type)
     };
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,

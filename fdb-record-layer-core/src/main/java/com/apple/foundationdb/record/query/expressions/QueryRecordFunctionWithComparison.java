@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionV
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -154,7 +154,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             //
 
             // predicate on rank
-            final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
+            final var rankColumnValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(rankQuantifier), rankSelectExpression.getResultValues().size() - 1);
             final var rankComparisonExpansion =
                     GraphExpansion.builder()
                             .addQuantifier(rankQuantifier)

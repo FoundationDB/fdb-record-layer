@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -29,10 +30,13 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -159,6 +163,23 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      */
     default boolean isDynamic() {
         return false;
+    }
+
+    /**
+     * Helper method to create a new {@link DerivedValue} above all incoming data streams.
+     * @param quantifiers an {@link Iterable} of {@link Quantifier}s.
+     * @return a new {@link DerivedValue} across all incoming data streams.
+     */
+    static Value mergeValues(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+        // TODO let's just pick the first result type for now
+        final var resultType = Streams.stream(quantifiers)
+                .filter(quantifier -> !(quantifier instanceof Quantifier.Existential))
+                .findFirst()
+                .map(Quantifier::getFlowedObjectType)
+                .orElseThrow(() -> new RecordCoreException("cannot resolve result type"));
+        return new DerivedValue(Streams.stream(quantifiers)
+                .map(Quantifier::getFlowedObjectValue)
+                .collect(ImmutableList.toImmutableList()), resultType);
     }
 
     /**

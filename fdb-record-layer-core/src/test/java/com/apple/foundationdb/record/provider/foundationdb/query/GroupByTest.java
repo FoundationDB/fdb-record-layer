@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.test.Tags;
@@ -121,7 +120,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
 
-        final var num2Value = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("num_value_2"));
+        final var num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
 
         final var scanAlias = qun.getAlias();
         final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
@@ -143,17 +142,17 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
         }
 
-        CorrelationIdentifier groupingExprAlias = null;
+        CorrelationIdentifier groupingExprAlias;
 
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
         {
             // 2.1. construct aggregate expression.
             final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
-                    new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
+                    new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of(groupByColAlias.getId()));
+            final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(aggregationExpr, groupingExpr, qun);
@@ -165,8 +164,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // construct a result set that makes sense.
             final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")),
-                    new FieldValue(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of(groupingExprAlias.getId(), "num_value_2")));
-            final var aggregateReference = Column.unnamedOf(OrdinalFieldValue.of(OrdinalFieldValue.of(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
+                    FieldValue.ofFieldNames(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of(groupingExprAlias.getId(), "num_value_2")));
+            final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
             final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect();
             return GroupExpressionRef.of(result);

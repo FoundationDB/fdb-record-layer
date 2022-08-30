@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -95,7 +94,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
-        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
+        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Nonnull

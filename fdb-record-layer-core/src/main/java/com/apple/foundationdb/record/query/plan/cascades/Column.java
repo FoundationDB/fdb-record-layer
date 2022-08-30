@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -33,17 +33,17 @@ import java.util.Objects;
  */
 public class Column<V extends Value> {
     @Nonnull
-    private final Type.Record.Field field;
+    private final Field field;
     @Nonnull
     private final V value;
 
-    public Column(@Nonnull final Type.Record.Field field, @Nonnull final V value) {
+    public Column(@Nonnull final Field field, @Nonnull final V value) {
         this.field = field;
         this.value = value;
     }
 
     @Nonnull
-    public Type.Record.Field getField() {
+    public Field getField() {
         return field;
     }
 
@@ -70,10 +70,10 @@ public class Column<V extends Value> {
     }
 
     public static <V extends Value> Column<V> unnamedOf(@Nonnull final V value) {
-        return new Column<>(Type.Record.Field.unnamedOf(value.getResultType()), value);
+        return new Column<>(Field.unnamedOf(value.getResultType()), value);
     }
 
-    public static <V extends Value> Column<V> of(@Nonnull final Type.Record.Field field, @Nonnull final V value) {
+    public static <V extends Value> Column<V> of(@Nonnull final Field field, @Nonnull final V value) {
         return new Column<>(field, value);
     }
 }

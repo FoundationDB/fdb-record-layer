@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -126,7 +126,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // predicate between the outer and the inner base as we model this index access as a semi join
         //
         // predicate on rank is expressed as an index placeholder
-        final var rankColumnValue = QuantifiedColumnValue.of(rankQuantifier.getAlias(), rankSelectExpression.getResultValues().size() - 1);
+        final var rankColumnValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(rankQuantifier), rankSelectExpression.getResultValues().size() - 1);
         final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseQuantifier, rankQuantifier, rankColumnValue);
         Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
@@ -253,7 +253,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     @Nonnull
-    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier, @Nonnull final Quantifier.ForEach rankQuantifier, @Nonnull final QuantifiedColumnValue rankColumnValue) {
+    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier, @Nonnull final Quantifier.ForEach rankQuantifier, @Nonnull final FieldValue rankColumnValue) {
         // hold on to the placeholder for later
         final var rankPlaceholder = rankColumnValue.asPlaceholder(newParameterAlias());
 

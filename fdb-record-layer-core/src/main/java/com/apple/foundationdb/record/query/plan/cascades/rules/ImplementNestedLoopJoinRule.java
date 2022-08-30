@@ -347,7 +347,7 @@ public class ImplementNestedLoopJoinRule extends PlannerRule<SelectExpression> {
                                                 @Nonnull final Type.Record joinedRecordType,
                                                 @Nonnull final String fieldName,
                                                 @Nonnull final LeafValue leafValue) {
-        final var fieldValue = new FieldValue(QuantifiedObjectValue.of(resultAlias, joinedRecordType), ImmutableList.of(fieldName));
+        final var fieldValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(resultAlias, joinedRecordType), fieldName);
         return leafValue.replaceReferenceWithField(fieldValue);
     }
 
