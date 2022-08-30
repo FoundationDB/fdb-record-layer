@@ -145,10 +145,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private ConcurrentNavigableMap<byte[], Integer> localVersionCache;
     @Nonnull
     private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
-    @Nullable
-    private final FDBDatabase.WeakReadSemantics weakReadSemantics;
     @Nonnull
-    private final FDBTransactionPriority priority;
+    private final FDBRecordContextConfig config;
     private final long timeoutMillis;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
@@ -161,8 +159,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private long trackOpenTimeNanos;
     @Nonnull
     private final Map<Object, Object> session = new LinkedHashMap<>();
-    @Nonnull
-    private final RecordLayerPropertyStorage propertyStorage;
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -187,14 +183,14 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             tr.options().setServerRequestTracing();
         }
 
+        this.config = config;
+
         // If a causal read risky is requested, we set the corresponding transaction option
-        this.weakReadSemantics = config.getWeakReadSemantics();
-        if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
+        if (config.getWeakReadSemantics() != null && config.getWeakReadSemantics().isCausalReadRisky()) {
             tr.options().setCausalReadRisky();
         }
 
-        this.priority = config.getPriority();
-        switch (priority) {
+        switch (config.getPriority()) {
             case BATCH:
                 tr.options().setPriorityBatch();
                 break;
@@ -205,7 +201,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 tr.options().setPrioritySystemImmediate();
                 break;
             default:
-                throw new RecordCoreArgumentException("unknown priority level " + priority);
+                throw new RecordCoreArgumentException("unknown priority level " + config.getPriority());
         }
 
         // Set the transaction timeout based on the config (if set) and the database factory otherwise
@@ -216,7 +212,16 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
 
         this.dirtyStoreState = false;
-        this.propertyStorage = config.getPropertyStorage();
+    }
+
+    @Nonnull
+    /**
+     * Get the {@link FDBRecordContextConfig} used to open this context.
+     * @return the config
+     * @see FDBDatabase#openContext(FDBRecordContextConfig)
+     */
+    public FDBRecordContextConfig getConfig() {
+        return config;
     }
 
     @Nullable
@@ -560,7 +565,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 });
         // Instrument batch priority transactions and non-batch priority transactions separately as additional latency
         // is expected from back pressure on batch priority transactions.
-        StoreTimer.Event grvEvent = FDBTransactionPriority.BATCH.equals(priority) ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
+        StoreTimer.Event grvEvent = FDBTransactionPriority.BATCH.equals(config.getPriority()) ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
         localReadVersionFuture = instrument(grvEvent, localReadVersionFuture, startTimeNanos);
         readVersionFuture = localReadVersionFuture;
         return localReadVersionFuture;
@@ -1171,36 +1176,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nullable
     public Map<String, String> getMdcContext() {
-        if (getExecutor() instanceof ContextRestoringExecutor) {
-            return ((ContextRestoringExecutor)getExecutor()).getMdcContext();
-        } else {
-            return null;
-        }
+        return config.getMdcContext();
     }
 
     /**
      * Get a new {@link FDBDatabaseRunner} that will run contexts similar to this one.
      * <ul>
      * <li>Same {@linkplain FDBDatabase database}</li>
-     * <li>Same {@linkplain FDBStoreTimer timer}</li>
-     * <li>Same {@linkplain #getMdcContext() MDC context}</li>
-     * <li>Same {@linkplain FDBDatabase.WeakReadSemantics weak read semantics}</li>
-     * <li>Same {@linkplain FDBTransactionPriority priority}</li>
-     * <li>Same {@linkplain #getTimeoutMillis() transaction timeout}</li>
-     * <li>Same {@linkplain #getPropertyStorage()}  property storage}</li>
+     * <li>Same {@linkplain FDBRecordContextConfig cnofig}</li>
      * </ul>
      * @return a new database runner based on this context
      */
     @Nonnull
     public FDBDatabaseRunner newRunner() {
-        FDBDatabaseRunner runner = database.newRunner();
-        runner.setTimer(timer);
-        runner.setMdcContext(getMdcContext());
-        runner.setWeakReadSemantics(weakReadSemantics);
-        runner.setPriority(priority);
-        runner.setTransactionTimeoutMillis(timeoutMillis);
-        runner.setRecordLayerPropertyStorage(propertyStorage);
-        return runner;
+        return database.newRunner(config.toBuilder());
     }
 
     /**
@@ -1309,7 +1298,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nullable
     public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
-        return weakReadSemantics;
+        return config.getWeakReadSemantics();
     }
 
     /**
@@ -1322,7 +1311,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nonnull
     public FDBTransactionPriority getPriority() {
-        return priority;
+        return config.getPriority();
     }
 
     public void setHookForAsyncToSync(@Nonnull Consumer<FDBStoreTimer.Wait> hook) {
@@ -1404,7 +1393,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @API(API.Status.EXPERIMENTAL)
     public RecordLayerPropertyStorage getPropertyStorage() {
-        return propertyStorage;
+        return config.getPropertyStorage();
     }
 
 }
