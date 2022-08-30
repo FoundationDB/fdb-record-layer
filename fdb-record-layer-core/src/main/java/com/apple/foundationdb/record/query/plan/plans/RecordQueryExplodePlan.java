@@ -80,13 +80,8 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var result = collectionValue.eval(store, context);
-        if (result == null) {
-            return RecordCursor.fromList(List.of())
-                    .map(QueryResult::ofComputed);
-        } else {
-            return RecordCursor.fromList((List<?>)Objects.requireNonNull(result))
-                    .map(QueryResult::ofComputed);
-        }
+        return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result)
+                .map(QueryResult::ofComputed);
     }
 
     @Nonnull

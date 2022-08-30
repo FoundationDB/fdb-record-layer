@@ -103,12 +103,11 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         }
 
         final var message = queryResult.getMessage(); // we must be able to distill a message from the result
-        final var fieldValue = MessageValue.getFieldOnMessage(message, getFieldForOrdinal().getFieldIndex());
         //
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
         //
-        return NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType());
+        return NullableArrayTypeUtils.unwrapIfArray(MessageValue.getFieldOnMessage(message, getFieldForOrdinal().getFieldIndex()), getResultType());
     }
 
     @Nonnull

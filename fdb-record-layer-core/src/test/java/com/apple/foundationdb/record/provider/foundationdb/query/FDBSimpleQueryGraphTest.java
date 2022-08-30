@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords4Proto;
-import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -82,7 +81,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testSimplePlanGraph() throws Exception {
-        CascadesPlanner cascadesPlanner = setUpWithNullableArray();
+        CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = cascadesPlanner.planGraph(
                 () -> {
@@ -393,74 +392,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     .addCustomer("gavroche")
                     .addCustomer("enjolras")
                     .addCustomer("éponine")
-                    .build();
-            recordStore.saveRecord(restaurant);
-
-            commit(context);
-        }
-        return cascadesPlanner;
-    }
-
-    @Nonnull
-    private CascadesPlanner setUpWithNullableArray() throws Exception {
-        final CascadesPlanner cascadesPlanner;
-
-        try (FDBRecordContext context = openContext()) {
-            openNestedWrappedArrayRecordStore(context);
-
-            cascadesPlanner = (CascadesPlanner)planner;
-
-            TestRecords4WrapperProto.RestaurantReviewer reviewer = TestRecords4WrapperProto.RestaurantReviewer.newBuilder()
-                    .setId(1L)
-                    .setName("Javert")
-                    .setEmail("inspecteur@policier.fr")
-                    .setStats(TestRecords4WrapperProto.ReviewerStats.newBuilder()
-                            .setStartDate(100L)
-                            .setHometown("Toulon")
-                    )
-                    .build();
-            recordStore.saveRecord(reviewer);
-
-            reviewer = TestRecords4WrapperProto.RestaurantReviewer.newBuilder()
-                    .setId(2L)
-                    .setName("M. le Maire")
-                    .setStats(TestRecords4WrapperProto.ReviewerStats.newBuilder()
-                            .setStartDate(120L)
-                            .setHometown("Montreuil-sur-mer")
-                    )
-                    .build();
-            recordStore.saveRecord(reviewer);
-
-            TestRecords4WrapperProto.RestaurantRecord restaurant = TestRecords4WrapperProto.RestaurantRecord.newBuilder()
-                    .setRestNo(1000L)
-                    .setName("Chez Thénardier")
-                    .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder()
-                            .addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(1L).setRating(100))
-                            .addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(2L).setRating(0)))
-                    .setTags(TestRecords4WrapperProto.RestaurantTagList.newBuilder()
-                            .addValues(TestRecords4WrapperProto.RestaurantTag.newBuilder().setValue("l'atmosphère").setWeight(10))
-                            .addValues(TestRecords4WrapperProto.RestaurantTag.newBuilder().setValue("les aliments").setWeight(70)))
-                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder()
-                            .addValues("jean")
-                            .addValues("fantine")
-                            .addValues("cosette")
-                            .addValues("éponine"))
-                    .build();
-            recordStore.saveRecord(restaurant);
-
-            restaurant = TestRecords4WrapperProto.RestaurantRecord.newBuilder()
-                    .setRestNo(1001L)
-                    .setName("ABC")
-                    .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder()
-                            .addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(1L).setRating(34))
-                            .addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(2L).setRating(110)))
-                    .setTags(TestRecords4WrapperProto.RestaurantTagList.newBuilder()
-                            .addValues(TestRecords4WrapperProto.RestaurantTag.newBuilder().setValue("l'atmosphère").setWeight(40))
-                            .addValues(TestRecords4WrapperProto.RestaurantTag.newBuilder().setValue("les aliments").setWeight(20)))
-                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder()
-                            .addValues("gavroche")
-                            .addValues("enjolras")
-                            .addValues("éponine"))
                     .build();
             recordStore.saveRecord(restaurant);
 
