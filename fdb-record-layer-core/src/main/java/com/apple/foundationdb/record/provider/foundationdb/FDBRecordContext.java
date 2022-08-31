@@ -1183,7 +1183,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Get a new {@link FDBDatabaseRunner} that will run contexts similar to this one.
      * <ul>
      * <li>Same {@linkplain FDBDatabase database}</li>
-     * <li>Same {@linkplain FDBRecordContextConfig cnofig}</li>
+     * <li>Same {@linkplain FDBRecordContextConfig config}</li>
      * </ul>
      * @return a new database runner based on this context
      */
