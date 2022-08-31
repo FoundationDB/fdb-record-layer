@@ -28,7 +28,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Lower the severity of error when logging incompatible index for remote fetch [(Issue #1828)](https://github.com/FoundationDB/fdb-record-layer/issues/1828)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,7 +38,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Make `FDBRecordContext` remember its config [(Issue #1830)](https://github.com/FoundationDB/fdb-record-layer/issues/1830)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -51,6 +51,11 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.288.0
+
+* **Bug fix** Lower the severity of error when logging incompatible index for remote fetch [(Issue #1828)](https://github.com/FoundationDB/fdb-record-layer/issues/1828)
+* **Feature** Make `FDBRecordContext` remember its config [(Issue #1830)](https://github.com/FoundationDB/fdb-record-layer/issues/1830)
 
 ### 3.2.287.0
 
