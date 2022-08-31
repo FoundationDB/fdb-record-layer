@@ -92,7 +92,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -347,7 +347,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertMatchesExactly(plan,
                         predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
-                                .where(predicates(only(valuePredicate(fieldValue(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0))))));
+                                .where(predicates(only(valuePredicate(fieldValueWithFieldNames(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0))))));
                 assertEquals(-1244637277, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
             continuation = null;

@@ -37,9 +37,10 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -76,7 +77,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -321,7 +321,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))
-                            .where(predicates(only(valuePredicate(fieldValue("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(728152174, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -366,7 +366,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     predicatesFilterPlan(
                             coveringIndexPlan()
                                     .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("([null],[1])"))))))
-                            .where(predicates(only(valuePredicate(fieldValue("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(762957369, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -412,7 +412,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                                 predicatesFilterPlan(
                                         coveringIndexPlan()
                                                 .where(indexPlanOf(indexPlan().where(indexName("multi")).and(scanComparisons(range("[[abc],[abc]]"))))))
-                                        .where(predicates(only(valuePredicate(fieldValue("header.num"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)))))
+                                        .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("header.num"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)))))
                         );
                 assertMatchesExactly(plan, planMatcher);
                 

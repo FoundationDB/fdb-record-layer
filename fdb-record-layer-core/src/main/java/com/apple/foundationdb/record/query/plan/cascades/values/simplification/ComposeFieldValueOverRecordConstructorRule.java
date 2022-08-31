@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -38,7 +40,6 @@ import java.util.Objects;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
@@ -52,16 +53,17 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             recordConstructorValue(all(anyValue()));
 
     @Nonnull
-    private static final CollectionMatcher<String> fieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<Field> fieldPathMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
-            fieldValue(recordConstructorMatcher, fieldPathMatcher);
+            ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathMatcher);
 
     public ComposeFieldValueOverRecordConstructorRule() {
         super(rootMatcher);
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
@@ -70,19 +72,24 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         Verify.verify(!fieldPath.isEmpty());
         final var recordConstructor = bindings.get(recordConstructorMatcher);
 
-        final var fieldName = Objects.requireNonNull(Iterables.getFirst(fieldPath, null));
-        final var column = findColumnByName(recordConstructor, fieldName);
+        final var firstField = Objects.requireNonNull(Iterables.getFirst(fieldPath, null));
+        final var column = findColumn(recordConstructor, firstField);
         if (fieldPath.size() == 1) {
             // just return the child
             call.yield(column.getValue());
         } else {
-            call.yield(new FieldValue(column.getValue(), fieldPath.stream().skip(1L).collect(ImmutableList.toImmutableList())));
+            call.yield(FieldValue.ofFields(column.getValue(),
+                    fieldPath.stream()
+                            .skip(1L)
+                            .collect(ImmutableList.toImmutableList())));
         }
     }
 
-    private static Column<? extends Value> findColumnByName(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final String fieldName) {
-        for (final var  column : recordConstructorValue.getColumns()) {
-            if (fieldName.equals(column.getField().getFieldName())) {
+    @Nonnull
+    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final Field field) {
+        for (final var column : recordConstructorValue.getColumns()) {
+            if (field.getFieldIndex() == column.getField().getFieldIndex()) {
+                Verify.verify(field.getFieldNameOptional() == column.getField().getFieldNameOptional());
                 return column;
             }
         }

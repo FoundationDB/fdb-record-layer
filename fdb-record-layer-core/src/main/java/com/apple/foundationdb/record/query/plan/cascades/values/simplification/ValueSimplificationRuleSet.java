@@ -52,11 +52,8 @@ import java.util.stream.Stream;
 public class ValueSimplificationRuleSet {
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
-    @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> composeOrdinalFieldValueOverRecordConstructorRule = new ComposeOrdinalFieldValueOverRecordConstructorRule();
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule,
-                    composeOrdinalFieldValueOverRecordConstructorRule);
+            ImmutableSet.of(composeFieldValueOverRecordConstructorRule);
 
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();

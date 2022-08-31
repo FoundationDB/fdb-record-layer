@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -34,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.collect.ImmutableList;

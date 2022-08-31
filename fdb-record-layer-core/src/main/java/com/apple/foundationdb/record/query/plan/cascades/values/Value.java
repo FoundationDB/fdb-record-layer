@@ -60,6 +60,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -411,5 +412,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases,
                            @Nonnull final Predicate<ValueSimplificationRule<? extends Value>> rulePredicate) {
         return Simplification.simplify(this, constantAliases, ruleSet, rulePredicate);
+    }
+
+    @Nonnull
+    default Optional<List<Value>> translateAll(@Nonnull final List<Value> otherValues) {
+        // we assume `this` to be simplified
+        // we assume otherValues to be simplified
+
+        // ==> there are no mixed record constructors and field accesses as that could be simplified
+        
     }
 }

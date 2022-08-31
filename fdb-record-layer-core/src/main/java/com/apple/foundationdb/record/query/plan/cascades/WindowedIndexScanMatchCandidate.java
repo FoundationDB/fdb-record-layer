@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

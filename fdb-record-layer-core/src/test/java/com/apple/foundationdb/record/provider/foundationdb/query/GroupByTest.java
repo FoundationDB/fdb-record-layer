@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -62,7 +63,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.numericAggregationValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
@@ -90,7 +91,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                         indexPlan()
                                                 .where(scanComparisons(range("<,>")))
                                 )).where(aggregations(recordConstructorValue(exactly(numericAggregationValue("SUM"))))
-                                .and(groupings(fieldValue("select_grouping_cols"))))));
+                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

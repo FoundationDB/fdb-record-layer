@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -51,23 +51,23 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<FieldValue> fieldValue(@Nonnull final String fieldPathAsString) {
-        return fieldValue(anyValue(), fieldPathAsString);
+    public static BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final String fieldPathAsString) {
+        return fieldValueWithFieldNames(anyValue(), fieldPathAsString);
     }
 
     @Nonnull
-    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                          @Nonnull final String fieldPathAsString) {
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                        @Nonnull final String fieldPathAsString) {
         final ImmutableList<BindingMatcher<String>> fieldPathMatchers =
                 Arrays.stream(fieldPathAsString.split("\\."))
                         .map(PrimitiveMatchers::equalsObject)
                         .collect(ImmutableList.toImmutableList());
-        return fieldValue(downstreamValue, exactly(fieldPathMatchers));
+        return fieldValueWithFieldNames(downstreamValue, exactly(fieldPathMatchers));
     }
 
     @Nonnull
-    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                          @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                        @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
@@ -83,31 +83,20 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<OrdinalFieldValue> ordinalFieldValue(final int ordinalPosition) {
-        return ordinalFieldValue(anyValue(), ordinalPosition);
-    }
-
-    @Nonnull
-    public static <V extends Value> BindingMatcher<OrdinalFieldValue> ordinalFieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                        final int ordinalPosition) {
-        return ordinalFieldValue(downstreamValue, PrimitiveMatchers.equalsObject(ordinalPosition));
-    }
-
-    @Nonnull
-    public static <V extends Value> BindingMatcher<OrdinalFieldValue> ordinalFieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                        @Nonnull final BindingMatcher<Integer> downstreamFieldOrdinalPosition) {
-        final TypedMatcherWithExtractAndDownstream<OrdinalFieldValue> downstreamValueMatcher =
-                typedWithDownstream(OrdinalFieldValue.class,
-                        Extractor.of(OrdinalFieldValue::getChild, name -> "child(" + name + ")"),
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                       @Nonnull final CollectionMatcher<Type.Record.Field> downstreamFieldPath) {
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
                         downstreamValue);
-        final TypedMatcherWithExtractAndDownstream<OrdinalFieldValue> downstreamFieldPathMatcher =
-                typedWithDownstream(OrdinalFieldValue.class,
-                        Extractor.of(OrdinalFieldValue::getOrdinalPosition, name -> "ordinal(" + name + ")"),
-                        downstreamFieldOrdinalPosition);
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getFieldPath, name -> "fieldPath(" + name + ")"),
+                        downstreamFieldPath);
 
-        return typedWithDownstream(OrdinalFieldValue.class,
+        return typedWithDownstream(FieldValue.class,
                 Extractor.identity(),
-                AllOfMatcher.matchingAllOf(OrdinalFieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+                AllOfMatcher.matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
     }
 
     @Nonnull

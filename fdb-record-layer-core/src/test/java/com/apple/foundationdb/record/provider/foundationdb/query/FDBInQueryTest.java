@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -101,7 +102,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -147,7 +148,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(descendantPlans(scanPlan().where(scanComparisons(unbounded()))))
-                            .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))));
+                            .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))));
 
             assertEquals(997592219, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(78097044, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -458,7 +459,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(selfOrDescendantPlans(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(unbounded()))))
-                            .where(predicates(valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(1, 4, 2))))));
+                            .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(1, 4, 2))))));
             assertEquals(1470982333, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(800585401, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1012185659, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -1342,7 +1343,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     unionPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
                             predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
-                                    .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
+                                    .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
                             .where(comparisonKey(concat(field("num_value_unique"), primaryKey("MySimpleRecord")))));
             assertEquals(-1933328656, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1747054907, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1559,7 +1560,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(selfOrDescendantPlans(scanPlan().and(scanComparisons(unbounded()))))
-                            .where(predicates(valuePredicate(fieldValue("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of())))));
+                            .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of())))));
             assertEquals(997518602, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(77994567, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(290552012, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

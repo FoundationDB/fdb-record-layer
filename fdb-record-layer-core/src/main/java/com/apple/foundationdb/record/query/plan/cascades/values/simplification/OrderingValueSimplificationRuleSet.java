@@ -48,7 +48,6 @@ public class OrderingValueSimplificationRuleSet extends ValueSimplificationRuleS
             ImmutableSetMultimap.<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>>builder()
                     .putAll(SIMPLIFICATION_DEPENDS_ON)
                     .put(eliminateArithmeticValueWithConstantRule, composeFieldValueOverRecordConstructorRule)
-                    .put(eliminateArithmeticValueWithConstantRule, composeOrdinalFieldValueOverRecordConstructorRule)
                     .build();
 
     private OrderingValueSimplificationRuleSet() {

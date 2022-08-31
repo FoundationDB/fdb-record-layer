@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +47,7 @@ class ValueSimplificationTest {
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
                                 LiteralValue.ofScalar("fieldValue")));
-        final var fieldValue = new FieldValue(RecordConstructorValue.ofColumns(columns), ImmutableList.of("a"));
+        final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "a");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -62,7 +61,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar("fieldValue")),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(5)));
-        final var fieldValue = new FieldValue(RecordConstructorValue.ofColumns(columns), ImmutableList.of("b"));
+        final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "b");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -86,7 +85,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue = new FieldValue(outerRecordConstructor, ImmutableList.of("y"));
+        final var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "y");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -110,7 +109,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue = new FieldValue(outerRecordConstructor, ImmutableList.of("x"));
+        final var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "x");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -134,7 +133,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue = new FieldValue(outerRecordConstructor, ImmutableList.of("x", "a"));
+        final var fieldValue = FieldValue.ofFieldNames(outerRecordConstructor, ImmutableList.of("x", "a"));
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -158,8 +157,8 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        var fieldValue = new FieldValue(outerRecordConstructor, ImmutableList.of("x"));
-        fieldValue = new FieldValue(fieldValue, ImmutableList.of("a"));
+        var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "x");
+        fieldValue = FieldValue.ofFieldName(fieldValue, "a");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
         System.out.println(simplifiedValue);
@@ -175,7 +174,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(10)));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var ordinalFieldValue = OrdinalFieldValue.of(recordConstructor, 1);
+        final var ordinalFieldValue = FieldValue.ofOrdinalNumber(recordConstructor, 1);
 
         final var simplifiedValue = defaultSimplify(ordinalFieldValue);
         System.out.println(simplifiedValue);
@@ -193,8 +192,8 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue1 =  new FieldValue(recordConstructor, ImmutableList.of("a"));
-        final var fieldValue2 =  new FieldValue(recordConstructor, ImmutableList.of("b"));
+        final var fieldValue1 = FieldValue.ofFieldName(recordConstructor, "a");
+        final var fieldValue2 = FieldValue.ofFieldName(recordConstructor, "b");
 
         final var outerRecordConstructor = RecordConstructorValue.ofUnnamed(ImmutableList.of(fieldValue1, fieldValue2));
 
@@ -214,7 +213,7 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue2 =  new FieldValue(recordConstructor, ImmutableList.of("b"));
+        final var fieldValue2 = FieldValue.ofFieldName(recordConstructor, "b");
 
         final var arithmeticValue =
                 new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,

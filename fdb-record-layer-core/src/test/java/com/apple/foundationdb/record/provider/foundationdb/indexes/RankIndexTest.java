@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -125,7 +126,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
@@ -1530,7 +1531,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                                                             .where(RecordQueryPlanMatchers.indexName("rank_by_gender"))
                                                                             .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
                                                                             .and(scanComparisons(unbounded())))))
-                                                    .where(predicates(valuePredicate(fieldValue("gender"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "M")))),
+                                                    .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("gender"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "M")))),
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(
                                                             indexPlan()

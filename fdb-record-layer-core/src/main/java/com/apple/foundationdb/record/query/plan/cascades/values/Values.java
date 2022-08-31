@@ -57,4 +57,9 @@ public class Values {
         }
         return resultBuilder.build();
     }
+
+    @Nonnull
+    public List<Value> pullUpValues(@Nonnull final List<Value> values, @Nonnull Value resultValue) {
+        return null;
+    }
 }

@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -90,7 +91,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
@@ -1519,9 +1520,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("MySimpleRecord$str_value_indexed"))
                                     .and(scanComparisons(range("[[even],[even]]"))))
                             .where(predicates(only(orPredicate(
-                                    exactly(valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)),
-                                            valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2)),
-                                            valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 4)))))));
+                                    exactly(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)),
+                                            valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2)),
+                                            valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 4)))))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(-1029166388, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -1640,7 +1641,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             predicatesFilterPlan(
                                                     coveringIndexPlan()
                                                             .where(indexPlanOf(indexPlan().where(indexName("coveringIndex")).and(scanComparisons(range("[[26],>"))))))
-                                                    .where(predicates(only(valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 18)))))
+                                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 18)))))
                                     )));
             assertMatchesExactly(plan, planMatcher);
 
@@ -1716,7 +1717,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")))))),
                             predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")))
-                                    .where(predicates(only(valuePredicate(fieldValue("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3))))));
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3))))));
 
             assertMatchesExactly(plan, planMatcher);
 
@@ -1795,31 +1796,31 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             planMatcher = unionPlan(
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],[4])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([5],[6])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([7],[8])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([9],[10])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([11],[12])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([13],[14])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([15],[16])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
                     predicatesFilterPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([17],[18])"))))
-                            .where(predicates(only(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))))
+                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))))
                     .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
 
         }

@@ -320,6 +320,6 @@ class OrderingTest {
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(fieldName)),
                                 LiteralValue.ofScalar("fieldValue")));
-        return new FieldValue(RecordConstructorValue.ofColumns(columns), ImmutableList.of(fieldName));
+        return FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), fieldName);
     }
 }

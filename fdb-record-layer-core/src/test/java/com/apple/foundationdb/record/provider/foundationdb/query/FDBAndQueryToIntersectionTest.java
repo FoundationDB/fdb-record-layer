@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -77,7 +78,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.selfOrDescendantPlans;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
@@ -633,8 +634,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                             indexPlan()
                                     .where(RecordQueryPlanMatchers.indexName("index_2_3"))
                                     .and(scanComparisons(range("[[1, 2],[1, 3]]"))))
-                            .where(predicates(valuePredicate(fieldValue("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")),
-                                    valuePredicate(fieldValue("num_value_unique"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)))));
+                            .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")),
+                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_unique"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)))));
 
             assertEquals(-476608798, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-119924960, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

@@ -46,7 +46,7 @@ public class MessageValue {
      *
      * @param message a message
      * @param fieldNames a list of field names defining a path starting at {@code message}
-     * @return the value at the end of hte path
+     * @return the value at the end of the path
      */
     @Nullable
     public static Object getFieldValueForFieldNames(@Nonnull MessageOrBuilder message, @Nonnull List<String> fieldNames) {
@@ -72,7 +72,7 @@ public class MessageValue {
      *
      * @param message a message
      * @param fields a list of field defining a path starting at {@code message}
-     * @return the value at the end of hte path
+     * @return the value at the end of the path
      */
     @Nullable
     public static Object getFieldValueForFields(@Nonnull MessageOrBuilder message, @Nonnull List<Type.Record.Field> fields) {
@@ -111,12 +111,12 @@ public class MessageValue {
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
      * @param message a message or builder to extract the field from
-     * @param fieldNumber the field number to extract
+     * @param fieldIndex the field number to extract
      * @return the value of the field as described above
      */
     @Nullable
-    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
-        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);
+    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldIndex) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldIndex);
         return getFieldOnMessage(message, field);
     }
 
@@ -167,8 +167,8 @@ public class MessageValue {
     }
 
     @Nullable
-    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
-        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldNumber);
+    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, int fieldIndex) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldIndex);
         return getFieldMessageOnMessage(message, field);
     }
 

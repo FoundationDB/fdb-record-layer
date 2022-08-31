@@ -213,7 +213,11 @@ public class FieldValue implements ValueWithChild {
     }
 
     public static FieldValue ofAccessors(@Nonnull Value childValue, @Nonnull final List<Accessor> accessors) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), accessors));
+        return ofFields(childValue, resolveFieldPath(childValue.getResultType(), accessors));
+    }
+
+    public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
+        return new FieldValue(childValue, fields);
     }
 
     @Nonnull
