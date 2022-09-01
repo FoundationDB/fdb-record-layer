@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWithSeparateContext;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
@@ -85,6 +86,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -92,6 +94,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
@@ -2011,6 +2014,60 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertIndexEntryPrimaryKeys(List.of(1234L, 2345L),
                     recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "way"), null, ScanProperties.FORWARD_SCAN));
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_2.cfs", true);
+        }
+    }
+
+    @Test
+    void forceMergeWithInterspersedWrites() {
+        List<Long> ids = new ArrayList<>();
+        for (long id = 900; id < 1000; id++) {
+            try (FDBRecordContext context = openContext()) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+                recordStore.saveRecord(createSimpleDocument(id, ENGINEER_JOKE, 1));
+                context.commit();
+            }
+            ids.add(id);
+        }
+        final LuceneIndexMaintainer indexMaintainer;
+        final FDBDirectoryWithSeparateContextAndExtraWrites directory;
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(SIMPLE_TEXT_SUFFIXES);
+            try (FDBDirectoryWithSeparateContext orig = indexMaintainer.getDirectoryWithSeparateContext(TupleHelpers.EMPTY)) {
+                directory = new FDBDirectoryWithSeparateContextAndExtraWrites(orig, ids);
+            }
+        }
+        timer.reset();
+        LuceneIndexForceMergeResult result = indexMaintainer.performForceMerge(directory,
+                new LuceneIndexForceMerge(TupleHelpers.EMPTY, 1, 10000, 2000));
+        directory.close();
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), Matchers.greaterThan(5));
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            assertIndexEntryPrimaryKeys(ids,
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "way"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    class FDBDirectoryWithSeparateContextAndExtraWrites extends FDBDirectoryWithSeparateContext {
+        final AtomicLong counter = new AtomicLong(1000);
+        final List<Long> added;
+
+        public FDBDirectoryWithSeparateContextAndExtraWrites(FDBDirectoryWithSeparateContext orig, List<Long> added) {
+            super(orig.getSubspace(), orig.getContext());
+            this.added = added;
+        }
+
+        @Override
+        protected void openNewContext() {
+            long id = counter.incrementAndGet();
+            try (FDBRecordContext context = openContext()) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+                recordStore.saveRecord(createSimpleDocument(id, WAYLON, 2));
+                context.commit();
+            }
+            added.add(id);
+            super.openNewContext();
         }
     }
 
