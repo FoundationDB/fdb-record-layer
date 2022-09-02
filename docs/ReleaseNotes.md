@@ -52,6 +52,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.289.0
+
+
 ### 3.2.288.0
 
 * **Bug fix** Lower the severity of error when logging incompatible index for remote fetch [(Issue #1828)](https://github.com/FoundationDB/fdb-record-layer/issues/1828)
