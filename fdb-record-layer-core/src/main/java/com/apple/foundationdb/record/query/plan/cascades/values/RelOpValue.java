@@ -137,7 +137,6 @@ public class RelOpValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
-        final Set<CorrelationIdentifier> innermostAliasSet = Set.of(innermostAlias);
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
         if (childrenCount == 1) {
@@ -158,18 +157,29 @@ public class RelOpValue implements BooleanValue {
             final Value rightChild = it.next();
             final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
-            if (leftChildCorrelatedTo.equals(innermostAliasSet) && !rightChildCorrelatedTo.contains(innermostAlias)) {
-                final Object comparand = compileTimeEvalFn.apply(rightChild);
-                return comparand == null
-                        ? Optional.empty()
-                        : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
-            } else if (rightChildCorrelatedTo.equals(innermostAliasSet) && !leftChildCorrelatedTo.contains(innermostAlias)) {
-                final Object comparand = compileTimeEvalFn.apply(leftChild);
-                return comparand == null
-                        ? Optional.empty()
-                        : Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swapBinaryComparisonOperator(comparisonType), comparand)));
-            } else if (!rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
+
+            if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty()) {
                 return tryBoxSelfAsConstantPredicate();
+            }
+            if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
+                if (leftChildCorrelatedTo.isEmpty()) {
+                    final Object comparand = compileTimeEvalFn.apply(leftChild);
+                    return comparand == null
+                           ? Optional.empty()
+                           : Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swapBinaryComparisonOperator(comparisonType), comparand)));
+                } else {
+                    return Optional.of(new ValuePredicate(rightChild, new Comparisons.ValueComparison(swapBinaryComparisonOperator(comparisonType), leftChild)));
+                }
+            } else {
+                if (rightChildCorrelatedTo.isEmpty()) {
+                    final Object comparand = compileTimeEvalFn.apply(rightChild);
+                    // TODO comparand can be just NULL and that's a proper result
+                    return comparand == null
+                           ? Optional.empty()
+                           : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                } else {
+                    return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
+                }
             }
         } // TODO support predicates with more arguments.
         return Optional.empty();
