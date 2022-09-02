@@ -773,7 +773,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
 
         try (FDBRecordContext context = openContext()) {
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
                 recordStore.saveRecord(record);
             }
@@ -842,7 +842,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
 
         try (FDBRecordContext context = openContext()) {
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValueUnique(i).build();
                 recordStore.saveRecord(record);
             }
@@ -891,7 +891,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @Test
     public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj( val ->
+        int numRecords = 127;
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
         Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
@@ -925,10 +926,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             }
             recordStore.markIndexReadable("newIndex").join();
 
-            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
-            assertEquals(199, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+            assertEquals(numRecords - 1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
             assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT)); // last item
 
             context.commit();
@@ -973,18 +974,18 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex();
         }
-        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         // this includes two endpoints + one range = total of 3 terminations by count
         // - note that (last, null] endpoint is en empty range
         assertEquals(3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        // this is the range between the endpoints - 199 items in (first, last] interval
-        assertEquals(198, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+        // this is the range between the endpoints - all the items in the (first, last] interval
+        assertEquals(numRecords - 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
     }
 
     @Test
     public void testMarkReadableClearsBuiltRanges() {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 128).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
         Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
@@ -1017,7 +1018,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @Test
     public void testTimeLimit() {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 111).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
 
