@@ -45,9 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRule;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -408,10 +407,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     interface NondeterministicValue extends Value {}
 
     @Nonnull
-    default Value simplify(@Nonnull final ValueSimplificationRuleSet ruleSet,
-                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                           @Nonnull final Predicate<ValueSimplificationRule<? extends Value>> rulePredicate) {
-        return Simplification.simplify(this, constantAliases, ruleSet, rulePredicate);
+    default Value simplify(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return Simplification.simplify(this, constantAliases, ruleSet);
     }
 
     @Nonnull
@@ -420,6 +418,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         // we assume otherValues to be simplified
 
         // ==> there are no mixed record constructors and field accesses as that could be simplified
-        
+        return Optional.empty();
     }
 }

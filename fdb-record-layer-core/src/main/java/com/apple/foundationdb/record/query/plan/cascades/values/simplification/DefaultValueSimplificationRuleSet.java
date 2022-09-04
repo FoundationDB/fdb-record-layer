@@ -1,5 +1,5 @@
 /*
- * FoldingValueSimplificationRuleSet.java
+ * DefaultValueSimplificationRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,27 +30,24 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
- * A set of rules for simplifying {@link Value} trees used to expression ordering constraints.
+ * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class FoldingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
+public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> foldConstantRule = new FoldConstantRule();
+    protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
+    protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
+            ImmutableSet.of(composeFieldValueOverRecordConstructorRule);
 
-    private static final Set<ValueSimplificationRule<? extends Value>> FOLDING_SIMPLIFICATION_RULES =
-            ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
-                    .add(foldConstantRule)
-                    .build();
-
-    private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> FOLDING_SIMPLIFICATION_DEPENDS_ON =
+    protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
-    private FoldingValueSimplificationRuleSet() {
-        super(FOLDING_SIMPLIFICATION_RULES, FOLDING_SIMPLIFICATION_DEPENDS_ON);
+    protected DefaultValueSimplificationRuleSet() {
+        super(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 
-    public static FoldingValueSimplificationRuleSet ofFoldingSimplificationRules() {
-        return new FoldingValueSimplificationRuleSet();
+    public static DefaultValueSimplificationRuleSet ofSimplificationRules() {
+        return new DefaultValueSimplificationRuleSet();
     }
 }

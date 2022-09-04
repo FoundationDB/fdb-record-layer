@@ -1,5 +1,5 @@
 /*
- * ValueSimplificationRuleSet.java
+ * OrderingValueSimplificationRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,20 +34,20 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class OrderingValueSimplificationRuleSet extends ValueSimplificationRuleSet {
+public class OrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> eliminateArithmeticValueWithConstantRule = new EliminateArithmeticValueWithConstantRule();
 
     private static final Set<ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_RULES =
             ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
-                    .addAll(ValueSimplificationRuleSet.SIMPLIFICATION_RULES)
+                    .addAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES)
                     .add(eliminateArithmeticValueWithConstantRule)
                     .build();
 
     private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>>builder()
-                    .putAll(SIMPLIFICATION_DEPENDS_ON)
-                    .put(eliminateArithmeticValueWithConstantRule, composeFieldValueOverRecordConstructorRule)
+                    .putAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON)
+                    .put(eliminateArithmeticValueWithConstantRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
                     .build();
 
     private OrderingValueSimplificationRuleSet() {

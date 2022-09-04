@@ -47,7 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificationRule<FieldValue> {
+public class PullUpThroughConstructorRule extends ValueComputationRule<Integer, FieldValue> {
     @Nonnull
     private static final BindingMatcher<RecordConstructorValue> recordConstructorMatcher =
             recordConstructorValue(all(anyValue()));
@@ -59,12 +59,12 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
     private static final BindingMatcher<FieldValue> rootMatcher =
             ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathMatcher);
 
-    public ComposeFieldValueOverRecordConstructorRule() {
+    public PullUpThroughConstructorRule() {
         super(rootMatcher);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Integer> call) {
         final var bindings = call.getBindings();
 
         final var fieldPath = bindings.get(fieldPathMatcher);
@@ -75,7 +75,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         final var column = findColumn(recordConstructor, firstField);
         if (fieldPath.size() == 1) {
             // just return the child
-            call.yield(column.getValue());
+            call.yield(column.getValue(), 20);
         } else {
             call.yield(FieldValue.ofFields(column.getValue(),
                     fieldPath.stream()

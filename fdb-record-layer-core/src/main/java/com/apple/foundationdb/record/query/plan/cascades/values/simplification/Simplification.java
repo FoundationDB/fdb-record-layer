@@ -20,17 +20,22 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 /**
  * Main class of a mini rewrite engine to simplify
@@ -39,33 +44,73 @@ import java.util.function.Predicate;
 public class Simplification {
     @Nonnull
     public static Value simplify(@Nonnull Value root,
-                                 @Nonnull Set<CorrelationIdentifier> constantAliases,
-                                 @Nonnull final ValueSimplificationRuleSet ruleSet,
-                                 @Nonnull final Predicate<ValueSimplificationRule<? extends Value>> rulePredicate) {
+                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                 @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+        return root.<Value>mapMaybe((current, mappedChildren) -> {
+            current = computeCurrent(current, mappedChildren);
+            return Simplification.executeRuleSet(current,
+                    ruleSet,
+                    (rule, self, plannerBindings) -> new ValueSimplificationRuleCall(rule, self, plannerBindings, constantAliases),
+                    Iterables::getOnlyElement);
+        }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
+    }
 
-        //
-        // First, simplify all children separately. Keep track if they return the same, so we can save a copy for
-        // `this`.
-        //
-        final var newChildrenBuilder = ImmutableList.<Value>builder();
+    @Nonnull
+    public static <R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull Value root,
+                                                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                          @Nonnull final ValueComputationRuleSet<R> ruleSet) {
+        final var resultsMap = new LinkedIdentityMap<Value, ValueComputationRuleCall.ValueWithResult<R>>();
+
+        root = root.<Value>mapMaybe((current, mappedChildren) -> {
+            current = computeCurrent(current, mappedChildren);
+            return executeRuleSet(current,
+                    ruleSet,
+                    (rule, self, plannerBindings) -> new ValueComputationRuleCall<>(rule, self, plannerBindings, constantAliases, v -> Objects.requireNonNull(resultsMap.get(v))),
+                    results -> onResultsFunction(resultsMap, results));
+        }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
+        return Objects.requireNonNull(resultsMap.get(root));
+    }
+
+    @Nonnull
+    private static Value computeCurrent(@Nonnull final Value current, @Nonnull final Iterable<? extends Value> mappedChildren) {
+        final var children = current.getChildren();
+        final var childrenIterator = children.iterator();
+        final var mappedChildrenIterator = mappedChildren.iterator();
         boolean isSame = true;
-        for (final var child : root.getChildren()) {
-            final var newChild = simplify(child, constantAliases, ruleSet, rulePredicate);
-            newChildrenBuilder.add(newChild);
-            if (child != newChild) {
+        while (childrenIterator.hasNext() && mappedChildrenIterator.hasNext()) {
+            final Value child = childrenIterator.next();
+            final Value mappedChild = mappedChildrenIterator.next();
+            if (child != mappedChild) {
                 isSame = false;
+                break;
             }
         }
+        // make sure they are both exhausted or both are not exhausted
+        Verify.verify(childrenIterator.hasNext() == mappedChildrenIterator.hasNext());
+        return isSame ? current : current.withChildren(mappedChildren);
+    }
 
-        //
-        // `self` tracks the most recent simplification
-        //
-        var self = isSame ? root : root.withChildren(newChildrenBuilder.build());
+    @Nonnull
+    private static <R> Value onResultsFunction(@Nonnull final Map<Value, ValueComputationRuleCall.ValueWithResult<R>> resultsMap,
+                                               @Nonnull final Collection<ValueComputationRuleCall.ValueWithResult<R>> results) {
+        Verify.verify(results.size() <= 1);
+
+        final var valueWithResult = Iterables.getOnlyElement(results);
+        final var value = valueWithResult.getValue();
+        resultsMap.put(value, valueWithResult);
+        return value;
+    }
+
+    @Nonnull
+    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull Value self,
+                                                                                   @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
+                                                                                   @Nonnull final RuleCallCreator<R, C> ruleCallCreator,
+                                                                                   @Nonnull final Function<Collection<R>, Value> onResultsFunction) {
         boolean madeProgress;
         do {
             madeProgress = false;
             final var ruleIterator =
-                    ruleSet.getValueRules(self, rulePredicate).iterator();
+                    ruleSet.getValueRules(self).iterator();
 
             while (ruleIterator.hasNext()) {
                 final var rule = ruleIterator.next();
@@ -75,17 +120,16 @@ public class Simplification {
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();
-                    final var ruleCall = new ValueSimplificationRuleCall(rule, self, plannerBindings, constantAliases);
+                    final var ruleCall = ruleCallCreator.create(rule, self, plannerBindings);
 
                     //
                     // Run the rule. See if the rule yielded a simplification.
                     //
-                    ruleCall.run();
-                    final var newValues = ruleCall.getNewValues();
-                    Verify.verify(newValues.size() <= 1);
+                    rule.onMatch(ruleCall);
+                    final var results = ruleCall.getResults();
 
-                    if (!newValues.isEmpty()) {
-                        self = Iterables.getOnlyElement(newValues);
+                    if (!results.isEmpty()) {
+                        self = onResultsFunction.apply(results);
 
                         //
                         // We made progress. Make sure we exit the inner while loops and restart with the first rule
@@ -103,6 +147,18 @@ public class Simplification {
         } while (madeProgress);
 
         return self;
+    }
+
+    /**
+     * Functional interface to create a specific rule call.
+     * @param <R> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yield(Object)}
+     * @param <C> the type of {@link PlannerRuleCall}
+     */
+    @FunctionalInterface
+    public interface RuleCallCreator<R, C extends AbstractValueRuleCall<R, C>> {
+        C create(@Nonnull final AbstractValueRule<R, C, ? extends Value> rule,
+                 @Nonnull final Value self,
+                 @Nonnull final PlannerBindings plannerBindings);
     }
 }
 

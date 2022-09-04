@@ -1,5 +1,5 @@
 /*
- * ValueSimplificationRule.java
+ * ValueComputationRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,11 +28,12 @@ import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
- * @param <T> the type of the object that this rule helps simplify
+ * @param <R> the type of object that this rule produces as result
+ * @param <T> the type of object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueSimplificationRule<T extends Value> extends AbstractValueRule<Value, ValueSimplificationRuleCall, T> {
-    public ValueSimplificationRule(@Nonnull final BindingMatcher<T> matcher) {
+public abstract class ValueComputationRule<R, T extends Value> extends AbstractValueRule<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<R>, T> {
+    public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
         super(matcher);
     }
 }

@@ -227,16 +227,16 @@ class ValueSimplificationTest {
 
     @Nonnull
     private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplify(ValueSimplificationRuleSet.ofSimplificationRules(), ImmutableSet.of(), t -> true);
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), ImmutableSet.of());
     }
 
     @Nonnull
     private static Value simplifyWithConstantAliases(@Nonnull final Value toBeSimplified, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        return toBeSimplified.simplify(ValueSimplificationRuleSet.ofSimplificationRules(), constantAliases, t -> true);
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), constantAliases);
     }
 
     @Nonnull
     private static Value simplifyOrderingWithConstantAliases(@Nonnull final Value toBeSimplified, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        return toBeSimplified.simplify(OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), constantAliases, t -> true);
+        return toBeSimplified.simplify(OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), constantAliases);
     }
 }

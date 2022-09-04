@@ -1,5 +1,5 @@
 /*
- * ValueSimplificationRuleSet.java
+ * AbstractValueRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,13 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
@@ -46,37 +46,32 @@ import java.util.stream.Stream;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ * @param <R> the type that {@link AbstractValueRule}s in this set yield
+ * @param <C> the type of the call rules in this set will receive
+ *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class ValueSimplificationRuleSet {
+public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
-    protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule);
-
-    protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
-            ImmutableSetMultimap.of();
-
-    @Nonnull
-    private final Multimap<Class<?>, ValueSimplificationRule<? extends Value>> ruleIndex =
+    private final Multimap<Class<?>, AbstractValueRule<R, C, ? extends Value>> ruleIndex =
             MultimapBuilder.hashKeys().arrayListValues().build();
     @Nonnull
-    private final List<ValueSimplificationRule<? extends Value>> alwaysRules = new ArrayList<>();
+    private final List<AbstractValueRule<R, C, ? extends Value>> alwaysRules = new ArrayList<>();
 
     @Nonnull
-    private final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> dependsOn =
+    private final SetMultimap<AbstractValueRule<R, C, ? extends Value>, AbstractValueRule<R, C, ? extends Value>> dependsOn =
             MultimapBuilder.SetMultimapBuilder.hashKeys().hashSetValues().build();
 
     @Nonnull
-    private final LoadingCache<Class<? extends Value>, List<ValueSimplificationRule<? extends Value>>> rulesCache =
+    private final LoadingCache<Class<? extends Value>, List<AbstractValueRule<R, C, ? extends Value>>> rulesCache =
             CacheBuilder.newBuilder()
                     .maximumSize(100)
                     .build(new CacheLoader<>() {
                         @SuppressWarnings("UnstableApiUsage")
-                        public List<ValueSimplificationRule<? extends Value>> load(@Nonnull final Class<? extends Value> key) {
+                        public List<AbstractValueRule<R, C, ? extends Value>> load(@Nonnull final Class<? extends Value> key) {
                             final var applicableRules =
-                                    ImmutableSet.<ValueSimplificationRule<? extends Value>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
+                                    ImmutableSet.<AbstractValueRule<R, C, ? extends Value>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
                                             .addAll(ruleIndex.get(key))
                                             .addAll(alwaysRules)
                                             .build();
@@ -87,8 +82,8 @@ public class ValueSimplificationRuleSet {
                         }
                     });
 
-    protected ValueSimplificationRuleSet(@Nonnull final Set<ValueSimplificationRule<? extends Value>> rules,
-                                         @Nonnull final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> dependsOn) {
+    protected AbstractValueRuleSet(@Nonnull final Set<? extends AbstractValueRule<R, C, ? extends Value>> rules,
+                                   @Nonnull final SetMultimap<? extends AbstractValueRule<R, C, ? extends Value>, ? extends AbstractValueRule<R, C, ? extends Value>> dependsOn) {
         for (final var rule : rules) {
             Optional<Class<?>> root = rule.getRootOperator();
             if (root.isPresent()) {
@@ -102,21 +97,17 @@ public class ValueSimplificationRuleSet {
     }
 
     @Nonnull
-    public Stream<ValueSimplificationRule<? extends Value>> getValueRules(@Nonnull Value value) {
+    public Stream<AbstractValueRule<R, C, ? extends Value>> getValueRules(@Nonnull Value value) {
         return getValueRules(value, r -> true);
     }
 
     @Nonnull
-    public Stream<ValueSimplificationRule<? extends Value>> getValueRules(@Nonnull Value value,
-                                                                          @Nonnull final Predicate<ValueSimplificationRule<? extends Value>> rulePredicate) {
+    public Stream<AbstractValueRule<R, C, ? extends Value>> getValueRules(@Nonnull Value value,
+                                                                          @Nonnull final Predicate<AbstractValueRule<R, C, ? extends Value>> rulePredicate) {
         try {
             return rulesCache.get(value.getClass()).stream().filter(rulePredicate);
         } catch (final ExecutionException ee) {
             throw new RecordCoreException(ee.getCause());
         }
-    }
-
-    public static ValueSimplificationRuleSet ofSimplificationRules() {
-        return new ValueSimplificationRuleSet(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 }
