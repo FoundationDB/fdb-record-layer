@@ -28,11 +28,12 @@ import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
+ * @param <A> the type of object that functions as the argument to this rule
  * @param <R> the type of object that this rule produces as result
  * @param <T> the type of object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueComputationRule<R, T extends Value> extends AbstractValueRule<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<R>, T> {
+public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<A, R>, T> {
     public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
         super(matcher);
     }

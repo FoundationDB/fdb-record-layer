@@ -26,29 +26,41 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 
 /**
  * A rule call implementation for the computation of a result while traversing {@link Value} trees.
+ * @param <A> the type of the arguments to this rule call
  * @param <R> the type of result this rule call produces
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValueComputationRuleCall<R> extends AbstractValueRuleCall<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<R>> {
+public class ValueComputationRuleCall<A, R> extends AbstractValueRuleCall<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<A, R>> {
+
+    @Nullable
+    private final A argument;
 
     @Nonnull
     private final Function<Value, ValueWithResult<R>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final AbstractValueRule<ValueWithResult<R>, ValueComputationRuleCall<R>, ? extends Value> rule,
-                                    @Nonnull final Value root,
+    public ValueComputationRuleCall(@Nonnull final AbstractValueRule<ValueWithResult<R>, ValueComputationRuleCall<A, R>, ? extends Value> rule,
+                                    @Nonnull final Value current,
+                                    @Nullable final A argument,
                                     @Nonnull final PlannerBindings bindings,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                     @Nonnull final Function<Value, ValueWithResult<R>> retrieveResultFunction) {
-        super(rule, root, bindings, constantAliases);
+        super(rule, current, bindings, constantAliases);
+        this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }
 
-    @Nonnull
+    @Nullable
+    public A getArgument() {
+        return argument;
+    }
+
+    @Nullable
     public ValueWithResult<R> getResult(@Nonnull final Value value) {
         return retrieveResultFunction.apply(value);
     }

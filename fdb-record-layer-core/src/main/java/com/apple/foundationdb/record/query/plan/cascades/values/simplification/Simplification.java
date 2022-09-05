@@ -50,22 +50,23 @@ public class Simplification {
             current = computeCurrent(current, mappedChildren);
             return Simplification.executeRuleSet(current,
                     ruleSet,
-                    (rule, self, plannerBindings) -> new ValueSimplificationRuleCall(rule, self, plannerBindings, constantAliases),
+                    (rule, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, c, plannerBindings, constantAliases),
                     Iterables::getOnlyElement);
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
     }
 
     @Nonnull
-    public static <R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull Value root,
-                                                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                          @Nonnull final ValueComputationRuleSet<R> ruleSet) {
+    public static <A, R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull Value root,
+                                                                             @Nonnull A argument,
+                                                                             @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                             @Nonnull final ValueComputationRuleSet<A, R> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<Value, ValueComputationRuleCall.ValueWithResult<R>>();
 
         root = root.<Value>mapMaybe((current, mappedChildren) -> {
             current = computeCurrent(current, mappedChildren);
             return executeRuleSet(current,
                     ruleSet,
-                    (rule, self, plannerBindings) -> new ValueComputationRuleCall<>(rule, self, plannerBindings, constantAliases, v -> Objects.requireNonNull(resultsMap.get(v))),
+                    (rule, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, c, argument, plannerBindings, constantAliases, resultsMap::get),
                     results -> onResultsFunction(resultsMap, results));
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
         return Objects.requireNonNull(resultsMap.get(root));
@@ -102,7 +103,7 @@ public class Simplification {
     }
 
     @Nonnull
-    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull Value self,
+    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull Value current,
                                                                                    @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
                                                                                    @Nonnull final RuleCallCreator<R, C> ruleCallCreator,
                                                                                    @Nonnull final Function<Collection<R>, Value> onResultsFunction) {
@@ -110,17 +111,17 @@ public class Simplification {
         do {
             madeProgress = false;
             final var ruleIterator =
-                    ruleSet.getValueRules(self).iterator();
+                    ruleSet.getValueRules(current).iterator();
 
             while (ruleIterator.hasNext()) {
                 final var rule = ruleIterator.next();
                 final BindingMatcher<? extends Value> matcher = rule.getMatcher();
 
-                final var matchIterator = matcher.bindMatches(PlannerBindings.empty(), self).iterator();
+                final var matchIterator = matcher.bindMatches(PlannerBindings.empty(), current).iterator();
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();
-                    final var ruleCall = ruleCallCreator.create(rule, self, plannerBindings);
+                    final var ruleCall = ruleCallCreator.create(rule, current, plannerBindings);
 
                     //
                     // Run the rule. See if the rule yielded a simplification.
@@ -129,11 +130,11 @@ public class Simplification {
                     final var results = ruleCall.getResults();
 
                     if (!results.isEmpty()) {
-                        self = onResultsFunction.apply(results);
+                        current = onResultsFunction.apply(results);
 
                         //
                         // We made progress. Make sure we exit the inner while loops and restart with the first rule
-                        // for the new `self` again.
+                        // for the new `current` again.
                         //
                         madeProgress = true;
                         break;
@@ -146,7 +147,7 @@ public class Simplification {
             }
         } while (madeProgress);
 
-        return self;
+        return current;
     }
 
     /**
