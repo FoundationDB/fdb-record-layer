@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.sql.Array;
 import java.sql.SQLException;
 
 @ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
@@ -193,7 +193,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Array getArray(int columnIndex) throws SQLException {
+    public RelationalArray getArray(int columnIndex) throws SQLException {
         try {
             return delegate.getArray(columnIndex);
         } catch (RuntimeException re) {
@@ -202,7 +202,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Array getArray(String columnLabel) throws SQLException {
+    public RelationalArray getArray(String columnLabel) throws SQLException {
         try {
             return delegate.getArray(columnLabel);
         } catch (RuntimeException re) {

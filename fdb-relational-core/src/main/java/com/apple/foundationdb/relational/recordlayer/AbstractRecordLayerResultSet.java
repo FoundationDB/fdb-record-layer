@@ -24,13 +24,13 @@ import com.apple.foundationdb.relational.api.MutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.StructResultSetMetaData;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.sql.Array;
 import java.sql.SQLException;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
@@ -170,7 +170,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Array getArray(int oneBasedPosition) throws SQLException {
+    public RelationalArray getArray(int oneBasedPosition) throws SQLException {
         if (!currentRow.hasRow()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
@@ -178,7 +178,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Array getArray(String columnLabel) throws SQLException {
+    public RelationalArray getArray(String columnLabel) throws SQLException {
         if (!currentRow.hasRow()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }

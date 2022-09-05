@@ -61,6 +61,16 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      */
     Continuation getContinuation() throws RelationalException;
 
+    RelationalStruct getStruct(String columnLabel) throws SQLException;
+
+    RelationalStruct getStruct(int oneBasedColumn) throws SQLException;
+
+    @Override
+    RelationalArray getArray(String columnLabel) throws SQLException;
+
+    @Override
+    RelationalArray getArray(int oneBasedColumn) throws SQLException;
+
     /*Unsupported Operations*/
     @ExcludeFromJacocoGeneratedReport
     @Override
@@ -1176,8 +1186,4 @@ public interface RelationalResultSet extends java.sql.ResultSet {
     default void updateNCharacterStream(String columnLabel, Reader reader) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
-
-    RelationalStruct getStruct(String columnLabel) throws SQLException;
-
-    RelationalStruct getStruct(int oneBasedColumn) throws SQLException;
 }

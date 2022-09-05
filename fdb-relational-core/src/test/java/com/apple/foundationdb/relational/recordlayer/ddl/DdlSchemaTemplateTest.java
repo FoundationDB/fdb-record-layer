@@ -196,4 +196,46 @@ public class DdlSchemaTemplateTest {
             }
         }
     }
+
+    @Test
+    void cyclicDependencyTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE cyclic " +
+                "CREATE STRUCT s1 (a s2) " +
+                "CREATE STRUCT s2 (a s1) " +
+                "CREATE TABLE t1 (id int64, a s1, b s2, PRIMARY KEY(id))";
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
+            try (Statement statement = conn.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                        .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                        .hasMessageContaining("cyclic");
+            }
+        }
+    }
+
+    @Test
+    void manyStructsThatDoNotDependOnEachOther() throws RelationalException, SQLException {
+        StringBuilder template = new StringBuilder("CREATE SCHEMA TEMPLATE many_structs ");
+        for (int i = 0; i < 100; i++) {
+            template.append("CREATE STRUCT s").append(i).append("(a int64) ");
+        }
+        template.append("CREATE TABLE t1 (id int64,");
+        for (int i = 0; i < 100; i++) {
+            template.append("c").append(i).append(" s").append(i).append(",");
+        }
+        template.append(" PRIMARY KEY(id))");
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
+            try (RelationalStatement statement = conn.createStatement()) {
+                statement.executeUpdate(template.toString());
+                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                    try (RelationalResultSet types = resultSet.getArray("TYPES").getResultSet()) {
+                        int count;
+                        for (count = 0; types.next(); count++) {
+                        }
+                        Assertions.assertEquals(100, count);
+                    }
+                }
+            }
+        }
+    }
 }

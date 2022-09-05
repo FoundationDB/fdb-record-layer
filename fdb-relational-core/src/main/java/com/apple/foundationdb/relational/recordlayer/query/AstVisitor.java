@@ -61,13 +61,12 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.utils.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.net.URI;
 import java.util.ArrayList;
@@ -83,6 +82,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Visits the abstract syntax tree of the query and generates a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression}

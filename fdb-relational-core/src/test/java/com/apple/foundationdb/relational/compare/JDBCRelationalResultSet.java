@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.compare;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -568,8 +569,9 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Array getArray(int columnIndex) throws SQLException {
-        return delegate.getArray(columnIndex);
+    public RelationalArray getArray(int columnIndex) throws SQLException {
+        //TODO(bfines) this almost certainly won't work
+        return (RelationalArray) delegate.getArray(columnIndex);
     }
 
     @Override
@@ -593,8 +595,9 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Array getArray(String columnLabel) throws SQLException {
-        return delegate.getArray(columnLabel);
+    public RelationalArray getArray(String columnLabel) throws SQLException {
+        //TODO(bfines) this almost certainly won't work
+        return (RelationalArray) delegate.getArray(columnLabel);
     }
 
     @Override

@@ -126,9 +126,13 @@ public final class TypingContext {
     public void addAllToTypeRepository() {
         verify();
         final var deps = generateTypeDependencyGraph();
-        for (List<TypeDefinition> typeDefinitions : TopologicalSort.topologicalOrderPermutations(types, id -> deps.getOrDefault(id, ImmutableSet.of()))) {
-            typeDefinitions.forEach(t -> typeRepositoryBuilder.addTypeIfNeeded(ReferentialRecord.fromFieldsWithName(t.name, false,
-                    IntStream.range(0, t.fields.size()).mapToObj(i -> t.fields.get(i).toField(typeRepositoryBuilder, i + 1)).collect(Collectors.toList()))));
+        var typeDefinitions = TopologicalSort.anyTopologicalOrderPermutation(types, id -> deps.getOrDefault(id, ImmutableSet.of()));
+        Assert.thatUnchecked(typeDefinitions.isPresent(), "Invalid cyclic dependency in the schema definition", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+        for (TypeDefinition t : typeDefinitions.get()) {
+            List<Type.Record.Field> fields = IntStream.range(0, t.fields.size())
+                    .mapToObj(i -> t.fields.get(i).toField(typeRepositoryBuilder, i + 1))
+                    .collect(Collectors.toList());
+            typeRepositoryBuilder.addTypeIfNeeded(ReferentialRecord.fromFieldsWithName(t.name, false, fields));
         }
     }
 
