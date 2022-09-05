@@ -70,6 +70,12 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public abstract class Quantifier implements Correlated<Quantifier> {
     /**
+     * A (fake alias) for the referencing the "current" record.
+     */
+    @Nonnull
+    public static final CorrelationIdentifier CURRENT = CorrelationIdentifier.uniqueID(Quantifier.class);
+
+    /**
      * The alias (some identification) for this quantifier.
      */
     @Nonnull
@@ -134,7 +140,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Nonnull
             @Override
             public ForEach build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
-                return new ForEach(alias == null ? CorrelationIdentifier.uniqueID() : alias,
+                return new ForEach(alias == null ? Quantifier.uniqueID() : alias,
                         rangesOver);
             }
         }
@@ -232,7 +238,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Override
             @Nonnull
             public Existential build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
-                return new Existential(alias == null ? CorrelationIdentifier.uniqueID() : alias,
+                return new Existential(alias == null ? Quantifier.uniqueID() : alias,
                         rangesOver);
             }
         }
@@ -328,7 +334,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Nonnull
             @Override
             public Physical build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
-                return new Physical(alias == null ? CorrelationIdentifier.uniqueID() : alias, rangesOver);
+                return new Physical(alias == null ? Quantifier.uniqueID() : alias, rangesOver);
             }
 
             /**
@@ -622,5 +628,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         return rangesOver == translatedReference
                ? this
                : overNewReference(translatedReference);
+    }
+
+    public static CorrelationIdentifier uniqueID() {
+        return CorrelationIdentifier.uniqueID(Quantifier.class);
     }
 }

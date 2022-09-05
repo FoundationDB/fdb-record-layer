@@ -106,7 +106,7 @@ public class RecordQueryIntersectionOnValuePlan extends RecordQueryIntersectionP
     public static RecordQueryIntersectionOnValuePlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                                   @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
                                                                   final boolean reverse) {
-        final var baseAlias = CorrelationIdentifier.uniqueID();
+        final var baseAlias = Quantifier.uniqueID();
         return new RecordQueryIntersectionOnValuePlan(quantifiers,
                 baseAlias,
                 comparisonKeyValueFunction.apply(baseAlias),

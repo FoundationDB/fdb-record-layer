@@ -37,8 +37,10 @@ import java.util.Set;
 public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverFieldValueRule = new ComposeFieldValueOverFieldValueRule();
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule);
+            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule);
 
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();

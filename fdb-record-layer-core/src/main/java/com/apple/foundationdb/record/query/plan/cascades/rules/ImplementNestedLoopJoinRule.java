@@ -304,7 +304,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                                 Column.of(Type.Record.Field.of(outerValue.getResultType(), Optional.of(OUTER_FIELD_NAME)), outerValue),
                                 Column.of(Type.Record.Field.of(innerValue.getResultType(), Optional.of(INNER_FIELD_NAME)), innerValue)));
 
-        final var joinedAlias = CorrelationIdentifier.uniqueID();
+        final var joinedAlias = Quantifier.uniqueID();
         final var joinedQuantifier =
                 Quantifier.forEachBuilder()
                         .withAlias(joinedAlias)

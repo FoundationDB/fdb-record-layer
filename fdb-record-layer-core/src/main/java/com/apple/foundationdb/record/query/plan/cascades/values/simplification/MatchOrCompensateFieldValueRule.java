@@ -67,14 +67,14 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
         final var valueWithResultFromChild = call.getResult(fieldValue.getChild());
-        final var matchedValueMap =
+        final var matchedValuesMap =
                 valueWithResultFromChild == null ? null : valueWithResultFromChild.getResult();
 
-        final var newMatchedValueMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue) {
-                if (matchedValueMap == null || !matchedValueMap.containsKey(toBePulledUpValue)) {
+                if (matchedValuesMap == null || !matchedValuesMap.containsKey(toBePulledUpValue)) {
                     final var toBePulledUpFieldValue = (FieldValue)toBePulledUpValue;
                     //
                     // If the current field value uses a prefix of the field value we are trying to pull up
@@ -84,30 +84,47 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
                     //
                     final var commonCorrelatedTo = ImmutableSet.copyOf(Sets.union(toBePulledUpFieldValue.getCorrelatedTo(), fieldValue.getCorrelatedTo()));
 
-                    if (toBePulledUpFieldValue.semanticEquals(fieldValue, AliasMap.identitiesFor(commonCorrelatedTo))) {
+                    if (toBePulledUpFieldValue.getChild().semanticEquals(fieldValue.getChild(), AliasMap.identitiesFor(commonCorrelatedTo))) {
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
-                        pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValueMap.put(toBePulledUpValue, new FieldValueCompensation(pathSuffix)));
+                        pathSuffixOptional.ifPresent(pathSuffix -> {
+                            if (pathSuffix.isEmpty()) {
+                                newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
+                            } else {
+                                newMatchedValuesMap.put(toBePulledUpValue, new FieldValueCompensation(pathSuffix));
+                            }
+                        });
                     }
                 } else {
                     // there already is a matched field value
-                    final var compensation = matchedValueMap.get(toBePulledUpValue);
+                    final var compensation = matchedValuesMap.get(toBePulledUpValue);
                     if (compensation instanceof FieldValueCompensation) {
                         final var fieldValueCompensation = (FieldValueCompensation)compensation;
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFieldPath());
-                        pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValueMap.put(toBePulledUpValue, new FieldValueCompensation(pathSuffix)));
+                        pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValuesMap.put(toBePulledUpValue, fieldValueCompensation.withSuffix(pathSuffix)));
                     }
                 }
             }
         }
-        call.yield(fieldValue, newMatchedValueMap);
+        call.yield(fieldValue, newMatchedValuesMap);
     }
 
-    private static class FieldValueCompensation implements Function<Value, Value> {
+    /**
+     * A compensation that utilizes a field access.
+     */
+    public static class FieldValueCompensation implements Function<Value, Value> {
         @Nonnull
         private final List<Type.Record.Field> fieldPath;
 
+        @Nonnull
+        private final Function<Value, Value> downstreamCompensation;
+
         public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath) {
+            this(fieldPath, Function.identity());
+        }
+
+        public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
             this.fieldPath = ImmutableList.copyOf(fieldPath);
+            this.downstreamCompensation = downstreamCompensation;
         }
 
         @Nonnull
@@ -118,7 +135,14 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
         @Nonnull
         @Override
         public Value apply(final Value value) {
-            return FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath);
+            return downstreamCompensation.apply(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
+        }
+
+        public Function<Value, Value> withSuffix(@Nonnull final List<Type.Record.Field> suffixFieldPath) {
+            if (suffixFieldPath.isEmpty()) {
+                return downstreamCompensation;
+            }
+            return new FieldValueCompensation(suffixFieldPath, downstreamCompensation);
         }
     }
 }

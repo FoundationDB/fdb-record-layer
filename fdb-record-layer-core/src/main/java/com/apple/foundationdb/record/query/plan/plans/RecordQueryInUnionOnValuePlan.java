@@ -107,7 +107,7 @@ public class RecordQueryInUnionOnValuePlan extends RecordQueryInUnionPlan {
                                                         final boolean reverse,
                                                         final int maxNumberOfValuesAllowed,
                                                         @Nonnull final Bindings.Internal internal) {
-        final var baseAlias = CorrelationIdentifier.uniqueID();
+        final var baseAlias = Quantifier.uniqueID();
         return new RecordQueryInUnionOnValuePlan(inner,
                 inSources,
                 CorrelationIdentifier.uniqueID(),

@@ -95,7 +95,7 @@ public class KeyPart {
     private static Value checkValue(@Nonnull final Value value) {
         final var correlatedTo = value.getCorrelatedTo();
         Verify.verify(correlatedTo.size() <= 1);
-        Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(CorrelationIdentifier.CURRENT));
+        Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.CURRENT));
         return value;
     }
 }

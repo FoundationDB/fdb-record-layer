@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -32,11 +32,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -80,8 +79,8 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -146,7 +145,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                     !fieldValueComparisonPair.getRight().getCorrelatedTo().contains(predicatesFilterPlan.getInner().getAlias()))
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), CorrelationIdentifier.CURRENT);
+                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.CURRENT);
                                 return Pair.of(fieldValue.rebase(translationMap), valueComparisonPair.getRight());
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
@@ -186,40 +185,16 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
-            final var orderings = orderingsFromChildren(intersectionPlan);
-            final var requestedOrdering =
-                    requestedOrderingFromComparisonKey(intersectionPlan.getComparisonKeyExpression(),
-                            Objects.requireNonNull(Objects.requireNonNull(intersectionPlan.getResultType()).getInnerType()),
-                            intersectionPlan.isReverse());
-            final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
-                    Ordering.combineEqualityBoundKeys(orderings, Ordering::unionEqualityBoundKeys);
-            if (commonEqualityBoundKeysMapOptional.isEmpty()) {
-                return Ordering.emptyOrder();
-            }
-            final var commonEqualityBoundKeysMap = commonEqualityBoundKeysMapOptional.get();
-
-            final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderings, requestedOrdering);
-            if (commonOrderingKeysOptional.isEmpty()) {
-                return Ordering.emptyOrder();
-            }
-
-            final var commonOrderingKeys =
-                    commonOrderingKeysOptional.get()
-                            .stream()
-                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getValue()))
-                            .collect(ImmutableList.toImmutableList());
-
-            final boolean allAreDistinct =
-                    orderings.stream()
-                            .anyMatch(Ordering::isDistinct);
-
-            return new Ordering(commonEqualityBoundKeysMap, commonOrderingKeys, allAreDistinct);
+            return Ordering.emptyOrder();
         }
 
         @Nonnull
         @Override
-        public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan element) {
-            return orderingFromSingleChild(element);
+        public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+            final var childOrdering = orderingFromSingleChild(mapPlan);
+            final var resultValue = mapPlan.getResultValue();
+
+            return resultValue.pullUp(childOrdering, mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -248,8 +223,35 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan element) {
-            return Ordering.emptyOrder();
+        public Ordering visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan intersectionOnValuePlan) {
+            final var orderings = orderingsFromChildren(intersectionOnValuePlan);
+            final var requestedOrdering =
+                    requestedOrderingFromComparisonKeyValue(intersectionOnValuePlan.getComparisonKeyValue(),
+                            intersectionOnValuePlan.getCorrelatedTo(),
+                            intersectionOnValuePlan.isReverse());
+            final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
+                    Ordering.combineEqualityBoundKeys(orderings, Ordering::unionEqualityBoundKeys);
+            if (commonEqualityBoundKeysMapOptional.isEmpty()) {
+                return Ordering.emptyOrder();
+            }
+            final var commonEqualityBoundKeysMap = commonEqualityBoundKeysMapOptional.get();
+
+            final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderings, requestedOrdering);
+            if (commonOrderingKeysOptional.isEmpty()) {
+                return Ordering.emptyOrder();
+            }
+
+            final var commonOrderingKeys =
+                    commonOrderingKeysOptional.get()
+                            .stream()
+                            .filter(keyPart -> !commonEqualityBoundKeysMap.containsKey(keyPart.getValue()))
+                            .collect(ImmutableList.toImmutableList());
+
+            final boolean allAreDistinct =
+                    orderings.stream()
+                            .anyMatch(Ordering::isDistinct);
+
+            return new Ordering(commonEqualityBoundKeysMap, commonOrderingKeys, allAreDistinct);
         }
 
         @Nonnull
@@ -340,10 +342,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
-            return deriveForUnionFromOrderings(
-                    orderingsFromChildren(unionOnKeyExpressionPlan),
-                    requestedOrderingFromComparisonKey(unionOnKeyExpressionPlan.getComparisonKeyExpression(), Objects.requireNonNull(Objects.requireNonNull(unionOnKeyExpressionPlan.getResultType()).getInnerType()), unionOnKeyExpressionPlan.isReverse()),
-                    Ordering::intersectEqualityBoundKeys);
+            return Ordering.emptyOrder();
         }
 
         @Nonnull
@@ -361,42 +360,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan element) {
-            return orderingFromSingleChild(element);
+            return Ordering.emptyOrder();
         }
 
         @Nonnull
         @Override
         public Ordering visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
-            final var childOrdering = orderingFromSingleChild(inUnionOnKeyExpressionPlan);
-            final var equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
-            final var comparisonKey = inUnionOnKeyExpressionPlan.getComparisonKeyExpression();
-
-            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
-            final var resultKeyPartBuilder = ImmutableList.<KeyPart>builder();
-            final List<KeyExpression> normalizedComparisonKeys = comparisonKey.normalizeKeyForPositions();
-            for (final var normalizedKeyExpression : normalizedComparisonKeys) {
-                final var normalizedValue =
-                        new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
-                                inUnionOnKeyExpressionPlan.getInner().getFlowedObjectType());
-
-                resultKeyPartBuilder.add(KeyPart.of(normalizedValue, inUnionOnKeyExpressionPlan.isReverse()));
-            }
-
-            final var sourceAliases =
-                    inUnionOnKeyExpressionPlan.getInSources()
-                            .stream()
-                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))
-                            .collect(ImmutableSet.toImmutableSet());
-
-            for (final var entry : equalityBoundKeyMap.entries()) {
-                final var correlatedTo = entry.getValue().getCorrelatedTo();
-
-                if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
-                    resultEqualityBoundKeyMap.removeAll(entry.getKey());
-                }
-            }
-
-            return new Ordering(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrdering.isDistinct());
+            return Ordering.emptyOrder();
         }
 
         @Nonnull
@@ -416,32 +386,80 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var outerOrdering = orderingsFromChildren.get(0);
             final var innerOrdering = orderingsFromChildren.get(1);
 
+            final var correlatedTo = flatMapPlan.getCorrelatedTo();
+            final var resultValue = flatMapPlan.getResultValue();
+
             final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
             var maxCardinality = outerCardinalities.getMaxCardinality();
             if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
-                return innerOrdering;
+                return resultValue.pullUp(innerOrdering, correlatedTo);
             }
 
             final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
             maxCardinality = innerCardinalities.getMaxCardinality();
-            if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
-                return outerOrdering;
+            if (!innerOrdering.isDistinct() || (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L)) {
+                return resultValue.pullUp(outerOrdering, correlatedTo);
             }
-            
-            return Ordering.emptyOrder();
+
+            //
+            // Outer ordering is distinct and the inner max cardinality is not proven to be 1L.
+            //
+            final var fullOrdering = ImmutableList.of(outerOrdering, innerOrdering);
+            final var equalityBoundKeyMap =
+                    Ordering.combineEqualityBoundKeys(fullOrdering, Ordering::unionEqualityBoundKeys).orElseThrow(() -> new RecordCoreException("cannot be empty"));
+            return new Ordering(equalityBoundKeyMap,
+                    Ordering.concatOrderingKeys(fullOrdering),
+                    innerOrdering.isDistinct()); // inherit inner ordering's distinct
         }
 
         @Nonnull
         @Override
-        public Ordering visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
-            return Ordering.emptyOrder();
+        public Ordering visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
+            final var childOrdering = orderingFromSingleChild(streamingAggregationPlan);
+
+            //
+            // Note that the ordering we see here is satisfying the ordering required by the aggregation plan. In fact,
+            // the ordering is a permutation of the group by columns among many. In order to find out the output ordering,
+            // we plug in the childOrdering and pull it through the complete result value of the streaming aggregation plan.
+            //
+            final var groupingValue = streamingAggregationPlan.getGroupingValue();
+
+            if (groupingValue == null) {
+                // TODO To be reconsidered. It should be an ordering that is ordered by anything as the result
+                //      has a maximum cardinality of 1L.
+                return Ordering.emptyOrder();
+            }
+
+            final var groupingKeyAlias = streamingAggregationPlan.getGroupingKeyAlias();
+
+            final var completeResultValue = streamingAggregationPlan.getCompleteResultValue();
+
+            //
+            // Substitute the grouping key value everywhere the ObjectValue of the grouping key alias is used.
+            //
+            final var composedCompleteResultValueOptional = completeResultValue.replaceLeavesMaybe(value -> {
+                if (value instanceof ObjectValue && ((ObjectValue)value).getAlias().equals(groupingKeyAlias)) {
+                    return groupingValue;
+                }
+                return value;
+            });
+
+            if (composedCompleteResultValueOptional.isEmpty()) {
+                return Ordering.emptyOrder();
+            }
+
+            final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
+
+            return composedCompleteResultValue.pullUp(childOrdering, streamingAggregationPlan.getCorrelatedTo());
         }
 
         @Nonnull
         @Override
-        public Ordering visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan element) {
-            // TODO strictly speaking not true but we don't have the vocabulary (yet) to express this ordering
-            return Ordering.emptyOrder();
+        public Ordering visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan unionOnValuePlan) {
+            return deriveForUnionFromOrderings(
+                    orderingsFromChildren(unionOnValuePlan),
+                    requestedOrderingFromComparisonKeyValue(unionOnValuePlan.getComparisonKeyValue(), unionOnValuePlan.getCorrelatedTo(), unionOnValuePlan.isReverse()),
+                    Ordering::intersectEqualityBoundKeys);
         }
 
         @Nonnull
@@ -468,8 +486,33 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan element) {
-            return Ordering.emptyOrder();
+        public Ordering visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan inUnionOnValuePlan) {
+            final var childOrdering = orderingFromSingleChild(inUnionOnValuePlan);
+            final var equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
+            final var comparisonKeyValue = inUnionOnValuePlan.getComparisonKeyValue();
+
+            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
+            final var resultKeyPartBuilder = ImmutableList.<KeyPart>builder();
+            final List<Value> comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(inUnionOnValuePlan.getCorrelatedTo());
+            for (final var comparisonKeyPartValue : comparisonKeyValues) {
+                resultKeyPartBuilder.add(KeyPart.of(comparisonKeyPartValue, inUnionOnValuePlan.isReverse()));
+            }
+
+            final var sourceAliases =
+                    inUnionOnValuePlan.getInSources()
+                            .stream()
+                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))
+                            .collect(ImmutableSet.toImmutableSet());
+
+            for (final var entry : equalityBoundKeyMap.entries()) {
+                final var correlatedTo = entry.getValue().getCorrelatedTo();
+
+                if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
+                    resultEqualityBoundKeyMap.removeAll(entry.getKey());
+                }
+            }
+
+            return new Ordering(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrdering.isDistinct());
         }
 
         @Nonnull
@@ -493,12 +536,11 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         }
 
         @Nonnull
-        private RequestedOrdering requestedOrderingFromComparisonKey(@Nonnull final KeyExpression comparisonKey, @Nonnull final Type type, final boolean isReverse) {
+        private RequestedOrdering requestedOrderingFromComparisonKeyValue(@Nonnull final Value comparisonKeyValue, @Nonnull final Set<CorrelationIdentifier> correlatedTo, final boolean isReverse) {
+            final var comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(correlatedTo);
             return new RequestedOrdering(
-                    comparisonKey
-                            .normalizeKeyForPositions()
+                    comparisonKeyValues
                             .stream()
-                            .map(normalizedKeyExpression -> new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT, type))
                             .map(orderByValue -> KeyPart.of(orderByValue, isReverse))
                             .collect(Collectors.toList()),
                     RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);

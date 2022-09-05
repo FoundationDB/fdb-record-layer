@@ -108,7 +108,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .map(Quantifier::getAlias)
                         .collect(Collectors.toSet());
 
-        final CorrelationIdentifier targetAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier targetAlias = Quantifier.uniqueID();
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(targetAlias));

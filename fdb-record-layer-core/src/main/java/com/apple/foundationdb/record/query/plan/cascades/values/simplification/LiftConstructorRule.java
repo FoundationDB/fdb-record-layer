@@ -21,17 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.arithmeticValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
  * A rule that eliminates an arithmetic operation. One of the following conditions have to be met:
@@ -42,57 +43,43 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class EliminateArithmeticValueWithConstantRule extends ValueSimplificationRule<ArithmeticValue> {
+public class LiftConstructorRule extends ValueSimplificationRule<RecordConstructorValue> {
     @Nonnull
-    private static final CollectionMatcher<Value> childrenMatcher = all(anyValue());
+    private static final BindingMatcher<RecordConstructorValue> innerRecordMatcher =
+            recordConstructorValue(all(anyValue()));
 
     @Nonnull
-    private static final BindingMatcher<ArithmeticValue> rootMatcher =
-            arithmeticValue(childrenMatcher);
+    private static final BindingMatcher<RecordConstructorValue> rootMatcher =
+            recordConstructorValue(any(innerRecordMatcher));
 
-    public EliminateArithmeticValueWithConstantRule() {
+    public LiftConstructorRule() {
         super(rootMatcher);
     }
 
     @Override
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
-        final var arithmeticValue = bindings.get(rootMatcher);
+        final var outerRecordConstructorValue = bindings.get(rootMatcher);
+        final var innerRecordConstructorValue = bindings.get(innerRecordMatcher);
 
         //
-        // We can only do this if the arithmetic value is the root
+        // Go through the outer constructor's fields and expand them with the inner fields. Note that we assume that
+        // there is no actual consumer of the result (other than order by clauses which is fine for what we are about
+        // to do). We are changing the structure of the data with this simplification.
         //
-        if (arithmeticValue != call.getRoot()) {
-            return;
-        }
-        
-        switch (arithmeticValue.getLogicalOperator()) {
-            case ADD:
-            case SUB:
-                break;
-            default:
-                // TODO MUL/DIV
-                return;
-        }
+        final var outerColumns = outerRecordConstructorValue.getColumns();
+        final var innerColumns = innerRecordConstructorValue.getColumns();
 
-        final var childrenCollection = bindings.get(childrenMatcher);
-        if (childrenCollection.size() != 2) {
-            return;
+        final var columnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+
+        for (final var column : outerColumns) {
+            if (column.getValue() == innerRecordConstructorValue) {
+                innerColumns.forEach(innerColumn -> columnsBuilder.add(Column.unnamedOf(innerColumn.getValue())));
+            } else {
+                columnsBuilder.add(Column.unnamedOf(column.getValue()));
+            }
         }
 
-        final var children = ImmutableList.copyOf(childrenCollection);
-
-        final var constantAliases = call.getConstantAliases();
-        if (constantAliases.containsAll(arithmeticValue.getCorrelatedTo())) {
-            return;
-        }
-
-        if (constantAliases.containsAll(children.get(0).getCorrelatedTo())) {
-            // this first child is the constant one, the second child is not
-            call.yield(children.get(1));
-        } else if (constantAliases.containsAll(children.get(1).getCorrelatedTo())) {
-            // this second child is the constant one, the first child is not
-            call.yield(children.get(0));
-        } // else they are both not constant
+        call.yield(RecordConstructorValue.ofColumns(columnsBuilder.build()));
     }
 }

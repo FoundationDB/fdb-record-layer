@@ -375,6 +375,23 @@ public class Ordering {
     }
 
     /**
+     * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
+     * @param orderings a collection of orderings
+     * @return a list of {@link KeyPart}s
+     */
+    @Nonnull
+    public static List<KeyPart> concatOrderingKeys(@Nonnull Collection<Ordering> orderings) {
+
+        final var resultBuilder = ImmutableList.<KeyPart>builder();
+
+        orderings.stream()
+                .flatMap(ordering -> ordering.getOrderingKeyParts().stream())
+                .forEach(resultBuilder::add);
+
+        return resultBuilder.build();
+    }
+
+    /**
      * Method to combine the map of equality-bound keys (and their bindings) for multiple orderings.
      *
      * @param orderings a list of orderings
@@ -384,17 +401,16 @@ public class Ordering {
     @Nonnull
     public static Optional<SetMultimap<Value, Comparison>> combineEqualityBoundKeys(@Nonnull final Collection<Ordering> orderings,
                                                                                     @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn) {
-        final Iterator<Ordering> membersIterator = orderings.iterator();
-        if (!membersIterator.hasNext()) {
-            // don't bail on incorrect graph structure, just return empty()
+        final Iterator<Ordering> orderingsIterator = orderings.iterator();
+        if (!orderingsIterator.hasNext()) {
             return Optional.empty();
         }
 
-        final var commonOrderingInfo = membersIterator.next();
+        final var commonOrderingInfo = orderingsIterator.next();
         var commonEqualityBoundKeyMap = commonOrderingInfo.getEqualityBoundKeyMap();
 
-        while (membersIterator.hasNext()) {
-            final var currentOrdering = membersIterator.next();
+        while (orderingsIterator.hasNext()) {
+            final var currentOrdering = orderingsIterator.next();
 
             final var currentEqualityBoundKeyMap = currentOrdering.getEqualityBoundKeyMap();
             commonEqualityBoundKeyMap = combineFn.apply(commonEqualityBoundKeyMap, currentEqualityBoundKeyMap);
@@ -408,7 +424,7 @@ public class Ordering {
      * {@link #combineEqualityBoundKeys(Collection, BinaryOperator)} as the binary operator.
      * @param left multimap of equality-bound keys of the left ordering (and their bindings)
      * @param right multimap of equality-bound keys of the right ordering (and their bindings)
-     * @return new combined multimap of equality-bound keys (and their bindings)
+     * @return newly combined multimap of equality-bound keys (and their bindings)
      */
     @Nonnull
     public static SetMultimap<Value, Comparison> unionEqualityBoundKeys(@Nonnull SetMultimap<Value, Comparison> left,

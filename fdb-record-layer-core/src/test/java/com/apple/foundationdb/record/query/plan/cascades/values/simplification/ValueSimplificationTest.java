@@ -1,5 +1,5 @@
 /*
- * SpecificMatchingTest.java
+ * ValueSimplificationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,52 +31,76 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * Testcase class for specific matching.
+ * TODO.
  */
 class ValueSimplificationTest {
+    private static final CorrelationIdentifier ALIAS = CorrelationIdentifier.of("_");
+
     @Test
     void testSimpleFieldValueComposition1() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")));
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue));
+        // (_ as a).a
         final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "a");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
+
+        // (_ as a).a => _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
 
     @Test
     void testSimpleFieldValueComposition2() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a, 5 as b)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(5)));
-        final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "b");
+        // (_ as a, 5 as b).a
+        final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "a");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
+
+        // (_ as a, 5 as b).a => _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
 
     @Test
     void testSimpleFieldValueComposition3() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
@@ -85,22 +109,30 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "y");
+        // ((_ as a, 10 as b) as x, 5 as y).x.a
+        final var fieldValue = FieldValue.ofFieldNames(outerRecordConstructor, ImmutableList.of("x", "a"));
 
         final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
+
+        // ((_ as a, 10 as b) as x, 5 as y).x.a => _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
 
     @Test
     void testSimpleFieldValueComposition4() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
@@ -109,22 +141,30 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ((_ as a, 10 as b) as x, 5 as y).x
         final var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "x");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
+
+        // ((_ as a, 10 as b) as x, 5 as y).x => (_ as a, 10 as b)
+        Assertions.assertEquals(innerRecordConstructor, simplifiedValue);
     }
 
     @Test
     void testSimpleFieldValueComposition5() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
@@ -133,55 +173,41 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        final var fieldValue = FieldValue.ofFieldNames(outerRecordConstructor, ImmutableList.of("x", "a"));
-
-        final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
-    }
-
-    @Test
-    void testSimpleFieldValueComposition6() {
-        ImmutableList<Column<? extends Value>> columns =
-                ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
-                                LiteralValue.ofScalar(10)));
-        final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
-
-        columns =
-                ImmutableList.of(
-                        Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
-                                innerRecordConstructor),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("y")),
-                                LiteralValue.ofScalar(5)));
-        final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
-
+        // ((_ as a, 10 as b) as x, 5 as y).x
         var fieldValue = FieldValue.ofFieldName(outerRecordConstructor, "x");
+        // (((_ as a, 10 as b) as x, 5 as y).x).a
         fieldValue = FieldValue.ofFieldName(fieldValue, "a");
 
         final var simplifiedValue = defaultSimplify(fieldValue);
-        System.out.println(simplifiedValue);
+
+        // (((_ as a, 10 as b) as x, 5 as y).x).a ==> _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
 
     @Test
     void testSimpleOrdinalFieldValueComposition1() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_ as a, 5 as b)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
-                                LiteralValue.ofScalar(10)));
-        final var recordConstructor = RecordConstructorValue.ofColumns(columns);
+                                LiteralValue.ofScalar(5)));
+        // (_ as a, 5 as b)#0
+        final var fieldValue = FieldValue.ofOrdinalNumber(RecordConstructorValue.ofColumns(columns), 0);
 
-        final var ordinalFieldValue = FieldValue.ofOrdinalNumber(recordConstructor, 1);
+        final var simplifiedValue = defaultSimplify(fieldValue);
 
-        final var simplifiedValue = defaultSimplify(ordinalFieldValue);
-        System.out.println(simplifiedValue);
+        // (_ as a, 5 as b)#0 => _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
     
     @Test
     void testProjectionPushDown1() {
+        // ('fieldValue' as a, 10 as b, 'World' as c)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
@@ -192,37 +218,162 @@ class ValueSimplificationTest {
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ('fieldValue' as a, 10 as b, 'World' as c).a
         final var fieldValue1 = FieldValue.ofFieldName(recordConstructor, "a");
+
+        // ('fieldValue' as a, 10 as b, 'World' as c).b
         final var fieldValue2 = FieldValue.ofFieldName(recordConstructor, "b");
 
+        // (('fieldValue' as a, 10 as b, 'World' as c).a, ('fieldValue' as a, 10 as b, 'World' as c).b)
         final var outerRecordConstructor = RecordConstructorValue.ofUnnamed(ImmutableList.of(fieldValue1, fieldValue2));
 
         final var simplifiedValue = defaultSimplify(outerRecordConstructor);
-        System.out.println(simplifiedValue);
+
+        // (('fieldValue' as a, 10 as b, 'World' as c).a, ('fieldValue' as a, 10 as b, 'World' as c).b) => ('fieldValue, 10)
+        Assertions.assertEquals(RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                LiteralValue.ofScalar("fieldValue"),
+                LiteralValue.ofScalar(10))), simplifiedValue);
     }
 
     @Test
-    void testOrderingSimplification() {
+    void testOrderingSimplification1() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // ('fieldValue' as a, _ as b, 'World' as c)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
                                 LiteralValue.ofScalar("fieldValue")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
-                                ObjectValue.of(CorrelationIdentifier.CURRENT, Type.primitiveType(Type.TypeCode.INT))),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("b")),
+                                someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
+        // ('fieldValue' as a, 10 as b, 'World' as c).b
         final var fieldValue2 = FieldValue.ofFieldName(recordConstructor, "b");
 
+        // ('fieldValue' as a, 10 as b, 'World' as c).b + 3
         final var arithmeticValue =
                 new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
                         fieldValue2, LiteralValue.ofScalar(3));
 
-        // ('fieldValue' as a, object as b, 'World' as c).b + 3 -> object
-        // meaning ORDER BY ('fieldValue' as a, object as b, 'World' as c).b + 3 <-> ORDER BY object
-        final var simplifiedValue = simplifyOrderingWithConstantAliases(arithmeticValue, ImmutableSet.of());
-        System.out.println(simplifiedValue);
+        final var simplifiedValue = Iterables.getOnlyElement(simplifyOrderingValue(arithmeticValue));
+
+        // ('fieldValue' as a, _ as b, 'World' as c).b + 3 => _
+        // meaning ORDER BY ('fieldValue' as a, _ as b, 'World' as c).b + 3 <=> ORDER BY _
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
+    }
+
+    @Test
+    void testOrderingSimplification2() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // ('fieldValue' as a, _ as b, 'World' as c)
+        ImmutableList<Column<? extends Value>> columns =
+                ImmutableList.of(
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
+                                LiteralValue.ofScalar("fieldValue")),
+                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("b")),
+                                someCurrentValue),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
+                                LiteralValue.ofScalar("World")));
+        final var recordConstructor = RecordConstructorValue.ofColumns(columns);
+
+        // ('fieldValue' as a, _ as b, 'World' as c).b
+        final var fieldValueB = FieldValue.ofFieldName(recordConstructor, "b");
+
+        // ('fieldValue' as a, _ as b, 'World' as c).b + 3
+        final var arithmeticValue =
+                new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
+                        fieldValueB, LiteralValue.ofScalar(3));
+
+        // ('fieldValue' as a, _ as b, 'World' as c).a
+        final var fieldValueA = FieldValue.ofFieldName(recordConstructor, "a");
+        // ('fieldValue' as a, _ as b, 'World' as c).c
+        final var fieldValueC = FieldValue.ofFieldName(recordConstructor, "c");
+
+        // ((('fieldValue' as a, _ as b, 'World' as c).b + 3, ('fieldValue' as a, _ as b, 'World' as c).a), ('fieldValue' as a, _ as b, 'World' as c).c)
+        final var outerRecordConstructor =
+                RecordConstructorValue.ofUnnamed(
+                        ImmutableList.of(RecordConstructorValue.ofUnnamed(ImmutableList.of(arithmeticValue, fieldValueA)), fieldValueC));
+
+        // record : = ('fieldValue' as a, _ as b, 'World' as c)
+        // (record.b + 3, record.a), record.c) -> (record.b, record.a, record.c) -> (_, 'fieldValue', 'World')
+        // meaning ORDER BY (record.b + 3, record.a), record.c) <-> ORDER BY (_, 'fieldValue', 'World')
+        final var simplifiedValues = simplifyOrderingValue(outerRecordConstructor);
+
+
+    }
+
+    @Test
+    void testOrderingSimplification3() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        final var recordConstructor1 =
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
+                        FieldValue.ofFieldName(someCurrentValue, "z")));
+
+        final var recordConstructor2 =
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")),
+                        recordConstructor1,
+                        FieldValue.ofFieldName(someCurrentValue, "z")));
+
+        final var recordConstructor3 =
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                        recordConstructor1,
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xc")),
+                        FieldValue.ofFieldName(someCurrentValue, "z")));
+
+        final var recordConstructor4 =
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(recordConstructor1, recordConstructor2, recordConstructor3));
+
+        final var simplifiedValues = simplifyOrderingValue(recordConstructor4);
+
+        // ((_.x.xb as _0, _.z as _1) as _0, (_.x.xa as _0, (_.x.xb as _0, _.z as _1) as _1, _.z as _2) as _1, ((_.x.xb as _0, _.z as _1) as _0, _.x.xc as _1, _.z as _2) as _2)
+        // ((_.x.xb, _.z), (_.x.xa, (_.x.xb, _.z), _.z), ((_.x.xb, _.z), _.x.xc, _.z))
+        // (_.x.xb, _.z, _.x.xa, _.x.xb, _.z, _.z, _.x.xb, _.z, _.x.xc, _.z)
+
+        final var expectedResult =
+                ImmutableList.of(
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
+                        FieldValue.ofFieldName(someCurrentValue, "z"),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
+                        FieldValue.ofFieldName(someCurrentValue, "z"),
+                        FieldValue.ofFieldName(someCurrentValue, "z"),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
+                        FieldValue.ofFieldName(someCurrentValue, "z"),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xc")),
+                        FieldValue.ofFieldName(someCurrentValue, "z"));
+
+        Assertions.assertEquals(expectedResult, simplifiedValues);
+    }
+
+    @Nonnull
+    private static Type.Record someRecordType() {
+        final var aaType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
+
+        final var aType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(aaType, Optional.of("aa")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
+
+        final var xType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xa")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("xb")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xc"))));
+
+        return Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(aType, Optional.of("a")),
+                Type.Record.Field.of(xType, Optional.of("x")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
     }
 
     @Nonnull
@@ -236,7 +387,7 @@ class ValueSimplificationTest {
     }
 
     @Nonnull
-    private static Value simplifyOrderingWithConstantAliases(@Nonnull final Value toBeSimplified, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        return toBeSimplified.simplify(OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), constantAliases);
+    private static List<Value> simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
+        return toBeSimplified.simplifyOrderingValue(ImmutableSet.of());
     }
 }

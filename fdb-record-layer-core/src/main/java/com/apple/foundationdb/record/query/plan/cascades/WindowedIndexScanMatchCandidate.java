@@ -247,7 +247,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKey).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKey).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             if (parameterId.equals(scoreAlias)) {
@@ -291,7 +291,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final var comparison = equalityComparisons.get(i);
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             if (i == scoreOrdinal) {
@@ -306,7 +306,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             //

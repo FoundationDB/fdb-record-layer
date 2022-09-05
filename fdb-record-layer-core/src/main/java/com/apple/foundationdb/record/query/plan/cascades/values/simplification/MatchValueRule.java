@@ -70,17 +70,23 @@ public class MatchValueRule extends ValueComputationRule<List<Value>, Map<Value,
         final var value = bindings.get(rootMatcher);
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValueMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+
+        final var valueWithResult = call.getResult(value);
+        final var matchedValuesMap = valueWithResult == null ? null : valueWithResult.getResult();
+        if (matchedValuesMap != null) {
+            newMatchedValuesMap.putAll(matchedValuesMap);
+        }
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
                 final var commonCorrelatedTo = ImmutableSet.copyOf(Sets.union(toBePulledUpValue.getCorrelatedTo(), value.getCorrelatedTo()));
 
                 if (value.semanticEquals(toBePulledUpValue, AliasMap.identitiesFor(commonCorrelatedTo))) {
-                    newMatchedValueMap.put(toBePulledUpValue, Function.identity());
+                    newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
                 }
             }
         }
-        call.yield(value, newMatchedValueMap);
+        call.yield(value, newMatchedValuesMap);
     }
 }

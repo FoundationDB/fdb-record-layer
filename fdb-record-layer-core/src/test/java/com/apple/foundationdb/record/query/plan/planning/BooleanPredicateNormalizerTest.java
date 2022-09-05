@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -210,12 +210,12 @@ class BooleanPredicateNormalizerTest {
                         or(IntStream.rangeClosed(1, 9).boxed()
                                 .map(j -> and(
                                         new ValuePredicate(FieldValue.ofFieldName(
-                                                QuantifiedObjectValue.of(CorrelationIdentifier.CURRENT,
+                                                QuantifiedObjectValue.of(Quantifier.CURRENT,
                                                         Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("num_value_3_indexed"))))),
                                                 "num_value_3_indexed"),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, i * 9 + j)),
                                         new ValuePredicate(FieldValue.ofFieldName(
-                                                QuantifiedObjectValue.of(CorrelationIdentifier.CURRENT,
+                                                QuantifiedObjectValue.of(Quantifier.CURRENT,
                                                         Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("str_value_indexed"))))),
                                                 "str_value_indexed"),
                                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "foo"))))

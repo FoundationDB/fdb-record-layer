@@ -66,7 +66,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
         // if the fetch is able to push all values we can eliminate the fetch as well
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = call.get(innerPlanMatcher);
         final CorrelationIdentifier oldInnerAlias = Iterables.getOnlyElement(projectionExpression.getQuantifiers()).getAlias();
-        final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
         final boolean allPushable = projectedValues
                 .stream()

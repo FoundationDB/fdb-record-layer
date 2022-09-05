@@ -31,9 +31,9 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -48,28 +48,30 @@ public class Simplification {
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         return root.<Value>mapMaybe((current, mappedChildren) -> {
             current = computeCurrent(current, mappedChildren);
-            return Simplification.executeRuleSet(current,
+            return Simplification.executeRuleSet(root,
+                    current,
                     ruleSet,
-                    (rule, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, c, plannerBindings, constantAliases),
+                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, constantAliases),
                     Iterables::getOnlyElement);
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
     }
 
-    @Nonnull
-    public static <A, R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull Value root,
+    @Nullable
+    public static <A, R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull final Value root,
                                                                              @Nonnull A argument,
                                                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                                              @Nonnull final ValueComputationRuleSet<A, R> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<Value, ValueComputationRuleCall.ValueWithResult<R>>();
 
-        root = root.<Value>mapMaybe((current, mappedChildren) -> {
+        final var newRoot = root.<Value>mapMaybe((current, mappedChildren) -> {
             current = computeCurrent(current, mappedChildren);
-            return executeRuleSet(current,
+            return executeRuleSet(root,
+                    current,
                     ruleSet,
-                    (rule, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, c, argument, plannerBindings, constantAliases, resultsMap::get),
+                    (rule, r, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, constantAliases, resultsMap::get),
                     results -> onResultsFunction(resultsMap, results));
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
-        return Objects.requireNonNull(resultsMap.get(root));
+        return resultsMap.get(newRoot);
     }
 
     @Nonnull
@@ -103,13 +105,15 @@ public class Simplification {
     }
 
     @Nonnull
-    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull Value current,
+    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull final Value root,
+                                                                                   @Nonnull Value current,
                                                                                    @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
                                                                                    @Nonnull final RuleCallCreator<R, C> ruleCallCreator,
                                                                                    @Nonnull final Function<Collection<R>, Value> onResultsFunction) {
-        boolean madeProgress;
+        final boolean isRoot = current == root;
+        Value newCurrent = current;
         do {
-            madeProgress = false;
+            current = newCurrent;
             final var ruleIterator =
                     ruleSet.getValueRules(current).iterator();
 
@@ -121,7 +125,7 @@ public class Simplification {
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();
-                    final var ruleCall = ruleCallCreator.create(rule, current, plannerBindings);
+                    final var ruleCall = ruleCallCreator.create(rule, isRoot ? current : root, current, plannerBindings);
 
                     //
                     // Run the rule. See if the rule yielded a simplification.
@@ -130,22 +134,23 @@ public class Simplification {
                     final var results = ruleCall.getResults();
 
                     if (!results.isEmpty()) {
-                        current = onResultsFunction.apply(results);
+                        newCurrent = onResultsFunction.apply(results);
 
-                        //
-                        // We made progress. Make sure we exit the inner while loops and restart with the first rule
-                        // for the new `current` again.
-                        //
-                        madeProgress = true;
-                        break;
+                        if (current != newCurrent) {
+                            //
+                            // We made progress. Make sure we exit the inner while loops and restart with the first rule
+                            // for the new `current` again.
+                            //
+                            break;
+                        }
                     }
                 }
 
-                if (madeProgress) {
+                if (current != newCurrent) {
                     break;
                 }
             }
-        } while (madeProgress);
+        } while (current != newCurrent);
 
         return current;
     }
@@ -158,7 +163,8 @@ public class Simplification {
     @FunctionalInterface
     public interface RuleCallCreator<R, C extends AbstractValueRuleCall<R, C>> {
         C create(@Nonnull final AbstractValueRule<R, C, ? extends Value> rule,
-                 @Nonnull final Value self,
+                 @Nonnull final Value root,
+                 @Nonnull final Value current,
                  @Nonnull final PlannerBindings plannerBindings);
     }
 }

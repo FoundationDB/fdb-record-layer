@@ -45,12 +45,13 @@ public class ValueComputationRuleCall<A, R> extends AbstractValueRuleCall<ValueC
     private final Function<Value, ValueWithResult<R>> retrieveResultFunction;
 
     public ValueComputationRuleCall(@Nonnull final AbstractValueRule<ValueWithResult<R>, ValueComputationRuleCall<A, R>, ? extends Value> rule,
+                                    @Nonnull final Value root,
                                     @Nonnull final Value current,
                                     @Nullable final A argument,
                                     @Nonnull final PlannerBindings bindings,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                     @Nonnull final Function<Value, ValueWithResult<R>> retrieveResultFunction) {
-        super(rule, current, bindings, constantAliases);
+        super(rule, root, current, bindings, constantAliases);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }

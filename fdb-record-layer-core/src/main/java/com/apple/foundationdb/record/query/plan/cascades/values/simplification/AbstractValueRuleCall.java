@@ -46,6 +46,8 @@ public class AbstractValueRuleCall<R, C extends AbstractValueRuleCall<R, C>> imp
     @Nonnull
     private final AbstractValueRule<R, C, ? extends Value> rule;
     @Nonnull
+    private final Value root;
+    @Nonnull
     private final Value current;
     @Nonnull
     private final PlannerBindings bindings;
@@ -55,14 +57,21 @@ public class AbstractValueRuleCall<R, C extends AbstractValueRuleCall<R, C>> imp
     private final LinkedIdentitySet<R> results;
 
     public AbstractValueRuleCall(@Nonnull final AbstractValueRule<R, C, ? extends Value> rule,
+                                 @Nonnull final Value root,
                                  @Nonnull final Value current,
                                  @Nonnull final PlannerBindings bindings,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         this.rule = rule;
+        this.root = root;
         this.current = current;
         this.bindings = bindings;
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
+    }
+
+    @Nonnull
+    public Value getRoot() {
+        return root;
     }
 
     @Nonnull

@@ -343,7 +343,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                      @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnValuePlan(inner,
                 inSources,
-                CorrelationIdentifier.CURRENT,
+                Quantifier.CURRENT,
                 comparisonKeyValue,
                 Quantifiers.isReversed(ImmutableList.of(inner)),
                 maxNumberOfValuesAllowed,

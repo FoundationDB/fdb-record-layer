@@ -39,8 +39,6 @@ import java.util.UUID;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
-    @Nonnull
-    public static final CorrelationIdentifier CURRENT = uniqueID();
 
     @Nonnull
     private final String id;
@@ -69,7 +67,7 @@ public class CorrelationIdentifier {
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique.
-     * @param clazz to specify the kind of ewntity this identifier is going to be used for. This is really only useful
+     * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @return a new unique {@link CorrelationIdentifier}
      */
@@ -93,7 +91,6 @@ public class CorrelationIdentifier {
                         .map(i -> CorrelationIdentifier.of(prefix + i))
                         .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
         Debugger.updateIndex(clazz, i -> i + 1);
-
         return id;
     }
 

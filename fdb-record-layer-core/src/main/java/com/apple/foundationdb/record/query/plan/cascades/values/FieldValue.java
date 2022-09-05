@@ -140,7 +140,7 @@ public class FieldValue implements ValueWithChild {
     @Override
     public String toString() {
         final var fieldPathString = getFieldPathAsString();
-        if (childValue instanceof QuantifiedValue) {
+        if (childValue instanceof QuantifiedValue || childValue instanceof ObjectValue) {
             return childValue + fieldPathString;
         } else {
             return "(" + childValue + ")" + fieldPathString;
@@ -238,7 +238,7 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     public static Optional<List<Field>> stripFieldPrefixMaybe(@Nonnull List<Field> fieldPath,
                                                               @Nonnull List<Field> potentialPrefixPath) {
-        if (fieldPath.size() <= potentialPrefixPath.size()) {
+        if (fieldPath.size() < potentialPrefixPath.size()) {
             return Optional.empty();
         }
 

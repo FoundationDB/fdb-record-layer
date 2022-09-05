@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -112,7 +113,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
                     // TODO make better as the field can currently only handle exactly one correlated alias
                     final var alias = Iterables.getOnlyElement(fieldCorrelatedTo);
-                    return (FieldValue)fieldValue.rebase(AliasMap.of(alias, CorrelationIdentifier.CURRENT));
+                    return (FieldValue)fieldValue.rebase(AliasMap.of(alias, Quantifier.CURRENT));
                 })
                 .collect(ImmutableSet.toImmutableSet());
     }

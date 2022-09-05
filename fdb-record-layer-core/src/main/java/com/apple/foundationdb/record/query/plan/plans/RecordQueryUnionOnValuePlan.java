@@ -100,7 +100,7 @@ public class RecordQueryUnionOnValuePlan extends RecordQueryUnionPlan {
                                                     @Nonnull final Function<CorrelationIdentifier, Value> comparisonKeyValueFunction,
                                                     final boolean reverse,
                                                     final boolean showComparisonKey) {
-        final var baseAlias = CorrelationIdentifier.uniqueID();
+        final var baseAlias = Quantifier.uniqueID();
         return new RecordQueryUnionOnValuePlan(quantifiers, baseAlias, comparisonKeyValueFunction.apply(baseAlias), reverse, showComparisonKey);
     }
 }

@@ -120,7 +120,20 @@ public class LiteralValue<T> implements LeafValue {
 
     @Override
     public String toString() {
-        return String.valueOf(value);
+        if (value == null) {
+            return "null";
+        }
+
+        switch (resultType.getTypeCode()) {
+            case INT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+                return value.toString();
+            default:
+                return "'" + value + "'";
+        }
+
     }
 
     @Nonnull

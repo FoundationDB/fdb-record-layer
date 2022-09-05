@@ -93,7 +93,7 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
         final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
 
-        final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         
         final Quantifier.Physical newInnerQuantifier = Quantifier.physical(GroupExpressionRef.of(innerPlan), newInnerAlias);
 

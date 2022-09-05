@@ -33,7 +33,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -46,12 +49,17 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -59,6 +67,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -413,11 +422,91 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default Optional<List<Value>> translateAll(@Nonnull final List<Value> otherValues) {
-        // we assume `this` to be simplified
-        // we assume otherValues to be simplified
+    default Optional<Map<Value, Value>> pullUp(@Nonnull final List<Value> toBePulledUpValues,
+                                               @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                               @Nonnull final CorrelationIdentifier newBaseAlias) {
+        final var valueWitResult =
+                Simplification.compute(this, toBePulledUpValues, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
+        if (valueWitResult == null) {
+            return Optional.empty();
+        }
 
-        // ==> there are no mixed record constructors and field accesses as that could be simplified
-        return Optional.empty();
+        final var matchedValuesMap = valueWitResult.getResult();
+        final var argumentToResultMap = new LinkedIdentityMap<Value, Value>();
+        for (final var toBePulledUpValue : toBePulledUpValues) {
+            final var compensation = matchedValuesMap.get(toBePulledUpValue);
+            if (compensation == null) {
+                return Optional.empty();
+            }
+
+            argumentToResultMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(newBaseAlias, this.getResultType())));
+        }
+
+        return Optional.of(argumentToResultMap);
+    }
+
+    @Nonnull
+    default Ordering pullUp(@Nonnull Ordering childOrdering, @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        //
+        // Need to pull every participating value of this ordering through this value.
+        //
+        final var orderingKeyParts = childOrdering.getOrderingKeyParts();
+        final var orderingKeyValues =
+                orderingKeyParts
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pulledUpOrderingKeyValuesMapOptional =
+                pullUp(orderingKeyValues, constantAliases, Quantifier.CURRENT);
+        if (pulledUpOrderingKeyValuesMapOptional.isEmpty()) {
+            return Ordering.emptyOrder();
+        }
+        final var pulledUpOrderingKeyValuesMap = pulledUpOrderingKeyValuesMapOptional.get();
+        final var pulledUpOrderingKeyParts = orderingKeyParts
+                .stream()
+                .map(orderingKeyPart -> KeyPart.of(Objects.requireNonNull(pulledUpOrderingKeyValuesMap.get(orderingKeyPart.getValue())), orderingKeyPart.isReverse()))
+                .collect(ImmutableList.toImmutableList());
+
+        final var equalityBoundMap = childOrdering.getEqualityBoundKeyMap();
+        final var pulledUpEqualityBoundMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+
+        for (final var entry : equalityBoundMap.entries()) {
+            final var value = entry.getKey();
+            final var comparison = entry.getValue();
+            if (comparison instanceof Comparisons.ValueComparison) {
+                final var valueComparison = (Comparisons.ValueComparison)comparison;
+                final var valueForValueComparison = valueComparison.getComparandValue();
+                final var pulledUpEqualityBindingOptional = pullUp(ImmutableList.of(value, valueForValueComparison), constantAliases, Quantifier.CURRENT);
+                if (pulledUpEqualityBindingOptional.isEmpty()) {
+                    continue;
+                }
+                final var pulledUpEqualityBinding = pulledUpEqualityBindingOptional.get();
+                pulledUpEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledUpEqualityBinding.get(value)), new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(pulledUpEqualityBinding.get(valueForValueComparison))));
+            } else {
+                final var pulledUpEqualityBindingOptional = pullUp(ImmutableList.of(value), constantAliases, Quantifier.CURRENT);
+                if (pulledUpEqualityBindingOptional.isEmpty()) {
+                    continue;
+                }
+                final var pulledUpEqualityBinding = pulledUpEqualityBindingOptional.get();
+                pulledUpEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledUpEqualityBinding.get(value)), comparison);
+            }
+        }
+
+        return new Ordering(pulledUpEqualityBoundMapBuilder.build(), pulledUpOrderingKeyParts, false);
+    }
+
+    @Nonnull
+    default List<Value> simplifyOrderingValue(@Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        final var simplifiedOrderingValue =
+                Simplification.simplify(this, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules());
+
+        if (simplifiedOrderingValue instanceof RecordConstructorValue) {
+            return Streams.stream(simplifiedOrderingValue.getChildren())
+                    .map(partValue -> Simplification.simplify(partValue, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()))
+                    .collect(ImmutableList.toImmutableList());
+        } else {
+            return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
+        }
     }
 }

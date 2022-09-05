@@ -164,7 +164,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                                                               @Nonnull final Value comparisonKeyValue,
                                                               boolean showComparisonKey) {
         return new RecordQueryUnionOnValuePlan(quantifiers,
-                CorrelationIdentifier.CURRENT,
+                Quantifier.CURRENT,
                 comparisonKeyValue,
                 Quantifiers.isReversed(quantifiers),
                 showComparisonKey);

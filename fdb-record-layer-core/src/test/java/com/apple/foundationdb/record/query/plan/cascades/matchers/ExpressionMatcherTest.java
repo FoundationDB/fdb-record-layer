@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -102,7 +101,7 @@ public class ExpressionMatcherTest {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), CorrelationIdentifier.CURRENT)),
+                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), Quantifier.CURRENT)),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();

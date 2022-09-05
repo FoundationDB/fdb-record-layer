@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MatchOrCompensateFieldValueRule.FieldValueCompensation;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -59,7 +59,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<List<V
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
 
-        final var mergedMatchedValueMap =
+        final var mergedMatchedValuesMap =
                 recordConstructorValue.getColumns()
                         .stream()
                         .flatMap(column -> {
@@ -68,25 +68,21 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<List<V
                         })
                         .map(columnWithResult -> {
                             final var column = columnWithResult.getLeft();
-                            final var matchedValueMap = columnWithResult.getRight();
+                            final var matchedValuesMap = columnWithResult.getRight();
 
                             //
                             // No we have a column and the result we computed for all columns that do have results associated with them,
                             // i.e. the columns flowing results of values we care about.
                             //
-                            final var newMatchedValueMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+                            final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
-                            for (final var childValueEntry : matchedValueMap.entrySet()) {
+                            for (final var childValueEntry : matchedValuesMap.entrySet()) {
                                 final var argumentValue = childValueEntry.getKey();
                                 final var argumentValueCompensation = childValueEntry.getValue();
-                                newMatchedValueMap.put(argumentValue,
-                                        inValue -> {
-                                            final var fieldValue =
-                                                    FieldValue.ofFieldsAndFuseIfPossible(inValue, ImmutableList.of(column.getField()));
-                                            return argumentValueCompensation.apply(fieldValue);
-                                        });
+                                newMatchedValuesMap.put(argumentValue,
+                                        new FieldValueCompensation(ImmutableList.of(column.getField()), argumentValueCompensation));
                             }
-                            return newMatchedValueMap;
+                            return newMatchedValuesMap;
                         })
                         .flatMap(map -> map.entrySet().stream())
                         .collect(Collectors.toMap(Map.Entry::getKey,
@@ -94,6 +90,6 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<List<V
                                 (l, r) -> l,
                                 LinkedIdentityMap::new));
 
-        call.yield(recordConstructorValue, mergedMatchedValueMap);
+        call.yield(recordConstructorValue, mergedMatchedValuesMap);
     }
 }

@@ -39,8 +39,9 @@ public class ValueSimplificationRuleCall extends AbstractValueRuleCall<Value, Va
 
     public ValueSimplificationRuleCall(@Nonnull final AbstractValueRule<Value, ValueSimplificationRuleCall, ? extends Value> rule,
                                        @Nonnull final Value root,
+                                       @Nonnull final Value current,
                                        @Nonnull final PlannerBindings bindings,
                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        super(rule, root, bindings, constantAliases);
+        super(rule, root, current, bindings, constantAliases);
     }
 }

@@ -81,7 +81,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             // Compute a Value for this normalized key.
             //
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKey).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKey).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             builder.add(
@@ -108,7 +108,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var comparison = equalityComparisons.get(i);
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
             equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
         }
@@ -124,7 +124,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             // I think that restriction can be relaxed.
             //
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(CorrelationIdentifier.CURRENT,
+                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             result.add(KeyPart.of(normalizedValue, isReverse));
