@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
@@ -99,17 +98,17 @@ public class NullableArrayTypeUtils {
      * @return a keyExpression without wrapped array
      */
     @Nonnull
-    public static KeyExpression unwrapArrayInKeyExpression(@Nonnull NestingKeyExpression nestingKeyExpression) {
+    public static NestingKeyExpression unwrapArrayInNestingKeyExpression(@Nonnull NestingKeyExpression nestingKeyExpression) {
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final RecordMetaDataProto.KeyExpression child = nestingKeyExpression.getChild().toKeyExpression();
-        if (child.hasNesting()) {
-            RecordMetaDataProto.Nesting.Builder newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                    .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
-                    .setChild(child.getNesting().getChild());
-            return new NestingKeyExpression(newNestingBuilder.build());
-        } else {
-            return new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build());
-        }
+        RecordMetaDataProto.Nesting.Builder newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
+                .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                .setChild(child.getNesting().getChild());
+        return new NestingKeyExpression(newNestingBuilder.build());
+    }
+
+    public static FieldKeyExpression unwrapArrayInFieldKeyExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+        return new FieldKeyExpression(fieldKeyExpression.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build());
     }
 
     @Nullable

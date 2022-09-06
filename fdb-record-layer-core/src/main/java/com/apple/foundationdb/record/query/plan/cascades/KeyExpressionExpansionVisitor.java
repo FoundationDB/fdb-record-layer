@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -189,8 +190,12 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .add(parent.getFieldName())
                         .build();
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
-                    KeyExpression newExpression = NullableArrayTypeUtils.unwrapArrayInKeyExpression(nestingKeyExpression);
-                    return visitExpression(newExpression);
+                    final RecordMetaDataProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
+                    if (childProto.hasNesting()) {
+                        return visitExpression(NullableArrayTypeUtils.unwrapArrayInNestingKeyExpression(nestingKeyExpression));
+                    } else {
+                        return visitExpression(NullableArrayTypeUtils.unwrapArrayInFieldKeyExpression(parent));
+                    }
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:

@@ -129,7 +129,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             }
             i++;
         }
-
+        System.out.println("result message:" + resultMessageBuilder.build());
         return resultMessageBuilder.build();
     }
 
