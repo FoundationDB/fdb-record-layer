@@ -22,14 +22,7 @@ apply from: rootProject.file('gradle/strict.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
-    def osName = providers.systemProperty("os.name").forUseAtConfigurationTime().getOrElse("")
-    def osArch = providers.systemProperty("os.arch").forUseAtConfigurationTime().getOrElse("")
-    if ((osName == "macOS" || osName == "Mac OS X") && osArch == "aarch64") {
-        api("com.apple.cloudkit.util.ck-internal-fdb-dist:fdb-java:7.1.3.7")
-    } else {
-        api "org.foundationdb:fdb-java:${fdbVersion}"
-    }
-    // api "org.foundationdb:fdb-java:${fdbVersion}"
+    api "org.foundationdb:fdb-java:${fdbVersion}"
     implementation "com.google.guava:guava:${guavaVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     api "com.squareup:javapoet:${javaPoetVersion}"
