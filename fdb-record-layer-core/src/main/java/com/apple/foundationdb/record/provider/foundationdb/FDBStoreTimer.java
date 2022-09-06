@@ -149,7 +149,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent updating an entry in an atomic mutation index. */
         MUTATE_INDEX_ENTRY("mutate index entry"),
         /** The amount of time spent rebuilding an index for any reason. */
-        REBUILD_INDEX("rebuild index for a new store"),
+        REBUILD_INDEX("rebuild index for any reason"),
         /** The amount of time spent rebuilding an index for a new store. */
         REBUILD_INDEX_NEW_STORE("rebuild index for a new store"),
         /** The amount of time spent rebuilding an index for stores with few records. */

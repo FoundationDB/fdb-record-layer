@@ -127,11 +127,19 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 if (!(valuePredicate.getValue() instanceof FieldValue)) {
                                     return Stream.of();
                                 }
-                                return Stream.of(Pair.of((FieldValue)valuePredicate.getValue(), valuePredicate.getComparison()));
+
+                                final var fieldValue = (FieldValue)valuePredicate.getValue();
+                                if (fieldValue.getFieldPath()
+                                        .stream()
+                                        .anyMatch(field -> field.getFieldNameOptional().isEmpty())) {
+                                    return Stream.of();
+                                }
+
+                                return Stream.of(Pair.of(fieldValue, valuePredicate.getComparison()));
                             })
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                KeyExpression keyExpression = KeyExpression.fromPath(fieldValue.getFieldPath());
+                                KeyExpression keyExpression = KeyExpression.fromPath(fieldValue.getFieldPathNames());
                                 return Pair.of(keyExpression, valueComparisonPair.getRight());
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));                                        

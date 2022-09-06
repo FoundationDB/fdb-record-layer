@@ -34,14 +34,14 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -325,13 +325,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias);
+        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseRecordType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
-                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
+                    return Optional.empty();
+                }
             }
         }
 
@@ -364,7 +366,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                  @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
         // replace the quantified column value inside the given value with the quantified value in the match candidate
-        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias);
+        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, new Type.Any());
         final Value translatedValue =
                 value.rebase(AliasMap.of(sourceAlias, baseAlias));
         final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
@@ -391,19 +393,27 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return builder.build();
     }
 
-    private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                         @Nonnull FieldValue fieldValue,
-                                         @Nonnull AvailableFields.FieldData fieldData) {
-        for (final String fieldName : fieldValue.getFieldPrefix()) {
-            builder = builder.getFieldBuilder(fieldName);
+    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                            @Nonnull FieldValue fieldValue,
+                                            @Nonnull AvailableFields.FieldData fieldData) {
+        for (final Type.Record.Field field : fieldValue.getFieldPrefix()) {
+            if (field.getFieldNameOptional().isEmpty()) {
+                return false;
+            }
+            builder = builder.getFieldBuilder(field.getFieldName());
         }
 
         // TODO not sure what to do with the null standing requirement
 
-        final String fieldName = fieldValue.getFieldName();
+        final Type.Record.Field field = fieldValue.getLastField();
+        if (field.getFieldNameOptional().isEmpty()) {
+            return false;
+        }
+        final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
         }
+        return true;
     }
 
     @Nonnull

@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -734,10 +735,10 @@ public interface Type extends Narrowable<Type> {
         private final List<Field> fields;
 
         /**
-         * function that returns a mapping between field names and their {@link Type}s.
+         * function that returns a mapping between field names and their {@link Field}s.
          */
         @Nonnull
-        private final Supplier<Map<String, Type>> fieldTypeMapSupplier;
+        private final Supplier<Map<String, Field>> fieldNameFieldMapSupplier;
 
         /**
          * function that returns a list of {@link Field} types.
@@ -774,7 +775,7 @@ public interface Type extends Narrowable<Type> {
             this.name = name;
             this.isNullable = isNullable;
             this.fields = fields == null ? null : normalizeFields(fields);
-            this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
+            this.fieldNameFieldMapSupplier = Suppliers.memoize(this::computeFieldNameFieldMap);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
 
@@ -833,8 +834,8 @@ public interface Type extends Narrowable<Type> {
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @Nullable
-        public Map<String, Type> getFieldTypeMap() {
-            return fieldTypeMapSupplier.get();
+        public Map<String, Field> getFieldNameFieldMap() {
+            return fieldNameFieldMapSupplier.get();
         }
 
         /**
@@ -842,10 +843,10 @@ public interface Type extends Narrowable<Type> {
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
         @SuppressWarnings("OptionalGetWithoutIsPresent")
-        private Map<String, Type> computeFieldTypeMap() {
+        private Map<String, Field> computeFieldNameFieldMap() {
             return Objects.requireNonNull(fields)
                     .stream()
-                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
+                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Function.identity()));
         }
 
         /**

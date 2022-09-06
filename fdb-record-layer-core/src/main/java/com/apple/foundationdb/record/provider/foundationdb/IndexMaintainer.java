@@ -281,6 +281,6 @@ public abstract class IndexMaintainer {
                                                              @Nonnull final ScanProperties scanProperties,
                                                              @Nonnull final KeyExpression commonPrimaryKey) {
         // Not implemented by default - needs to be overridden by individual maintainers
-        throw new RecordCoreException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
+        throw new UnsupportedRemoteFetchIndexException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
     }
 }

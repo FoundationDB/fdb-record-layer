@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -70,6 +71,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -147,6 +149,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, reverse, strictlySorted, Optional.empty(), new Type.Any());
     }
 
+    @VisibleForTesting
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
@@ -158,14 +161,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
     }
 
-    private RecordQueryIndexPlan(@Nonnull final String indexName,
-                                 @Nullable final KeyExpression commonPrimaryKey,
-                                 @Nonnull final IndexScanParameters scanParameters,
-                                 @Nonnull final IndexFetchMethod indexFetchMethod,
-                                 final boolean reverse,
-                                 final boolean strictlySorted,
-                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
-                                 @Nonnull final Type resultType) {
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -217,6 +220,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                     return new FallbackCursor<>(
                             executeUsingRemoteFetch(store, context, continuation, executeProperties),
                             lastSuccessfulResult -> fallBackContinueFrom(store, context, continuation, executeProperties, lastSuccessfulResult));
+                } catch (UnsupportedRemoteFetchIndexException ex) {
+                    // In this case (e.g. the index maintainer does not support remote fetch), log as info
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info(KeyValueLogMessage.of("Remote fetch unsupported, continuing with Index scan",
+                                LogMessageKeys.MESSAGE, ex.getMessage(),
+                                LogMessageKeys.INDEX_NAME, indexName));
+                    }
+                    return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",

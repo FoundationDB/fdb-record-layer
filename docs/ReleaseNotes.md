@@ -52,6 +52,14 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.289.0
+
+
+### 3.2.288.0
+
+* **Bug fix** Lower the severity of error when logging incompatible index for remote fetch [(Issue #1828)](https://github.com/FoundationDB/fdb-record-layer/issues/1828)
+* **Feature** Make `FDBRecordContext` remember its config [(Issue #1830)](https://github.com/FoundationDB/fdb-record-layer/issues/1830)
+
 ### 3.2.287.0
 
 * **Feature** Use different analyzers for different fields in one Lucene index, and enable exclusion of fields for auto-complete [(Issue #1824)](https://github.com/FoundationDB/fdb-record-layer/issues/1824)

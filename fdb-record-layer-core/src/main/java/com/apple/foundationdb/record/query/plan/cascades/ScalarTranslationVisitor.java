@@ -126,7 +126,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
-        return new FieldValue(QuantifiedObjectValue.of(state.baseAlias, state.inputType), fieldNames);
+        return FieldValue.ofFieldNames(QuantifiedObjectValue.of(state.baseAlias, state.inputType), fieldNames);
     }
 
     @Nonnull

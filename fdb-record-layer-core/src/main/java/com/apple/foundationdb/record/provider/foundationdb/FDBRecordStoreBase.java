@@ -1000,6 +1000,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                     final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(indexName, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
                     return new FallbackCursor<>(remoteFetchCursor,
                             lastSuccessfulResult -> remoteFetchFallbackFrom(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
+                } catch (UnsupportedRemoteFetchIndexException ex) {
+                    // In this case (e.g. the index maintainer does not support remote fetch), log as info
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info(KeyValueLogMessage.of("scanIndexRecords: Remote fetch unsupported, continuing with Index scan",
+                                LogMessageKeys.MESSAGE, ex.getMessage(),
+                                LogMessageKeys.INDEX_NAME, indexName));
+                    }
+                    return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("scanIndexRecords: Remote Fetch execution failed, falling back to Index scan",

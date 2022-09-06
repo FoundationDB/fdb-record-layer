@@ -398,7 +398,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
 
         private Value createFieldValue(final String fieldName) {
-            return new FieldValue(quantifier.getFlowedObjectValue(), Collections.singletonList(fieldName));
+            return FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), fieldName);
         }
 
         private Quantifier.Physical createBaseQuantifier() {

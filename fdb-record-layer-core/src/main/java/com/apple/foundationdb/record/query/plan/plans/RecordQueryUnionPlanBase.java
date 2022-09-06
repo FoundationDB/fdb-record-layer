@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -74,7 +73,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
-        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
+        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Nonnull

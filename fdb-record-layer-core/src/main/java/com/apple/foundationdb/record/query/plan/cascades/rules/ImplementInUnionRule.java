@@ -29,13 +29,13 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyPr
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
@@ -122,8 +121,8 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         final var innerQuantifier = innerQuantifierOptional.get();
 
         final var resultValue = selectExpression.getResultValue();
-        if (!(resultValue instanceof QuantifiedValue) ||
-                !((QuantifiedValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
+        if (!(resultValue instanceof QuantifiedObjectValue) ||
+                !((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
             return;
         }
 

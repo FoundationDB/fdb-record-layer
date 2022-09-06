@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.values.MergeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -73,7 +73,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
                                           @Nonnull KeyExpression comparisonKey) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
-        this.resultValue = MergeValue.pivotAndMergeValues(quantifiers);
+        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Nonnull
