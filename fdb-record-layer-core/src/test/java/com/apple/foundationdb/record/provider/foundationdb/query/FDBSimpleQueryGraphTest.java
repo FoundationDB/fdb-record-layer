@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -55,7 +54,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -82,7 +80,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests of query planning and execution for queries on records with repeated fields.
@@ -158,9 +155,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addQuantifier(qun);
                     final var nameValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("name"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
                     final var restNoValue =
-                            new FieldValue(qun.getFlowedObjectValue(), ImmutableList.of("rest_no"));
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), restNoValue));

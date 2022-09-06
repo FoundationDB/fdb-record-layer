@@ -107,7 +107,7 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        final var fieldValue = MessageValue.getFieldValueForFieldNames((Message)childResult, fieldPath);
+        final var fieldValue = MessageValue.getFieldValueForFields((Message)childResult, fieldPath);
         //
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.

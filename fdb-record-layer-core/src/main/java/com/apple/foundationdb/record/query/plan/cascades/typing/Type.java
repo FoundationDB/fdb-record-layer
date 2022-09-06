@@ -1527,7 +1527,7 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")" + needsWrapper;
+                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")" + "(needsWrapper:" + needsWrapper + ")";
         }
 
         /**
