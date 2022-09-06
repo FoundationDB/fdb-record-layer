@@ -477,6 +477,33 @@ public class GroupByQueryTests {
         }
     }
 
+    @Test
+    void expansionOfStarWorks() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk int64, a int64, b int64, c int64, PRIMARY KEY(pk))" +
+                        "CREATE VALUE INDEX idx1 on T1(a)";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertT1Record(statement, 2, 1, 1, 20);
+                insertT1Record(statement, 3, 1, 2, 10);
+                insertT1Record(statement, 4, 1, 2, 15);
+                insertT1Record(statement, 5, 1, 2, 5);
+                insertT1Record(statement, 6, 2, 1, 10);
+                insertT1Record(statement, 7, 2, 1, 40);
+                insertT1Record(statement, 8, 2, 1, 20);
+                insertT1Record(statement, 9, 2, 1, 90);
+                Assertions.assertTrue(statement.execute("SELECT * from (select a from t1) as X group by a"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(1L)
+                            .hasNextRow()
+                            .hasRowExactly(2L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
     @Disabled // we require a fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212 to make this work.
     void groupByClauseWithNamedGroupingColumns() throws Exception {
         final String schemaTemplate =

@@ -86,7 +86,7 @@ public final class PlanUtils {
                     final var collectionValueNested = explode.getCollectionValue();
                     Assert.thatUnchecked(collectionValueNested instanceof FieldValue, String.format("unexpected explode collection value of type '%s'", collectionValueNested.getClass().getSimpleName()));
                     final var fieldNested = (FieldValue) collectionValueNested;
-                    return  Key.Expressions.field(fieldNested.getFieldName(), KeyExpression.FanType.FanOut).nest(result);
+                    return  Key.Expressions.field(fieldNested.getLastField().getFieldName(), KeyExpression.FanType.FanOut).nest(result);
                 }
                 Assert.thatUnchecked(generator.get().getRangesOver().get() instanceof LogicalTypeFilterExpression); // we should not nest, top-level index assumes definition starts here.
             }
@@ -94,7 +94,7 @@ public final class PlanUtils {
         }
 
         private List<Pair<Integer, String>> projectedFieldsOf(SelectExpression element, Quantifier qun) {
-            final var fields = IntStream.range(0, element.getResultValues().size()).filter(i -> element.getResultValues().get(i).getCorrelatedTo().contains(qun.getAlias())).mapToObj(i -> Pair.of(i, ((FieldValue) element.getResultValues().get(i)).getFieldName())).collect(Collectors.toList());
+            final var fields = IntStream.range(0, element.getResultValues().size()).filter(i -> element.getResultValues().get(i).getCorrelatedTo().contains(qun.getAlias())).mapToObj(i -> Pair.of(i, ((FieldValue) element.getResultValues().get(i)).getLastField().getFieldName())).collect(Collectors.toList());
             if (fields.isEmpty()) {
                 return List.of();
             }

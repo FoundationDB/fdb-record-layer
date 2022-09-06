@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -30,6 +31,8 @@ import com.google.protobuf.Message;
 
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
 
 
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
@@ -58,12 +61,36 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return ProtobufDdlUtil.getTypeName(field);
     }
 
+    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
+    @Override
+    public boolean isPrimitive(int fieldNumber) throws RelationalException {
+        final var field = typeDescriptor.findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new RelationalException(String.format("Field with number <%d> does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
+        }
+        return !field.isRepeated() && !field.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE); // enum?
+    }
+
     @Override
     public DynamicMessageBuilder setField(String fieldName, Object value) throws RelationalException {
         final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
         if (field == null) {
             throw new RelationalException(String.format("Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER);
         }
+        return setFieldInternal(field, value);
+    }
+
+    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
+    @Override
+    public DynamicMessageBuilder setField(int fieldNumber, Object value) throws RelationalException {
+        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
+        }
+        return setFieldInternal(field, value);
+    }
+
+    private DynamicMessageBuilder setFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
         data.setField(field, coerceObject(value, field.getJavaType()));
         return this;
     }
@@ -77,7 +104,24 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         if (!field.isRepeated()) {
             throw new RelationalException("Field <" + fieldName + "> is not repeated", ErrorCode.INVALID_PARAMETER);
         }
+        return addRepeatedFieldInternal(field, value);
+    }
 
+    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
+    @Override
+    public DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws RelationalException {
+        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByNumber(fieldNumber);
+        if (field == null) {
+            throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
+        }
+        if (!field.isRepeated()) {
+            throw new RelationalException("Field with number <" + fieldNumber + "> is not repeated", ErrorCode.INVALID_PARAMETER);
+        }
+        return addRepeatedFieldInternal(field, value);
+    }
+
+    @Nonnull
+    private DynamicMessageBuilder addRepeatedFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
         data.addRepeatedField(field, coerceObject(value, field.getJavaType()));
         return this;
     }
@@ -86,6 +130,15 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values) throws RelationalException {
         for (Object value : values) {
             addRepeatedField(fieldName, value);
+        }
+        return this;
+    }
+
+    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
+    @Override
+    public DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> values) throws RelationalException {
+        for (Object value : values) {
+            addRepeatedField(fieldNumber, value);
         }
         return this;
     }
@@ -112,6 +165,16 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
             }
         }
         throw new RelationalException("Field <" + fieldName + "> does not exist in this Type", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
+    @Override
+    public DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws RelationalException {
+        final Descriptors.FieldDescriptor fd = typeDescriptor.findFieldByNumber(fieldNumber);
+        if (fd.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+            throw new RelationalException("Cannot get Nested data builder for field with number <" + fieldNumber + "> as it is not a nested structure", ErrorCode.INVALID_PARAMETER);
+        }
+        return new ProtobufDataBuilder(fd.getMessageType());
     }
 
     @Override

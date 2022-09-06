@@ -24,12 +24,16 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 public class SyntaxErrorListener extends BaseErrorListener
 {
@@ -37,21 +41,52 @@ public class SyntaxErrorListener extends BaseErrorListener
 
     public static class SyntaxError
     {
+        @Nonnull
         private final Recognizer<?, ?> recognizer;
+        @Nonnull
         private final Object offendingSymbol;
         private final int line;
         private final int charPositionInLine;
+        @Nonnull
         private final String message;
+        @Nonnull
         private final RecognitionException recognitionException;
 
-        SyntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String msg, RecognitionException recognitionException)
+        SyntaxError(@Nonnull final Recognizer<?, ?> recognizer,
+                    @Nonnull final Object offendingSymbol,
+                    int line,
+                    int charPositionInLine,
+                    @Nonnull final RecognitionException recognitionException)
         {
             this.recognizer = recognizer;
             this.offendingSymbol = offendingSymbol;
             this.line = line;
             this.charPositionInLine = charPositionInLine;
-            this.message = msg;
+            this.message = underlineError(recognizer, (Token) offendingSymbol, line, charPositionInLine);
             this.recognitionException = recognitionException;
+        }
+
+        @Nonnull
+        protected String underlineError(@Nonnull final Recognizer<?, ?> recognizer,
+                                        @Nonnull Token offendingToken,
+                                        int line,
+                                        int charPositionInLine) {
+            // I got this recipe from the book: "The Definitive ANTLR 4 Reference, 2nd Edition".
+            final StringBuilder stringBuilder = new StringBuilder();
+            final CommonTokenStream tokens = (CommonTokenStream) recognizer.getInputStream();
+            final String input = tokens.getTokenSource().getInputStream().toString();
+            final String[] lines = input.split("\n");
+            final String errorLine = lines[line - 1];
+            stringBuilder.append(errorLine).append("\n");
+            stringBuilder.append(" ".repeat(Math.max(0, charPositionInLine)));
+            int start = offendingToken.getStartIndex();
+            int stop = offendingToken.getStopIndex();
+            if (stop < start) {
+                stringBuilder.append("^^"); // missing token
+            } else if (start >= 0) {
+                stringBuilder.append("^".repeat(Math.max(0, stop - start + 1)));
+            }
+            return stringBuilder.toString();
         }
 
         public Recognizer<?, ?> getRecognizer()
@@ -74,6 +109,7 @@ public class SyntaxErrorListener extends BaseErrorListener
             return charPositionInLine;
         }
 
+        @Nonnull
         public String getMessage()
         {
             return message;
@@ -85,7 +121,7 @@ public class SyntaxErrorListener extends BaseErrorListener
         }
 
         RelationalException toRelationalException() {
-            return new RelationalException(String.format("Syntax error at line %d position %d: %s", getLine(), getCharPositionInLine(), getMessage()), ErrorCode.SYNTAX_ERROR);
+            return new RelationalException("syntax error:\n" + message, ErrorCode.SYNTAX_ERROR);
         }
     }
 
@@ -100,7 +136,7 @@ public class SyntaxErrorListener extends BaseErrorListener
                             int line, int charPositionInLine,
                             String msg, RecognitionException e)
     {
-        syntaxErrors.add(new SyntaxError(recognizer, offendingSymbol, line, charPositionInLine, msg, e));
+        syntaxErrors.add(new SyntaxError(recognizer, offendingSymbol, line, charPositionInLine, e));
     }
 
     @Override

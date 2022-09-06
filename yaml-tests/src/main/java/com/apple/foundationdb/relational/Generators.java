@@ -1,0 +1,142 @@
+/*
+ * Generators.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational;
+
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.protobuf.Message;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import static com.apple.foundationdb.relational.Matchers.*;
+import static com.apple.foundationdb.relational.recordlayer.utils.Assert.fail;
+
+public class Generators {
+
+    @Nonnull
+    public static Collection<Message> yamlToDynamicMessage(@Nullable Object value, @Nonnull DynamicMessageBuilder dmBuilder) throws RelationalException {
+        if (isNull(value)) {
+            return Collections.emptySet();
+        } else if (isArray(value)) {
+            List<Message> messages = new ArrayList<>();
+            for (Object v : arrayList(value)) {
+                messages.addAll(yamlToDynamicMessage(v, dmBuilder));
+            }
+            return messages;
+        } else if (isMap(value)) {
+            return Collections.singleton(parseObject(map(value), dmBuilder));
+        }
+        fail("Cannot parse yaml <" + value + ">, It must be an Object, Array, or NULL", ErrorCode.SYNTAX_ERROR);
+        return null;
+    }
+
+    private static Message parseObject(@Nonnull final Map<?, ?> data, @Nonnull final DynamicMessageBuilder typeBuilder) throws RelationalException {
+        int counter = 1;
+        for (Map.Entry<?, ?> entry : data.entrySet()) {
+            if (isNull(entry.getValue())) { // unnamed field.
+                setField(counter, entry.getKey(), (fieldAccessor, fieldValue) -> {
+                    try {
+                        if (fieldAccessor instanceof Integer) {
+                            typeBuilder.setField((Integer) fieldAccessor, fieldValue);
+                        } else {
+                            typeBuilder.setField(string(fieldAccessor), fieldValue);
+                        }
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                }, typeBuilder, true);
+            } else { // named field.
+                String key = string(entry.getKey(), "field key");
+                setField(key, entry.getValue(), (fieldAccessor, fieldValue) -> {
+                    try {
+                        if (fieldAccessor instanceof Integer) {
+                            typeBuilder.setField((Integer) fieldAccessor, fieldValue);
+                        } else {
+                            typeBuilder.setField(string(fieldAccessor), fieldValue);
+                        }
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                }, typeBuilder, true);
+            }
+            ++counter;
+        }
+        return typeBuilder.build();
+    }
+
+    private static void setField(Object key,
+                                 Object value,
+                                 BiConsumer<Object, Object> typeConsumer,
+                                 DynamicMessageBuilder dataBuilder,
+                                 boolean allowArrays) throws RelationalException {
+        if (isArray(value)) {
+            if (!allowArrays) {
+                throw new RelationalException("Cannot nest arrays within arrays!", ErrorCode.INVALID_PARAMETER);
+            }
+            final List<?> array = arrayList(value);
+            for (Object arrayValue : array) {
+                setField(key, arrayValue, (arrayKey, arrVal) -> {
+                    try {
+                        if (key instanceof Integer) {
+                            dataBuilder.addRepeatedField((int) key, arrVal);
+                        } else {
+                            dataBuilder.addRepeatedField(string(key, "field descriptor"), arrVal);
+                        }
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                }, dataBuilder, false);
+            }
+            return;
+        } else if (isMap(value)) {
+            DynamicMessageBuilder nestedBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
+            Message underlying = parseObject(map(value), nestedBuilder);
+            typeConsumer.accept(key, underlying);
+            return;
+        } else if (isString(value)) {
+            typeConsumer.accept(key, string(value));
+            return;
+        } else if (isBoolean(value)) {
+            typeConsumer.accept(key, bool(value));
+            return;
+        } else if (isLong(value)) {
+            typeConsumer.accept(key, longValue(value));
+            return;
+        } else if (isInt(value)) {
+            typeConsumer.accept(key, intValue(value));
+            return;
+        } else if (isDouble(value)) {
+            typeConsumer.accept(key, doubleValue(value));
+            return;
+        }
+        fail(String.format("unexpected type %s", value));
+    }
+}

@@ -56,6 +56,11 @@ public class CaseInsensitiveCharStream implements CharStream {
     }
 
     @Override
+    public String toString() {
+        return underlying.toString();
+    }
+
+    @Override
     public void consume() {
         underlying.consume();
     }

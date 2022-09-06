@@ -47,17 +47,27 @@ public interface DynamicMessageBuilder {
      */
     String getFieldType(String fieldName) throws RelationalException;
 
+    boolean isPrimitive(int fieldNumber) throws RelationalException;
+
     DynamicMessageBuilder setField(String fieldName, Object value) throws RelationalException;
+
+    DynamicMessageBuilder setField(int fieldNumber, Object value) throws RelationalException;
 
     DynamicMessageBuilder addRepeatedField(String fieldName, Object value) throws RelationalException;
 
+    DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws RelationalException;
+
     DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value) throws RelationalException;
+
+    DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> value) throws RelationalException;
 
     Message build();
 
     <T extends Message> Message convertMessage(T m) throws RelationalException;
 
     DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws RelationalException;
+
+    DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws RelationalException;
 
     Descriptors.Descriptor getDescriptor();
 }

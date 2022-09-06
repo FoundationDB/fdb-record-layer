@@ -35,8 +35,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,7 +111,7 @@ public class Scopes {
         /**
          * Set of flags to control the behavior of parser.
          */
-        public enum Flag { WITH_GROUP_BY_CLAUSE, RESOLVING_AGGREGATION, WITH_GROUP_BY_QUANTIFIER }
+        public enum Flag { UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE, RESOLVING_AGGREGATION, RESOLVING_SELECT_HAVING }
 
         @Nullable
         private final Scope parent;
@@ -182,7 +182,8 @@ public class Scopes {
             return quantifiers.values().stream().collect(Collectors.toUnmodifiableList());
         }
 
-        @Nonnull List<Quantifier> getForEachQuantifiers() {
+        @Nonnull
+        List<Quantifier> getForEachQuantifiers() {
             return quantifiers.values().stream().filter(q -> q instanceof Quantifier.ForEach).collect(Collectors.toUnmodifiableList());
         }
 
@@ -282,7 +283,7 @@ public class Scopes {
         }
 
         public static Scope withParent(@Nullable final Scope parent) {
-            return new Scope(parent, new HashMap<>(), new ArrayList<>(), null);
+            return new Scope(parent, new LinkedHashMap<>(), new ArrayList<>(), null);
         }
     }
 }

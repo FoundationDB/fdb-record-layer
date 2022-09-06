@@ -583,7 +583,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from tbl1 x, tbl2 where x = 42"))
                         .hasErrorCode(ErrorCode.AMBIGUOUS_COLUMN)
-                        .hasMessage("ambiguous column name 'X'");
+                        .hasMessage("attempt to access alias 'X' as a column name");
             }
         }
     }

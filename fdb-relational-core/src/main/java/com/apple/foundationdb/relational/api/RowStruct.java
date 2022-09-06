@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 
@@ -259,5 +261,28 @@ public abstract class RowStruct implements RelationalStruct {
 
     private int getZeroBasedPosition(int oneBasedPosition) {
         return metaData.getLeadingPhantomColumnCount() + oneBasedPosition - 1;
+    }
+
+    @Override
+    public String toString() {
+        final var builder = new StringBuilder();
+        try {
+            final var colCount = metaData.getColumnCount();
+            builder.append("{ ");
+            for (int i = 1; i <= colCount; i++) {
+                builder.append(metaData.getColumnName(i))
+                        .append(" -> ")
+                        .append(getObject(i))
+                        .append("\n"); // todo: indentation.
+                if (i < colCount) {
+                    builder.append(", ");
+                }
+            }
+            builder.append("} ");
+        } catch (SQLException e) {
+            throw new UncheckedRelationalException(new RelationalException(e));
+        }
+
+        return builder.toString();
     }
 }

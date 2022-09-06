@@ -44,9 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -237,100 +235,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     private RelationalExpression handleSelectInternal(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                       @Nonnull final RelationalParser.FromClauseContext fromClause,
                                                       @Nullable final RelationalParser.GroupByClauseContext groupByClause) {
-        /*
-         * planning GROUP BY is relatively complex, we do not end up generating a single QP node, but rather
-         * three:
-         *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
-         *  - the GROUP BY expression with aggregate expression and grouping expressions.
-         *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
-         *    expressions in the underlying GROUP BY expression.
-         */
-
         if (groupByClause != null || ParserUtils.hasAggregation(selectElements)) {
-            var groupingAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
-            final var groupByQunAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
-
-            RecordConstructorValue groupingColumnsValue = null;
-            Quantifier underlyingSelectQun = null;
-            // 1. create a new SELECT expression projecting all underlying quantifiers.
-            final GraphExpansion.Builder builder = GraphExpansion.builder();
-            {
-                // handle underlying select.
-                parserContext.pushScope();
-                // grab all quantifiers into the current scope.
-                fromClause.accept(this);
-                final var scope = parserContext.getCurrentScope();
-                final var columns = scope.getAllQuantifiers().stream().map(qun -> {
-                    final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-                    return Column.of(
-                            Type.Record.Field.of(
-                                    quantifiedValue.getResultType(),
-                                    Optional.of(qun.getAlias().getId())),
-                            quantifiedValue);
-                });
-
-                // add everything in the group by clause to the result set.
-                if (groupByClause != null) {
-                    groupByClause.accept(this);
-                    final var groupByColumns = scope.getProjectList();
-                    Assert.thatUnchecked(!groupByColumns.isEmpty());
-                    groupingColumnsValue = RecordConstructorValue.ofColumns(groupByColumns);
-                } else {
-                    groupingColumnsValue = RecordConstructorValue.ofColumns(Collections.emptyList());
-                }
-                final List<Column<? extends Value>> resultColumns = Streams.concat(Stream.of(Column.of(
-                        Type.Record.Field.of(
-                                groupingColumnsValue.getResultType(),
-                                Optional.of(groupingAlias.getId())),
-                        groupingColumnsValue
-                )), columns).collect(Collectors.toList());
-
-                builder.addAllQuantifiers(scope.getAllQuantifiers()).addAllResultColumns(resultColumns);
-                if (scope.hasPredicate()) {
-                    builder.addPredicate(scope.getPredicate());
-                }
-                parserContext.popScope();
-                underlyingSelectQun = Quantifier.forEach(GroupExpressionRef.of(builder.build().buildSelect()));
-                parserContext.pushScope().addQuantifier(underlyingSelectQun); // for later processing
-            }
-
-            Quantifier groupByQuantifier = null;
-            Type groupByExpressionType = null;
-            // 2. handle group by expression.
-            {
-                final var scope = parserContext.getCurrentScope();
-                scope.setFlag(Scopes.Scope.Flag.WITH_GROUP_BY_CLAUSE); // set this flag so we can resolve grouping identifiers correctly.
-                selectElements.accept(this); // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by) columns.
-                // (yhatem) it is possible to pull the aggregation values from the projection list e.g. via TreeLike.filter
-                // but this is dangerous since we rely on two different visitation methods to give us back some children
-                // (e.g. one does pre-order, the other does post-order => references are wrongly established in step 3).
-                // therefore, we use Scope.getAggregateValues to give us back what we need, which, under the hood,
-                // relies on Antler's visitation (again) giving us consistent results between here and step 3.
-                final var aggregateValues = scope.getAggregateValues();
-                aggregateValues.forEach(ParserUtils::verifyAggregateValue);
-                final var aggrExprInternal = RecordConstructorValue.ofColumns(aggregateValues.stream().map(agg ->
-                        Column.of(
-                                Type.Record.Field.of(agg.getResultType(), Optional.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()))),
-                                agg)).collect(Collectors.toList()));
-
-                final var groupByExpression = new GroupByExpression(aggrExprInternal, groupByClause == null ? null : new FieldValue(underlyingSelectQun.getFlowedObjectValue(), List.of(groupingAlias.getId())), underlyingSelectQun);
-                groupByExpressionType = groupByExpression.getResultValue().getResultType();
-                parserContext.popScope();
-                groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);
-                parserContext.pushScope().addQuantifier(groupByQuantifier);
-            }
-
-            // 3. handle select on top of group by
-            {
-                final var scope = parserContext.getCurrentScope();
-                scope.setFlag(Scopes.Scope.Flag.WITH_GROUP_BY_CLAUSE); // set this flag so we can resolve grouping identifiers correctly.
-                scope.setFlag(Scopes.Scope.Flag.WITH_GROUP_BY_QUANTIFIER); // set this flag so we transform aggregate values into references.
-                scope.setGroupByQuantifierCorrelation(groupByQunAlias);
-                scope.setGroupByType(groupByExpressionType);
-                scope.getProjectList().clear();
-                selectElements.accept(this);
-                return parserContext.popScope().convertToSelectExpression();
-            }
+            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause);
         } else {
             parserContext.pushScope();
             fromClause.accept(this); // includes checking predicates
@@ -339,19 +245,158 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
     }
 
+    @Nonnull
+    private RelationalExpression handleSelectWithGroupBy(@Nonnull final RelationalParser.SelectElementsContext selectElements,
+                                                         @Nonnull final RelationalParser.FromClauseContext fromClause,
+                                                         @Nullable final RelationalParser.GroupByClauseContext groupByClause) {
+        /*
+         * planning GROUP BY is relatively complex, we do not end up generating a single QP node, but rather
+         * three:
+         *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
+         *  - the GROUP BY expression with aggregate expression and grouping expressions.
+         *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
+         *    expressions in the underlying GROUP BY expression.
+         */
+        final var groupingAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
+        final var groupByQunAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
+
+        Quantifier underlyingSelectQun = null;
+        // 1. create a new SELECT expression projecting all underlying quantifiers.
+        {
+            final var builder = GraphExpansion.builder();
+            // handle underlying select.
+            parserContext.pushScope();
+            // grab all quantifiers into the current scope.
+            fromClause.accept(this);
+            final var scope = parserContext.getCurrentScope();
+            final var columns = scope.getAllQuantifiers().stream().map(qun -> {
+                final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
+                return Column.of(
+                        Type.Record.Field.of(
+                                quantifiedValue.getResultType(),
+                                Optional.of(qun.getAlias().getId())),
+                        quantifiedValue);
+            });
+
+            RecordConstructorValue groupingColumnsValue = null;
+            // add everything in the group by clause to the result set.
+            if (groupByClause != null) {
+                groupByClause.accept(this);
+                final var groupByColumns = scope.getProjectList();
+                Assert.thatUnchecked(!groupByColumns.isEmpty());
+                groupingColumnsValue = RecordConstructorValue.ofColumns(groupByColumns);
+            } else {
+                groupingColumnsValue = RecordConstructorValue.ofColumns(Collections.emptyList());
+            }
+
+            // the result set is { GB, q1, q2, q3, ... } | GB is the grouping-columns group, q1, q2, q3 are RCV of the underlying quantifiers.
+            final var resultColumns = Streams.concat(
+                    Stream.of(Column.of(Type.Record.Field.of(groupingColumnsValue.getResultType(), Optional.of(groupingAlias.getId())), groupingColumnsValue)),
+                    columns).collect(Collectors.toList());
+            builder.addAllQuantifiers(scope.getAllQuantifiers()).addAllResultColumns(resultColumns);
+            if (scope.hasPredicate()) {
+                builder.addPredicate(scope.getPredicate());
+            }
+            parserContext.popScope();
+            underlyingSelectQun = Quantifier.forEach(GroupExpressionRef.of(builder.build().buildSelect()));
+            parserContext.pushScope().addQuantifier(underlyingSelectQun); // for later processing
+        }
+
+        // 2. handle group by expression.
+        Quantifier groupByQuantifier = null;
+        Type groupByExpressionType = null;
+        {
+            final var scope = parserContext.getCurrentScope();
+            scope.setFlag(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE); // set this flag, so we can resolve grouping identifiers correctly.
+            selectElements.accept(this); // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by) columns.
+            // (yhatem) it is possible to pull the aggregation values from the projection list e.g. via TreeLike.filter
+            // but this is dangerous since we rely on two different visitation methods to give us back some children
+            // (e.g. one does pre-order, the other does post-order => references are wrongly established in step 3).
+            // therefore, we use Scope.getAggregateValues to give us back what we need, which, under the hood,
+            // relies on Antler's visitation (again) giving us consistent results between here and step 3.
+            final var aggregateValues = scope.getAggregateValues();
+            aggregateValues.forEach(ParserUtils::verifyAggregateValue);
+            final var aggregationValue = RecordConstructorValue.ofColumns(aggregateValues.stream().map(agg ->
+                    Column.of(Type.Record.Field.of(agg.getResultType(), Optional.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()))), agg)).collect(Collectors.toList()));
+            final var groupByExpression = new GroupByExpression(aggregationValue, groupByClause == null ? null : FieldValue.ofFieldName(underlyingSelectQun.getFlowedObjectValue(), groupingAlias.getId()), underlyingSelectQun);
+            groupByExpressionType = groupByExpression.getResultValue().getResultType();
+            parserContext.popScope();
+            groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);
+            parserContext.pushScope().addQuantifier(groupByQuantifier);
+        }
+
+        // 3. handle select on top of group by
+        {
+            final var scope = parserContext.getCurrentScope();
+            scope.setFlag(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE); // set this flag, so we can resolve grouping identifiers correctly.
+            scope.setFlag(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING); // set this flag, so we transform aggregate values into references.
+            scope.setGroupByQuantifierCorrelation(groupByQunAlias);
+            scope.setGroupByType(groupByExpressionType);
+            scope.getProjectList().clear();
+            selectElements.accept(this);
+            return parserContext.popScope().convertToSelectExpression();
+        }
+    }
+
+    @Nonnull List<Column<? extends Value>> expandSelectWhereColumns(@Nonnull final Quantifier qun) {
+        final List<Column<? extends FieldValue>> expandedColumnNames = qun.getFlowedColumns().subList(1, qun.getFlowedColumns().size());
+        // now validate each column using the parser to make sure that it is visible.
+        final var fieldNames = expandedColumnNames.stream().flatMap(q -> {
+            Assert.thatUnchecked(q.getValue().getResultType() instanceof Type.Record, "can not expand '*'");
+            Type.Record record = (Type.Record) (q.getValue().getResultType());
+            Assert.thatUnchecked(record.getFields().stream().noneMatch(f -> f.getFieldNameOptional().isEmpty()), "unable to expand '*' because of unnamed underlying columns");
+            return record.getFields().stream().map(Type.Record.Field::getFieldName);
+        }).collect(Collectors.toList());
+        return fieldNames.stream().map(fieldName -> ParserUtils.resolveField(List.of(fieldName), parserContext)).map(ParserUtils::toColumn).collect(Collectors.toList());
+    }
+
+    @Nonnull
+    private List<Column<? extends Value>> expandStarColumns() {
+        final var scope = parserContext.getCurrentScope();
+        final var isUnderlyingSelectWhere = scope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
+        final var isUnderlyingGroupByExpression = scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
+        /*
+         * If we are expanding a star in a GROUP BY query, we have to be extra careful. In this case we will have
+         * an underlying SELECT expression with a result set that looks like this: {GB, T1, T2, ...}, where GB
+         * is the group by columns group, and T1, T2, ... are the result values of each underlying quantifier.
+         *
+         * We pick T1, T2, ... quantifiers, and expand their columns. The expanded columns are effectively the result
+         * of star expansion, _however_ we still have to pass them to validation logic to make sure they are visible
+         * with respect to the grouping columns.
+         *
+         * For example. Assume we have a table T1(id, col1, col2), a query like this should fail:
+         *
+         * SELECT * FROM T1 GROUP BY col1; -- expansion of '*' into T1's columns (id, col1, col2), this tuple does
+         * not pass validation since id and col2 are not in the group by columns group.
+         *
+         * However, a query like this should succeed:
+         *
+         * SELECT * FROM (SELECT col1 from T1) AS X GROUP BY x.col1;
+         */
+        if (isUnderlyingGroupByExpression) { // drill down to select-where
+            Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
+            final var groupByQun = parserContext.getCurrentScope().getForEachQuantifiers().get(0);
+            final var selectWhereQun = groupByQun.getRangesOver().get().getQuantifiers().stream().filter(q -> q instanceof Quantifier.ForEach).collect(Collectors.toList());
+            Assert.thatUnchecked(selectWhereQun.size() == 1);
+            return expandSelectWhereColumns(selectWhereQun.get(0));
+
+        } else if (isUnderlyingSelectWhere) { // expand { GB, -> {... rest} }
+            Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
+            final var qun = parserContext.getCurrentScope().getForEachQuantifiers().get(0);
+            return expandSelectWhereColumns(qun);
+        } else {
+            return scope.getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach)
+                    .flatMap(qun -> qun.getFlowedColumns().stream())
+                    .collect(Collectors.toList());
+        }
+    }
+
     @Override
     public Void visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx) {
         if (ctx.star != null) {
-            //            // optimizes the way we add a value as-is.
-            //            final var numQun = parserContext.getCurrentScope().getAllQuantifiers().size();
-            //            if(numQun == 1) {
-            //                parserContext.getCurrentScope().addResultValue(parserContext.getCurrentScope().getAllQuantifiers().get(0).getFlowedObjectValue());
-            //            } else {
-            parserContext.getCurrentScope()
-                    .getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach)
-                    .flatMap(qun -> qun.getFlowedColumns().stream())
-                    .forEach(c -> parserContext.getCurrentScope().addProjectionColumn(c));
-            //            }
+            final var cols = expandStarColumns();
+            final var scope = parserContext.getCurrentScope();
+            cols.forEach(scope::addProjectionColumn);
         } else {
             ctx.selectElement().forEach(element -> {
                 Column<? extends Value> column = (Column<? extends Value>) element.accept(this);
@@ -415,9 +460,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
             final Value predicate = (Value) predicateObj;
             Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
-            final Collection<QuantifiedValue> aliases = parserContext.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).flatMap(qun -> qun.getFlowedValues().stream()).collect(Collectors.toList()); // not sure this is correct
+            final Collection<CorrelationIdentifier> aliases = parserContext.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
-            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(aliases.stream().findFirst().get().getAlias());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(aliases.stream().findFirst().get());
             Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
             parserContext.getCurrentScope().setPredicate(predicateOptional.get()); // improve
         }
@@ -966,10 +1011,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         final var scope = parserContext.getCurrentScope();
-        if (scope.isFlagSet(Scopes.Scope.Flag.WITH_GROUP_BY_QUANTIFIER)) {
+        if (scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING)) {
             final var groupByQuantifier = QuantifiedObjectValue.of(Objects.requireNonNull(scope.getGroupByQuantifierCorrelation()), Objects.requireNonNull(scope.getGroupByType()));
-            final var aggExprSelector = OrdinalFieldValue.of(groupByQuantifier, ParserUtils.getLastFieldIndex(groupByQuantifier.getResultType()));
-            final var aggregationReference = OrdinalFieldValue.of(aggExprSelector, scope.getAggCounter());
+            final var aggExprSelector = FieldValue.ofOrdinalNumber(groupByQuantifier, ParserUtils.getLastFieldIndex(groupByQuantifier.getResultType()));
+            final var aggregationReference = FieldValue.ofOrdinalNumber(aggExprSelector, scope.getAggCounter());
             scope.increaseAggCounter();
             return aggregationReference;
         } else {
@@ -1182,7 +1227,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public static RelationalParser.RootContext parseQuery(@Nonnull final String query) throws RelationalException {
         final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        SyntaxErrorListener listener = new SyntaxErrorListener();
+        parser.removeErrorListeners();
+        final SyntaxErrorListener listener = new SyntaxErrorListener();
         parser.addErrorListener(listener);
         RelationalParser.RootContext rootContext = parser.root();
         if (!listener.getSyntaxErrors().isEmpty()) {

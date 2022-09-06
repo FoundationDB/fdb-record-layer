@@ -1,0 +1,77 @@
+#
+# scenario-tests.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: DROP SCHEMA TEMPLATE messenger_template;
+---
+- query: DROP SCHEMA TEMPLATE conversation_template;
+---
+- query: CREATE SCHEMA TEMPLATE messenger_template 
+    CREATE TABLE messages(
+    id int64,
+           text string,
+           timestamp int64,
+           other_party_id int64,
+           sent boolean,
+           primary key(id))
+       CREATE TABLE customer(
+           id int64,
+           name string,
+           phone_number string,
+           address string,
+           primary key(id))
+   ;
+---
+- query: CREATE SCHEMA TEMPLATE conversation_template
+       CREATE STRUCT customer_detail(
+           name string,
+           phone_number string,
+           address string
+       )
+       CREATE STRUCT "MESSAGE"(
+           text string,
+           timestamp int64,
+           sent boolean
+       )
+       CREATE TABLE conversations(
+           id int64,
+           other_party CONTACT_DETAIL,
+           messages "MESSAGE" ARRAY,
+           primary key(id))
+   ;
+---
+- query: drop database /JOIN_YAML
+---
+- query: create database /JOIN_YAML
+---
+- query: create schema /JOIN_YAML/test with template messenger_template
+---
+- connect: "jdbc:embed:/JOIN_YAML?schema=TEST"
+---
+# the query works now as expected, TODO: add data, verify results.
+- query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
+---
+- query: drop schema template conversation_template
+---
+- query: drop schema template messenger_template
+---
+- query: drop database /JOIN_YAML
+...

@@ -1,0 +1,93 @@
+#
+# join-tests.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template join_tests_template
+---
+- query: create schema template join_tests_template
+    create table emp(id int64, fname string, lname string, dept_id int64, primary key(id))
+    create table dept(id int64, name string, primary key(id))
+    create table project(id int64, name string, dsc string, emp_id int64, primary key(id))
+---
+- query: drop database /JOIN_YAML
+---
+- query: create database /JOIN_YAML
+---
+- query: create schema /JOIN_YAML/test with template join_tests_template
+---
+- connect: "jdbc:embed:/JOIN_YAML?schema=TEST"
+---
+- insert: [{ID: 1, "Jack", "Williams", 1},
+           {ID: 2, "Thomas", "Johnson", 1},
+           {ID: 3, "Emily", "Martinez", 1},
+           {ID: 4, "Amelia", "Johnson", 1},
+           {ID: 5, "Daniel", "Miller", 2},
+           {ID: 6, "Chloe", "Jones", 2},
+           {ID: 7, "Charlotte", "Garcia", 2},
+           {ID: 8, "Megan", "Miller", 3},
+           {ID: 9, "Harry", "Smith", 3}]
+- table: EMP
+---
+- insert: [{ID: 1, "Engineering"},
+           {ID: 2, "Sales"},
+           {ID: 3, "Marketing"}]
+- table: DEPT
+---
+- insert: [{ID: 1, "OLAP", "Support OLAP queries", 3},
+           {ID: 2, "SEO", "Increase visibility on popular search engines", 8},
+           {ID: 3, "Feedback", "Turn customer feedback into actionable items", 5}]
+- table: PROJECT
+---
+# Get names of people working in Engineering:
+- query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
+- result: [{"Jack", "Williams"},
+           {"Thomas", "Johnson"},
+           {"Emily", "Martinez"},
+           {"Amelia", "Johnson"}]
+---
+# Get names of people working on a project (TODO (Support normal existential subqueries)
+#- query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
+#- result: [{"Emily", "Martinez"},
+#           {"Megan", "Miller"},
+#           {"Daniel", "Miller"}]
+#---
+# three-way join to find which departments' corresponding projects.
+- query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
+- result: [{"Engineering", "OLAP"},
+           {"Marketing", "SEO"},
+           {"Sales", "Feedback"}]
+---
+# two-level left-nested join to find which departments' corresponding projects.
+- query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;
+- result: [{"Engineering", "OLAP"},
+           {"Sales", "Feedback"},
+           {"Marketing", "SEO"}]
+---
+# two-level right-nested join to find which departments' corresponding projects.
+- query: select sq.name, project.name from project, (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq where project.emp_id = sq.id;
+- result: [{"Engineering", "OLAP"},
+           {"Sales", "Feedback"},
+           {"Marketing", "SEO"}]
+---
+- query: drop schema template join_tests_template
+---
+- query: drop database /JOIN_YAML
+...

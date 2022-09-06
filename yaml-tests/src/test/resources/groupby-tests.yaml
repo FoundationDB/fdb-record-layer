@@ -1,0 +1,136 @@
+#
+# groupby-tests.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template groupby_tests_template
+---
+- query: create schema template groupby_tests_template
+    create table t1(id int64, col1 int64, col2 int64, primary key(id))
+    create value index i1 on t1(col1)
+---
+- query: drop database /GB_YAML
+---
+- query: create database /GB_YAML
+---
+- query: create schema /GB_YAML/test with template groupby_tests_template
+---
+- connect: "jdbc:embed:/GB_YAML?schema=TEST"
+---
+- insert: [{ID: 1, 10, 1},
+           {ID: 2, 10, 2},
+           {ID: 3, 10, 3},
+           {ID: 4, 10, 4},
+           {ID: 5, 10, 5},
+           {ID: 6, 20, 6},
+           {ID: 7, 20, 7},
+           {ID: 8, 20, 8},
+           {ID: 9, 20, 9},
+           {ID: 10, 20, 10},
+           {ID: 11, 20, 11},
+           {ID: 12, 20, 12},
+           {ID: 13, 20, 13}]
+- table: T1
+---
+- query: select * from T1 group by col1;
+- error: "42803"
+---
+- query: select ID from T1 group by col1;
+- error: "42803"
+---
+# even if the column doesn't exist, we throw 42803 error code.
+- query: select BLA from T1 group by col1;
+- error: "42803"
+---
+- query: select col1 from T1 group by col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: select * from (select col1 from T1) as X group by col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: select col1 as XX from T1 group by col1;
+- result: [{!l 10}, {!l 20}]
+---
+# error cascades can not plan this query, #derivation_graphs
+#- query: select x from T1 group by col1 as x;
+#- result: [{!l 10}, {!l 20}]
+#---
+- query: select col1 from (select col1 from t1) as x group by col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: select col1 from (select col1 from t1) as x group by x.col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{!l 5}, {!l 13}]
+---
+- query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{!l 1}, {!l 6}]
+---
+- query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{!l 5}, {!l 8}]
+---
+- query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{3.0}, {9.5}]
+---
+- query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{!l 15}, {!l 76}]
+---
+# result is correct since we don't use (not support, yet) explicit casting.
+- query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+- result: [{!l 3, 3.0}, {!l 9, 9.5}]
+---
+- query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
+- error: "42803"
+---
+- query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
+- error: "42803"
+---
+- query: select MAX(x.col2) from (select col1,col2 from t1) as x;
+- result: [{!l 13}]
+---
+- query: select MIN(x.col2) from (select col1,col2 from t1) as x;
+- result: [{!l 1}]
+---
+- query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
+- result: [{!l 13}]
+---
+- query: select AVG(x.col2) from (select col1,col2 from t1) as x;
+- result: [{7.0}]
+---
+- query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
+- result: [{!l 20}, {!l 30}]
+---
+- query: select x.col1 + x.col2 from (select col1, col2 from t1) as x group by x.col1;
+- error: "42803"
+---
+- query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
+- result: [{!l 20}, {!l 40}]
+---
+- query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
+- result: [{!l 10}]
+---
+- query: drop schema template groupby_tests_template
+---
+- query: drop database /GB_YAML
+...
