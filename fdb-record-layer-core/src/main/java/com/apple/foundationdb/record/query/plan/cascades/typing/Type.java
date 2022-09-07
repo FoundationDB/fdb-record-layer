@@ -281,18 +281,7 @@ public interface Type extends Narrowable<Type> {
         final var typeCode = TypeCode.fromProtobufType(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            // case 1: primitive types, array elements are not-nullable
-            if (typeCode.isPrimitive()) {
-                final var primitiveType = primitiveType(typeCode, false);
-                return new Array(primitiveType);
-            } else if (typeCode == TypeCode.ENUM) {
-                final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                final var enumType = new Enum(false, Enum.enumValuesFromProto(enumDescriptor.getValues()));
-                return new Array(enumType);
-            } else {
-                // case 2: any arbitrary sub message we don't understand
-                return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
-            }
+            return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
         } else {
             if (typeCode.isPrimitive()) {
                 return primitiveType(typeCode, isNullable);
@@ -306,19 +295,7 @@ public interface Type extends Narrowable<Type> {
                     // find TypeCode of array elements
                     final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                     final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
-                    if (elementTypeCode.isPrimitive()) {
-                        final var primitiveType = primitiveType(elementTypeCode, true);
-                        return new Array(true, true, primitiveType);
-                    } else if (elementTypeCode == TypeCode.ENUM) {
-                        final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                        final var enumType = new Enum(true, Enum.enumValuesFromProto(enumDescriptor.getValues()));
-                        return new Array(true, true, enumType);
-                    } else {
-                        // array elements is Record type
-                        Descriptors.Descriptor wrappedDescriptor = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
-                        Objects.requireNonNull(wrappedDescriptor);
-                        return new Array(true, true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
-                    }
+                    return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
                 } else {
                     return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
                 }
@@ -326,6 +303,32 @@ public interface Type extends Narrowable<Type> {
         }
 
         throw new IllegalStateException("unable to translate protobuf descriptor to type");
+    }
+
+    /**
+     * translates a repeated field in a protobuf to a {@link Array}.
+     * @param descriptor The protobuf descriptor.
+     * @param protoType The protobuf descriptor type.
+     * @return A {@link Array} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
+     */
+    private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor, @Nonnull Descriptors.FieldDescriptor.Type protoType, @Nonnull TypeCode typeCode, boolean needsWrapper) {
+        if (typeCode.isPrimitive()) {
+            final var primitiveType = primitiveType(typeCode, needsWrapper);
+            return new Array(true, needsWrapper, primitiveType);
+        } else if (typeCode == TypeCode.ENUM) {
+            final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+            final var enumType = new Enum(needsWrapper, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+            return new Array(true, needsWrapper, enumType);
+        } else {
+            if (needsWrapper) {
+                Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)descriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
+                Objects.requireNonNull(wrappedDescriptor);
+                return new Array(true, true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+            } else {
+                // case 2: any arbitrary sub message we don't understand
+                return new Array(true, false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+            }
+        }
     }
 
     /**
