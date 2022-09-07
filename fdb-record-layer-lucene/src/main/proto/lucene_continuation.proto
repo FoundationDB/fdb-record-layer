@@ -27,6 +27,17 @@ message LuceneIndexContinuation {
     required uint64 doc = 1;
     required float score = 2;
     optional uint64 shard = 3;
+    message Field {
+        oneof value {
+            uint32 i = 1;
+            uint64 l = 2;
+            float f = 3;
+            double d = 4;
+            string s = 5;
+            bytes b = 6;
+        }
+    }
+    repeated Field fields = 4;
 }
 
 message LuceneAutoCompleteIndexContinuation {
