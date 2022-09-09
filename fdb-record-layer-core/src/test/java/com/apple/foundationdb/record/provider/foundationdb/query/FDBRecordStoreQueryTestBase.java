@@ -212,7 +212,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, nestedMetaData(hook));
     }
 
-    protected void openNestedWrappedArrayRecordStore(FDBRecordContext context) throws Exception {
+    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));

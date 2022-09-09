@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
  * A Utils class that holds logic related to nullable arrays.
  */
 public class NullableArrayTypeUtils {
+    @Nonnull
     private static final String REPEATED_FIELD_NAME = "values";
 
     private NullableArrayTypeUtils() {
@@ -46,6 +47,7 @@ public class NullableArrayTypeUtils {
      *
      * @return fieldName of the repeated field
      */
+    @Nonnull
     public static String getRepeatedFieldName() {
         return REPEATED_FIELD_NAME;
     }
@@ -91,7 +93,7 @@ public class NullableArrayTypeUtils {
     }
 
     /**
-     * Unwrap nested array in keyExpression.
+     * Unwrap nested array in nestingKeyExpression.
      *
      * @param nestingKeyExpression The input keyExpression
      *
@@ -107,10 +109,26 @@ public class NullableArrayTypeUtils {
         return new NestingKeyExpression(newNestingBuilder.build());
     }
 
+    /**
+     * Unwrap nested array in fieldKeyExpression.
+     *
+     * @param fieldKeyExpression The input keyExpression
+     *
+     * @return a keyExpression without wrapped array
+     */
+    @Nonnull
     public static FieldKeyExpression unwrapArrayInFieldKeyExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
         return new FieldKeyExpression(fieldKeyExpression.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build());
     }
 
+    /**
+     * If the value is a nullable array, unwrap the value wrapper.
+     *
+     * @param wrappedValue The input value
+     * @param type The input type
+     *
+     * @return The unwrapped value
+     */
     @Nullable
     public static Object unwrapIfArray(@Nullable Object wrappedValue, @Nonnull Type type) {
         //
@@ -123,7 +141,14 @@ public class NullableArrayTypeUtils {
         return wrappedValue;
     }
 
-    private static boolean isWrappedField(RecordMetaDataProto.Field field) {
+    /**
+     * Return whether a Field is a wrapped array.
+     *
+     * @param field The input field
+     *
+     * @return <code>true</code> if it is a wrapped array, otherwise <code>false</code>.
+     */
+    private static boolean isWrappedField(@Nonnull RecordMetaDataProto.Field field) {
         return REPEATED_FIELD_NAME.equals(field.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(field.getFanType());
     }
 }

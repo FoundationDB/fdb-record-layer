@@ -306,11 +306,12 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
-     * translates a repeated field in a protobuf to a {@link Array}.
+     * Translates a repeated field in a protobuf descriptor to a {@link Array}.
      * @param descriptor The protobuf descriptor.
      * @param protoType The protobuf descriptor type.
      * @return A {@link Array} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
+    @Nonnull
     private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor, @Nonnull Descriptors.FieldDescriptor.Type protoType, @Nonnull TypeCode typeCode, boolean needsWrapper) {
         if (typeCode.isPrimitive()) {
             final var primitiveType = primitiveType(typeCode, needsWrapper);
