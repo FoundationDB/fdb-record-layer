@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import java.net.URI;
 import java.util.function.Consumer;

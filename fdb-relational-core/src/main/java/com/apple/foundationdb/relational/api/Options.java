@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
-import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.collect.ImmutableMap;
 

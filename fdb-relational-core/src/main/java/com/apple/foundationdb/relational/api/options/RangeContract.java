@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.api.options;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 public class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;

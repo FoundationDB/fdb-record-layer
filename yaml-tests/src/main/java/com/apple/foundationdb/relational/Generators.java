@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import static com.apple.foundationdb.relational.Matchers.*;
-import static com.apple.foundationdb.relational.recordlayer.utils.Assert.fail;
+import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
 
 public class Generators {
 

@@ -52,7 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
-import com.apple.foundationdb.relational.recordlayer.utils.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
 

@@ -18,4 +18,7 @@
  * limitations under the License.
  */
 
+/**
+ * Contains a set of utility methods.
+ */
 package com.apple.foundationdb.relational.recordlayer.util;
