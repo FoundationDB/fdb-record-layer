@@ -81,6 +81,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @Test
+    @SuppressWarnings("deprecation")
     public void buildEndpointIdempotency() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
@@ -199,6 +200,9 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertEquals(Collections.singletonList(Tuple.from(1L)), middleRanges.stream().map(r -> Tuple.fromBytes(r.begin)).collect(Collectors.toList()));
             assertEquals(Collections.singletonList(Tuple.from(8L)), middleRanges.stream().map(r -> Tuple.fromBytes(r.end)).collect(Collectors.toList()));
 
+            // Update Aug/22: buildEndpoints uses the IndexingByRecords module, while buildIndex uses the new
+            // IndexingMultiTargetByRecords one (which doesn't use endpoints), yet this test - which combines the two -
+            // is kept 'as is' for an extra sanity test.
             // Straight up build the whole index.
             indexBuilder.buildIndex(false);
             assertEquals(Tuple.from(55L), getAggregate.get());
@@ -808,6 +812,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void markReadable() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -976,11 +981,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        // this includes two endpoints + one range = total of 3 terminations by count
-        // - note that (last, null] endpoint is en empty range
-        assertEquals(3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        // this is the range between the endpoints - all the items in the (first, last] interval
-        assertEquals(numRecords - 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(numRecords - 1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
     }
 
     @Test

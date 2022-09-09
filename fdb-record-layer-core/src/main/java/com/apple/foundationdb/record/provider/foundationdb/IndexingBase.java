@@ -823,6 +823,12 @@ public abstract class IndexingBase {
                 getRunner().getExecutor());
     }
 
+    protected static boolean allRangesExhausted(Tuple cont, Tuple end) {
+        // if cont isn't null, it means that the cursor was not exhausted
+        // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
+        return end == null && cont == null;
+    }
+
     // rebuildIndexAsync - builds the whole index inline (without committing)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {

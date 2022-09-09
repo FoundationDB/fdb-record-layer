@@ -214,6 +214,18 @@ public class TupleRange {
     }
 
     /**
+     * Create a <code>TupleRange</code> over all keys between the given {@link Tuple}s, including both endpoints.
+     * @param low the inclusive start of the range
+     * @param high the inclusive end of the range
+     * @return a <code>TupleRange</code> between <code>start</code> and <code>end</code>, inclusive
+     */
+    public static TupleRange betweenInclusive(@Nullable Tuple low, @Nullable Tuple high) {
+        EndpointType lowEndpoint = (low == null) ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE;
+        EndpointType highEndpoint = (high == null) ? EndpointType.TREE_END : EndpointType.RANGE_INCLUSIVE;
+        return new TupleRange(low, high, lowEndpoint, highEndpoint);
+    }
+
+    /**
      * Create a <code>TupleRange</code> over all keys prefixed by some {@link String}. This
      * is a shortcut for creating a <code>TupleRange</code> where both the low- and high-endpoints
      * are <code>Tuple</code>s containing a single <code>String</code> where both the low

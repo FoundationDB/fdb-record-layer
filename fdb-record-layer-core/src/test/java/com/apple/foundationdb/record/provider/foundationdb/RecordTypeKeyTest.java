@@ -645,6 +645,73 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    public void testOnlineIndexMultiTargetBuilder() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            context.commit();
+        }
+
+        saveManyRecords(BASIC_HOOK, 250, 250);
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MyOtherRecord").join().intValue());
+        }
+
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addIndex("MyOtherRecord", "newIndex", "num_value_2");
+            metaData.addIndex("MyOtherRecord", new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM));
+            metaData.addIndex("MyOtherRecord", new Index("newMaxIndex", field("num_value_2").ungrouped(), IndexTypes.MAX_EVER_TUPLE));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexDisabled("newIndex"));
+            assertTrue(recordStore.isIndexDisabled("newSumIndex"));
+            assertTrue(recordStore.isIndexDisabled("newMaxIndex"));
+
+            context.commit();
+        }
+
+        // Build multiple indexes of typed records
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore)
+                .addTargetIndex("newIndex")
+                .addTargetIndex("newSumIndex")
+                .addTargetIndex("newMaxIndex")
+                .build()) {
+            timer.reset();
+            indexBuilder.buildIndex();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), Matchers.greaterThanOrEqualTo(3));
+        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(null, 2, i)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+        }
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertTrue(recordStore.isIndexReadable("newSumIndex"));
+            assertTrue(recordStore.isIndexReadable("newMaxIndex"));
+
+            context.commit();
+        }
+    }
+
     private List<FDBStoredRecord<Message>> saveSomeRecords(@Nonnull RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

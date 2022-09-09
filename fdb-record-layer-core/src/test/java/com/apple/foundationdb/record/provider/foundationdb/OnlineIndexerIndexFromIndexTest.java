@@ -94,8 +94,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             // The index should be partially built
         }
-        final int expected = policy == null ? count + 1 : count; // by-records performs an extra range while building endpoints
-        assertEquals(expected , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(count, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
     @Test

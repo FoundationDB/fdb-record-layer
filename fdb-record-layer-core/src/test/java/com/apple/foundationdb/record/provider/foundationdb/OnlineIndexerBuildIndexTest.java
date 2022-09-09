@@ -75,6 +75,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         this.safeBuild = safeBuild;
     }
 
+    @SuppressWarnings("deprecation")
     void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                                  int agents, boolean overlap, boolean splitLongRecords,
                                  @Nonnull Index index, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
