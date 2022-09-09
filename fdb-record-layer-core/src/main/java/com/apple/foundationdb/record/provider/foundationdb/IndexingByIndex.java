@@ -44,7 +44,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -130,24 +129,21 @@ public class IndexingByIndex extends IndexingBase {
                             .thenCompose(vignore -> {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace, null, null));
+                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace));
                             });
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
-                LogMessageKeys.RANGE_START, start,
-                LogMessageKeys.RANGE_END, end);
-
+    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex");
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
+                (store, recordsScanned) -> buildRangeOnly(store, recordsScanned),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
         // return false when done
 
         validateSameMetadataOrThrow(store);
@@ -161,7 +157,7 @@ public class IndexingByIndex extends IndexingBase {
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)

@@ -116,27 +116,24 @@ public class IndexingScrubDangling extends IndexingBase {
                                     SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                     return subspaceProvider.getSubspaceAsync(context)
                                             .thenCompose(subspace ->
-                                                    scrubIndex(subspaceProvider, subspace, null, null)
+                                                    scrubIndex(subspaceProvider, subspace)
                                             );
                                 }),
                 common.indexLogMessageKeyValues("IndexingScrubber::buildIndexInternalAsync"));
     }
 
     @Nonnull
-    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                               @Nullable byte[] start, @Nullable byte[] end) {
+    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
 
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
-                LogMessageKeys.RANGE_START, start,
-                LogMessageKeys.RANGE_END, end);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords");
 
         return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
+                (store, recordsScanned) -> scrubIndexRangeOnly(store, recordsScanned),
                 subspaceProvider, subspace);
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
         // return false when done
         Index index = common.getIndex();
         final RecordMetaData metaData = store.getRecordMetaData();
@@ -152,7 +149,7 @@ public class IndexingScrubDangling extends IndexingBase {
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
 
         RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)

@@ -151,12 +151,12 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
         return maybePresetRangeFuture.thenCompose(ignore ->
                 iterateAllRanges(additionalLogMessageKeyValues,
-                        (store, recordsScanned) -> buildRangeOnly(store, rangeStart, rangeEnd , recordsScanned),
+                        (store, recordsScanned) -> buildRangeOnly(store, recordsScanned),
                 subspaceProvider, subspace));
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
         // return false when done
         /* Multi target consistency:
          * 1. Identify missing ranges from only the first index
@@ -165,7 +165,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
          */
         validateSameMetadataOrThrow(store);
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getPrimaryIndex()));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
         final List<Index> targetIndexes = common.getTargetIndexes();
         final List<RangeSet> targetRangeSets = targetIndexes.stream().map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex))).collect(Collectors.toList());
         final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
