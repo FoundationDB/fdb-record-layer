@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
- * TODO.
+ * Test cases to exercise the computation engine over {@link Value} trees.
  */
 class ValueComputationTest {
     private static final CorrelationIdentifier ALIAS = CorrelationIdentifier.of("_");
@@ -74,17 +74,17 @@ class ValueComputationTest {
         // The following pulls (_.x.xa, _.z) through (_.x, _.z) to form (outer._0.xa, outer._1).
         //
 
-        final var resultMapOptional = pulledThroughValue.pullUp(toBePulledUpValues, ImmutableSet.of(), ALIAS);
+        final var resultsOptional = pulledThroughValue.pullUpMaybe(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
 
-        Assertions.assertTrue(resultMapOptional.isPresent());
+        Assertions.assertTrue(resultsOptional.isPresent());
 
         final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
 
-        final var expectedMap = ImmutableMap.<Value, Value>of(
-                FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")), FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
-                FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("z")), FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1")));
+        final var expectedMap = ImmutableList.<Value>of(
+                FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "xa")),
+                FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1")));
 
-        Assertions.assertEquals(expectedMap, resultMapOptional.get());
+        Assertions.assertEquals(expectedMap, resultsOptional.get());
     }
 
     @Test
@@ -107,7 +107,7 @@ class ValueComputationTest {
                                 FieldValue.ofOrdinalNumber(groupingValue, 1),
                                 FieldValue.ofFieldName(someCurrentValue, "a")));
         
-        final var resultMapOptional = completeResultValue.pullUp(toBePulledUpValues, ImmutableSet.of(), ALIAS);
+        final var resultMapOptional = completeResultValue.pullUpMaybe(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
 
         Assertions.assertTrue(resultMapOptional.isPresent());
 
@@ -116,9 +116,9 @@ class ValueComputationTest {
         // _
         final var someNewCurrentValue = QuantifiedObjectValue.of(ALIAS, completeResultValue.getResultType());
 
-        final var expectedResult = ImmutableMap.of(
-                _x, FieldValue.ofOrdinalNumber(someNewCurrentValue, 0),
-                _z, FieldValue.ofOrdinalNumber(someNewCurrentValue, 1));
+        final var expectedResult = ImmutableList.of(
+                FieldValue.ofOrdinalNumber(someNewCurrentValue, 0),
+                FieldValue.ofOrdinalNumber(someNewCurrentValue, 1));
         Assertions.assertEquals(expectedResult, resultMap);
     }
 

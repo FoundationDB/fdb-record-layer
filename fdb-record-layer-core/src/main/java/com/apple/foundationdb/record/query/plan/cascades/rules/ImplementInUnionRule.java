@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyPr
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
@@ -236,9 +235,9 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         return resultMap;
     }
 
-    private static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
-                                                         @Nonnull RequestedOrdering requestedOrdering,
-                                                         @Nonnull Set<Value> innerBoundExpressions) {
+    private static Optional<Ordering> orderingForInUnion(@Nonnull final Ordering providedOrdering,
+                                                         @Nonnull final RequestedOrdering requestedOrdering,
+                                                         @Nonnull final Set<Value> innerBoundExpressions) {
         final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
 

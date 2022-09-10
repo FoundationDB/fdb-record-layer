@@ -148,6 +148,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     }
 
     @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return ImmutableSet.copyOf(Iterables.concat(

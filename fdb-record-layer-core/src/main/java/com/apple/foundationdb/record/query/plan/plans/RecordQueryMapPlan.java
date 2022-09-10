@@ -212,6 +212,11 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     }
 
     @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(

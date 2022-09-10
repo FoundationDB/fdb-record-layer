@@ -21,10 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -76,17 +77,26 @@ public class PushRequestedOrderingThroughSelectRule extends CascadesRule<SelectE
                 call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
-        if (isInnerQuantifierOnlyForEach) {
-            // TODO we can only really do this if the SELECT is a SELECT *
-            call.pushConstraint(lowerRef,
-                    RequestedOrderingConstraint.REQUESTED_ORDERING,
-                    requestedOrderings);
-        } else {
-            if (requestedOrderings.stream().anyMatch(RequestedOrdering::isPreserve)) {
-                call.pushConstraint(lowerRef,
-                        RequestedOrderingConstraint.REQUESTED_ORDERING,
-                        ImmutableSet.of(RequestedOrdering.preserve()));
+        if (!isInnerQuantifierOnlyForEach && requestedOrderings.stream().anyMatch(requestedOrdering -> !requestedOrdering.isPreserve())) {
+            return;
+        }
+
+        final var resultValue = selectExpression.getResultValue();
+        final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
+        for (final var requestedOrdering : requestedOrderings) {
+            if (requestedOrdering.isPreserve()) {
+                toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
+            } else {
+                toBePushedRequestedOrderingsBuilder.add(
+                        requestedOrdering.pushDown(resultValue,
+                                innerQuantifier.getAlias(),
+                                AliasMap.emptyMap(),
+                                selectExpression.getCorrelatedTo()));
             }
         }
+
+        call.pushConstraint(lowerRef,
+                RequestedOrderingConstraint.REQUESTED_ORDERING,
+                toBePushedRequestedOrderingsBuilder.build());
     }
 }

@@ -33,10 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
-import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -49,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
@@ -57,8 +55,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.V
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
@@ -67,7 +65,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -417,96 +414,80 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
     @Nonnull
     default Value simplify(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                           @Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return Simplification.simplify(this, constantAliases, ruleSet);
+        return Simplification.simplify(this, aliasMap, constantAliases, ruleSet);
     }
 
     @Nonnull
-    default Optional<Map<Value, Value>> pullUp(@Nonnull final List<Value> toBePulledUpValues,
-                                               @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                               @Nonnull final CorrelationIdentifier newBaseAlias) {
+    default Optional<List<Value>> pullUpMaybe(@Nonnull final List<Value> toBePulledUpValues,
+                                              @Nonnull final AliasMap aliasMap,
+                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                              @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        //
+        // Construct an alias map for equivalences.
+        //
+        final var correlatedTos = toBePulledUpValues.stream()
+                .map(value -> getCorrelatedTo())
+                .collect(ImmutableList.toImmutableList());
+
+        final var correlatedToIntersection = Sets.newHashSet(getCorrelatedTo());
+        correlatedTos.forEach(correlatedToIntersection::retainAll);
+
+        final var equivalenceMap = aliasMap.derived()
+                .identitiesFor(correlatedToIntersection)
+                .build();
+
         final var valueWitResult =
-                Simplification.compute(this, toBePulledUpValues, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
+                Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
         if (valueWitResult == null) {
             return Optional.empty();
         }
 
         final var matchedValuesMap = valueWitResult.getResult();
-        final var argumentToResultMap = new LinkedIdentityMap<Value, Value>();
+        final var resultsBuilder = ImmutableList.<Value>builder();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
             if (compensation == null) {
                 return Optional.empty();
             }
 
-            argumentToResultMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(newBaseAlias, this.getResultType())));
+            resultsBuilder.add(compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
         }
 
-        return Optional.of(argumentToResultMap);
+        return Optional.of(resultsBuilder.build());
     }
 
     @Nonnull
-    default Ordering pullUp(@Nonnull Ordering childOrdering, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        //
-        // Need to pull every participating value of this ordering through this value.
-        //
-        final var orderingKeyParts = childOrdering.getOrderingKeyParts();
-        final var orderingKeyValues =
-                orderingKeyParts
-                        .stream()
-                        .map(KeyPart::getValue)
-                        .collect(ImmutableList.toImmutableList());
-
-        final var pulledUpOrderingKeyValuesMapOptional =
-                pullUp(orderingKeyValues, constantAliases, Quantifier.CURRENT);
-        if (pulledUpOrderingKeyValuesMapOptional.isEmpty()) {
-            return Ordering.emptyOrder();
-        }
-        final var pulledUpOrderingKeyValuesMap = pulledUpOrderingKeyValuesMapOptional.get();
-        final var pulledUpOrderingKeyParts = orderingKeyParts
-                .stream()
-                .map(orderingKeyPart -> KeyPart.of(Objects.requireNonNull(pulledUpOrderingKeyValuesMap.get(orderingKeyPart.getValue())), orderingKeyPart.isReverse()))
+    default List<Value> pushDown(@Nonnull final List<Value> toBePushedDownValues,
+                                 @Nonnull final AliasMap aliasMap,
+                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                 @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        return toBePushedDownValues.stream()
+                .map(toBePulledUpValue ->
+                        toBePulledUpValue.replaceLeavesMaybe(value -> {
+                            if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
+                                return this;
+                            }
+                            return value;
+                        }))
+                .map(valueOptional -> valueOptional.orElseThrow(() -> new RecordCoreException("unexpected empty optional")))
+                .map(composedValue -> composedValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases))
                 .collect(ImmutableList.toImmutableList());
-
-        final var equalityBoundMap = childOrdering.getEqualityBoundKeyMap();
-        final var pulledUpEqualityBoundMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
-
-        for (final var entry : equalityBoundMap.entries()) {
-            final var value = entry.getKey();
-            final var comparison = entry.getValue();
-            if (comparison instanceof Comparisons.ValueComparison) {
-                final var valueComparison = (Comparisons.ValueComparison)comparison;
-                final var valueForValueComparison = valueComparison.getComparandValue();
-                final var pulledUpEqualityBindingOptional = pullUp(ImmutableList.of(value, valueForValueComparison), constantAliases, Quantifier.CURRENT);
-                if (pulledUpEqualityBindingOptional.isEmpty()) {
-                    continue;
-                }
-                final var pulledUpEqualityBinding = pulledUpEqualityBindingOptional.get();
-                pulledUpEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledUpEqualityBinding.get(value)), new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(pulledUpEqualityBinding.get(valueForValueComparison))));
-            } else {
-                final var pulledUpEqualityBindingOptional = pullUp(ImmutableList.of(value), constantAliases, Quantifier.CURRENT);
-                if (pulledUpEqualityBindingOptional.isEmpty()) {
-                    continue;
-                }
-                final var pulledUpEqualityBinding = pulledUpEqualityBindingOptional.get();
-                pulledUpEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledUpEqualityBinding.get(value)), comparison);
-            }
-        }
-
-        return new Ordering(pulledUpEqualityBoundMapBuilder.build(), pulledUpOrderingKeyParts, false);
     }
 
+
     @Nonnull
-    default List<Value> simplifyOrderingValue(@Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var simplifiedOrderingValue =
-                Simplification.simplify(this, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules());
+                Simplification.simplify(this, aliasMap, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules());
 
         if (simplifiedOrderingValue instanceof RecordConstructorValue) {
             return Streams.stream(simplifiedOrderingValue.getChildren())
-                    .map(partValue -> Simplification.simplify(partValue, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()))
+                    .map(partValue -> Simplification.simplify(partValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()))
                     .collect(ImmutableList.toImmutableList());
         } else {
-            return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
+            return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
         }
     }
 }

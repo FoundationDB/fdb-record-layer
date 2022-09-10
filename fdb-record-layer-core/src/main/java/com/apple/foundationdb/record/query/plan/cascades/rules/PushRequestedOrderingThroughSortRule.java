@@ -21,18 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,10 +60,11 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
+        final var bindings = call.getBindings();
 
-        final LogicalSortExpression logicalSortExpression = bindings.get(root);
-        final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
+        final var logicalSortExpression = bindings.get(root);
+        final var innerQuantifier = bindings.get(innerQuantifierMatcher);
+        final var lowerRef = bindings.get(lowerRefMatcher);
 
         final var sortValues = logicalSortExpression.getSortValues();
         if (sortValues.isEmpty()) {
@@ -71,9 +72,11 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
                     RequestedOrderingConstraint.REQUESTED_ORDERING,
                     ImmutableSet.of(RequestedOrdering.preserve()));
         } else {
+            final AliasMap translationMap = AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT);
+
             final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
             for (final var sortValue : sortValues) {
-                keyPartBuilder.add(KeyPart.of(sortValue, logicalSortExpression.isReverse()));
+                keyPartBuilder.add(KeyPart.of(sortValue.rebase(translationMap), logicalSortExpression.isReverse()));
             }
 
             final var orderings =

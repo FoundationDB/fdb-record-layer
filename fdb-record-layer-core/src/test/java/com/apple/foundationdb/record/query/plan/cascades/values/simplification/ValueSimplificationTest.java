@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -378,16 +379,16 @@ class ValueSimplificationTest {
 
     @Nonnull
     private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), ImmutableSet.of());
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), ImmutableSet.of());
     }
 
     @Nonnull
     private static Value simplifyWithConstantAliases(@Nonnull final Value toBeSimplified, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), constantAliases);
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases);
     }
 
     @Nonnull
     private static List<Value> simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplifyOrderingValue(ImmutableSet.of());
+        return toBeSimplified.simplifyOrderingValue(AliasMap.emptyMap(), ImmutableSet.of());
     }
 }

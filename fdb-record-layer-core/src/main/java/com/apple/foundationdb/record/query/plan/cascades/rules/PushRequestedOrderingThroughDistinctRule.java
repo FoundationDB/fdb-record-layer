@@ -22,22 +22,18 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -60,16 +56,16 @@ public class PushRequestedOrderingThroughDistinctRule extends CascadesRule<Logic
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingOptionals = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingOptionals.isEmpty()) {
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
 
-        final PlannerBindings bindings = call.getBindings();
-        final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
+        final var bindings = call.getBindings();
+        final var lowerRef = bindings.get(lowerRefMatcher);
 
         call.pushConstraint(lowerRef,
                 RequestedOrderingConstraint.REQUESTED_ORDERING,
-                requestedOrderingOptionals.get());
+                requestedOrderingsOptional.get());
     }
 }

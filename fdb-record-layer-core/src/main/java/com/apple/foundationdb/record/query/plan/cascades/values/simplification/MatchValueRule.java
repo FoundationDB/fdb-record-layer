@@ -21,15 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -80,9 +77,7 @@ public class MatchValueRule extends ValueComputationRule<List<Value>, Map<Value,
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
-                final var commonCorrelatedTo = ImmutableSet.copyOf(Sets.union(toBePulledUpValue.getCorrelatedTo(), value.getCorrelatedTo()));
-
-                if (value.semanticEquals(toBePulledUpValue, AliasMap.identitiesFor(commonCorrelatedTo))) {
+                if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
                     newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
                 }
             }

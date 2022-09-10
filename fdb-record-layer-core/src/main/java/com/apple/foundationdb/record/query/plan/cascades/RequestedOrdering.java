@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
@@ -111,6 +113,35 @@ public class RequestedOrdering {
     @Override
     public int hashCode() {
         return Objects.hash(getOrderingKeyParts(), getDistinctness());
+    }
+
+    @Nonnull
+    public RequestedOrdering pushDown(@Nonnull Value value,
+                                      @Nonnull CorrelationIdentifier lowerBaseAlias,
+                                      @Nonnull AliasMap aliasMap,
+                                      @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        //
+        // Need to push every participating value of this requested ordering through the value.
+        //
+        final var orderingKeyValues =
+                orderingKeyParts
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pushedDownOrderingKeyValues =
+                value.pushDown(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
+
+        final var translationMap = AliasMap.of(lowerBaseAlias, Quantifier.CURRENT);
+
+        final var pushedDownOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        for (int i = 0; i < orderingKeyParts.size(); i++) {
+            final var orderingKeyPart = orderingKeyParts.get(i);
+            final var orderingKeyValue = Objects.requireNonNull(pushedDownOrderingKeyValues.get(i));
+            final var rebasedOrderingKeyValue = orderingKeyValue.rebase(translationMap)
+            pushedDownOrderingKeyPartsBuilder.add(KeyPart.of(rebasedOrderingKeyValue, orderingKeyPart.isReverse()));
+        }
+        return new RequestedOrdering(pushedDownOrderingKeyPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
     }
 
     /**

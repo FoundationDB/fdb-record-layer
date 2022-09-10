@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -52,6 +53,8 @@ public class AbstractValueRuleCall<R, C extends AbstractValueRuleCall<R, C>> imp
     @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
+    private final AliasMap equivalenceMap;
+    @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
     @Nonnull
     private final LinkedIdentitySet<R> results;
@@ -60,11 +63,13 @@ public class AbstractValueRuleCall<R, C extends AbstractValueRuleCall<R, C>> imp
                                  @Nonnull final Value root,
                                  @Nonnull final Value current,
                                  @Nonnull final PlannerBindings bindings,
+                                 @Nonnull final AliasMap equivalenceMap,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         this.rule = rule;
         this.root = root;
         this.current = current;
         this.bindings = bindings;
+        this.equivalenceMap = equivalenceMap;
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
     }
@@ -88,6 +93,11 @@ public class AbstractValueRuleCall<R, C extends AbstractValueRuleCall<R, C>> imp
     @Nonnull
     public PlannerBindings getBindings() {
         return bindings;
+    }
+
+    @Nonnull
+    public AliasMap getEquivalenceMap() {
+        return equivalenceMap;
     }
 
     @Nonnull

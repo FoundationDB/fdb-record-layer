@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -41,7 +42,8 @@ public class ValueSimplificationRuleCall extends AbstractValueRuleCall<Value, Va
                                        @Nonnull final Value root,
                                        @Nonnull final Value current,
                                        @Nonnull final PlannerBindings bindings,
+                                       @Nonnull final AliasMap aliasMap,
                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        super(rule, root, current, bindings, constantAliases);
+        super(rule, root, current, bindings, aliasMap, constantAliases);
     }
 }

@@ -194,7 +194,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var childOrdering = orderingFromSingleChild(mapPlan);
             final var resultValue = mapPlan.getResultValue();
 
-            return resultValue.pullUp(childOrdering, mapPlan.getCorrelatedTo());
+            return childOrdering.pullUp(resultValue, AliasMap.of(mapPlan.getInner().getAlias(), Quantifier.CURRENT), mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -392,13 +392,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
             var maxCardinality = outerCardinalities.getMaxCardinality();
             if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
-                return resultValue.pullUp(innerOrdering, correlatedTo);
+                return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
             }
 
             final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
             maxCardinality = innerCardinalities.getMaxCardinality();
             if (!innerOrdering.isDistinct() || (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L)) {
-                return resultValue.pullUp(outerOrdering, correlatedTo);
+                return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
             }
 
             //
@@ -450,7 +450,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
 
-            return composedCompleteResultValue.pullUp(childOrdering, streamingAggregationPlan.getCorrelatedTo());
+            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.of(streamingAggregationPlan.getInner().getAlias(), Quantifier.CURRENT), streamingAggregationPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -493,7 +493,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
             final var resultKeyPartBuilder = ImmutableList.<KeyPart>builder();
-            final List<Value> comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(inUnionOnValuePlan.getCorrelatedTo());
+            final List<Value> comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(AliasMap.emptyMap(), inUnionOnValuePlan.getCorrelatedTo());
             for (final var comparisonKeyPartValue : comparisonKeyValues) {
                 resultKeyPartBuilder.add(KeyPart.of(comparisonKeyPartValue, inUnionOnValuePlan.isReverse()));
             }
@@ -537,7 +537,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         private RequestedOrdering requestedOrderingFromComparisonKeyValue(@Nonnull final Value comparisonKeyValue, @Nonnull final Set<CorrelationIdentifier> correlatedTo, final boolean isReverse) {
-            final var comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(correlatedTo);
+            final var comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(AliasMap.emptyMap(), correlatedTo);
             return new RequestedOrdering(
                     comparisonKeyValues
                             .stream()

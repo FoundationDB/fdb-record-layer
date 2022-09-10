@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
@@ -223,6 +224,99 @@ public class Ordering {
 
         return StreamSupport.stream(satisfyingPermutations.spliterator(), false)
                 .findAny();
+    }
+
+    @Nonnull
+    public Ordering pullUp(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        //
+        // Need to pull every participating value of this ordering through the value.
+        //
+        final var orderingKeyParts = getOrderingKeyParts();
+        final var orderingKeyValues =
+                orderingKeyParts
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pulledUpOrderingKeyValuesOptional =
+                value.pullUpMaybe(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
+        if (pulledUpOrderingKeyValuesOptional.isEmpty()) {
+            return Ordering.emptyOrder();
+        }
+
+        final var pulledUpOrderingKeyValues = pulledUpOrderingKeyValuesOptional.get();
+        final var pulledUpOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+
+        for (int i = 0; i < orderingKeyParts.size(); i++) {
+            final var orderingKeyPart = orderingKeyParts.get(i);
+            final var orderingKeyValue = Objects.requireNonNull(pulledUpOrderingKeyValues.get(i));
+            pulledUpOrderingKeyPartsBuilder.add(KeyPart.of(orderingKeyValue, orderingKeyPart.isReverse()));
+        }
+        final var pulledUpOrderingKeyParts = pulledUpOrderingKeyPartsBuilder.build();
+        final var pulledUpEqualityBoundMap =
+                translateEqualityBoundKeyMap(equalityBoundKeyMap,
+                        toBePulledValues -> value.pullUpMaybe(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT));
+
+        return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
+    }
+
+    @Nonnull
+    private static SetMultimap<Value, Comparison> translateEqualityBoundKeyMap(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
+                                                                               @Nonnull final Function<List<Value>, Optional<List<Value>>> translateFunction) {
+        final var pulledEqualityBoundMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+
+        for (final var entry : equalityBoundKeyMap.entries()) {
+            final var entryKeyValue = entry.getKey();
+            final var comparison = entry.getValue();
+            if (comparison instanceof Comparisons.ValueComparison) {
+                final var valueComparison = (Comparisons.ValueComparison)comparison;
+                final var valueForValueComparison = valueComparison.getComparandValue();
+                final var pulledEqualityBindingOptional = translateFunction.apply(ImmutableList.of(entryKeyValue, valueForValueComparison));
+                if (pulledEqualityBindingOptional.isEmpty()) {
+                    continue;
+                }
+                final var pulledEqualityBinding = pulledEqualityBindingOptional.get();
+                pulledEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledEqualityBinding.get(0)), new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(pulledEqualityBinding.get(1))));
+            } else {
+                final var pulledEqualityBindingOptional = translateFunction.apply(ImmutableList.of(entryKeyValue));
+                if (pulledEqualityBindingOptional.isEmpty()) {
+                    continue;
+                }
+                final var pulledEqualityBinding = pulledEqualityBindingOptional.get();
+                pulledEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledEqualityBinding.get(0)), comparison);
+            }
+        }
+
+        return pulledEqualityBoundMapBuilder.build();
+    }
+
+    @Nonnull
+    public Ordering pushDown(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        //
+        // Need to pull every participating value of this ordering through the value.
+        //
+        final var orderingKeyParts = getOrderingKeyParts();
+        final var orderingKeyValues =
+                orderingKeyParts
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pushedDownOrderingKeyValues =
+                value.pushDown(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
+
+        final var pushedDownOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        for (int i = 0; i < orderingKeyParts.size(); i++) {
+            final var orderingKeyPart = orderingKeyParts.get(i);
+            final var orderingKeyValue = Objects.requireNonNull(pushedDownOrderingKeyValues.get(i));
+            pushedDownOrderingKeyPartsBuilder.add(KeyPart.of(orderingKeyValue, orderingKeyPart.isReverse()));
+        }
+        final var pulledUpOrderingKeyParts = pushedDownOrderingKeyPartsBuilder.build();
+        final var pulledUpEqualityBoundMap =
+                translateEqualityBoundKeyMap(equalityBoundKeyMap,
+                        toBePulledValues -> Optional.of(value.pushDown(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT)));
+
+        return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
     }
 
     @Nonnull

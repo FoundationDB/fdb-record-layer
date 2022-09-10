@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
@@ -30,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -82,9 +79,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
                     // $a.x.y.z and the value we are pulling through is b = $a.x.y we can match those with a compensation of
                     // $b.z
                     //
-                    final var commonCorrelatedTo = ImmutableSet.copyOf(Sets.union(toBePulledUpFieldValue.getCorrelatedTo(), fieldValue.getCorrelatedTo()));
-
-                    if (toBePulledUpFieldValue.getChild().semanticEquals(fieldValue.getChild(), AliasMap.identitiesFor(commonCorrelatedTo))) {
+                    if (toBePulledUpFieldValue.getChild().semanticEquals(fieldValue.getChild(), call.getEquivalenceMap())) {
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {

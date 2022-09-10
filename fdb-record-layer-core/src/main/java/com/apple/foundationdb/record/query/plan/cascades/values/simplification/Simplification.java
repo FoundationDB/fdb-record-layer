@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -44,6 +45,7 @@ import java.util.function.Function;
 public class Simplification {
     @Nonnull
     public static Value simplify(@Nonnull Value root,
+                                 @Nonnull final AliasMap aliasMap,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         return root.<Value>mapMaybe((current, mappedChildren) -> {
@@ -51,7 +53,7 @@ public class Simplification {
             return Simplification.executeRuleSet(root,
                     current,
                     ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, constantAliases),
+                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
                     Iterables::getOnlyElement);
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
     }
@@ -59,6 +61,7 @@ public class Simplification {
     @Nullable
     public static <A, R> ValueComputationRuleCall.ValueWithResult<R> compute(@Nonnull final Value root,
                                                                              @Nonnull A argument,
+                                                                             @Nonnull final AliasMap aliasMap,
                                                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                                              @Nonnull final ValueComputationRuleSet<A, R> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<Value, ValueComputationRuleCall.ValueWithResult<R>>();
@@ -68,7 +71,7 @@ public class Simplification {
             return executeRuleSet(root,
                     current,
                     ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, constantAliases, resultsMap::get),
+                    (rule, r, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get),
                     results -> onResultsFunction(resultsMap, results));
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
         return resultsMap.get(newRoot);
