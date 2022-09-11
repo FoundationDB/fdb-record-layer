@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -28,6 +29,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A value that is used to express ordered-ness.
@@ -38,9 +40,12 @@ public class KeyPart {
 
     private final boolean isReverse;
 
+    private final Supplier<Integer> hashCodeSupplier;
+
     protected KeyPart(@Nonnull final Value value, final boolean isReverse) {
         this.value = checkValue(value);
         this.isReverse = isReverse;
+        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     }
 
     @Nonnull
@@ -67,6 +72,10 @@ public class KeyPart {
 
     @Override
     public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    public int computeHashCode() {
         return Objects.hash(getValue(), isReverse());
     }
 

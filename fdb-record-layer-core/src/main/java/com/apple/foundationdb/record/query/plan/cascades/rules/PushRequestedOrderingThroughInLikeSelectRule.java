@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -85,6 +86,14 @@ public class PushRequestedOrderingThroughInLikeSelectRule extends CascadesRule<S
             return;
         }
         final var innerForEachQuantifier = innerForEachQuantifierOptional.get();
+
+        //
+        // Make sure there is a SELECT * only referring to the innerForEachQuantifier
+        //
+        final var resultValue = selectExpression.getResultValue();
+        if (!(resultValue instanceof QuantifiedObjectValue) || !((QuantifiedObjectValue)resultValue).getAlias().equals(innerForEachQuantifier.getAlias())) {
+            return;
+        }
 
         final var lowerReference = innerForEachQuantifier.getRangesOver();
 

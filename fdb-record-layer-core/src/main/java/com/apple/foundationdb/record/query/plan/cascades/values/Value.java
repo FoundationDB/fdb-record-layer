@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
@@ -460,6 +459,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
     @Nonnull
     default List<Value> pushDown(@Nonnull final List<Value> toBePushedDownValues,
+                                 @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
                                  @Nonnull final AliasMap aliasMap,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                  @Nonnull final CorrelationIdentifier upperBaseAlias) {
@@ -472,10 +472,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                             return value;
                         }))
                 .map(valueOptional -> valueOptional.orElseThrow(() -> new RecordCoreException("unexpected empty optional")))
-                .map(composedValue -> composedValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases))
+                .map(composedValue -> composedValue.simplify(simplificationRuleSet, aliasMap, constantAliases))
                 .collect(ImmutableList.toImmutableList());
     }
-
 
     @Nonnull
     default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {

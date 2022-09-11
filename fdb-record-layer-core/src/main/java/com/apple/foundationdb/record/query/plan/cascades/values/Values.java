@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Helper class for dealing with {@link Value}s.
@@ -59,7 +62,20 @@ public class Values {
     }
 
     @Nonnull
-    public List<Value> pullUpValues(@Nonnull final List<Value> values, @Nonnull Value resultValue) {
-        return null;
+    public static Set<Value> orderingValuesFromType(@Nonnull final Type type,
+                                                    @Nonnull final Supplier<Value> baseValueSupplier) {
+        if (type.getTypeCode() != Type.TypeCode.RECORD) {
+            return ImmutableSet.of(baseValueSupplier.get());
+        }
+
+        final var orderingValuesBuilder = ImmutableSet.<Value>builder();
+        final var recordType = (Type.Record)type;
+        final var fields = recordType.getFields();
+
+        for (final var field : fields) {
+            orderingValuesBuilder.addAll(orderingValuesFromType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field))));
+        }
+
+        return orderingValuesBuilder.build();
     }
 }

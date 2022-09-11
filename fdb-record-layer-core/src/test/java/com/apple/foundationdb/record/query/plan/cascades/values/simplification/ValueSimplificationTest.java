@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -352,6 +353,28 @@ class ValueSimplificationTest {
                         FieldValue.ofFieldName(someCurrentValue, "z"));
 
         Assertions.assertEquals(expectedResult, simplifiedValues);
+    }
+
+    @Test
+    void testDeriveOrderingValues() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        final var type = someRecordType();
+
+        final var orderingValues = Values.orderingValuesFromType(type, () -> someCurrentValue);
+
+        final var expectedResult =
+                ImmutableSet.of(
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aab")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aac")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ac")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xc")),
+                        FieldValue.ofFieldName(someCurrentValue, "z"));
+
+        Assertions.assertEquals(expectedResult, orderingValues);
     }
 
     @Nonnull

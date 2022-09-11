@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -293,7 +295,7 @@ public class Ordering {
     @Nonnull
     public Ordering pushDown(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
         //
-        // Need to pull every participating value of this ordering through the value.
+        // Need to push every participating value of this ordering through the value.
         //
         final var orderingKeyParts = getOrderingKeyParts();
         final var orderingKeyValues =
@@ -303,7 +305,7 @@ public class Ordering {
                         .collect(ImmutableList.toImmutableList());
 
         final var pushedDownOrderingKeyValues =
-                value.pushDown(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
+                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
 
         final var pushedDownOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
         for (int i = 0; i < orderingKeyParts.size(); i++) {
@@ -314,7 +316,7 @@ public class Ordering {
         final var pulledUpOrderingKeyParts = pushedDownOrderingKeyPartsBuilder.build();
         final var pulledUpEqualityBoundMap =
                 translateEqualityBoundKeyMap(equalityBoundKeyMap,
-                        toBePulledValues -> Optional.of(value.pushDown(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT)));
+                        toBePulledValues -> Optional.of(value.pushDown(toBePulledValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT)));
 
         return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
     }
