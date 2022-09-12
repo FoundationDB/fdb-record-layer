@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -240,31 +241,30 @@ public class Ordering {
                         .map(KeyPart::getValue)
                         .collect(ImmutableList.toImmutableList());
 
-        final var pulledUpOrderingKeyValuesOptional =
-                value.pullUpMaybe(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
-        if (pulledUpOrderingKeyValuesOptional.isEmpty()) {
-            return Ordering.emptyOrder();
-        }
+        final var pulledUpOrderingKeyValuesMap =
+                value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
 
-        final var pulledUpOrderingKeyValues = pulledUpOrderingKeyValuesOptional.get();
         final var pulledUpOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
 
         for (int i = 0; i < orderingKeyParts.size(); i++) {
             final var orderingKeyPart = orderingKeyParts.get(i);
-            final var orderingKeyValue = Objects.requireNonNull(pulledUpOrderingKeyValues.get(i));
-            pulledUpOrderingKeyPartsBuilder.add(KeyPart.of(orderingKeyValue, orderingKeyPart.isReverse()));
+            final var pulledUpOrderingKeyValue = pulledUpOrderingKeyValuesMap.get(orderingKeyPart.getValue());
+            if (pulledUpOrderingKeyValue == null) {
+                break;
+            }
+            pulledUpOrderingKeyPartsBuilder.add(KeyPart.of(pulledUpOrderingKeyValue, orderingKeyPart.isReverse()));
         }
         final var pulledUpOrderingKeyParts = pulledUpOrderingKeyPartsBuilder.build();
         final var pulledUpEqualityBoundMap =
                 translateEqualityBoundKeyMap(equalityBoundKeyMap,
-                        toBePulledValues -> value.pullUpMaybe(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT));
+                        toBePulledValues -> value.pullUp(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT));
 
         return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
     }
 
     @Nonnull
     private static SetMultimap<Value, Comparison> translateEqualityBoundKeyMap(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                                                                               @Nonnull final Function<List<Value>, Optional<List<Value>>> translateFunction) {
+                                                                               @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
         final var pulledEqualityBoundMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
 
         for (final var entry : equalityBoundKeyMap.entries()) {
@@ -273,19 +273,20 @@ public class Ordering {
             if (comparison instanceof Comparisons.ValueComparison) {
                 final var valueComparison = (Comparisons.ValueComparison)comparison;
                 final var valueForValueComparison = valueComparison.getComparandValue();
-                final var pulledEqualityBindingOptional = translateFunction.apply(ImmutableList.of(entryKeyValue, valueForValueComparison));
-                if (pulledEqualityBindingOptional.isEmpty()) {
+                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryKeyValue, valueForValueComparison));
+                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryKeyValue);
+                final var pulledComparisonValue = pulledEqualityBindingValuesMap.get(valueForValueComparison);
+                if (pulledEqualityBindingValue == null || pulledComparisonValue == null) {
                     continue;
                 }
-                final var pulledEqualityBinding = pulledEqualityBindingOptional.get();
-                pulledEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledEqualityBinding.get(0)), new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(pulledEqualityBinding.get(1))));
+                pulledEqualityBoundMapBuilder.put(pulledEqualityBindingValue, new Comparisons.ValueComparison(valueComparison.getType(), pulledComparisonValue));
             } else {
-                final var pulledEqualityBindingOptional = translateFunction.apply(ImmutableList.of(entryKeyValue));
-                if (pulledEqualityBindingOptional.isEmpty()) {
+                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryKeyValue));
+                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryKeyValue);
+                if (pulledEqualityBindingValue == null) {
                     continue;
                 }
-                final var pulledEqualityBinding = pulledEqualityBindingOptional.get();
-                pulledEqualityBoundMapBuilder.put(Objects.requireNonNull(pulledEqualityBinding.get(0)), comparison);
+                pulledEqualityBoundMapBuilder.put(pulledEqualityBindingValue, comparison);
             }
         }
 
@@ -316,7 +317,16 @@ public class Ordering {
         final var pulledUpOrderingKeyParts = pushedDownOrderingKeyPartsBuilder.build();
         final var pulledUpEqualityBoundMap =
                 translateEqualityBoundKeyMap(equalityBoundKeyMap,
-                        toBePulledValues -> Optional.of(value.pushDown(toBePulledValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT)));
+                        toBePushedValues -> {
+                            final var pushedDownValues = value.pushDown(toBePushedValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+                            final var resultMap = new LinkedIdentityMap<Value, Value>();
+                            for (int i = 0; i < toBePushedValues.size(); i++) {
+                                final Value toBePushedValue = toBePushedValues.get(i);
+                                final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
+                                resultMap.put(toBePushedValue, pushedValue);
+                            }
+                            return resultMap;
+                        });
 
         return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
     }

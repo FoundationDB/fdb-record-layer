@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
@@ -53,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.S
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -64,8 +66,8 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -419,10 +421,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default Optional<List<Value>> pullUpMaybe(@Nonnull final List<Value> toBePulledUpValues,
-                                              @Nonnull final AliasMap aliasMap,
-                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                              @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default Map<Value, Value> pullUp(@Nonnull final List<Value> toBePulledUpValues,
+                                     @Nonnull final AliasMap aliasMap,
+                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                     @Nonnull final CorrelationIdentifier upperBaseAlias) {
         //
         // Construct an alias map for equivalences.
         //
@@ -430,7 +432,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .map(value -> getCorrelatedTo())
                 .collect(ImmutableList.toImmutableList());
 
-        final var correlatedToIntersection = Sets.newHashSet(getCorrelatedTo());
+        final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
         correlatedTos.forEach(correlatedToIntersection::retainAll);
 
         final var equivalenceMap = aliasMap.derived()
@@ -440,21 +442,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         final var valueWitResult =
                 Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
         if (valueWitResult == null) {
-            return Optional.empty();
+            return ImmutableMap.of();
         }
 
         final var matchedValuesMap = valueWitResult.getResult();
-        final var resultsBuilder = ImmutableList.<Value>builder();
+        final var resultsMap = new LinkedIdentityMap<Value, Value>();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
-            if (compensation == null) {
-                return Optional.empty();
+            if (compensation != null) {
+                resultsMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
             }
-
-            resultsBuilder.add(compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
         }
 
-        return Optional.of(resultsBuilder.build());
+        return resultsMap;
     }
 
     @Nonnull

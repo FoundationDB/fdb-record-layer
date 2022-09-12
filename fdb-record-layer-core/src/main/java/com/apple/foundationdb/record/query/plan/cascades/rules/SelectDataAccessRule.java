@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -81,6 +82,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         }
 
         final var expression = bindings.get(getExpressionMatcher());
+        final var correlatedTo = expression.getCorrelatedTo();
 
         //
         // return if there is no pre-determined interesting ordering
@@ -118,6 +120,14 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             final var compensatedAliases = entryKey.getLeft();
             final var matchedAlias = entryKey.getRight();
             final var matchPartitionForAliases = matchPartitionByAliasesEntry.getValue();
+
+            //
+            // Pull down the requested orderings along the matchedAlias
+            //
+            final var pushedRequestedOrderings =
+                    requestedOrderings.stream()
+                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedAlias, AliasMap.emptyMap(), correlatedTo))
+                            .collect(ImmutableSet.toImmutableSet());
 
             //
             // Compute the set of quantifiers that needs to be pulled up to the new expression. These are the quantifiers
@@ -163,7 +173,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 //
                 final var dataAccessReference =
                         dataAccessForMatchPartition(call.getContext(),
-                                requestedOrderings,
+                                pushedRequestedOrderings,
                                 matchPartition);
 
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()

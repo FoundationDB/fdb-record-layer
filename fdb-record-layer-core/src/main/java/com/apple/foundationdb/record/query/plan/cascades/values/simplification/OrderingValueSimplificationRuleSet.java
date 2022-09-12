@@ -36,18 +36,18 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class OrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> lifConstructorRule = new LiftConstructorRule();
+    protected static final ValueSimplificationRule<? extends Value> liftConstructorRule = new LiftConstructorRule();
 
     private static final Set<ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_RULES =
             ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
                     .addAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES)
-                    .add(lifConstructorRule)
+                    .add(liftConstructorRule)
                     .build();
 
     private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>>builder()
                     .putAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON)
-                    .put(lifConstructorRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
+                    .put(liftConstructorRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
                     .build();
 
     private OrderingValueSimplificationRuleSet() {

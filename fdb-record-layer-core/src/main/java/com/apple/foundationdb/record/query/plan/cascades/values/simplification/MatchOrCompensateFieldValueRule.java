@@ -79,7 +79,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
                     // $a.x.y.z and the value we are pulling through is b = $a.x.y we can match those with a compensation of
                     // $b.z
                     //
-                    if (toBePulledUpFieldValue.getChild().semanticEquals(fieldValue.getChild(), call.getEquivalenceMap())) {
+                    if (fieldValue.getChild().semanticEquals(toBePulledUpFieldValue.getChild(), call.getEquivalenceMap())) {
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {

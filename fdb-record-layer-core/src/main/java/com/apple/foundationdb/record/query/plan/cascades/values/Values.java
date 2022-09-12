@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,7 +66,8 @@ public class Values {
 
     @Nonnull
     public static Set<Value> orderingValuesFromType(@Nonnull final Type type,
-                                                    @Nonnull final Supplier<Value> baseValueSupplier) {
+                                                    @Nonnull final Supplier<Value> baseValueSupplier,
+                                                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
             return ImmutableSet.of(baseValueSupplier.get());
         }
@@ -73,7 +77,9 @@ public class Values {
         final var fields = recordType.getFields();
 
         for (final var field : fields) {
-            orderingValuesBuilder.addAll(orderingValuesFromType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field))));
+            orderingValuesFromType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
+                    .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
+                    .forEach(orderingValuesBuilder::add);
         }
 
         return orderingValuesBuilder.build();

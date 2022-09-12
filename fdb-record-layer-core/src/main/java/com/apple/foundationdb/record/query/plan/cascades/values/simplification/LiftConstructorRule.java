@@ -62,6 +62,10 @@ public class LiftConstructorRule extends ValueSimplificationRule<RecordConstruct
         final var outerRecordConstructorValue = bindings.get(rootMatcher);
         final var innerRecordConstructorValue = bindings.get(innerRecordMatcher);
 
+        if (call.getRoot() != outerRecordConstructorValue) {
+            return;
+        }
+
         //
         // Go through the outer constructor's fields and expand them with the inner fields. Note that we assume that
         // there is no actual consumer of the result (other than order by clauses which is fine for what we are about

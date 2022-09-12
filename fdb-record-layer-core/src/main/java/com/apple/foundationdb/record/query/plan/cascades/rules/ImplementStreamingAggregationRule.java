@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -35,11 +36,14 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -67,17 +71,40 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var bindings = call.getBindings();
 
         final var groupByExpression = bindings.get(root);
-        final var requestedOrdering = groupByExpression.getRequestedOrdering();
+        final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
+
+        final var groupingValue = groupByExpression.getGroupingValue();
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
+
+        final var requiredOrderingKeyParts =
+                currentGroupingValue == null || currentGroupingValue.isConstant()
+                ? null
+                : Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                        .stream()
+                        .map(orderingValue -> KeyPart.of(orderingValue, false))
+                        .collect(ImmutableSet.toImmutableSet());
+
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
+            if (requiredOrderingKeyParts == null || satisfiesOrderingKeyParts(providedOrdering, requiredOrderingKeyParts)) {
                 call.yield(implementGroupBy(planPartition, groupByExpression));
             }
         }
+    }
+
+    private boolean satisfiesOrderingKeyParts(@Nonnull final Ordering providedOrdering, @Nonnull final Set<KeyPart> requiredOrderingKeyParts) {
+        final var remainingRequiredOrderingValues = requiredOrderingKeyParts.stream()
+                .map(KeyPart::getValue)
+                .collect(Collectors.toSet());
+        providedOrdering.getOrderingKeyParts()
+                .forEach(providedOrderingKeyPart -> remainingRequiredOrderingValues.remove(providedOrderingKeyPart.getValue()));
+        providedOrdering.getEqualityBoundKeys()
+                .forEach(remainingRequiredOrderingValues::remove);
+        return remainingRequiredOrderingValues.isEmpty();
     }
 
     @Nonnull

@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -89,7 +88,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var resultValue = groupByExpression.getResultValue(); // full result value
         final var groupingValue = groupByExpression.getGroupingValue();
-        final var currentValue = QuantifiedObjectValue.of(Quantifier.CURRENT, innerQuantifier.getFlowedObjectType());
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
 
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
@@ -98,7 +97,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
                 } else {
                     final var orderingKeyParts =
-                            Values.orderingValuesFromType(groupingValue.getResultType(), () -> currentValue)
+                            Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                     .stream()
                                     .map(orderingValue -> KeyPart.of(orderingValue, false))
                                     .collect(ImmutableList.toImmutableList());
@@ -143,7 +142,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     
                     // create a mutable set of required ordering values
                     final var requiredOrderingValues =
-                            new LinkedHashSet<>(Values.orderingValuesFromType(groupingValue.getResultType(), () -> currentValue));
+                            new LinkedHashSet<>(Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
 
                     final var resultOrderingKeyPartBuilder = ImmutableList.<KeyPart>builder();
                     boolean isPushedAndRequiredCompatible = true;
