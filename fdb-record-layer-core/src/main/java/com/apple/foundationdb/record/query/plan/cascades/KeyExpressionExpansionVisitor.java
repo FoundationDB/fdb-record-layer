@@ -192,9 +192,12 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
                     final RecordMetaDataProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
                     if (childProto.hasNesting()) {
-                        return visitExpression(NullableArrayTypeUtils.unwrapArrayInNestingKeyExpression(nestingKeyExpression));
+                        RecordMetaDataProto.Nesting.Builder newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
+                                .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                                .setChild(childProto.getNesting().getChild());
+                        return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
                     } else {
-                        return visitExpression(NullableArrayTypeUtils.unwrapArrayInFieldKeyExpression(parent));
+                        return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build()));
                     }
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
