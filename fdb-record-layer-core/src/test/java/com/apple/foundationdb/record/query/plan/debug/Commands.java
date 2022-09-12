@@ -714,6 +714,7 @@ public class Commands {
             if (plannerRepl.shouldExitOnQuit()) {
                 System.exit(0);
             }
+            Debugger.setDebugger(null);
             return false;
         }
 

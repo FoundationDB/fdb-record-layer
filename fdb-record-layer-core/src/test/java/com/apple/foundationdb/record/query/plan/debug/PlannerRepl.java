@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.debug;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -42,7 +42,6 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import org.jline.utils.InfoCmp;
@@ -51,7 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -112,11 +110,11 @@ public class PlannerRepl implements Debugger {
 
     private boolean exitOnQuit;
 
-    public PlannerRepl() {
-        this(null, true);
+    public PlannerRepl(@Nonnull final Terminal terminal) {
+        this(terminal, true);
     }
 
-    public PlannerRepl(@Nullable final Terminal terminal, boolean exitOnQuit) {
+    public PlannerRepl(@Nonnull final Terminal terminal, boolean exitOnQuit) {
         this.stateStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
@@ -168,15 +166,8 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onInstall() {
-        try {
-            if (terminal == null) {
-                terminal = TerminalBuilder.builder().build();
-            }
-            lineReader = LineReaderBuilder.builder().terminal(terminal).build();
-            Objects.requireNonNull(terminal).puts(InfoCmp.Capability.clear_screen);
-        } catch (final IOException ioException) {
-            logger.warn("unable to initialize line reader:" + ioException.getMessage());
-        }
+        lineReader = LineReaderBuilder.builder().terminal(terminal).build();
+        Objects.requireNonNull(terminal).puts(InfoCmp.Capability.clear_screen);
         println(banner);
     }
 
