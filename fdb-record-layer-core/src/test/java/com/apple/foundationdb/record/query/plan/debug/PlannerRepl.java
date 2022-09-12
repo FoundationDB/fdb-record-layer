@@ -70,17 +70,14 @@ public class PlannerRepl implements Debugger {
     private static final Logger logger = LoggerFactory.getLogger(PlannerRepl.class);
 
     private static final String banner =
-            "                                                        \n" +
-            "         dP                                             \n" +
-            "         88                                             \n" +
-            "88d888b. 88 .d8888b. 88d888b. 88d888b. .d8888b. 88d888b.\n" +
-            "88'  `88 88 88'  `88 88'  `88 88'  `88 88ooood8 88'  `88\n" +
-            "88.  .88 88 88.  .88 88    88 88    88 88.  ... 88      \n" +
-            "88Y888P' dP `88888P8 dP    dP dP    dP `88888P' dP      \n" +
-            "88                                                      \n" +
-            "dP                                                      \n" +
-            "type 'help' to get a list of available commands         \n" +
-            "type 'quit' to exit debugger                            \n";
+            "                                                                                       \n" +
+            "   ______                          __             ____  __                            \n" +
+            "  / ____/___ _______________ _____/ /__  _____   / __ \\/ /___ _____  ____  ___  _____  \n" +
+            " / /   / __ `/ ___/ ___/ __ `/ __  / _ \\/ ___/  / /_/ / / __ `/ __ \\/ __ \\/ _ \\/ ___/  \n" +
+            "/ /___/ /_/ (__  ) /__/ /_/ / /_/ /  __(__  )  / ____/ / /_/ / / / / / / /  __/ /      \n" +
+            "\\____/\\__,_/____/\\___/\\__,_/\\__,_/\\___/____/  /_/   /_/\\__,_/_/ /_/_/ /_/\\___/_/       \n" +
+            "type 'help' to get a list of available commands                                       \n" +
+            "type 'quit' to exit debugger                                                          \n";
 
     private static final String prompt = "$ ";
 
@@ -214,6 +211,10 @@ public class PlannerRepl implements Debugger {
         return breakPoints.remove(index);
     }
 
+    void removeAllBreakPoints() {
+        breakPoints.clear();
+    }
+
     Iterable<BreakPoint> getBreakPoints() {
         return () -> breakPoints.entrySet()
                 .stream()
@@ -278,9 +279,6 @@ public class PlannerRepl implements Debugger {
                         final Commands.Command<Event> command = commandOptional.get();
                         final Optional<Boolean> isContinueOptional = getSilently("run command", () -> command.executeCommand(this, event, parsedLine));
                         isContinue = isContinueOptional.orElse(false);
-                        if (command instanceof Commands.QuitCommand) {
-                            return; // exit main loop.
-                        }
                     } else {
                         withProcessors(event, processor -> processor.onCommand(this, event, parsedLine));
                     }
