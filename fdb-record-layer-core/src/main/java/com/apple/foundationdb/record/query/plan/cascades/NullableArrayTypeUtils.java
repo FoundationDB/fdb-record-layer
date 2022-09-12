@@ -135,7 +135,7 @@ public class NullableArrayTypeUtils {
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
         //
-        if (wrappedValue != null && type.getTypeCode() == Type.TypeCode.ARRAY && type.isNullable() && ((Type.Array)type).needsWrapper()) {
+        if (wrappedValue != null && type.getTypeCode() == Type.TypeCode.ARRAY && type.isNullable()) {
             return MessageValue.getFieldOnMessage((Message)wrappedValue, NullableArrayTypeUtils.getRepeatedFieldName());
         }
         return wrappedValue;

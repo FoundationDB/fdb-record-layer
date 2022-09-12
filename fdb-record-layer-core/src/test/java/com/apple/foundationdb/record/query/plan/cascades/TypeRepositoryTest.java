@@ -32,6 +32,7 @@ import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -82,7 +83,11 @@ class TypeRepositoryTest {
             return 0;
         }
         if (type instanceof Type.Array) {
-            return 1 + countTypes(((Type.Array)type).getElementType());
+            if (type.isNullable()) {
+                return 1 + countTypes(((Type.Array)type).getElementType());
+            } else {
+                return countTypes(((Type.Array)type).getElementType());
+            }
         }
         if (type instanceof Type.Record) {
             return 1 + ((Type.Record)type).getFields().stream().map(f -> countTypes(f.getFieldType())).reduce(0, Integer::sum);
@@ -179,7 +184,7 @@ class TypeRepositoryTest {
     @Test
     void createTypeRepositoryFromNullableArrayTypeWorks() {
         final Type.Record child = (Type.Record)generateType(0, Type.TypeCode.RECORD);
-        final Type.Array array = new Type.Array(true, true, child);
+        final Type.Array array = new Type.Array(true, child);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
         builder.addTypeIfNeeded(array);
         final TypeRepository actualSchemaBefore = builder.build();
@@ -198,8 +203,7 @@ class TypeRepositoryTest {
         builder.addTypeIfNeeded(t);
         builder.addTypeIfNeeded(t);
         final TypeRepository actualRepository = builder.build();
-        // there should be three types in the repository, but for different nested types within the tree
-        Assertions.assertEquals(3, actualRepository.getMessageTypes().size());
+        Assertions.assertEquals(countTypes(t), actualRepository.getMessageTypes().size());
     }
 
     @Test
@@ -211,30 +215,6 @@ class TypeRepositoryTest {
             Assertions.assertTrue(e instanceof VerifyException);
             Assertions.assertTrue(e.getMessage().contains("types of children must be equal"));
         }
-    }
-
-    @Test
-    void createArrayConstructorValueWorks() {
-        final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, INT_2));
-        Assertions.assertTrue(value instanceof AbstractArrayConstructorValue.ArrayConstructorValue);
-        final AbstractArrayConstructorValue.ArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.ArrayConstructorValue)value;
-        final Type resultType = arrayConstructorValue.getResultType();
-        Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
-        Assertions.assertTrue(result instanceof List);
-        final List<?> list = (List<?>)result;
-        Assertions.assertEquals(2, list.size());
-        Assertions.assertTrue(list.stream().allMatch(i -> i instanceof DynamicMessage));
-
-        final DynamicMessage firstItem = (DynamicMessage)list.get(0);
-        Assertions.assertEquals(1, firstItem.getAllFields().size());
-        Assertions.assertTrue(firstItem.getAllFields().keySet().stream().findFirst().isPresent());
-        Assertions.assertEquals(1, firstItem.getField(firstItem.getAllFields().keySet().stream().findFirst().get()));
-
-        final DynamicMessage secondItem = (DynamicMessage)list.get(1);
-        Assertions.assertEquals(1, secondItem.getAllFields().size());
-        Assertions.assertTrue(secondItem.getAllFields().keySet().stream().findFirst().isPresent());
-        Assertions.assertEquals(2, secondItem.getField(secondItem.getAllFields().keySet().stream().findFirst().get()));
     }
 
     @Test

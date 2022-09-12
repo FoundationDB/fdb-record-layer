@@ -119,7 +119,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 final var field = fields.get(i);
                 final var fieldType = field.getFieldType();
                 final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
-                if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable() && ((Type.Array)fieldType).needsWrapper()) {
+                if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
                     final var wrappedDescriptor = fieldDescriptor.getMessageType();
                     final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
                     wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResultElement);

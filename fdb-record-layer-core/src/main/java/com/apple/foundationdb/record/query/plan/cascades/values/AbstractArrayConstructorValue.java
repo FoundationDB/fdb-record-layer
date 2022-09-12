@@ -47,8 +47,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Array.needsNestedProto;
-
 /**
  * A {@link Value} that encapsulates its homogeneous children {@link Value}s into a single
  * {@link Type.Array} typed {@link Value}.
@@ -127,12 +125,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                 .collect(ImmutableList.toImmutableList());
 
         final Type elementType = resolveElementType(arguments);
-
-        if (needsNestedProto(elementType)) {
-            return new ArrayConstructorValue(arguments, elementType);
-        } else {
-            return new LightArrayConstructorValue(arguments, elementType);
-        }
+        return new LightArrayConstructorValue(arguments, elementType);
     }
 
     private static Type resolveElementType(@Nonnull final Iterable<? extends Typed> argumentTypeds) {
@@ -201,7 +194,6 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
             final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
-
             return StreamSupport.stream(getChildren().spliterator(), false)
                     .map(child -> {
                         final Object childResultElement = child.eval(store, context);
