@@ -80,7 +80,9 @@ public class PlannerRepl implements Debugger {
             "88.  .88 88 88.  .88 88    88 88    88 88.  ... 88      \n" +
             "88Y888P' dP `88888P8 dP    dP dP    dP `88888P' dP      \n" +
             "88                                                      \n" +
-            "dP                                                      \n";
+            "dP                                                      \n" +
+            "type 'help' to get a list of available commands         \n" +
+            "type 'quit' to exit debugger                            \n";
 
     private static final String prompt = "$ ";
 
@@ -108,14 +110,25 @@ public class PlannerRepl implements Debugger {
     @Nullable
     private LineReader lineReader;
 
+    private boolean exitOnQuit;
+
     public PlannerRepl() {
+        this(null, true);
+    }
+
+    public PlannerRepl(@Nullable final Terminal terminal, boolean exitOnQuit) {
         this.stateStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
         this.planContext = null;
-        this.terminal = null;
+        this.terminal = terminal;
         this.lineReader = null;
+        this.exitOnQuit = exitOnQuit;
+    }
+
+    boolean shouldExitOnQuit() {
+        return exitOnQuit;
     }
 
     @Nonnull
@@ -156,7 +169,9 @@ public class PlannerRepl implements Debugger {
     @Override
     public void onInstall() {
         try {
-            terminal = TerminalBuilder.builder().build();
+            if (terminal == null) {
+                terminal = TerminalBuilder.builder().build();
+            }
             lineReader = LineReaderBuilder.builder().terminal(terminal).build();
             Objects.requireNonNull(terminal).puts(InfoCmp.Capability.clear_screen);
         } catch (final IOException ioException) {
@@ -272,6 +287,9 @@ public class PlannerRepl implements Debugger {
                         final Commands.Command<Event> command = commandOptional.get();
                         final Optional<Boolean> isContinueOptional = getSilently("run command", () -> command.executeCommand(this, event, parsedLine));
                         isContinue = isContinueOptional.orElse(false);
+                        if (command instanceof Commands.QuitCommand) {
+                            return; // exit main loop.
+                        }
                     } else {
                         withProcessors(event, processor -> processor.onCommand(this, event, parsedLine));
                     }
