@@ -516,8 +516,8 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
-                            "MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(),
-                            null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                            recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
+                            1, null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
                     .map(FDBQueriedRecord::indexed)
                     .asIterator()) {
                 verifyData(100, (rec, i) -> {
