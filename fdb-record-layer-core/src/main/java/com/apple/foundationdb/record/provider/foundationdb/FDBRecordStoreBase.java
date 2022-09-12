@@ -950,6 +950,27 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
         final Index index = getRecordMetaData().getIndex(indexName);
+        return scanIndexRecords(index, scanType, range, continuation, orphanBehavior, scanProperties);
+    }
+
+    /**
+     * Scan the records pointed to by an index.
+     * @param index the index to scan
+     * @param scanType the type of scan to perform
+     * @param range the range of the index to scan
+     * @param continuation any continuation from a previous scan
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
+                                                               @Nonnull final IndexScanType scanType,
+                                                               @Nonnull final TupleRange range,
+                                                               @Nullable byte[] continuation,
+                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                               @Nonnull ScanProperties scanProperties) {
         return fetchIndexRecords(scanIndex(index, scanType, range, continuation, scanProperties), orphanBehavior,
                 scanProperties.getExecuteProperties().getState());
     }
@@ -1061,7 +1082,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         switch (fetchMethod) {
             case SCAN_AND_FETCH:
-                return scanIndexRecords(index.getName(), scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
 
             case USE_REMOTE_FETCH:
                 return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
@@ -1070,7 +1091,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                 try {
                     final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
                     return new FallbackCursor<>(remoteFetchCursor,
-                            lastSuccessfulResult -> remoteFetchFallbackFrom(index.getName(), scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
+                            lastSuccessfulResult -> remoteFetchFallbackFrom(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
                 } catch (UnsupportedRemoteFetchIndexException ex) {
                     // In this case (e.g. the index maintainer does not support remote fetch), log as info
                     if (LOGGER.isInfoEnabled()) {
@@ -1078,13 +1099,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                 LogMessageKeys.MESSAGE, ex.getMessage(),
                                 LogMessageKeys.INDEX_NAME, index.getName()));
                     }
-                    return scanIndexRecords(index.getName(), scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                    return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("scanIndexRecords: Remote Fetch execution failed, falling back to Index scan",
                                 LogMessageKeys.INDEX_NAME, index.getName()), ex);
                     }
-                    return scanIndexRecords(index.getName(), scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                    return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 }
 
             default:
@@ -2012,7 +2033,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery) 
      */
     @Nonnull
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
@@ -2025,7 +2046,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *        bindings that are used to execute the query
      * @param plannerConfiguration an override for the {@link RecordQueryPlannerConfiguration} for the planner
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery)
      */
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
                               @Nonnull RecordQueryPlannerConfiguration plannerConfiguration);
@@ -2034,7 +2055,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Plan a query.
      * @param query the query to plan
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery)
      */
     @Nonnull
     default RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
@@ -2322,7 +2343,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         }
 
         /**
-         * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion}.
+         * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion(UserVersionChecker, StoreExistenceCheck)}.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2368,7 +2389,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     @API(API.Status.INTERNAL)
-    default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final String indexName,
+    default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final Index index,
                                                                       final IndexScanType scanType,
                                                                       final TupleRange scanRange,
                                                                       final byte[] continuation,
@@ -2377,10 +2398,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                       final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
             // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
-            return scanIndexRecords(indexName, scanType, scanRange, continuation, orphanBehavior, scanProperties);
+            return scanIndexRecords(index, scanType, scanRange, continuation, orphanBehavior, scanProperties);
         } else {
             // Use the continuation from the last result to continue from
-            return scanIndexRecords(indexName, scanType, scanRange, lastSuccessfulResult.getContinuation().toBytes(), orphanBehavior, scanProperties);
+            return scanIndexRecords(index, scanType, scanRange, lastSuccessfulResult.getContinuation().toBytes(), orphanBehavior, scanProperties);
         }
     }
 
