@@ -69,15 +69,27 @@ public class Ddl implements AutoCloseable {
                 try {
                     schemaRule.beforeEach(extensionContext);
                 } catch (Exception e) {
-                    schemaRule.afterEach(extensionContext);
+                    try {
+                        schemaRule.afterEach(extensionContext);
+                    } catch (Exception ae) {
+                        e.addSuppressed(ae);
+                    }
                     throw e;
                 }
             } catch (Exception e) {
-                databaseRule.afterEach(extensionContext);
+                try {
+                    databaseRule.afterEach(extensionContext);
+                } catch (Exception ae) {
+                    e.addSuppressed(ae);
+                }
                 throw e;
             }
         } catch (Exception e) {
-            templateRule.afterEach(extensionContext);
+            try {
+                templateRule.afterEach(extensionContext);
+            } catch (Exception ae) {
+                e.addSuppressed(ae);
+            }
             throw e;
         }
 
@@ -94,6 +106,11 @@ public class Ddl implements AutoCloseable {
     public RelationalConnection setSchemaAndGetConnection() throws SQLException {
         this.connection.setSchema(schemaRule.getSchemaName());
         return getConnection();
+    }
+
+    @Nonnull
+    public String getSchemaTemplateName() {
+        return this.templateRule.getTemplateName();
     }
 
     @Override

@@ -303,7 +303,15 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 .setField("TEMPLATE_VERSION", schema.getTemplateVersion())
                 .setField("META_DATA", schema.getMetaData().toByteString())
                 .build();
-        recordStore.saveRecord(m);
+        try {
+            recordStore.saveRecord(m);
+        } catch (RecordCoreException e) {
+            if (e.getMessage().contains("Record is too long")) {
+                throw new RelationalException("Too many columns in schema", ErrorCode.TOO_MANY_COLUMNS, e);
+            } else {
+                throw ExceptionUtil.toRelationalException(e);
+            }
+        }
     }
 
     private StructMetaData getMetaData(Descriptors.Descriptor descriptor) throws RelationalException {

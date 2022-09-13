@@ -119,15 +119,17 @@ public enum ErrorCode {
 
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
-    /**
-     * Used to represent an error that we don't know more details about. This is a backup in case
-     * the error handling system can't find a more accurate representation, and shouldn't be used in general.
-     */
+    // Class 54 Program Limit Exceeded
+    TOO_MANY_COLUMNS("54011"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
 
     // Class XX - Internal Error
+    /**
+     * Used to represent an error that we don't know more details about. This is a backup in case
+     * the error handling system can't find a more accurate representation, and shouldn't be used in general.
+     */
     UNKNOWN("XXXXX"),
     /**
      * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
