@@ -32,7 +32,6 @@ import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 
 /**
  * The REPL runner.
