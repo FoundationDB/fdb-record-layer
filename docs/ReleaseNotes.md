@@ -43,6 +43,7 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Merge online indexer sub modules - "by records" and 'multi target by records" [(Issue #1432)](https://github.com/FoundationDB/fdb-record-layer/issues/1432)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Introduce JMH framework [(Issue #1157)](https://github.com/FoundationDB/fdb-record-layer/issues/1157)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
