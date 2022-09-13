@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.function.Function;
@@ -183,7 +182,7 @@ class TabularToProtobufParser {
             Row nextRow;
             Object lastId = null;
             while ((nextRow = rows.peek()) != null) {
-                Object id = nextRow.getObject(typeDescriptor.getName().toUpperCase(Locale.ROOT) + ".RECORD_ID");
+                Object id = nextRow.getObject(typeDescriptor.getName() + ".RECORD_ID");
                 if (id == null) {
                     return null; //this means there are no data point for this type
                 }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -144,8 +143,7 @@ public class TableWithNoPkTest {
                         .build();
 
                 s.executeInsert("NO_PK", row);
-                TableScan scan = TableScan.newBuilder().withTableName("NO_PK").build();
-                try (RelationalResultSet rrs = s.executeScan(scan, Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeScan("NO_PK", new KeySet(), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs).hasNextRow().hasRow(row).hasNoNextRow();
                 }
             }

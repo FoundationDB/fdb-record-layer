@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.compare;
 
 import java.sql.SQLException;
-import java.util.Locale;
 import java.util.Map;
 
 class MapRow implements Row {
@@ -36,7 +35,7 @@ class MapRow implements Row {
 
     @Override
     public Object getObject(String name) throws SQLException {
-        return rowData.get(name.toUpperCase(Locale.ROOT));
+        return rowData.get(name);
     }
 
     @Override

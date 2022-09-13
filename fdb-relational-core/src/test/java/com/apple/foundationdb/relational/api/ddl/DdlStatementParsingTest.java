@@ -51,7 +51,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -773,7 +772,7 @@ public class DdlStatementParsingTest {
         Assertions.assertNotNull(type, "No type found!");
         List<String> columnStrings = type.getColumnStrings();
         List<String> expectedColStrings = IntStream.range(0, expectedColumns.size())
-                .mapToObj(i -> ("col" + i + " " + expectedColumns.get(i).toUpperCase(Locale.ROOT)))
+                .mapToObj(i -> ("col" + i + " " + expectedColumns.get(i)))
                 .collect(Collectors.toList());
         Assertions.assertEquals(expectedColStrings, columnStrings, "Incorrect columns for type <" + type.getName() + ">");
     }

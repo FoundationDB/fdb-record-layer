@@ -23,10 +23,10 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -75,8 +75,7 @@ public class CursorTest {
     public void canIterateOverAllResults() throws RelationalException {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
-            try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RESTAURANT").build(),
-                    Options.NONE)) {
+            try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
             } catch (SQLException | RelationalException e) {
                 throw new RuntimeException(e);
@@ -91,10 +90,10 @@ public class CursorTest {
             List<Row> actual = new ArrayList<>();
             StructMetaData metaData = null;
             try {
-                TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
                 Continuation cont = Continuation.BEGIN;
                 while (!cont.atEnd()) {
-                    try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
+                    try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(),
+                            Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
                         metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
                         while (resultSet.next()) {
                             actual.add(ResultSetTestUtils.currentRow(resultSet));
@@ -115,8 +114,7 @@ public class CursorTest {
     public void continuationOnEdgesOfRecordCollection() throws RelationalException {
 
         havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
-            TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
-            try (RelationalResultSet resultSet = s.executeScan(scan, Options.NONE)) {
+            try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertEquals(Continuation.BEGIN, continuation, "Incorrect starting continuation!");
@@ -152,8 +150,7 @@ public class CursorTest {
         havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
-                TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
-                resultSet = s.executeScan(scan, Options.NONE);
+                resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE);
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertNull(continuation.getBytes());
                 Assertions.assertTrue(continuation.atEnd());
@@ -197,8 +194,8 @@ public class CursorTest {
     }
 
     private Row readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {
-        TableScan scan = TableScan.newBuilder().withTableName("RESTAURANT").build();
-        try (RelationalResultSet resultSet = s.executeScan(scan, Options.builder().withOption(Options.Name.CONTINUATION, c).build())) {
+        try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(),
+                Options.builder().withOption(Options.Name.CONTINUATION, c).build())) {
             resultSet.next();
             return ResultSetTestUtils.currentRow(resultSet);
         }

@@ -34,6 +34,35 @@ public interface RelationalDirectAccessStatement {
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
      * the results of the scan.
      *
+     * This can be used to scan contiguous rows on a table based on a certain PK range.
+     * The range should be provided via a key prefix.
+     *
+     * <pre>
+     * Examples:
+     *
+     * CREATE TABLE FOO(a int64, b int64, c int64, primary key(a, b))
+     * INSERT INTO FOO VALUES [
+     *     {"A": 1, "B": 1, "C": 2},
+     *     {"A": 1, "B": 2, "C": 3},
+     *     {"A": 2, "B": 3, "C": 4}
+     * ]
+     *
+     * // Scans every row
+     * executeScan("FOO", new KeySet(), Options.NONE)
+     *
+     * // Scans the first two rows
+     * executeScan("FOO", new KeySet().setKeyColumn("A", 1), Options.NONE)
+     *
+     * // Scans only the first row
+     * executeScan("FOO", new KeySet().setKeyColumn("A", 1).setKeyColumn("B", 1), Options.NONE)
+     *
+     * // Fails because C is not part of the Primary Key
+     * executeScan("FOO", new KeySet().setKeyColumn("C", 2), Options.NONE)
+     *
+     * // Fails because B is not a prefix of the Primary Key
+     * executeScan("FOO", new KeySet().setKeyColumn("B", 1), Options.NONE)
+     * </pre>
+     *
      * <p>
      * The caller can specify some execution-level options, which can be used to control the execution path
      * that the execution. Specifically, the following options are honored:
@@ -42,13 +71,14 @@ public interface RelationalDirectAccessStatement {
      *     <li>continuation: The value of the continuation to use for the scan</li>
      * </ul>
      *
-     * @param scan         the definition of the can to be executed.
+     * @param tableName the name of the table.
+     * @param keyPrefix the key prefix to use when scanning entries.
      * @param options      options that can be used to configure the scan.
      * @return a ResultSet containing the entire record in the underlying scan.
      * @throws RelationalException if something goes wrong. Use the Error code to determine exactly what.
      */
     @Nonnull
-    RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException;
+    RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws RelationalException;
 
     /**
      * Get a single record from the system by key.
@@ -116,7 +146,7 @@ public interface RelationalDirectAccessStatement {
      *
      * @param tableName the name of the table to delete from
      * @param keys      the keys to delete
-     * @return the number of records inserted
+     * @return the number of records deleted
      * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
      */
     default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys) throws RelationalException {
@@ -132,7 +162,7 @@ public interface RelationalDirectAccessStatement {
      *
      * @param tableName the name of the table to delete from
      * @param keys      the keys to delete
-     * @return the number of records inserted
+     * @return the number of records deleted
      * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
      */
     default int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
@@ -140,4 +170,41 @@ public interface RelationalDirectAccessStatement {
     }
 
     int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException;
+
+    /**
+     * This can be used to delete contiguous rows on a table based on a certain PK range.
+     * The range should be provided via a key prefix.
+     *
+     * <pre>
+     * Examples:
+     *
+     * CREATE TABLE FOO(a int64, b int64, c int64, primary key(a, b))
+     * INSERT INTO FOO VALUES [
+     *     {"A": 1, "B": 1, "C": 2},
+     *     {"A": 1, "B": 2, "C": 3},
+     *     {"A": 2, "B": 3, "C": 4}
+     * ]
+     *
+     * // deletes every row
+     * executeDeleteRange("FOO", new KeySet(), Options.NONE)
+     *
+     * // deletes the first two rows
+     * executeDeleteRange("FOO", new KeySet().setKeyColumn("A", 1), Options.NONE)
+     *
+     * // deletes only the first row
+     * executeDeleteRange("FOO", new KeySet().setKeyColumn("A", 1).setKeyColumn("B", 1), Options.NONE)
+     *
+     * // Fails because C is not part of the Primary Key
+     * executeDeleteRange("FOO", new KeySet().setKeyColumn("C", 2), Options.NONE)
+     *
+     * // Fails because B is not a prefix of the Primary Key
+     * executeDeleteRange("FOO", new KeySet().setKeyColumn("B", 1), Options.NONE)
+     * </pre>
+     *
+     * @param tableName the name of the table to delete from
+     * @param keyPrefix the key prefix to use when deleting entries
+     * @param options options that can be used to configure the delete
+     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     */
+    void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws RelationalException;
 }

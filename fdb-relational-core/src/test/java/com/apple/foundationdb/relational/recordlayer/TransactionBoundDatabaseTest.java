@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -81,7 +81,7 @@ public class TransactionBoundDatabaseTest {
                     }
 
                     try (RelationalStatement statement = conn.createStatement()) {
-                        try (RelationalResultSet resultSet = statement.executeScan(TableScan.newBuilder().withTableName("RESTAURANT").build(), Options.NONE)) {
+                        try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                             Assertions.assertThat(resultSet.next()).isTrue();
                             Assertions.assertThat(resultSet.getString("NAME")).isEqualTo("FOO");
                             Assertions.assertThat(resultSet.getLong("REST_NO")).isEqualTo(42L);

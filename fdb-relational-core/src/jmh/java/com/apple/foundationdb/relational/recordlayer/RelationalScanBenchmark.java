@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -96,10 +96,9 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
     public void scan(Blackhole bh, RelationalConnHolder connHolder) throws RelationalException, SQLException {
         try (RelationalStatement stmt = connHolder.connection.createStatement()) {
 
-            TableScan scan = TableScan.newBuilder().withTableName("DIRECTACCESSBENCHTABLE").build();
             final Options scanOpts = Options.NONE; //Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             List<Map.Entry<String, byte[]>> data = new ArrayList<>();
-            try (RelationalResultSet rs = stmt.executeScan(scan, scanOpts)) {
+            try (RelationalResultSet rs = stmt.executeScan("DIRECTACCESSBENCHTABLE", new KeySet(), scanOpts)) {
                 while (rs.next()) {
                     String id = rs.getString("ID");
                     byte[] some_bytes = rs.getBytes("SOME_BYTES");

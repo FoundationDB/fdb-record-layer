@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -77,10 +76,7 @@ public class RecordTypeKeyTest {
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
         // Only scan the "RESTAURANT" table
-        TableScan scan = TableScan.newBuilder()
-                .withTableName("RESTAURANT_REVIEW")
-                .build();
-        try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
+        try (final RelationalResultSet resultSet = statement.executeScan("RESTAURANT_REVIEW", new KeySet(), Options.NONE)) {
             // Only 1 RestaurantRecord is expected to be returned
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly(12345L, 4L)
@@ -97,13 +93,9 @@ public class RecordTypeKeyTest {
         int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
 
-        TableScan scan = TableScan.newBuilder()
-                .withTableName("RESTAURANT_REVIEW")
-                .setStartKey("REVIEWER", 678910)
-                .setEndKey("REVIEWER", 678911)
-                .build();
+        KeySet keySet = new KeySet().setKeyColumn("REVIEWER", 678910);
         // Scan is expected to rejected because it uses fields which are not included in primary key
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan(scan, Options.NONE))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan("RESTAURANT_REVIEW", keySet, Options.NONE))
                 .hasMessageContaining("Unknown keys for primary key of <RESTAURANT_REVIEW>, unknown keys: <REVIEWER>")
                 .isInstanceOf(RelationalException.class)
                 .extracting("errorCode")

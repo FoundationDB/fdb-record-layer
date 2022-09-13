@@ -33,14 +33,18 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Joiner;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Stack;
+import java.util.stream.IntStream;
 
 import javax.annotation.Nonnull;
 
@@ -55,88 +59,95 @@ public class KeyBuilder {
         this.scannableNameForMessage = scannableName;
     }
 
+    public int getKeySize() {
+        return key.getColumnSize();
+    }
+
     @Nonnull
     public Row buildKey(Map<String, Object> keyFields, boolean failOnIncompleteKey) throws RelationalException {
-        Object[] flattenedFields = new Object[key.getColumnSize()];
         Map<String, Object> keysNotPicked = new HashMap<>(keyFields);
-        buildKeyRecursive(key, keyFields, flattenedFields, keysNotPicked, 0);
+        List<Object> flattenedFields = new ArrayList<>();
 
-        for (int i = 0; i < flattenedFields.length; i++) {
-            if (flattenedFields[i] == null) {
-                if (failOnIncompleteKey) {
-                    throw new RelationalException("Cannot form incomplete key: missing key at position <" + i + ">", ErrorCode.INVALID_PARAMETER);
-                } else {
-                    //check to see if this is the tail of the key, in which case this is still fine
-                    for (int j = i + 1; j < flattenedFields.length; j++) {
-                        if (flattenedFields[j] != null) {
-                            //it's not the tail of the key! bad bad bad! eject eject abort!
-                            //TODO(bfines) change this to refer to the actual missing column key
-                            throw new RelationalException("Cannot form key: missing key at position <" + i + ">", ErrorCode.INVALID_PARAMETER);
-                        }
-                    }
-                    //this is actually ok, we are just scanning on a prefix portion of the full key structure
-                    break;
+        for (Object key : flattenKeys()) {
+            if (key instanceof RecordType) {
+                flattenedFields.add(((RecordType) key).getRecordTypeKey());
+            } else if (key instanceof String) {
+                Object value = keyFields.get(key);
+                if (value != null) {
+                    keysNotPicked.remove(key);
                 }
+                flattenedFields.add(value);
+            } else {
+                Assert.fail("Should never happen");
             }
+        }
+
+        if (failOnIncompleteKey && flattenedFields.stream().anyMatch(Objects::isNull)) {
+            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) != null).findFirst().getAsInt();
+            throw new RelationalException("Cannot form incomplete key: missing key at position <" + missing + ">", ErrorCode.INVALID_PARAMETER);
         }
 
         if (!keysNotPicked.isEmpty()) {
             throw new RelationalException("Unknown keys for " + scannableNameForMessage + ", unknown keys: <" + Joiner.on(",").join(keysNotPicked.keySet()) + ">",
                     ErrorCode.INVALID_PARAMETER);
         }
-        return new FDBTuple(Tuple.from(flattenedFields));
+
+        // Remove trailing nulls
+        while (flattenedFields.get(flattenedFields.size() - 1) == null) {
+            flattenedFields.remove(flattenedFields.size() - 1);
+        }
+
+        if (flattenedFields.stream().anyMatch(Objects::isNull)) {
+            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) != null).findFirst().getAsInt();
+            throw new RelationalException("Cannot form key: missing key at position <" + missing + ">", ErrorCode.INVALID_PARAMETER);
+        }
+
+        return new FDBTuple(Tuple.fromList(flattenedFields));
     }
 
-    private int buildKeyRecursive(KeyExpression expression, Map<String, Object> keyFields, Object[] dest, Map<String, Object> keysNotPicked, int position) throws RelationalException {
-        if (position >= dest.length) {
-            return position;
+    @Nonnull
+    public Row buildKey(Row scannedRow) throws RelationalException {
+        int scannedIndex = 0;
+        List<Object> flattenedFields = new ArrayList<>();
+        for (Object key : flattenKeys()) {
+            if (key instanceof RecordType) {
+                flattenedFields.add(((RecordType) key).getRecordTypeKey());
+            } else {
+                flattenedFields.add(scannedRow.getObject(scannedIndex++));
+            }
         }
-        if (expression instanceof FieldKeyExpression) {
-            FieldKeyExpression fke = (FieldKeyExpression) expression;
-            //TODO(bfines) type validation of parameters?
-            String key = fke.getFieldName().toUpperCase(Locale.ROOT);
-            dest[position] = keyFields.get(key);
-            if (dest[position] != null) {
-                keysNotPicked.remove(key);
-            }
-            return position + 1;
-        } else if (expression instanceof ThenKeyExpression) {
-            final List<KeyExpression> children = ((ThenKeyExpression) expression).getChildren();
-            for (KeyExpression child : children) {
-                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
-            }
-            return position + 1;
-        } else if (expression instanceof KeyWithValueExpression) {
-            KeyWithValueExpression kve = (KeyWithValueExpression) expression;
-            List<KeyExpression> normalizedChildren = kve.normalizeKeyForPositions();
-            for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
-            }
-            return position + 1;
-        } else if (expression instanceof GroupingKeyExpression) {
-            GroupingKeyExpression gke = (GroupingKeyExpression) expression;
-            final List<KeyExpression> normalizedChildren = gke.normalizeKeyForPositions();
-            for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
-            }
-            return position + 1;
-        } else if (expression instanceof NestingKeyExpression) {
-            NestingKeyExpression nke = (NestingKeyExpression) expression;
-            final List<KeyExpression> normalizedChildren = nke.normalizeKeyForPositions();
-            for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
-            }
-            return position + 1;
-        } else if (expression instanceof RecordTypeKeyExpression) {
-            try {
-                dest[position] = typeForKey.getRecordTypeKey();
-                return position + 1;
-            } catch (RecordCoreException ex) {
-                throw ExceptionUtil.toRelationalException(ex);
-            }
-        } else {
-            throw new RelationalException("Unknown Key type: <" + expression.getClass() + ">", ErrorCode.UNKNOWN);
-        }
+        return new FDBTuple(Tuple.fromList(flattenedFields));
     }
 
+    private List<Object> flattenKeys() throws RelationalException {
+        List<Object> keys = new ArrayList<>();
+        Stack<KeyExpression> nextExpressions = new Stack<>();
+        nextExpressions.push(key);
+        while (!nextExpressions.isEmpty()) {
+            KeyExpression expr = nextExpressions.pop();
+            if (expr instanceof FieldKeyExpression) {
+                keys.add(((FieldKeyExpression) expr).getFieldName());
+            } else if (expr instanceof ThenKeyExpression) {
+                List<KeyExpression> children = ((ThenKeyExpression) expr).getChildren();
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    nextExpressions.push(children.get(i));
+                }
+            } else if (expr instanceof KeyWithValueExpression ||
+                    expr instanceof GroupingKeyExpression ||
+                    expr instanceof NestingKeyExpression) {
+                List<KeyExpression> children = expr.normalizeKeyForPositions();
+                int size = expr instanceof KeyWithValueExpression ? ((KeyWithValueExpression) expr).getSplitPoint() : children.size();
+                for (int i = size - 1; i >= 0; i--) {
+                    nextExpressions.push(children.get(i));
+                }
+            } else if (expr instanceof RecordTypeKeyExpression) {
+                try {
+                    keys.add(typeForKey);
+                } catch (RecordCoreException ex) {
+                    throw ExceptionUtil.toRelationalException(ex);
+                }
+            }
+        }
+        return keys;
+    }
 }

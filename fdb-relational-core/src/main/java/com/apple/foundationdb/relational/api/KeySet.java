@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class KeySet {
@@ -62,7 +61,7 @@ public class KeySet {
             keySet = new HashMap<>();
         }
         //make sure that all keys are in UPPER case to make it easier to use
-        keySet.put(columnName.toUpperCase(Locale.ROOT), value);
+        keySet.put(columnName, value);
         return this;
     }
 
@@ -71,9 +70,7 @@ public class KeySet {
             keySet = new HashMap<>();
         }
         //make sure that all keys are in UPPER case to make it easier to use
-        for (Map.Entry<String, Object> keyEntry : keyMap.entrySet()) {
-            keySet.put(keyEntry.getKey().toUpperCase(Locale.ROOT), keyEntry.getValue());
-        }
+        keySet.putAll(keyMap);
         return this;
     }
 

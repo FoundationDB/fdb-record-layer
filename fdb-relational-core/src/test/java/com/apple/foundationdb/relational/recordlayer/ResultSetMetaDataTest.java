@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -138,11 +138,7 @@ public abstract class ResultSetMetaDataTest {
 
         @Override
         protected RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws RelationalException {
-            TableScan ts = TableScan.newBuilder()
-                    .withTableName(tableName)
-                    .build();
-
-            return statement.executeScan(ts, Options.NONE);
+            return statement.executeScan(tableName, new KeySet(), Options.NONE);
         }
     }
 

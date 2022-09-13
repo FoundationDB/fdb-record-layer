@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -113,7 +112,7 @@ public class InsertTest {
                  * actually OK, because wwhat we really care about is that the scan doesn't return data from
                  * other tables. So all we do here is check the returned message type
                  */
-                try (final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RESTAURANT").build(), Options.NONE)) {
+                try (final RelationalResultSet recordScan = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                     Assertions.assertNotNull(recordScan, "Did not return a valid result set!");
 
                     while (recordScan.next()) {
@@ -129,7 +128,7 @@ public class InsertTest {
                     }
                 }
 
-                try (final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RESTAURANT_REVIEWER").build(), Options.NONE)) {
+                try (final RelationalResultSet reviewerScan = s.executeScan("RESTAURANT_REVIEWER", new KeySet(), Options.NONE)) {
                     Assertions.assertNotNull(reviewerScan, "Did not return a valid result set!");
                     while (reviewerScan.next()) {
                         Assertions.assertDoesNotThrow(() -> {

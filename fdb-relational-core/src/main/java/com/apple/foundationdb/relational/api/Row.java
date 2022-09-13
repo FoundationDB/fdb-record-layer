@@ -126,4 +126,11 @@ public interface Row {
      * @return true if this row starts with the correct prefix, false otherwise
      */
     boolean startsWith(Row prefix);
+
+    /**
+     * Get a prefix of this row as a row.
+     * @param length The length of the prefix
+     * @return a prefix Row
+     */
+    Row getPrefix(int length);
 }

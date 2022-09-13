@@ -21,12 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -43,6 +44,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -155,12 +157,11 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public @Nonnull
-    RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
+    public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
         ensureTransactionActive();
         options = Options.combine(conn.getOptions(), options);
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), scan.getTableName());
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
         RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
         Table table = schema.loadTable(schemaAndTable[1]);
@@ -168,13 +169,12 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         String indexName = options.getOption(Options.Name.INDEX_HINT);
         DirectScannable source = getSourceScannable(indexName, table);
 
-        final KeyBuilder keyBuilder = source.getKeyBuilder();
-        Row start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), false);
-        Row end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), false);
+        KeyBuilder keyBuilder = source.getKeyBuilder();
+        Row row = keyBuilder.buildKey(prefix.toMap(), false);
 
         StructMetaData sourceMetaData = source.getMetaData();
         return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
-                source.openScan(conn.transaction, start, end, options), conn));
+                source.openScan(row, options), conn));
     }
 
     @Override
@@ -266,6 +266,49 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             }
             return count;
         });
+    }
+
+    @Override
+    @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+        ensureTransactionActive();
+        options = Options.combine(conn.getOptions(), options);
+
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+        Table table = schema.loadTable(schemaAndTable[1]);
+        table.validateTable(options);
+
+        Map<String, Object> deletePrefixColumns = prefix.toMap();
+        KeyBuilder keyBuilder = table.getKeyBuilder();
+        Row row = keyBuilder.buildKey(deletePrefixColumns, false);
+        int keyLength = row.getNumFields();
+        if (row.getNumFields() == keyBuilder.getKeySize()) {
+            if (row.getObject(keyLength - 1) != null) {
+                // We have a complete key. Delete only the one record
+                table.deleteRecord(row);
+                return;
+            }
+        }
+        try {
+            table.deleteRange(deletePrefixColumns);
+        } catch (Query.InvalidExpressionException ex) {
+            // To work around a record layer limitation, we execute point deletes at this point if we cannot execute a range delete
+            // This may be caused by the fact that an index does not share the same prefix as the table we're trying to range delete from
+            Continuation continuation = Continuation.BEGIN;
+            ResumableIterator<Row> scannedRows;
+            do {
+                Options newOptions = Options.combine(options, Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
+                scannedRows = table.openScan(row, newOptions);
+                while (scannedRows.hasNext()) {
+                    Row scannedRow = scannedRows.next();
+                    if (!table.deleteRecord(keyBuilder.buildKey(scannedRow))) {
+                        throw new RelationalException("Cannot delete record during fallback deleteRange", ErrorCode.INTERNAL_ERROR);
+                    }
+                }
+                continuation = scannedRows.getContinuation();
+            } while (scannedRows.terminatedEarly());
+        }
     }
 
     private interface Mutation {

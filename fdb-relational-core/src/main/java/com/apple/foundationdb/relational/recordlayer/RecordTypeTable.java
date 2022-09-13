@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
+import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -44,6 +46,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -136,6 +139,29 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         FDBRecordStore store = schema.loadStore();
         try {
             return store.deleteRecord(TupleUtils.toFDBTuple(key));
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
+    }
+
+    @Override
+    public void deleteRange(Map<String, Object> prefix) throws RelationalException {
+        FDBRecordStore store = schema.loadStore();
+        List<QueryComponent> queryFields = prefix.entrySet().stream().map(entry -> Query.field(entry.getKey()).equalsValue(entry.getValue())).collect(Collectors.toList());
+        QueryComponent query;
+        switch (queryFields.size()) {
+            case 0:
+                query = null;
+                break;
+            case 1:
+                query = queryFields.get(0);
+                break;
+            default:
+                query = Query.and(queryFields);
+                break;
+        }
+        try {
+            store.deleteRecordsWhere(tableName, query);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

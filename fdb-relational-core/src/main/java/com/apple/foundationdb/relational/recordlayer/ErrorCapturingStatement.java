@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -39,7 +38,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A Delegating statement whose job is just to catch Runtime exceptions that don't match our expected
- * usage of Statements, and translate them to the corrent SQL/Relational exceptions instead.
+ * usage of Statements, and translate them to the correct SQL/Relational exceptions instead.
  */
 @ExcludeFromJacocoGeneratedReport
 public class ErrorCapturingStatement implements RelationalStatement {
@@ -78,9 +77,9 @@ public class ErrorCapturingStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
         try {
-            return delegate.executeScan(scan, options);
+            return delegate.executeScan(tableName, prefix, options);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re);
         }
@@ -118,6 +117,15 @@ public class ErrorCapturingStatement implements RelationalStatement {
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         try {
             return delegate.executeDelete(tableName, keys, options);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re);
+        }
+    }
+
+    @Override
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+        try {
+            delegate.executeDeleteRange(tableName, prefix, options);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re);
         }

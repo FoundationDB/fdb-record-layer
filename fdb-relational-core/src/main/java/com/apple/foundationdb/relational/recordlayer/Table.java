@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -46,6 +47,8 @@ public interface Table extends DirectScannable, AutoCloseable {
     // and what about scans/gets? Should they go here too?
 
     boolean deleteRecord(@Nonnull Row key) throws RelationalException;
+
+    void deleteRange(Map<String, Object> prefix) throws RelationalException;
 
     //TODO(bfines) should we really use a Protobuf here? Or a KV pair instead? For now, Message will work
     boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException;

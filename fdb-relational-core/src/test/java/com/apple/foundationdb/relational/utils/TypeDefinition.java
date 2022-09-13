@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.utils;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -78,7 +77,7 @@ public class TypeDefinition {
 
     private String columnJson() {
         return columnTypes.entrySet().stream()
-                .map(entry -> entry.getKey().toUpperCase(Locale.ROOT) + ":" + entry.getValue())
+                .map(entry -> entry.getKey() + ":" + entry.getValue())
                 .collect(Collectors.joining(","));
     }
 }

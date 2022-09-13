@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -134,7 +133,7 @@ public class SimpleDirectAccessInsertionTests {
                     ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
-                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("id", 2L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 2L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs).isEmpty();
                 }
 
@@ -145,7 +144,7 @@ public class SimpleDirectAccessInsertionTests {
                             .hasRow(restaurant)
                             .hasNoNextRow();
                 }
-                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("id", 1L), Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 1L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .hasRow(review)
@@ -153,16 +152,14 @@ public class SimpleDirectAccessInsertionTests {
                 }
 
                 //now scan the data and see if too much comes back
-                TableScan restaurantScan = new TableScan("RESTAURANT", KeySet.EMPTY, KeySet.EMPTY);
-                try (RelationalResultSet rrs = s.executeScan(restaurantScan, Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeScan("RESTAURANT", KeySet.EMPTY, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .hasRow(restaurant)
                             .hasNoNextRow();
                 }
 
-                TableScan reviewScan = new TableScan("RESTAURANT_REVIEWER", KeySet.EMPTY, KeySet.EMPTY);
-                try (RelationalResultSet rrs = s.executeScan(reviewScan, Options.NONE)) {
+                try (RelationalResultSet rrs = s.executeScan("RESTAURANT_REVIEWER", KeySet.EMPTY, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .hasRow(review)

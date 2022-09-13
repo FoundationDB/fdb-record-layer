@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Descriptors;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 import javax.annotation.Nonnull;
@@ -73,14 +72,14 @@ public class RecordLayerSchema implements DatabaseSchema {
     @Nonnull public Table loadTable(@Nonnull String tableName) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead
-        RecordTypeTable t = loadedTables.get(tableName.toUpperCase(Locale.ROOT));
+        RecordTypeTable t = loadedTables.get(tableName);
         boolean putBack = false;
         if (t == null) {
             t = new RecordTypeTable(this, tableName);
             putBack = true;
         }
         if (putBack) {
-            loadedTables.put(tableName.toUpperCase(Locale.ROOT), t);
+            loadedTables.put(tableName, t);
         }
         return t;
     }

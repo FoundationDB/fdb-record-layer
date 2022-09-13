@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.autotest.cases;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -148,12 +147,7 @@ public class DirectPrimaryKeyScanTest {
                     for (String pkCol : pkCols) {
                         keySet.setKeyColumn(pkCol, m.getField(m.getDescriptorForType().findFieldByName(pkCol)));
                     }
-                    TableScan scan = TableScan.newBuilder()
-                            .withTableName(fullTableName)
-                            .setStartKeys(keySet)
-                            .setEndKeys(keySet)
-                            .build();
-                    return statement.executeScan(scan, Options.NONE);
+                    return statement.executeScan(fullTableName, keySet, Options.NONE);
                 }));
         return queries;
     }

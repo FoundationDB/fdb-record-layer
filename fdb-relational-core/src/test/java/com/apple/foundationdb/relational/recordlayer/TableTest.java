@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -189,7 +188,7 @@ public class TableTest {
         long restNo = newRestNo();
         Message r = insertRestaurantRecord(statement, restNo);
 
-        KeySet keys = new KeySet().setKeyColumn("name", restName(restNo));
+        KeySet keys = new KeySet().setKeyColumn("NAME", restName(restNo));
 
         try (final RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys,
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
@@ -233,12 +232,8 @@ public class TableTest {
             long restNo = newRestNo();
             Message r = insertRestaurantRecord(statement, restNo);
 
-            TableScan scan = TableScan.newBuilder()
-                    .withTableName("RESTAURANT")
-                    .setStartKey("REST_NO", restNo)
-                    .setEndKey("REST_NO", restNo + 1)
-                    .build();
-            try (final RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
+            KeySet keySet = new KeySet().setKeyColumn("REST_NO", restNo);
+            try (final RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).hasNextRow()
                         .hasRow(r)
                         .hasNoNextRow();
@@ -279,7 +274,7 @@ public class TableTest {
 
         //get via index
         KeySet keys = new KeySet()
-                .setKeyColumn("name", restName(restNo));
+                .setKeyColumn("NAME", restName(restNo));
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys,
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
@@ -294,12 +289,8 @@ public class TableTest {
         Message r = insertRestaurantRecord(statement, restNo);
 
         //scan on the primary key
-        TableScan scan = TableScan.newBuilder()
-                .withTableName("RESTAURANT")
-                .setStartKey("REST_NO", restNo)
-                .setEndKey("REST_NO", restNo + 1)
-                .build();
-        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.NONE)) {
+        KeySet keySet = new KeySet().setKeyColumn("REST_NO", restNo);
+        try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRow(r)
                     .hasNoNextRow();
@@ -312,12 +303,8 @@ public class TableTest {
         insertRestaurantRecord(statement, restNo);
 
         //scan on the index
-        TableScan scan = TableScan.newBuilder()
-                .withTableName("RESTAURANT")
-                .setStartKey("NAME", restName(restNo))
-                .setEndKey("NAME", restName(restNo) + 1)
-                .build();
-        try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
+        KeySet keySet = new KeySet().setKeyColumn("NAME", restName(restNo));
+        try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
             //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly(Map.of("NAME", restName(restNo)))
@@ -346,12 +333,9 @@ public class TableTest {
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
                 //scan on the index
-                TableScan scan = TableScan.newBuilder()
-                        .withTableName("TBL1")
-                        .setStartKey("C", "valuec2")
-                        .setEndKey("C", "valuec2" + 1) //??
-                        .build();
-                try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
+                KeySet keySet = new KeySet().setKeyColumn("C", "valuec2");
+                try (RelationalResultSet resultSet = statement.executeScan("TBL1", keySet,
+                        Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
                     //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(Map.of("C", "valuec2"))
@@ -382,12 +366,9 @@ public class TableTest {
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
                 //scan on the index
-                TableScan scan = TableScan.newBuilder()
-                        .withTableName("TBL1")
-                        .setStartKey("C", "valuec2")
-                        .setEndKey("C", "valuec2" + 1) //??
-                        .build();
-                try (RelationalResultSet resultSet = statement.executeScan(scan, Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
+                KeySet keySet = new KeySet().setKeyColumn("C", "valuec2");
+                try (RelationalResultSet resultSet = statement.executeScan("TBL1", keySet,
+                        Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
                     //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(Map.of("C", "valuec2", "D", "valued2"))

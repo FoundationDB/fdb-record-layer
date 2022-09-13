@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -98,12 +97,12 @@ public class InMemoryRelationalStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
-        final InMemoryTable inMemoryTable = relationalConn.loadTable(scan.getTableName());
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+        final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
         if (inMemoryTable == null) {
-            throw new RelationalException("Unknown table <" + scan.getTableName() + ">", ErrorCode.UNKNOWN_TYPE);
+            throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
         }
-        Stream<Message> m = inMemoryTable.scan(scan.getStartKey(), scan.getEndKey());
+        Stream<Message> m = inMemoryTable.scan(prefix.toMap(), prefix.toMap());
         Iterator<? extends Row> iterator = m.map(MessageTuple::new).iterator();
         return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
     }
@@ -146,6 +145,10 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) {
         return 0;
+    }
+
+    @Override
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
     }
 
     @Override

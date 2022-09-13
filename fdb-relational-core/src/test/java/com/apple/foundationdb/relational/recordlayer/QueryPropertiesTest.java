@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -106,12 +106,8 @@ public class QueryPropertiesTest {
                     s.executeInsert("RESTAURANT", restaurant);
                 }
 
-                TableScan scan = TableScan.newBuilder()
-                        .withTableName("RESTAURANT")
-                        .setStartKey("REST_NO", firstRestNo)
-                        .setEndKey("REST_NO", firstRestNo + 1)
-                        .build();
-                final RelationalResultSet resultSet = s.executeScan(scan, Options.NONE);
+                KeySet keySet = new KeySet().setKeyColumn("REST_NO", firstRestNo);
+                final RelationalResultSet resultSet = s.executeScan("RESTAURANT", keySet, Options.NONE);
                 return getRestNoList(resultSet);
             } catch (Throwable t) {
                 try {

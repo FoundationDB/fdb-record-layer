@@ -45,16 +45,14 @@ public interface DirectScannable {
     /**
      * Open a scan against this entity.
      *
-     * @param transaction    the transaction to use.
-     * @param startKey       the key to start the scan from(inclusive), or {@code null} if we wish to start at the beginning.
-     * @param endKey         the key to end the scan at (exclusive), or {@code null} if we wish to scan all the way to the end.
+     * @param keyPrefix      the key prefix to use for the scan
      * @param options        the options for the scan
-     * @return a Scanner over the range [startKey,endKey), with the specified options and using the specified transaction.
+     * @return a Scanner over the range of records that share the same prefix keyPrefix, with the specified options.
      * @throws RelationalException if something goes wrong during scanning.
      */
-    @Nonnull
-    ResumableIterator<Row> openScan(@Nonnull Transaction transaction, @Nullable Row startKey, @Nullable Row endKey,
-                                    Options options) throws RelationalException;
+    ResumableIterator<Row> openScan(
+            @Nullable Row keyPrefix,
+            @Nonnull Options options) throws RelationalException;
 
     Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException;
 
@@ -69,4 +67,5 @@ public interface DirectScannable {
     String getName();
 
     StructMetaData getMetaData() throws RelationalException;
+
 }

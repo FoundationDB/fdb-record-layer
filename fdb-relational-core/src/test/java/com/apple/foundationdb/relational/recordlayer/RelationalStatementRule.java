@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -59,8 +58,8 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
-        return statement.executeScan(scan, options);
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+        return statement.executeScan(tableName, prefix, options);
     }
 
     @Nonnull
@@ -82,6 +81,11 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
         return statement.executeDelete(tableName, keys);
+    }
+
+    @Override
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+        statement.executeDeleteRange(tableName, prefix, options);
     }
 
     @Override

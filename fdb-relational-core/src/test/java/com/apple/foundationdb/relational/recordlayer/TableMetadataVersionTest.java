@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -69,8 +68,7 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
 
-            TableScan ts = new TableScan("RESTAURANT", new KeySet(), new KeySet());
-            RelationalAssertions.assertThrows(() -> vs.executeScan(ts, opts))
+            RelationalAssertions.assertThrows(() -> vs.executeScan("RESTAURANT", new KeySet(), opts))
                     .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }

@@ -39,6 +39,8 @@ import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 
+import static java.lang.Math.min;
+
 public abstract class AbstractRow implements Row {
 
     @Override
@@ -212,22 +214,30 @@ public abstract class AbstractRow implements Row {
 
     @Override
     public boolean startsWith(Row prefix) {
-        Row thisRow = this;
         if (prefix.getNumFields() > this.getNumFields()) {
             return false;
         }
-        Row truncatedThis = new AbstractRow() {
+
+        return getPrefix(prefix.getNumFields()).equals(prefix);
+    }
+
+    @Override
+    public Row getPrefix(int length) {
+        Row thisRow = this;
+        return new AbstractRow() {
             @Override
             public int getNumFields() {
-                return prefix.getNumFields();
+                return min(thisRow.getNumFields(), length);
             }
 
             @Override
             public Object getObject(int position) throws InvalidColumnReferenceException {
+                if (position > getNumFields()) {
+                    throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
+                }
                 return thisRow.getObject(position);
             }
         };
-        return truncatedThis.equals(prefix);
     }
 
     @Override
