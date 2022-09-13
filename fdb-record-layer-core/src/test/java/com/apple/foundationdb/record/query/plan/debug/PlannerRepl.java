@@ -100,12 +100,12 @@ public class PlannerRepl implements Debugger {
     @Nullable
     private PlanContext planContext;
 
-    @Nullable
-    private Terminal terminal;
+    @Nonnull
+    private final Terminal terminal;
     @Nullable
     private LineReader lineReader;
 
-    private boolean exitOnQuit;
+    private final boolean exitOnQuit;
 
     public PlannerRepl(@Nonnull final Terminal terminal) {
         this(terminal, true);
