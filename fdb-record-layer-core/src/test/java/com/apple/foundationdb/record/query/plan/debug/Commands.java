@@ -711,8 +711,11 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             plannerRepl.printlnHighlighted("I hope you found the problem.");
-            System.exit(0);
-            return false;
+            if (plannerRepl.shouldExitOnQuit()) {
+                System.exit(0);
+            }
+            plannerRepl.removeAllBreakPoints();
+            return true;
         }
 
         @Nonnull

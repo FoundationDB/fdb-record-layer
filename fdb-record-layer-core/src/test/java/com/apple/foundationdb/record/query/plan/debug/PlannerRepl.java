@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.debug;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -42,7 +42,6 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import org.jline.utils.InfoCmp;
@@ -51,7 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -72,15 +70,14 @@ public class PlannerRepl implements Debugger {
     private static final Logger logger = LoggerFactory.getLogger(PlannerRepl.class);
 
     private static final String banner =
-            "                                                        \n" +
-            "         dP                                             \n" +
-            "         88                                             \n" +
-            "88d888b. 88 .d8888b. 88d888b. 88d888b. .d8888b. 88d888b.\n" +
-            "88'  `88 88 88'  `88 88'  `88 88'  `88 88ooood8 88'  `88\n" +
-            "88.  .88 88 88.  .88 88    88 88    88 88.  ... 88      \n" +
-            "88Y888P' dP `88888P8 dP    dP dP    dP `88888P' dP      \n" +
-            "88                                                      \n" +
-            "dP                                                      \n";
+            "                                                                                       \n" +
+            "   ______                          __             ____  __                            \n" +
+            "  / ____/___ _______________ _____/ /__  _____   / __ \\/ /___ _____  ____  ___  _____  \n" +
+            " / /   / __ `/ ___/ ___/ __ `/ __  / _ \\/ ___/  / /_/ / / __ `/ __ \\/ __ \\/ _ \\/ ___/  \n" +
+            "/ /___/ /_/ (__  ) /__/ /_/ / /_/ /  __(__  )  / ____/ / /_/ / / / / / / /  __/ /      \n" +
+            "\\____/\\__,_/____/\\___/\\__,_/\\__,_/\\___/____/  /_/   /_/\\__,_/_/ /_/_/ /_/\\___/_/       \n" +
+            "type 'help' to get a list of available commands                                       \n" +
+            "type 'quit' to exit debugger                                                          \n";
 
     private static final String prompt = "$ ";
 
@@ -103,19 +100,30 @@ public class PlannerRepl implements Debugger {
     @Nullable
     private PlanContext planContext;
 
-    @Nullable
-    private Terminal terminal;
+    @Nonnull
+    private final Terminal terminal;
     @Nullable
     private LineReader lineReader;
 
-    public PlannerRepl() {
+    private final boolean exitOnQuit;
+
+    public PlannerRepl(@Nonnull final Terminal terminal) {
+        this(terminal, true);
+    }
+
+    public PlannerRepl(@Nonnull final Terminal terminal, boolean exitOnQuit) {
         this.stateStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
         this.planContext = null;
-        this.terminal = null;
+        this.terminal = terminal;
         this.lineReader = null;
+        this.exitOnQuit = exitOnQuit;
+    }
+
+    boolean shouldExitOnQuit() {
+        return exitOnQuit;
     }
 
     @Nonnull
@@ -155,13 +163,8 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onInstall() {
-        try {
-            terminal = TerminalBuilder.builder().build();
-            lineReader = LineReaderBuilder.builder().terminal(terminal).build();
-            Objects.requireNonNull(terminal).puts(InfoCmp.Capability.clear_screen);
-        } catch (final IOException ioException) {
-            logger.warn("unable to initialize line reader:" + ioException.getMessage());
-        }
+        lineReader = LineReaderBuilder.builder().terminal(terminal).build();
+        Objects.requireNonNull(terminal).puts(InfoCmp.Capability.clear_screen);
         println(banner);
     }
 
@@ -206,6 +209,10 @@ public class PlannerRepl implements Debugger {
 
     BreakPoint removeBreakPoint(final int index) {
         return breakPoints.remove(index);
+    }
+
+    void removeAllBreakPoints() {
+        breakPoints.clear();
     }
 
     Iterable<BreakPoint> getBreakPoints() {

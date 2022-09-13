@@ -376,7 +376,6 @@ public class CascadesPlanner implements QueryPlanner {
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
         aliasResolver = AliasResolver.withRoot(currentRoot);
-        Debugger.show(currentRoot);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         taskCount = 0;

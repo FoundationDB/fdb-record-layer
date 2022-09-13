@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import org.jline.terminal.TerminalBuilder;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.discovery.MethodSelector;
 import org.junit.platform.launcher.Launcher;
@@ -39,28 +40,28 @@ public class ReplRunner {
     SummaryGeneratingListener listener = new SummaryGeneratingListener();
 
     public void run(@Nonnull final String className, @Nonnull final String testMethodName, @Nullable final String paramTypes) {
-        Debugger.setDebugger(new PlannerRepl());
-        Debugger.setup();
-
-        final MethodSelector methodSelector;
-        if (paramTypes == null) {
-            methodSelector = DiscoverySelectors.selectMethod(
-                    className,
-                    testMethodName);
-        } else {
-            methodSelector = DiscoverySelectors.selectMethod(
-                    className,
-                    testMethodName,
-                    paramTypes);
-        }
-
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                .selectors(methodSelector)
-                .build();
-        Launcher launcher = LauncherFactory.create();
-        launcher.discover(request);
-        launcher.registerTestExecutionListeners(listener);
         try {
+            Debugger.setDebugger(new PlannerRepl(TerminalBuilder.builder().build()));
+            Debugger.setup();
+
+            final MethodSelector methodSelector;
+            if (paramTypes == null) {
+                methodSelector = DiscoverySelectors.selectMethod(
+                        className,
+                        testMethodName);
+            } else {
+                methodSelector = DiscoverySelectors.selectMethod(
+                        className,
+                        testMethodName,
+                        paramTypes);
+            }
+
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(methodSelector)
+                    .build();
+            Launcher launcher = LauncherFactory.create();
+            launcher.discover(request);
+            launcher.registerTestExecutionListeners(listener);
             launcher.execute(request);
         } catch (final Throwable t) {
             t.printStackTrace();
