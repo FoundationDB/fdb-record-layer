@@ -35,8 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -275,6 +276,26 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         }
 
         return false;
+    }
+
+    default boolean flowsTypeInformation() {
+        Type resultType = getResultType();
+
+        if (resultType.getTypeCode() == Type.TypeCode.RELATION) {
+            resultType = ((Type.Relation)resultType).getInnerType();
+        }
+
+        if (resultType == null || resultType.getTypeCode() == Type.TypeCode.ANY || resultType.getTypeCode() == Type.TypeCode.UNKNOWN) {
+            return true;
+        }
+
+        //
+        // Old planner plans do not carry type information.
+        //
+        return getQuantifiers()
+                .stream()
+                .map(Quantifier::getFlowedObjectType)
+                .anyMatch(flowedType -> flowedType.getTypeCode() == Type.TypeCode.ANY || flowedType.getTypeCode() == Type.TypeCode.UNKNOWN);
     }
 
     @API(API.Status.EXPERIMENTAL)

@@ -513,9 +513,8 @@ public class CascadesPlanner implements QueryPlanner {
                 if (bestMember == null) {
                     throw new RecordCoreException("there we no members in a group expression used by the Cascades planner");
                 }
-                group.clear();
-                // call unchecked as this is the first expression to be inserted
-                group.insertUnchecked(bestMember);
+
+                group.pruneWith(bestMember);
                 group.commitExploration();
             }
         }

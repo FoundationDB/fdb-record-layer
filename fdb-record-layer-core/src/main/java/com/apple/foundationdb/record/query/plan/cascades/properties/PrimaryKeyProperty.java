@@ -295,6 +295,18 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
             return Optional.empty();
         }
 
+        @Override
+        public Optional<List<Value>> visit(@Nonnull final RecordQueryPlan plan) {
+            //
+            // Properties can be evaluated on plan structures created by the Cascades planner as well as the old planner.
+            // Old planner plans do not carry type information.
+            //
+            if (plan.flowsTypeInformation()) {
+                return Optional.empty();
+            }
+            return RecordQueryPlanVisitor.super.visit(plan);
+        }
+
         private Optional<List<Value>> primaryKeyFromSingleChild(@Nonnull final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {

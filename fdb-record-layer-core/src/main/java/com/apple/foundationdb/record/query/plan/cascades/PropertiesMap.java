@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProp
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -34,6 +35,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -64,13 +66,16 @@ public class PropertiesMap {
         relationalExpressions
                 .stream()
                 .filter(relationalExpression -> relationalExpression instanceof RecordQueryPlan)
-                .forEach(this::insert);
+                .forEach(this::computePropertiesForPlan);
     }
 
-    public boolean insert(@Nonnull final RelationalExpression relationalExpression) {
-        if (!(relationalExpression instanceof RecordQueryPlan) || planPropertiesMap.containsKey(relationalExpression)) {
-            return false;
-        }
+    @Nullable
+    public Map<PlanProperty<?>, ?> getPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return planPropertiesMap.get(recordQueryPlan);
+    }
+
+    public void computePropertiesForPlan(@Nonnull final RelationalExpression relationalExpression) {
+        Verify.verify(relationalExpression instanceof RecordQueryPlan);
 
         final var recordQueryPlan = (RecordQueryPlan)relationalExpression;
         final var attributeMapBuilder = ImmutableMap.<PlanProperty<?>, Object>builder();
@@ -79,12 +84,15 @@ public class PropertiesMap {
             attributeMapBuilder.put(planProperty, computePropertyValue(planProperty, recordQueryPlan));
         }
 
-        final var attributeForPlanMap = attributeMapBuilder.build();
+        final var propertiesForPlanMap = attributeMapBuilder.build();
 
-        planPropertiesMap.put(recordQueryPlan, attributeForPlanMap);
-        attributeGroupedPlansMap.put(attributeForPlanMap, recordQueryPlan);
+        putPropertiesForPlan(recordQueryPlan, propertiesForPlanMap);
+    }
 
-        return true;
+    public void putPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final Map<PlanProperty<?>, ?> propertiesForPlanMap) {
+        Verify.verify(!planPropertiesMap.containsKey(recordQueryPlan));
+        planPropertiesMap.put(recordQueryPlan, propertiesForPlanMap);
+        attributeGroupedPlansMap.put(propertiesForPlanMap, recordQueryPlan);
     }
 
     @Nonnull

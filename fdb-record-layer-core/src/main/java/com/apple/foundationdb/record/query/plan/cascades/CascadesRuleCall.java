@@ -125,16 +125,16 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
 
     @Override
     @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"}) // deliberate use of == equality check for short-circuit condition
-    public void yield(@Nonnull ExpressionRef<? extends RelationalExpression> expression) {
-        if (expression == root) {
+    public void yield(@Nonnull ExpressionRef<? extends RelationalExpression> expressionReference) {
+        if (expressionReference == root) {
             return;
         }
-        if (expression instanceof GroupExpressionRef) {
-            GroupExpressionRef<RelationalExpression> groupExpressionRef = (GroupExpressionRef<RelationalExpression>) expression;
+        if (expressionReference instanceof GroupExpressionRef) {
+            GroupExpressionRef<RelationalExpression> groupExpressionRef = (GroupExpressionRef<RelationalExpression>) expressionReference;
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
-                if (root.insert(member)) {
+                if (root.insertFrom(member, groupExpressionRef)) {
                     newExpressions.add(member);
-                    aliasResolver.addExpression(expression, member);
+                    aliasResolver.addExpression(expressionReference, member);
                 }
             }
         } else {

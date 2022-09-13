@@ -599,6 +599,18 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             return new Ordering(commonEqualityBoundKeysMap, commonOrderingKeys, allAreDistinct);
         }
 
+        @Override
+        public Ordering visit(@Nonnull final RecordQueryPlan plan) {
+            //
+            // Properties can be evaluated on plan structures created by the Cascades planner as well as the old planner.
+            // Old planner plans do not carry type information.
+            //
+            if (plan.flowsTypeInformation()) {
+                return Ordering.emptyOrder();
+            }
+            return RecordQueryPlanVisitor.super.visit(plan);
+        }
+
         public static Ordering deriveForUnionFromOrderings(@Nonnull final List<Ordering> orderings,
                                                            @Nonnull final RequestedOrdering requestedOrdering,
                                                            @Nonnull final BinaryOperator<SetMultimap<Value, Comparisons.Comparison>> combineFn) {
