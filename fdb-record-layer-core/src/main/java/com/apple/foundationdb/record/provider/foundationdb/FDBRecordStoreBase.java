@@ -1034,7 +1034,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
-        int commonPrimaryKeyLength = 0;
+        int commonPrimaryKeyLength = -1;
         if (fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
         }
@@ -1071,6 +1071,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
+        // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
         if ((fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKeyLength <= 0)) {
             throw new RecordCoreArgumentException("scanIndexRecords with remote fetch requires a positive commonPrimaryKeyLength",
                     LogMessageKeys.INDEX_NAME, index.getName());
@@ -2422,14 +2423,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Return the length of the common primary key for a given index. The length of common primary key is the number of
-     * elements in the primary keys of all types the index is defined on, if they are equal. This is different than the
+     * elements in the primary keys of all types the index is defined on, if they are equal. This is different from the
      * calculation of the common primary key as there can be a common length even if the {@link #getCommonPrimaryKey}
      * returns null.
      * For example, for types A with PK {@code field("a")} and B with PK {@code field("b")} there is no common primary
      * key, but the common primary key length can be calculated as 1.
      *
      * @param index the index for which the common primary key is needed
-     * @return the length of the primary key common to all record types defined for the index, or 0 if no such key exists
+     * @return the length of the primary key common to all record types defined for the index, or -1 if no such key exists
      */
     @API(API.Status.INTERNAL)
     @Nullable

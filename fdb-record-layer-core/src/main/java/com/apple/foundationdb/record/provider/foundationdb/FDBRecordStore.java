@@ -1242,6 +1242,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                                  @Nonnull RecordSerializer<M> typedSerializer,
                                                                                                  @Nonnull final ScanProperties scanProperties,
                                                                                                  @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
         if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("commonPrimaryKeyLength has to be a positive number", LogMessageKeys.INDEX_NAME, index.getName());
         }
