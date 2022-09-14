@@ -280,6 +280,7 @@ if (fdbEnvironmentFile.exists()) {
         if (eq > 0) ext.fdbEnvironment.put(line.substring(0, eq), line.substring(eq + 1))
     }
 }
+
 if (!ext.fdbEnvironment.isEmpty()) {
     def fdbenv = ext.fdbEnvironment
     allprojects {

@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBMetaDataStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
@@ -54,6 +56,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore
  */
 public class BenchmarkRecordStore {
     @Nonnull
+    protected FDBDatabaseFactory factory;
+    @Nonnull
     private FDBDatabase database;
     @Nonnull
     private FDBRecordStore.Builder recordStoreBuilder;
@@ -64,7 +68,7 @@ public class BenchmarkRecordStore {
     @Nonnull
     private final PipelineSizer pipelineSizer;
 
-    private static final KeySpace KEY_SPACE = new KeySpace(
+    public static final KeySpace KEY_SPACE = new KeySpace(
             new DirectoryLayerDirectory("record-layer-benchmark", "record-layer-benchmark")
                     .addSubdirectory(new DirectoryLayerDirectory("data", "data")
                             .addSubdirectory(new KeySpaceDirectory("name", KeySpaceDirectory.KeyType.STRING)))
@@ -84,10 +88,14 @@ public class BenchmarkRecordStore {
     }
 
     public BenchmarkRecordStore() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+        factory = FDBDatabaseFactory.instance();
         recordStoreBuilder = FDBRecordStore.newBuilder();
         pipelineSizer = new PipelineSizer();
         recordStoreBuilder.setPipelineSizer(pipelineSizer);
+    }
+
+    public void init(){
+        this.database = factory.getDatabase();
     }
 
     public FDBDatabase getDatabase() {
@@ -162,6 +170,16 @@ public class BenchmarkRecordStore {
             body.accept(recordStore);
             return null;
         });
+    }
+
+    public void run(@Nonnull FDBRecordContextConfig.Builder cfg, @Nonnull Consumer<FDBRecordStore> body) {
+        try (final FDBDatabaseRunner runner = database.newRunner(cfg)) {
+            runner.run(recordContext -> {
+                final FDBRecordStore recordStore = openRecordStore(recordContext);
+                body.accept(recordStore);
+                return null;
+            });
+        }
     }
 
     public QueryPlanner planner(@Nonnull BenchmarkTimer timer, boolean cascades) {

@@ -55,6 +55,7 @@ public class TestKeySpace {
                     )
                     .addSubdirectory(new DirectoryLayerDirectory("performance", "performance")
                             .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))
+                            .addSubdirectory(new DirectoryLayerDirectory("recordStore2", "recordStore2"))
                     )
     );
 

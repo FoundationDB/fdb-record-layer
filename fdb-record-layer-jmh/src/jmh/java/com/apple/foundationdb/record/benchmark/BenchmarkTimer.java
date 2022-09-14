@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.benchmark;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.profile.RecordLayerProfiler;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Per thread state for logging and stats.
@@ -38,8 +40,10 @@ public class BenchmarkTimer {
     @Nonnull
     private final Map<String, String> mdc;
 
+    private final Random random = new Random(0);
+
     public BenchmarkTimer() {
-        timer = new FDBStoreTimer();
+        timer = RecordLayerProfiler.getStoreTimer();
         mdc = new HashMap<>();
     }
 
@@ -52,4 +56,10 @@ public class BenchmarkTimer {
     public Map<String, String> getMdc() {
         return mdc;
     }
+
+    @Nonnull
+    public Random getRandom() {
+        return random;
+    }
 }
+
