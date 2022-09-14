@@ -75,6 +75,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.search.Sort;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -133,6 +134,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+    private static final Index LUCENE_WITH_STORED_VALUES = new Index(
+            "lucene_with_stored_values",
+            concat(
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("group"))
+            ),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap()
+    );
 
     private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE = new Index("Simple_with_auto_complete",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -202,6 +213,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
+
 
     private static final List<KeyExpression> keys = List.of(
             field("key"),
@@ -393,6 +405,41 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void simpleInsertAndSearchWithStoredFields() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, LUCENE_WITH_STORED_VALUES);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
+
+            LuceneScanParameters scan = new LuceneScanQueryParameters(
+                    ScanComparisons.EMPTY,
+                    new LuceneQueryMultiFieldSearchClause("\"propose a Vision\"", false),
+                    Sort.RELEVANCE,
+                    List.of("group"),
+                    List.of(LuceneIndexExpressions.DocumentFieldType.INT));
+
+            try (final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(LUCENE_WITH_STORED_VALUES,
+                    scan.bind(recordStore, LUCENE_WITH_STORED_VALUES, EvaluationContext.EMPTY),
+                    null,
+                    ScanProperties.FORWARD_SCAN)) {
+                final List<IndexEntry> indexEntries = cursor.asList().get();
+                List<Long> primaryKeys = List.of(1623L);
+                List<Integer> groups = List.of(2);
+                //check that the primary keys are returned
+                assertEquals(primaryKeys.stream().map(Tuple::from).collect(Collectors.toList()),
+                        indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
+                //now check that the IndexEntry contains the returned record also
+                assertEquals(groups.stream().map(Tuple::from).collect(Collectors.toList()),
+                        indexEntries.stream().map(ie -> Tuple.from(ie.getKey().getLong(0))).collect(Collectors.toList()));
+
+                assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+                assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(LUCENE_WITH_STORED_VALUES), context, "_0.cfs", true);
+            }
         }
     }
 
