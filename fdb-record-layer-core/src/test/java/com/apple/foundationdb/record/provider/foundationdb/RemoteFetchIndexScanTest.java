@@ -400,12 +400,13 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     .setIsolationLevel(IsolationLevel.SNAPSHOT)
                     .build());
 
+            IndexScanRange scanBounds = scanBounds();
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(UnsupportedOperationException.class,
-                        () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), scanProperties, primaryKey(), null));
+                        () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds, scanProperties, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
-                        scanBounds(), scanProperties, null, 100,
+                        scanBounds, scanProperties, null, 100,
                         (rec, i) -> {
                             int primaryKey = 99 - i;
                             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -536,10 +537,14 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     void testInvalidIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
 
-        assertThrows(RecordCoreArgumentException.class, () -> recordStore.scanIndexRecords(
-                recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
-                -1,
-                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
+        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+        IndexScanRange scanBounds = scanBounds();
+        assertThrows(RecordCoreArgumentException.class, () -> {
+            recordStore.scanIndexRecords(
+                    index, fetchMethod, scanBounds,
+                    -1,
+                    null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
+        });
     }
 
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
@@ -547,8 +552,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     void testTooLargeIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
 
+        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+        IndexScanRange scanBounds = scanBounds();
         assertThrows(RecordCoreStorageException.class, () -> recordStore.scanIndexRecords(
-                recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
+                index, fetchMethod, scanBounds,
                 86,
                 null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
     }
