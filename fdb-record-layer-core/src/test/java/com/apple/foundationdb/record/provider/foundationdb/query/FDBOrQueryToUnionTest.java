@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -77,18 +78,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.orPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKey;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKeyValues;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnValuesPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
@@ -134,10 +136,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
 
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     coveringIndexPlan()
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
                                     coveringIndexPlan()
@@ -148,9 +150,23 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-1584186103, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-357068519, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(964023338, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]")))))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
+            assertEquals(-1523994232, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1846737418, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1127138021, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))));
             assertMatchesExactly(plan, planMatcher);
@@ -165,7 +181,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -254,29 +270,29 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[4],[4]]"))))))
-                                    .where(comparisonKey(concat(primaryKey("MySimpleRecord"), field("num_value_3_indexed")))));
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[4],[4]]"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"), fieldValueWithFieldNames("num_value_3_indexed")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(946624052, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2076279876, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1517943313, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1422210316, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-578838283, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(121905824, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[4],[4]]"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[4],[4]]"))))))
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -288,7 +304,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -362,28 +378,45 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
 
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))))
                                     .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(504228282, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1520996708, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(2080970598, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
+
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1864606086, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-979638051, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-419664161, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -395,7 +428,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -432,10 +465,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed ([null],[2])) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     coveringIndexPlan()
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))))),
                                     coveringIndexPlan()
@@ -446,11 +479,25 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-627934247, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(502710007, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1718649364, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(1298198681, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1997924752, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-781985395, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -462,7 +509,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -499,28 +546,44 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[even],[even]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
 
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(-417814093, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1082480572, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(233155848, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-357622222, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1121325365, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1858005511, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
@@ -533,7 +596,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -613,7 +676,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             Objects.requireNonNull(context.getTimer()).reset();
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -749,22 +812,22 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[1])"))))))
-                                    .where(comparisonKey(concat(Key.Expressions.field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[1])"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-835124758, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(778876973, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1061354639, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1091008170, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1721757786, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1439280120, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[1])"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[1])"))))
                             .where(comparisonKey(concat(Key.Expressions.field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -776,7 +839,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -843,7 +906,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -889,11 +952,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))))
                                     .where(comparisonKey(concat(Key.Expressions.field("str_value_indexed"), field("num_value_3_indexed"), field("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -903,24 +966,24 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))))
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))))
                                     // note that the comparison key is only on (num_value_3_indexed, num_value_unique) as str_value_indexed is equality-bound
-                                    .where(comparisonKey(concat(field("num_value_3_indexed"), field("num_value_unique")))));
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-60058062, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1391842890, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(79291284, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1866074866, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1352067455, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1471765667, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -962,9 +1025,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -974,24 +1037,24 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
                                     // note that the comparison key is only on the primary key
-                                    .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1300798826, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1882806542, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(739308244, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(941569104, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1690438043, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(17585533, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -1013,9 +1076,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -1025,18 +1088,18 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))))
                                     // note that the comparison key is only on the primary key
-                                    .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1300798826, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1882991054, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(739123732, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(941569104, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1690253531, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(17401021, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
@@ -1072,13 +1135,20 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
         assertTrue(plan1.semanticEquals(plan2));
-        if (shouldPushFetchAboveUnionToIntersection || planner instanceof CascadesPlanner) {
+        if (shouldPushFetchAboveUnionToIntersection && !(planner instanceof CascadesPlanner)) {
             assertEquals(-1584186103, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-357068519, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(964023338, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(-91575587, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1919956247, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(78160824, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            assertEquals(-1523994232, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1846737418, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1127138021, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-31383716, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(283849690, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-2013000535, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(-2067012572, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1784357954, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1092,8 +1162,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
-                    RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = executeQuery(plan1);
+                     RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = executeQuery(plan2)) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -1148,13 +1218,20 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
         assertTrue(plan1.semanticEquals(plan2));
         
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertEquals(770691035, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1890796442, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(55660884, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(1289607451, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-29394342, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1772831508, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            assertEquals(830882906, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-200364917, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-2035500475, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1349799322, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2120555701, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-318329851, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(723665474, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-330673401, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1168,8 +1245,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
-                    RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = executeQuery(plan1);
+                    RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = executeQuery(plan2)) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -1219,11 +1296,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))),
-                            intersectionPlan(
-                                    indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))),
-                                    indexPlan().where(indexName("n3_2")).and(scanComparisons(range("[[1],[1]]")))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))),
+                                    intersectionOnExpressionPlan(
+                                            indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))),
+                                            indexPlan().where(indexName("n3_2")).and(scanComparisons(range("[[1],[1]]")))))
                             .where(comparisonKey(concat(field("num_value_2"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
@@ -1233,23 +1310,23 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))))),
-                                    intersectionPlan(
-                                            coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))))),
-                                            coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("n3_2")).and(scanComparisons(range("[[1],[1]]")))))))
-                                    .where(comparisonKey(concat(field("num_value_2"), primaryKey("MySimpleRecord")))));
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))))),
+                                            intersectionOnValuesPlan(
+                                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))))),
+                                                    coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("n3_2")).and(scanComparisons(range("[[1],[1]]")))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1254181870, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(156652779, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1906836981, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(811480430, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-123484021, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1626700181, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -1283,25 +1360,39 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
 
-        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))))))
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(-1584186334, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-351348461, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(969743396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (planner instanceof CascadesPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1523994463, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1852457476, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1121417963, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]"))))
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
@@ -1358,9 +1449,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))),
-                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))),
+                                    indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
             assertEquals(-2074065439, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -1369,22 +1460,22 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))))
-                                    .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
-            assertEquals(-1633556172, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1006639371, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-200977842, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(292576756, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1493995388, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1593354695, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -1430,10 +1521,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))),
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[5],[5]]"))))
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))),
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[5],[5]]"))))
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
@@ -1443,19 +1534,19 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[5],[5]]"))))))
-                                    .where(comparisonKey(concat(primaryKey("MySimpleRecord"), field("num_value_3_indexed")))));
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[5],[5]]"))))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"), fieldValueWithFieldNames("num_value_3_indexed")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(946624276, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1302554588, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1517943313, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1422210092, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(337294549, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(121905824, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1570,7 +1661,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 fetchFromPartialRecordPlan(
-                        unionPlan(
+                        RecordQueryPlanMatchers.unionOnExpressionPlan(
                                 coveringIndexPlan()
                                         .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
                                 coveringIndexPlan()
@@ -1605,7 +1696,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.and(
                                 Query.field("num_value_3_indexed").lessThanOrEquals(18),
                                 Query.field("num_value_2").greaterThanOrEquals(26))
-                        ))
+                ))
                 .build();
         setDeferFetchAfterUnionAndIntersection(true);
         RecordQueryPlan plan = planner.plan(query);
@@ -1666,19 +1757,34 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         final RecordQueryPlan plan = planner.plan(query);
-        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                fetchFromPartialRecordPlan(
-                        unionPlan(
-                                coveringIndexPlan()
-                                        .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
-                                coveringIndexPlan()
-                                        .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))))));
 
-        assertMatchesExactly(plan, planMatcher);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))))));
+            assertMatchesExactly(plan, planMatcher);
 
-        assertEquals(-1608004667, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-291254354, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(969743396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1608004667, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-291254354, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(969743396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuePlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1547812796, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1912551583, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1121417963, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     @DualPlannerTest
@@ -1699,7 +1805,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")),
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")),
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")),
                             filterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))).where(queryComponents(exactly(equalsObject(Query.field("num_value_2").equalsValue(3))))));
 
@@ -1709,9 +1815,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1714281445, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnValuePlan(
                             fetchFromPartialRecordPlan(
-                                    unionPlan(
+                                    RecordQueryPlanMatchers.unionOnValuePlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
                                             coveringIndexPlan()
@@ -1721,9 +1827,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(357806958, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-325811449, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-2072211590, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(391653528, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1704390297, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(844176858, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
@@ -1769,59 +1875,59 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             planMatcher = filterPlan(
                     fetchFromPartialRecordPlan(
-                            unionPlan(
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],[4])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([5],[6])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([7],[8])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([9],[10])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([11],[12])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([13],[14])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([15],[16])"))))),
-                                    coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([17],[18])"))))))
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],[4])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([5],[6])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([7],[8])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([9],[10])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([11],[12])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([13],[14])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([15],[16])"))))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([17],[18])"))))))
                                     .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))
                     ))
                     .where(queryComponents(exactly(equalsObject(Query.field("str_value_indexed").equalsValue("outer")))));
 
         } else {
-            planMatcher = unionPlan(
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],[4])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([5],[6])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([7],[8])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([9],[10])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([11],[12])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([13],[14])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([15],[16])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
-                    predicatesFilterPlan(
-                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([17],[18])"))))
-                            .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))))
-                    .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
+            planMatcher = RecordQueryPlanMatchers.unionOnValuePlan(
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],[4])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([5],[6])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([7],[8])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([9],[10])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([11],[12])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([13],[14])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([15],[16])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),
+                            predicatesFilterPlan(
+                                    indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([17],[18])"))))
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))))
+                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no"))));
 
         }
         assertMatches(plan, planMatcher);

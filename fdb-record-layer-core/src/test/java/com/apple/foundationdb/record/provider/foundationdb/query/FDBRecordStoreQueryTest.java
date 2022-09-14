@@ -89,7 +89,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
@@ -206,7 +206,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             // Index(ByteStringRecord$secondary ([null],[[0, 1, 2]]]) | name NOT_NULL ∪[Field { 'secondary' None}, Field { 'pkey' None}] Index(ByteStringRecord$secondary [[[0, 1, 3]],>)
             RecordQueryPlan plan = planner.plan(query);
             assertMatchesExactly(plan,
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             filterPlan(
                                     indexPlan().where(indexName("ByteStringRecord$secondary")).and(scanComparisons(range("([null],[[0, 1, 2]]]"))))
                                     .where(queryComponents(exactly(equalsObject(Query.field("name").notNull())))),

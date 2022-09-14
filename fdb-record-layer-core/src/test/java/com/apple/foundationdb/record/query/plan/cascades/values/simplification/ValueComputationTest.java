@@ -111,7 +111,7 @@ class ValueComputationTest {
         // _
         final var someNewCurrentValue = QuantifiedObjectValue.of(ALIAS, completeResultValue.getResultType());
 
-        final var expectedResult = ImmutableList.of(
+        final var expectedResult = ImmutableMap.of(
                 _x, FieldValue.ofOrdinalNumber(someNewCurrentValue, 0),
                 _z, FieldValue.ofOrdinalNumber(someNewCurrentValue, 1));
         Assertions.assertEquals(expectedResult, resultsMap);

@@ -37,11 +37,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -54,7 +54,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggreg
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -156,7 +156,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan element) {
+        public Boolean visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan element) {
             return false;
         }
 
@@ -252,7 +252,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan element) {
+        public Boolean visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan element) {
             return false;
         }
 
@@ -270,7 +270,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan element) {
+        public Boolean visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan element) {
             return false;
         }
 

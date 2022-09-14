@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -121,6 +123,13 @@ public class ValueMatchers {
     }
 
     @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final BindingMatcher<? extends Value>... downstreamValues) {
+        return recordConstructorValue(exactly(Arrays.asList(downstreamValues)));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
         return typedWithDownstream(RecordConstructorValue.class,
                 Extractor.of(RecordConstructorValue::getChildren, name -> "children(" + name + ")"),
@@ -132,5 +141,12 @@ public class ValueMatchers {
         return typedWithDownstream(ArithmeticValue.class,
                 Extractor.of(ArithmeticValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
+    }
+
+    @Nonnull
+    public static BindingMatcher<QuantifiedObjectValue> currentObjectValue() {
+        return typedWithDownstream(QuantifiedObjectValue.class,
+                Extractor.of(QuantifiedObjectValue::getAlias, name -> "alias(" + name + ")"),
+                PrimitiveMatchers.equalsObject(Quantifier.CURRENT));
     }
 }

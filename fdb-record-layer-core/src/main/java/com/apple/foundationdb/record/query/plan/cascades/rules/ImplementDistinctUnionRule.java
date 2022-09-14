@@ -39,13 +39,11 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -204,14 +202,14 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         final var equalityBoundKeys = mergedOrdering.getEqualityBoundKeys();
                         final var orderingKeyParts = mergedOrdering.getOrderingKeyParts();
 
-                        final var orderingKeys =
+                        final var orderingKeyValues =
                                 orderingKeyParts
                                         .stream()
                                         .map(KeyPart::getValue)
                                         .collect(ImmutableList.toImmutableList());
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeys, equalityBoundKeys)) {
+                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
                             // this is a good merged ordering so far
                             merge.add(Pair.of(mergedOrdering, orderings.get(merge.size())));
                         } else {
@@ -235,23 +233,20 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var equalityBoundKeys = ordering.getEqualityBoundKeys();
                     final var orderingKeyParts = ordering.getOrderingKeyParts();
 
-                    final var orderingKeys =
+                    final var orderingKeyValues =
                             orderingKeyParts
                                     .stream()
                                     .map(KeyPart::getValue)
                                     .collect(ImmutableList.toImmutableList());
 
                     // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                    if (!isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeys, equalityBoundKeys)) {
+                    if (!isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
                         continue;
                     }
 
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final var comparisonKey =
-                            orderingKeys.size() == 1
-                            ? Iterables.getOnlyElement(orderingKeys) : RecordConstructorValue.ofUnnamed(orderingKeys);
 
                     //
                     // create new quantifiers
@@ -263,7 +258,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                             .map(Quantifier::physical)
                             .collect(ImmutableList.toImmutableList());
 
-                    call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, comparisonKey, true)));
+                    call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, orderingKeyValues, true)));
                 }
             }
         }

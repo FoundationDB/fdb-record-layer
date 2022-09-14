@@ -330,21 +330,20 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      *
      * @param inner the input/inner plan to this in-union
      * @param inSources a list of outer in-sources
-     * @param comparisonKeyValue a value by which the results of both plans are ordered
+     * @param comparisonKeyValues values by which the results of both plans are ordered
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
-    public static RecordQueryInUnionOnValuePlan from(@Nonnull final Quantifier.Physical inner,
-                                                     @Nonnull final List<? extends InSource> inSources,
-                                                     @Nonnull Value comparisonKeyValue,
-                                                     final int maxNumberOfValuesAllowed,
-                                                     @Nonnull final Bindings.Internal internal) {
-        return new RecordQueryInUnionOnValuePlan(inner,
+    public static RecordQueryInUnionOnValuesPlan from(@Nonnull final Quantifier.Physical inner,
+                                                      @Nonnull final List<? extends InSource> inSources,
+                                                      @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                      final int maxNumberOfValuesAllowed,
+                                                      @Nonnull final Bindings.Internal internal) {
+        return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
-                Quantifier.CURRENT,
-                comparisonKeyValue,
+                comparisonKeyValues,
                 Quantifiers.isReversed(ImmutableList.of(inner)),
                 maxNumberOfValuesAllowed,
                 internal);

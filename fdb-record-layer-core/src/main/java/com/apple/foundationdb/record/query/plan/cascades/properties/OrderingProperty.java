@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -47,11 +48,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -64,7 +65,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggreg
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -223,10 +224,10 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan intersectionOnValuePlan) {
+        public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
             final var requestedOrdering =
-                    requestedOrderingFromComparisonKeyValue(intersectionOnValuePlan.getComparisonKeyValue(),
+                    requestedOrderingFromComparisonKeyValue(intersectionOnValuePlan.getComparisonKeyValues(),
                             intersectionOnValuePlan.getCorrelatedTo(),
                             intersectionOnValuePlan.isReverse());
             final Optional<SetMultimap<Value, Comparisons.Comparison>> commonEqualityBoundKeysMapOptional =
@@ -455,10 +456,10 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan unionOnValuePlan) {
+        public Ordering visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return deriveForUnionFromOrderings(
-                    orderingsFromChildren(unionOnValuePlan),
-                    requestedOrderingFromComparisonKeyValue(unionOnValuePlan.getComparisonKeyValue(), unionOnValuePlan.getCorrelatedTo(), unionOnValuePlan.isReverse()),
+                    orderingsFromChildren(unionOnValuesPlan),
+                    requestedOrderingFromComparisonKeyValue(unionOnValuesPlan.getComparisonKeyValues(), unionOnValuesPlan.getCorrelatedTo(), unionOnValuesPlan.isReverse()),
                     Ordering::intersectEqualityBoundKeys);
         }
 
@@ -486,14 +487,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan inUnionOnValuePlan) {
+        public Ordering visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
             final var childOrdering = orderingFromSingleChild(inUnionOnValuePlan);
             final var equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
-            final var comparisonKeyValue = inUnionOnValuePlan.getComparisonKeyValue();
+            final var comparisonKeyValues = inUnionOnValuePlan.getComparisonKeyValues();
 
             final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
             final var resultKeyPartBuilder = ImmutableList.<KeyPart>builder();
-            final List<Value> comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(AliasMap.emptyMap(), inUnionOnValuePlan.getCorrelatedTo());
             for (final var comparisonKeyPartValue : comparisonKeyValues) {
                 resultKeyPartBuilder.add(KeyPart.of(comparisonKeyPartValue, inUnionOnValuePlan.isReverse()));
             }
@@ -536,12 +536,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         }
 
         @Nonnull
-        private RequestedOrdering requestedOrderingFromComparisonKeyValue(@Nonnull final Value comparisonKeyValue, @Nonnull final Set<CorrelationIdentifier> correlatedTo, final boolean isReverse) {
-            final var comparisonKeyValues = comparisonKeyValue.simplifyOrderingValue(AliasMap.emptyMap(), correlatedTo);
+        private RequestedOrdering requestedOrderingFromComparisonKeyValue(@Nonnull final List<? extends Value> comparisonKeyValues, @Nonnull final Set<CorrelationIdentifier> correlatedTo, final boolean isReverse) {
+            final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
             return new RequestedOrdering(
                     comparisonKeyValues
                             .stream()
-                            .map(orderByValue -> KeyPart.of(orderByValue, isReverse))
+                            .map(orderByValue -> KeyPart.of(orderByValue.simplify(ruleSet, AliasMap.emptyMap(), correlatedTo), isReverse))
                             .collect(Collectors.toList()),
                     RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
         }
@@ -597,18 +597,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                             .allMatch(Ordering::isDistinct);
 
             return new Ordering(commonEqualityBoundKeysMap, commonOrderingKeys, allAreDistinct);
-        }
-
-        @Override
-        public Ordering visit(@Nonnull final RecordQueryPlan plan) {
-            //
-            // Properties can be evaluated on plan structures created by the Cascades planner as well as the old planner.
-            // Old planner plans do not carry type information.
-            //
-            if (plan.flowsTypeInformation()) {
-                return Ordering.emptyOrder();
-            }
-            return RecordQueryPlanVisitor.super.visit(plan);
         }
 
         public static Ordering deriveForUnionFromOrderings(@Nonnull final List<Ordering> orderings,

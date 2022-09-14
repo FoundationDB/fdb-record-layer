@@ -38,11 +38,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -55,7 +55,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggreg
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -162,8 +162,8 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan intersectionOnValuePlan) {
-            return commonPrimaryKeyFromChildren(intersectionOnValuePlan);
+        public Optional<List<Value>> visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+            return commonPrimaryKeyFromChildren(intersectionOnValuesPlan);
         }
 
         @Nonnull
@@ -254,8 +254,8 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan unionOnValuePlan) {
-            return commonPrimaryKeyFromChildren(unionOnValuePlan);
+        public Optional<List<Value>> visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+            return commonPrimaryKeyFromChildren(unionOnValuesPlan);
         }
 
         @Nonnull
@@ -273,8 +273,8 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan inUnionOnValuePlan) {
-            return primaryKeyFromSingleChild(inUnionOnValuePlan);
+        public Optional<List<Value>> visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+            return primaryKeyFromSingleChild(inUnionOnValuesPlan);
         }
 
         @Nonnull
@@ -293,18 +293,6 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitDefault(@Nonnull final RecordQueryPlan element) {
             return Optional.empty();
-        }
-
-        @Override
-        public Optional<List<Value>> visit(@Nonnull final RecordQueryPlan plan) {
-            //
-            // Properties can be evaluated on plan structures created by the Cascades planner as well as the old planner.
-            // Old planner plans do not carry type information.
-            //
-            if (plan.flowsTypeInformation()) {
-                return Optional.empty();
-            }
-            return RecordQueryPlanVisitor.super.visit(plan);
         }
 
         private Optional<List<Value>> primaryKeyFromSingleChild(@Nonnull final RelationalExpression expression) {

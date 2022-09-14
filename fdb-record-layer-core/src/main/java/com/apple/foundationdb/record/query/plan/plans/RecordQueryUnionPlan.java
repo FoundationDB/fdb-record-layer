@@ -160,12 +160,11 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Nonnull
-    public static RecordQueryUnionOnValuePlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
-                                                              @Nonnull final Value comparisonKeyValue,
-                                                              boolean showComparisonKey) {
-        return new RecordQueryUnionOnValuePlan(quantifiers,
-                Quantifier.CURRENT,
-                comparisonKeyValue,
+    public static RecordQueryUnionOnValuesPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                               @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                               boolean showComparisonKey) {
+        return RecordQueryUnionOnValuesPlan.union(quantifiers,
+                comparisonKeyValues,
                 Quantifiers.isReversed(quantifiers),
                 showComparisonKey);
     }

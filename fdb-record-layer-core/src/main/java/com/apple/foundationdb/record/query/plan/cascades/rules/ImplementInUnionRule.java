@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyPr
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
@@ -53,7 +52,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.SetMultimap;
 
@@ -193,7 +191,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                 final Ordering combinedOrdering = combinedOrderingOptional.get();
                 final List<KeyPart> orderingKeyParts = combinedOrdering.getOrderingKeyParts();
 
-                final List<Value> orderingKeys =
+                final List<Value> orderingKeyValues =
                         orderingKeyParts
                                 .stream()
                                 .map(KeyPart::getValue)
@@ -202,16 +200,12 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                 //
                 // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                 //
-                final var comparisonKey =
-                        orderingKeys.size() == 1
-                        ? Iterables.getOnlyElement(orderingKeys) : RecordConstructorValue.ofUnnamed(orderingKeys);
-
                 final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
                 final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
                 call.yield(GroupExpressionRef.of(
                         RecordQueryInUnionPlan.from(newInnerQuantifier,
                                 inSources,
-                                comparisonKey,
+                                orderingKeyValues,
                                 attemptFailedInJoinAsUnionMaxSize,
                                 CORRELATION)));
             }

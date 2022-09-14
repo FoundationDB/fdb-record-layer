@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -165,10 +164,6 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                 // pulling up the fetch is meaningless in this case
                 return;
             }
-        }
-        if (setOperationPlan.getRequiredFields().stream().anyMatch(KeyExpression::createsDuplicates)) {
-            // there are nested repeateds in the required fields which we currently cannot handle
-            return;
         }
 
         final List<? extends RecordQueryFetchFromPartialRecordPlan> fetchPlans = bindings.getAll(fetchPlanMatcher);

@@ -36,8 +36,10 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,41 +57,66 @@ public class PropertiesMap {
                     .build();
 
     @Nonnull
+    private final Deque<RecordQueryPlan> toBeInsertedPlans;
+    @Nonnull
     private final Map<RecordQueryPlan, Map<PlanProperty<?>, ?>> planPropertiesMap;
-
     @Nonnull
     private final SetMultimap<Map<PlanProperty<?>, ?>, RecordQueryPlan> attributeGroupedPlansMap;
 
     public PropertiesMap(@Nonnull Collection<? extends RelationalExpression> relationalExpressions) {
+        this.toBeInsertedPlans = new ArrayDeque<>();
         this.planPropertiesMap = new LinkedIdentityMap<>();
         this.attributeGroupedPlansMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
         relationalExpressions
                 .stream()
                 .filter(relationalExpression -> relationalExpression instanceof RecordQueryPlan)
-                .forEach(this::computePropertiesForPlan);
+                .map(relationalExpression -> (RecordQueryPlan)relationalExpression)
+                .forEach(this::add);
     }
 
+    private void update() {
+        while (!toBeInsertedPlans.isEmpty()) {
+            final var recordQueryPlan = toBeInsertedPlans.pop();
+            final var attributeMapBuilder = ImmutableMap.<PlanProperty<?>, Object>builder();
+            for (final var planProperty : planProperties) {
+                attributeMapBuilder.put(planProperty, computePropertyValue(planProperty, recordQueryPlan));
+            }
+            final var propertiesForPlanMap = attributeMapBuilder.build();
+            add(recordQueryPlan, propertiesForPlanMap);
+        }
+    }
+
+    /**
+     * Returns the properties currently stored in the properties map for the given plan. Note that
+     * {@link #update()} is not called prior to retrieving the properties.
+     * @param recordQueryPlan the plan
+     * @return a map of properties for the given plan, or {@code null} if the {@link  RecordQueryPlan} passed in is
+     *         either stored in the properties map.
+     */
     @Nullable
     public Map<PlanProperty<?>, ?> getPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        update();
+        return getCurrentPropertiesForPlan(recordQueryPlan);
+    }
+
+    /**
+     * Returns the properties currently stored in the properties map for the given plan. Note that
+     * {@link #update()} is not called prior to retrieving the properties.
+     * @param recordQueryPlan the plan
+     * @return a map of properties for the given plan, or {@code null} if the {@link  RecordQueryPlan} passed in is
+     *         either not stored in the properties map or not yet stored in the map (it may be in the queue but is
+     *         not yet processed).
+     */
+    @Nullable
+    public Map<PlanProperty<?>, ?> getCurrentPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
         return planPropertiesMap.get(recordQueryPlan);
     }
 
-    public void computePropertiesForPlan(@Nonnull final RelationalExpression relationalExpression) {
-        Verify.verify(relationalExpression instanceof RecordQueryPlan);
-
-        final var recordQueryPlan = (RecordQueryPlan)relationalExpression;
-        final var attributeMapBuilder = ImmutableMap.<PlanProperty<?>, Object>builder();
-
-        for (final var planProperty : planProperties) {
-            attributeMapBuilder.put(planProperty, computePropertyValue(planProperty, recordQueryPlan));
-        }
-
-        final var propertiesForPlanMap = attributeMapBuilder.build();
-
-        putPropertiesForPlan(recordQueryPlan, propertiesForPlanMap);
+    public void add(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        toBeInsertedPlans.add(recordQueryPlan);
     }
 
-    public void putPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final Map<PlanProperty<?>, ?> propertiesForPlanMap) {
+    public void add(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final Map<PlanProperty<?>, ?> propertiesForPlanMap) {
         Verify.verify(!planPropertiesMap.containsKey(recordQueryPlan));
         planPropertiesMap.put(recordQueryPlan, propertiesForPlanMap);
         attributeGroupedPlansMap.put(propertiesForPlanMap, recordQueryPlan);
@@ -103,12 +130,14 @@ public class PropertiesMap {
     }
 
     public void clear() {
+        toBeInsertedPlans.clear();
         planPropertiesMap.clear();
         attributeGroupedPlansMap.clear();
     }
 
     @Nonnull
     public <P> Map<RecordQueryPlan, P> getPlannerAttributeForAllPlans(@Nonnull final PlanProperty<P> planProperty) {
+        update();
         final var resultMap = new LinkedIdentityMap<RecordQueryPlan, P>();
         for (final var entry : planPropertiesMap.entrySet()) {
             resultMap.put(entry.getKey(), planProperty.narrowAttribute(entry.getValue().get(planProperty)));
@@ -120,6 +149,7 @@ public class PropertiesMap {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     public List<PlanPartition> getPlanPartitions() {
+        update();
         return PlanPartition.toPlanPartitions(Multimaps.asMap(attributeGroupedPlansMap));
     }
 

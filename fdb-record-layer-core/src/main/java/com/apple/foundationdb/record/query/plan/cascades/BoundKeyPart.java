@@ -65,7 +65,7 @@ public class BoundKeyPart {
     }
 
     @Nonnull
-    public Value getOrderByValue() {
+    public Value getValue() {
         return keyPart.getValue();
     }
 

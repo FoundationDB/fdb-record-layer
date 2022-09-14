@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
@@ -418,6 +419,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                            @Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return Simplification.simplify(this, aliasMap, constantAliases, ruleSet);
+    }
+
+    @Nonnull
+    default Value simplify(@Nonnull final AliasMap aliasMap,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.ofSimplificationRules());
     }
 
     @Nonnull

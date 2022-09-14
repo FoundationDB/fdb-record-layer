@@ -115,7 +115,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
@@ -123,7 +123,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
@@ -1729,7 +1729,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
-                                intersectionPlan(
+                                intersectionOnExpressionPlan(
                                         indexPlan()
                                                 .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
                                                 .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
@@ -1741,7 +1741,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertMatchesExactly(plan,
                         fetchFromPartialRecordPlan(
-                                intersectionPlan(
+                                intersectionOnExpressionPlan(
                                         coveringIndexPlan()
                                                 .where(indexPlanOf(indexPlan()
                                                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
@@ -1795,7 +1795,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
-                        unionPlan(
+                        RecordQueryPlanMatchers.unionOnExpressionPlan(
                                 indexPlan()
                                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
                                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
@@ -1807,7 +1807,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertMatchesExactly(plan,
                         fetchFromPartialRecordPlan(
-                                unionPlan(
+                                RecordQueryPlanMatchers.unionOnExpressionPlan(
                                         coveringIndexPlan()
                                                 .where(indexPlanOf(indexPlan()
                                                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))

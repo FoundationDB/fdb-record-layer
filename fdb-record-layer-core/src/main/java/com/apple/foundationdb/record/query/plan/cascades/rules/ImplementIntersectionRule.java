@@ -89,6 +89,6 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
                 .map(Quantifier::physical)
                 .collect(ImmutableList.toImmutableList());
 
-        call.yield(GroupExpressionRef.of(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKeyValue())));
+        call.yield(GroupExpressionRef.of(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKeyValues())));
     }
 }

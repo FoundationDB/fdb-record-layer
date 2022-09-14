@@ -120,7 +120,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     public void pruneWith(@Nonnull T newValue) {
         final Map<PlanProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
-            propertiesForPlan = Objects.requireNonNull(propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
+            propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
         } else {
             propertiesForPlan = null;
         }
@@ -208,10 +208,11 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         Debugger.registerExpression(newValue);
         members.add(newValue);
         if (newValue instanceof RecordQueryPlan) {
+            final var newRecordQueryPlan = (RecordQueryPlan)newValue;
             if (precomputedPropertiesMap != null) {
-                propertiesMap.putPropertiesForPlan((RecordQueryPlan)newValue, precomputedPropertiesMap);
+                propertiesMap.add(newRecordQueryPlan, precomputedPropertiesMap);
             } else {
-                propertiesMap.computePropertiesForPlan(newValue);
+                propertiesMap.add(newRecordQueryPlan);
             }
         }
     }

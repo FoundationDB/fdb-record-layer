@@ -256,7 +256,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     }
 
     @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+    public static RecordQueryIntersectionOnKeyExpressionPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                                              @Nonnull final KeyExpression comparisonKey) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers,
                 comparisonKey,
@@ -264,10 +264,9 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     }
 
     @Nonnull
-    public static RecordQueryIntersectionOnValuePlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
-                                                                     @Nonnull final Value comparisonKeyValue) {
-        return new RecordQueryIntersectionOnValuePlan(quantifiers,
-                Quantifier.CURRENT,
+    public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                                                      @Nonnull final List<? extends Value> comparisonKeyValue) {
+        return RecordQueryIntersectionOnValuesPlan.intersection(quantifiers,
                 comparisonKeyValue,
                 Quantifiers.isReversed(quantifiers));
     }

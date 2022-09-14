@@ -51,12 +51,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -67,7 +67,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggreg
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -164,8 +164,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitRecordQueryIntersectionOnValuePlan(@Nonnull final RecordQueryIntersectionOnValuePlan intersectionOnValuePlan) {
-        return unionCardinalities(fromChildren(intersectionOnValuePlan));
+    public Cardinalities visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        return unionCardinalities(fromChildren(intersectionOnValuesPlan));
     }
 
     @Nonnull
@@ -286,8 +286,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitRecordQueryUnionOnValuePlan(@Nonnull final RecordQueryUnionOnValuePlan unionOnValuePlan) {
-        return unionCardinalities(fromChildren(unionOnValuePlan));
+    public Cardinalities visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        return unionCardinalities(fromChildren(unionOnValuesPlan));
     }
 
     @Nonnull
@@ -304,8 +304,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitRecordQueryInUnionOnValuePlan(@Nonnull final RecordQueryInUnionOnValuePlan inUnionOnValuePlan) {
-        return visitRecordQueryInUnionPlan(inUnionOnValuePlan);
+    public Cardinalities visitRecordQueryInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+        return visitRecordQueryInUnionPlan(inUnionOnValuesPlan);
     }
 
     @Nonnull

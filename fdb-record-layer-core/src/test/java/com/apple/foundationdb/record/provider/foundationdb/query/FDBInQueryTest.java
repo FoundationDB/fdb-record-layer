@@ -42,12 +42,12 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -99,10 +99,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.selfOrDescendantPlans;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -524,7 +523,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         if (inAsOrMode == InAsOrUnionMode.AS_OR) {
             assertMatchesExactly(plan,
-                    unionPlan(inList.stream().map(number ->
+                    unionOnExpressionPlan(inList.stream().map(number ->
                             indexPlan().where(indexName("compoundIndex"))
                                     .and(scanComparisons(range(String.format("[[%d],[%d]]", number, number)))))
                             .collect(ImmutableList.toImmutableList()))
@@ -592,7 +591,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         if (inAsOrMode == InAsOrUnionMode.AS_OR) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
             assertMatchesExactly(plan,
-                    unionPlan(
+                    unionOnExpressionPlan(
                             inList.stream()
                                     .map(number -> indexPlan().where(indexName("compoundIndex")).and(scanComparisons(range(String.format("([%d, bar],[%d, foo])", number, number)))))
                                     .collect(ImmutableList.toImmutableList()))
@@ -1219,7 +1218,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             // Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [901, 903, 905] SORTED ∪[Field { 'num_value_unique' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_unique ([950],>)
             assertMatchesExactly(plan,
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_unique")),
                             inValuesJoinPlan(
                                     indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("[EQUALS $__in_num_value_unique__0]")))
@@ -1231,7 +1230,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_unique")))),
                                     inValuesJoinPlan(
                                             coveringIndexPlan().where(
@@ -1270,7 +1269,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             // Ordinary equality comparisons would be ordered just by the primary key so that would be the union comparison key.
             // Must compare the IN field here; they are ordered, but not trivially (same value for each).
             assertMatchesExactly(plan,
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             inValuesJoinPlan(
                                     indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("[EQUALS $__in_num_value_unique__0]")))
                             ).where(inValuesList(equalsObject(Arrays.asList(901, 903, 905)))),
@@ -1283,7 +1282,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     inValuesJoinPlan(
                                             coveringIndexPlan().where(
                                                     indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_unique"))
@@ -1340,7 +1339,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             // Cascades planner avoids IN-JOIN causing a primary scan and a UNION-ALL
             assertMatchesExactly(plan,
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
                             predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
                                     .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
@@ -1382,7 +1381,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
-                    unionPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
                             inValuesJoinPlan(
                                     indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS odd, EQUALS 0, EQUALS $__in_num_value_3_indexed__0]")))
                             ).where(inValuesList(equalsObject(Arrays.asList(1, 3)))),
@@ -1393,7 +1392,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("multi_index")))),
                                     inValuesJoinPlan(
                                             coveringIndexPlan().where(
@@ -1451,7 +1450,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
-                            unionPlan(
+                            RecordQueryPlanMatchers.unionOnExpressionPlan(
                                     coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
                                     inUnionPlan(
                                             coveringIndexPlan().where(

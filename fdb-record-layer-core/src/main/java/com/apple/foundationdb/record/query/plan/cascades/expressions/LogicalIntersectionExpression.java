@@ -63,21 +63,21 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     @Nonnull
     private final List<Quantifier.ForEach> quantifiers;
     @Nonnull
-    private final Value comparisonKeyValue;
+    private final List<? extends Value> comparisonKeyValues;
     @Nonnull
     private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
-                                          @Nonnull Value comparisonKeyValue) {
+                                          @Nonnull List<? extends Value> comparisonKeyValue) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
-        this.comparisonKeyValue = comparisonKeyValue;
+        this.comparisonKeyValues = ImmutableList.copyOf(comparisonKeyValue);
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Nonnull
-    public Value getComparisonKeyValue() {
-        return comparisonKeyValue;
+    public List<? extends Value> getComparisonKeyValues() {
+        return comparisonKeyValues;
     }
 
     @Nonnull
@@ -103,7 +103,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalIntersectionExpression(
                 Quantifiers.narrow(Quantifier.ForEach.class, translatedQuantifiers),
-                getComparisonKeyValue());
+                getComparisonKeyValues());
     }
 
     @Nonnull
@@ -123,7 +123,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
             return false;
         }
         final LogicalIntersectionExpression other = (LogicalIntersectionExpression) otherExpression;
-        return comparisonKeyValue.equals(other.comparisonKeyValue);
+        return comparisonKeyValues.equals(other.comparisonKeyValues);
     }
 
     @Override
@@ -139,7 +139,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Override
     public int hashCodeWithoutChildren() {
-        return getComparisonKeyValue().hashCode();
+        return getComparisonKeyValues().hashCode();
     }
 
     @Override
@@ -153,11 +153,11 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
      * {@code comparisonKey}.
      *
      * @param children the list of plans to take the intersection of
-     * @param comparisonKeyValue a value by which the results of both plans are ordered
+     * @param comparisonKeyValues a list of values by which the results of both plans are ordered
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static LogicalIntersectionExpression from(@Nonnull List<RelationalExpression> children, @Nonnull Value comparisonKeyValue) {
+    public static LogicalIntersectionExpression from(@Nonnull List<RelationalExpression> children, @Nonnull List<? extends Value> comparisonKeyValues) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to intersection expression");
         }
@@ -166,7 +166,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
         for (final RelationalExpression child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new LogicalIntersectionExpression(Quantifiers.fromExpressions(childRefsBuilder.build(), Quantifier::forEach), comparisonKeyValue);
+        return new LogicalIntersectionExpression(Quantifiers.fromExpressions(childRefsBuilder.build(), Quantifier::forEach), comparisonKeyValues);
     }
 
     @Nonnull
@@ -176,7 +176,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,
                         ImmutableList.of("COMPARE BY {{comparisonKey}}"),
-                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKeyValue.toString()))),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKeyValues.toString()))),
                 childGraphs);
     }
 }

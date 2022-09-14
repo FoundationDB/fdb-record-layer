@@ -136,7 +136,7 @@ public class ExpressionMatcherTest {
     public void nestedTypeMatchers() {
         BindingMatcher<RecordQueryIndexPlan> childMatcher1 = RecordQueryPlanMatchers.indexPlan();
         BindingMatcher<RecordQueryScanPlan> childMatcher2 = RecordQueryPlanMatchers.scanPlan();
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifier(childMatcher1),
                         QuantifierMatchers.physicalQuantifier(childMatcher2)));
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
@@ -162,7 +162,7 @@ public class ExpressionMatcherTest {
 
     @Test
     public void matchChildOrder() {
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifier(RecordQueryPlanMatchers.indexPlan()),
                         QuantifierMatchers.physicalQuantifier(RecordQueryPlanMatchers.scanPlan())));
 
@@ -182,7 +182,7 @@ public class ExpressionMatcherTest {
     public void matchChildrenAsReferences() {
         BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher1 = ReferenceMatchers.anyRef();
         BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher2 = ReferenceMatchers.anyRef();
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> matcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> matcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifierOverRef(childMatcher1),
                         QuantifierMatchers.physicalQuantifierOverRef(childMatcher2)));
 
