@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.ByteString;
@@ -40,6 +41,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,6 +63,22 @@ class TypeTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
             return Stream.of(
+                    Arguments.of(
+                            "TestRecords4WrapperProto.RestaurantRecord", TestRecords4WrapperProto.RestaurantRecord.newBuilder()
+                                    .setRestNo(random.nextLong())
+                                    .setName("randomString" + random.nextInt())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
+                                    .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt()).build()).build())
+                                    .build()),
+                    Arguments.of(
+                            "TestRecords4WrapperProto.RestaurantComplexRecord", TestRecords4WrapperProto.RestaurantComplexRecord.newBuilder()
+                                    .setRestNo(random.nextLong())
+                                    .setName("randomString" + random.nextInt())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
+                                    .setReviews(TestRecords4WrapperProto.RestaurantComplexReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantComplexReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt())
+                                            .setEndorsements(TestRecords4WrapperProto.ReviewerEndorsementsList.newBuilder()
+                                                    .addValues(TestRecords4WrapperProto.ReviewerEndorsements.newBuilder().setEndorsementId(random.nextInt()).setEndorsementText(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt())))))))
+                                    .build()),
                     Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(random.nextLong())
@@ -119,11 +137,22 @@ class TypeTest {
 
     private static void areEqual(final Map<Descriptors.FieldDescriptor, Object> expectedFieldMap,
                                  final Descriptors.Descriptor actualDescriptor,
-                                 final Message actual ) {
+                                 final Message actual) {
         for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : expectedFieldMap.entrySet()) {
             final Object expectedValue = entry.getValue();
             final Object actualValue = actual.getField(actualDescriptor.findFieldByName(entry.getKey().getName()));
-            if (actualValue instanceof DynamicMessage) {
+            if (entry.getKey().isRepeated()) {
+                List<Object> expectedValueList = new ArrayList<>((Collection<?>)expectedValue);
+                List<Object> actualValueList = new ArrayList<>((Collection<?>)actualValue);
+                Assertions.assertEquals(expectedValueList.size(), actualValueList.size());
+                for (int i = 0; i < expectedValueList.size(); i++) {
+                    if (entry.getKey().getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
+                        areEqual((Message)expectedValueList.get(i), (Message)actualValueList.get(i), actualDescriptor.findFieldByName(entry.getKey().getName()).getMessageType());
+                    } else {
+                        Assertions.assertEquals(expectedValueList.get(i), actualValueList.get(i));
+                    }
+                }
+            } else if (actualValue instanceof DynamicMessage) {
                 areEqual((Message)expectedValue, (Message)actualValue, actualDescriptor.findFieldByName(entry.getKey().getName()).getMessageType());
             } else {
                 Assertions.assertEquals(expectedValue, actualValue);
@@ -136,7 +165,7 @@ class TypeTest {
                                  final Descriptors.Descriptor actualDescriptor) {
         Assertions.assertEquals(expected.getAllFields().size(), actual.getAllFields().size());
         // assert metadata equality
-        areEqual(new ArrayList<>(expected.getAllFields().keySet()), actualDescriptor.getFields());
+        areEqual(new ArrayList<>(expected.getDescriptorForType().getFields()), actualDescriptor.getFields());
         // assert data equality
         areEqual(expected.getAllFields(), actualDescriptor, actual);
     }
@@ -153,7 +182,7 @@ class TypeTest {
                 DescriptorProtos.FileDescriptorProto.newBuilder()
                         .addAllMessageType(typeRepository.getMessageTypes().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
                         .build(),
-                new Descriptors.FileDescriptor[]{});
+                new Descriptors.FileDescriptor[] {});
         final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
         areEqual(message, actual, messageDescriptor);

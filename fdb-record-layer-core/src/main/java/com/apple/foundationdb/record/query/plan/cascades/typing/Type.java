@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.typing;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -280,28 +281,7 @@ public interface Type extends Narrowable<Type> {
         final var typeCode = TypeCode.fromProtobufType(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            // case 1: primitive types -- assumed to be non-nullable array of that type
-            if (typeCode.isPrimitive()) {
-                final var primitiveType = primitiveType(typeCode, false);
-                return new Array(primitiveType);
-            } else if (typeCode == TypeCode.ENUM) {
-                final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                final var enumType = new Enum(false, Enum.enumValuesFromProto(enumDescriptor.getValues()));
-                return new Array(enumType);
-            } else {
-                Objects.requireNonNull(descriptor);
-                final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                // case 2: helper type to model null-ed out array elements
-                final Optional<Descriptors.FieldDescriptor> elementFieldDescriptorMaybe =
-                        Record.arrayElementFieldDescriptorMaybe(messageDescriptor);
-                if (elementFieldDescriptorMaybe.isPresent()) {
-                    final var elementFieldDescriptor = elementFieldDescriptorMaybe.get();
-                    return new Array(fromProtoType(getTypeSpecificDescriptor(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
-                } else {
-                    // case 3: any arbitrary sub message we don't understand
-                    return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
-                }
-            }
+            return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
         } else {
             if (typeCode.isPrimitive()) {
                 return primitiveType(typeCode, isNullable);
@@ -311,11 +291,45 @@ public interface Type extends Narrowable<Type> {
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
+                    // find TypeCode of array elements
+                    final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+                    final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
+                    return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+                } else {
+                    return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
+                }
             }
         }
 
         throw new IllegalStateException("unable to translate protobuf descriptor to type");
+    }
+
+    /**
+     * Translates a repeated field in a protobuf descriptor to a {@link Array}.
+     * @param descriptor The protobuf descriptor.
+     * @param protoType The protobuf descriptor type.
+     * @return A {@link Array} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
+     */
+    @Nonnull
+    private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor, @Nonnull Descriptors.FieldDescriptor.Type protoType, @Nonnull TypeCode typeCode, boolean isNullable) {
+        if (typeCode.isPrimitive()) {
+            final var primitiveType = primitiveType(typeCode, isNullable);
+            return new Array(isNullable, primitiveType);
+        } else if (typeCode == TypeCode.ENUM) {
+            final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+            final var enumType = new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+            return new Array(isNullable, enumType);
+        } else {
+            if (isNullable) {
+                Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)descriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
+                Objects.requireNonNull(wrappedDescriptor);
+                return new Array(isNullable, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+            } else {
+                // case 2: any arbitrary sub message we don't understand
+                return new Array(isNullable, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+            }
+        }
     }
 
     /**
@@ -880,13 +894,13 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final String fieldName,
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
-            final var fieldDescriptoProto = FieldDescriptorProto.newBuilder();
-            fieldDescriptoProto
+            final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
+            fieldDescriptorProto
                     .setName(fieldName)
                     .setNumber(fieldNumber)
                     .setLabel(label);
-            typeNameOptional.ifPresent(fieldDescriptoProto::setTypeName);
-            descriptorBuilder.addField(fieldDescriptoProto.build());
+            typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
+            descriptorBuilder.addField(fieldDescriptorProto.build());
         }
 
         @Override
@@ -933,7 +947,7 @@ public interface Type extends Narrowable<Type> {
          */
         @Nonnull
         public static Record erased() {
-            return new Record(true,  null);
+            return new Record(true, null);
         }
 
         /**
@@ -969,6 +983,7 @@ public interface Type extends Narrowable<Type> {
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          *
          * @param fieldDescriptorMap A map of field names to their protobuf {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
+         *
          * @return a new <i>nullable</i> {@link Record} type instance using the given map of field names to their protobuf
          * {@link com.google.protobuf.Descriptors.FieldDescriptor}s.
          */
@@ -1012,25 +1027,6 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
-        }
-
-        /**
-         * Examines the given {@link com.google.protobuf.Descriptors.Descriptor}'s {@link Field}s and returns an {@link Optional}
-         * containing a field that can be used as an array element type, if possible, otherwise, an empty {@link Optional}.
-         *
-         * @param descriptor The {@link com.google.protobuf.Descriptors.Descriptor} to examine.
-         * @return Optionally, a field that can be used as an array element type.
-         */
-        @Nonnull
-        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(@Nonnull final Descriptors.Descriptor descriptor) {
-            final var fields = descriptor.getFields();
-            if (fields.size() == 1) {
-                final var field0 = fields.get(0);
-                if (field0.isOptional() && !field0.isRepeated() && field0.getNumber() == 1 && "values".equals(field0.getName())) {
-                    return Optional.of(field0);
-                }
-            }
-            return Optional.empty();
         }
 
         /**
@@ -1374,7 +1370,7 @@ public interface Type extends Narrowable<Type> {
          * Constructs a new <i>nullable</i> array type instance without a value {@link Type}.
          */
         public Array() {
-            this( null);
+            this(null);
         }
 
         /**
@@ -1383,15 +1379,9 @@ public interface Type extends Narrowable<Type> {
          * @param elementType the {@link Type} of the array type elements.
          */
         public Array(@Nullable final Type elementType) {
-            this(true, elementType);
+            this(false, elementType);
         }
 
-        /**
-         * Constructs a new array type instance.
-         *
-         * @param isNullable <code>true</code> if the array type is nullable, otherwise <code>false</code>.
-         * @param elementType the {@link Type} of the array type elements.
-         */
         public Array(final boolean isNullable, @Nullable final Type elementType) {
             this.isNullable = isNullable;
             this.elementType = elementType;
@@ -1422,14 +1412,6 @@ public interface Type extends Narrowable<Type> {
         }
 
         /**
-         * Returns <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
-         * @return <code>true</code> if a nested protobuf message is required for the array element type, otherwise <code>false</code>.
-         */
-        public boolean definesNestedProto() {
-            return needsNestedProto(elementType);
-        }
-
-        /**
          * Returns the array element {@link Type}.
          * @return The array element {@link Type}.
          */
@@ -1454,15 +1436,13 @@ public interface Type extends Narrowable<Type> {
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(elementType);
             final var typeName = uniqueCompliantTypeName();
-            final var helperDescriptorBuilder = DescriptorProto.newBuilder();
-            helperDescriptorBuilder.setName(typeName);
-            elementType.addProtoField(typeRepositoryBuilder,
-                    helperDescriptorBuilder,
-                    1, "value",
-                    typeRepositoryBuilder.defineAndResolveType(elementType),
-                    FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            typeRepositoryBuilder.addMessageType(helperDescriptorBuilder.build());
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+            if (isNullable && elementType.getTypeCode() != TypeCode.UNKNOWN) {
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
+                typeRepositoryBuilder.defineAndResolveType(wrapperType);
+            } else {
+                typeRepositoryBuilder.defineAndResolveType(elementType);
+            }
         }
 
         /**
@@ -1476,20 +1456,16 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
-            //
-            // If the inner type is nullable, we need to create a nested helper message to keep track of
-            // nulls.
-            //
-            if (definesNestedProto()) {
-                final var fieldDescriptorProto = FieldDescriptorProto.newBuilder();
-                fieldDescriptorProto
-                        .setName(fieldName)
-                        .setNumber(fieldNumber)
-                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
-                typeNameOptional.ifPresent(fieldDescriptorProto::setTypeName);
-                descriptorBuilder.addField(fieldDescriptorProto.build());
+            if (isNullable && elementType.getTypeCode() != TypeCode.UNKNOWN) {
+                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
+                wrapperType.addProtoField(typeRepositoryBuilder,
+                        descriptorBuilder,
+                        fieldNumber,
+                        fieldName,
+                        typeRepositoryBuilder.defineAndResolveType(wrapperType),
+                        FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
-                // if inner type is not nullable we can just put the repeated field straight into its parent
+                // put repeated field straight into its parent
                 elementType.addProtoField(typeRepositoryBuilder,
                         descriptorBuilder,
                         fieldNumber,
@@ -1527,18 +1503,7 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")";
-        }
-
-        /**
-         * Returns <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
-         *
-         * @param elementType the type to check whether a nested protobuf message is required for.
-         *
-         * @return <code>true</code> if a nested protobuf message is required for the given type, otherwise <code>false</code>.
-         */
-        public static boolean needsNestedProto(final Type elementType) {
-            return Objects.requireNonNull(elementType).isNullable() || elementType.getTypeCode() == TypeCode.ARRAY;
+                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")" + "(isNullable:" + isNullable + ")";
         }
     }
 }

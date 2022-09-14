@@ -973,8 +973,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     scanPlan()
                             .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
             assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2075989650, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1273746831, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1904214744, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1445521737, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);

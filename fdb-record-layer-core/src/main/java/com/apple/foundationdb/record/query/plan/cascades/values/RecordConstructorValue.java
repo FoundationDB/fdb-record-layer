@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -113,13 +114,21 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         final var fields = Objects.requireNonNull(getResultType().getFields());
         var i = 0;
         for (final var child : getChildren()) {
-            final var childResultElement = child.eval(store, context);
+            var childResultElement = child.eval(store, context);
             if (childResultElement != null) {
-                resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
+                final var field = fields.get(i);
+                final var fieldType = field.getFieldType();
+                final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
+                if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
+                    final var wrappedDescriptor = fieldDescriptor.getMessageType();
+                    final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
+                    wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResultElement);
+                    childResultElement = wrapperBuilder.build();
+                }
+                resultMessageBuilder.setField(fieldDescriptor, childResultElement);
             }
             i++;
         }
-
         return resultMessageBuilder.build();
     }
 
