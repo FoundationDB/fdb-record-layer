@@ -99,10 +99,11 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     /**
      * The policies supported by the tested features (NONE and MATCHED will not return required information for the tests).
-     * @return teh stream of supported index entry return policies
+     * @return the stream of supported index entry return policies
      */
     protected static Stream<IndexEntryReturnPolicy> testedReturnPolicies() {
-        return List.of(IndexEntryReturnPolicy.ALL, IndexEntryReturnPolicy.UNMATCHED).stream();
+        // todo
+        return List.of(IndexEntryReturnPolicy.values()).stream();
     }
 
     /**
@@ -111,7 +112,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
      */
     protected static Stream<Arguments> testedParams() {
         return Arrays.stream(IndexFetchMethod.values())
-                .flatMap(indexFetchMethod -> RemoteFetchTestBase.testedReturnPolicies()
+                .flatMap(indexFetchMethod -> testedReturnPolicies()
                         .map(returnPolicy -> Arguments.of(indexFetchMethod, returnPolicy)));
     }
 
@@ -198,26 +199,26 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return lastContinuation;
     }
 
-    protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
+    protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy, IndexScanBounds scanBounds,
                                        final ScanProperties scanProperties, byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, RecordMetaDataHook metaDataHook) {
         byte[] lastContinuation;
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataHook);
-            lastContinuation = scanAndVerifyData(context, indexName, fetchMethod, scanBounds, scanProperties, continuation, expectedRecords, recordVerifier);
+            lastContinuation = scanAndVerifyData(context, indexName, fetchMethod, indexEntryReturnPolicy, scanBounds, scanProperties, continuation, expectedRecords, recordVerifier);
         }
         return lastContinuation;
     }
 
     @Nullable
-    protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
+    protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy,
                                        IndexScanBounds scanBounds, final ScanProperties scanProperties, final byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
         byte[] lastContinuation;
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
                         indexName, fetchMethod, scanBounds,
-                        continuation, IndexOrphanBehavior.ERROR, scanProperties, IndexEntryReturnPolicy.ALL)
+                        continuation, IndexOrphanBehavior.ERROR, scanProperties, indexEntryReturnPolicy)
                 .map(FDBQueriedRecord::indexed)
                 .asIterator()) {
             lastContinuation = verifyData(expectedRecords, recordVerifier, iterator);
@@ -260,12 +261,12 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return results;
     }
 
-    protected List<FDBQueriedRecord<Message>> scanToList(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
+    protected List<FDBQueriedRecord<Message>> scanToList(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy,
                                                          IndexScanBounds scanBounds, final ScanProperties scanProperties, final KeyExpression commonPrimaryKey,
                                                          final byte[] continuation) throws Exception {
         final List<FDBQueriedRecord<Message>> results;
 
-        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, continuation, IndexOrphanBehavior.ERROR, scanProperties, IndexEntryReturnPolicy.ALL)
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, continuation, IndexOrphanBehavior.ERROR, scanProperties, indexEntryReturnPolicy)
                 .map(FDBQueriedRecord::indexed)) {
             results = cursor.asList().get();
         }

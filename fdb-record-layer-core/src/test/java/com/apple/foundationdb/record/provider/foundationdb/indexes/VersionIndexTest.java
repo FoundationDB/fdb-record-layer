@@ -247,7 +247,17 @@ public class VersionIndexTest extends FDBTestBase {
         return formatVersionArguments()
                 // USE_REMOTE_FETCH is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
                 .flatMap(arg -> Stream.of(IndexFetchMethod.SCAN_AND_FETCH, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK)
-                        .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)));
+                        .map(indexFetchMethod -> Arguments.of(arg.get()[0], arg.get()[1], indexFetchMethod)))
+                .flatMap(arg -> Stream.of(IndexEntryReturnPolicy.values())
+                        .map(indexEntryPolicy -> Arguments.of(arg.get()[0], arg.get()[1], arg.get()[2], indexEntryPolicy)));
+    }
+
+     // Provide a combination of remote fetch and index entry return policy option
+    private static Stream<Arguments> remoteFetchAndEntryPolicyProvider() {
+        // USE_REMOTE_FETCH is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
+        return Stream.of(IndexFetchMethod.values())
+                .flatMap(arg -> Stream.of(IndexEntryReturnPolicy.values())
+                        .map(indexEntryPolicy -> Arguments.of(arg, indexEntryPolicy)));
     }
 
     /**
@@ -602,7 +612,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "saveLoadWithFunctionVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -643,7 +653,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(functionVersionHook)) {
             // Scan the functional index
-            List<Tuple> indexKeys = scanIndexToKeys(fetchMethod, "MySimpleRecord$maybeVersion", ScanProperties.FORWARD_SCAN);
+            List<Tuple> indexKeys = scanIndexToKeys(fetchMethod, "MySimpleRecord$maybeVersion", ScanProperties.FORWARD_SCAN, indexEntryReturnPolicy);
 
             List<Tuple> expectedKeys = Arrays.asList(
                     Tuple.from(FDBRecordVersion.MIN_VERSION.toVersionstamp(), 43L),
@@ -861,7 +871,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -903,7 +913,7 @@ public class VersionIndexTest extends FDBTestBase {
                     Tuple.from(null, savedRecords.get(0).getVersion().toVersionstamp(), 1066L),
                     Tuple.from(null, savedRecords.get(1).getVersion().toVersionstamp(), 1415L)
             );
-            List<Tuple> keys = scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN);
+            List<Tuple> keys = scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN, indexEntryReturnPolicy);
             assertEquals(expectedKeys, keys);
 
             context.commit();
@@ -1007,7 +1017,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "updateWithinContext [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1075,13 +1085,13 @@ public class VersionIndexTest extends FDBTestBase {
                     Arrays.asList(
                         Tuple.from(FDBRecordVersion.complete(versionstamp, 0).toVersionstamp(), 1066L),
                         Tuple.from(FDBRecordVersion.complete(versionstamp, 2).toVersionstamp(), 1776L)),
-                    scanIndexToKeys(fetchMethod, "globalVersion", ScanProperties.FORWARD_SCAN)
+                    scanIndexToKeys(fetchMethod, "globalVersion", ScanProperties.FORWARD_SCAN, indexEntryReturnPolicy)
             );
             assertEquals(
                     Arrays.asList(
                         Tuple.from(42, FDBRecordVersion.complete(versionstamp, 2).toVersionstamp(), 1776L),
                         Tuple.from(43, FDBRecordVersion.complete(versionstamp, 0).toVersionstamp(), 1066L)),
-                    scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN)
+                    scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN, indexEntryReturnPolicy)
             );
         }
     }
@@ -1723,7 +1733,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "queryOnVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1766,14 +1776,14 @@ public class VersionIndexTest extends FDBTestBase {
 
                 if (last == null) {
                     RecordQuery query = RecordQuery.newBuilder().setSort(VersionKeyExpression.VERSION).build();
-                    plan = plan(query, fetchMethod);
+                    plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(globalVersion <,>)", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder()
                             .setFilter(Query.version().greaterThan(last))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    plan = plan(query, fetchMethod);
+                    plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(globalVersion ([" + last.toVersionstamp() + "],>)", plan.toString());
                 }
 
@@ -1818,7 +1828,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.field("num_value_2").equalsValue(0))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = plan(query, fetchMethod);
+                    RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$num2-version [[0],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
@@ -1827,7 +1837,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.and(Query.field("num_value_2").equalsValue(0), Query.version().greaterThan(last)))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = plan(query, fetchMethod);
+                    RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
@@ -1875,7 +1885,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setFilter(Query.and(Query.field("num_value_2").equalsValue(0), Query.field("num_value_3_indexed").equalsValue(0)))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = plan(query, fetchMethod);
+                    RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$num2-version [[0],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
@@ -1888,7 +1898,7 @@ public class VersionIndexTest extends FDBTestBase {
                             ))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
-                    RecordQueryPlan plan = plan(query, fetchMethod);
+                    RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
@@ -1932,7 +1942,7 @@ public class VersionIndexTest extends FDBTestBase {
                     .setFilter(Query.version().greaterThan(chosenVersion))
                     .setSort(field("num_value_3_indexed"))
                     .build();
-            RecordQueryPlan plan = plan(query, fetchMethod);
+            RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
             assertEquals("Index(MySimpleRecord$num_value_3_indexed <,>) | version GREATER_THAN " + chosenVersion.toString(), plan.toString());
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
 
@@ -1953,7 +1963,7 @@ public class VersionIndexTest extends FDBTestBase {
     @ParameterizedTest(name = "queryOnRepeatedVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1997,7 +2007,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setSort(VersionKeyExpression.VERSION)
                             .setRemoveDuplicates(false)
                             .build();
-                    plan = plan(query, fetchMethod);
+                    plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$repeater-version [[1],[1]])", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
@@ -2005,7 +2015,7 @@ public class VersionIndexTest extends FDBTestBase {
                             .setSort(VersionKeyExpression.VERSION)
                             .setRemoveDuplicates(false)
                             .build();
-                    plan = plan(query, fetchMethod);
+                    plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                     assertEquals("Index(MySimpleRecord$repeater-version ([1, " + last.toVersionstamp() + "],[1]])", plan.toString());
                 }
 
@@ -2042,7 +2052,7 @@ public class VersionIndexTest extends FDBTestBase {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "withMetaDataRebuilds [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2083,7 +2093,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertTrue(loadedRecord.hasVersion());
             assertEquals(version1, loadedRecord.getVersion());
 
-            RecordQueryPlan plan = plan(query, fetchMethod);
+            RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
             assertThat(plan, indexScan("globalVersion"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(1, records.size());
@@ -2129,7 +2139,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertTrue(loadedRecord3.hasVersion());
             assertEquals(version3, loadedRecord3.getVersion());
 
-            RecordQueryPlan plan = plan(query, fetchMethod);
+            RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
             assertThat(plan, indexScan("globalVersion2"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
@@ -2198,7 +2208,7 @@ public class VersionIndexTest extends FDBTestBase {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "upgradeFormatVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, IndexFetchMethod fetchMethod) {
+    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) {
         formatVersion = testFormatVersion;
         final RecordMetaDataHook hook = metaDataBuilder -> {
             simpleVersionHook.apply(metaDataBuilder);
@@ -2256,7 +2266,7 @@ public class VersionIndexTest extends FDBTestBase {
                 RecordQuery query = RecordQuery.newBuilder()
                         .setFilter(Query.version().equalsValue(storedRecord.getVersion()))
                         .build();
-                RecordQueryPlan plan = plan(query, fetchMethod);
+                RecordQueryPlan plan = plan(query, fetchMethod, indexEntryReturnPolicy);
                 final String endpointString = "[" + storedRecord.getVersion().toVersionstamp(false).toString() + "]";
                 assertThat(plan, indexScan(allOf(indexName("globalVersion"), bounds(hasTupleString("[" + endpointString + "," + endpointString + "]")))));
                 List<FDBStoredRecord<Message>> queriedRecords = recordStore.executeQuery(plan).map(FDBQueriedRecord::getStoredRecord).asList().join();
@@ -2335,8 +2345,8 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @ParameterizedTest(name = "testScanVersionIndex [" + ARGUMENTS_PLACEHOLDER + "]")
-    @EnumSource(IndexFetchMethod.class)
-    void testScanVersionIndex(IndexFetchMethod fetchMethod) throws Exception {
+    @MethodSource("remoteFetchAndEntryPolicyProvider")
+    void testScanVersionIndex(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         // This is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
         Assumptions.assumeTrue(fetchMethod != IndexFetchMethod.USE_REMOTE_FETCH);
 
@@ -2359,16 +2369,18 @@ public class VersionIndexTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = openContext(justVersionHook)) {
-            List<FDBIndexedRecord<Message>> records = scanIndexToRecords(fetchMethod, "MySimpleRecord$just-version", ScanProperties.FORWARD_SCAN);
+            List<FDBIndexedRecord<Message>> records = scanIndexToRecords(fetchMethod, "MySimpleRecord$just-version", ScanProperties.FORWARD_SCAN, indexEntryReturnPolicy);
 
             Objects.requireNonNull(transactionVersion);
-            List<Tuple> expectedKeys = List.of(
-                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1066L),
-                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1067L),
-                    Tuple.from(Versionstamp.complete(transactionVersion, 0), 1068L),
-                    Tuple.from(Versionstamp.complete(transactionVersion, 2), 1776)
-            );
-            assertEquals(expectedKeys, records.stream().map(FDBIndexedRecord::getIndexEntry).map(IndexEntry::getKey).collect(Collectors.toList()));
+            if (indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL) {
+                List<Tuple> expectedKeys = List.of(
+                        Tuple.from(Versionstamp.complete(transactionVersion, 0), 1066L),
+                        Tuple.from(Versionstamp.complete(transactionVersion, 0), 1067L),
+                        Tuple.from(Versionstamp.complete(transactionVersion, 0), 1068L),
+                        Tuple.from(Versionstamp.complete(transactionVersion, 2), 1776)
+                );
+                assertEquals(expectedKeys, records.stream().map(FDBIndexedRecord::getIndexEntry).map(IndexEntry::getKey).collect(Collectors.toList()));
+            }
 
             List<Long> expectedRecordKeys = List.of(1066L, 1067L, 1068L, 1776L);
             List<Long> actualPrimaryKeys = records.stream().map(record -> {
@@ -2438,17 +2450,19 @@ public class VersionIndexTest extends FDBTestBase {
     }
 
     @Nonnull
-    private List<Tuple> scanIndexToKeys(final IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
+    private List<Tuple> scanIndexToKeys(final IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         if (fetchMethod == IndexFetchMethod.SCAN_AND_FETCH) {
             return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction)
                     .map(IndexEntry::getKey)
                     .asList().get();
         } else {
             assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+            // cannot scan to keys if some of them are going to be removed from the payload
+            assumeTrue(indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL);
 
             IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
             // Use the remote fetch / fallback and then get the keys
-            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, IndexEntryReturnPolicy.ALL)
+            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, indexEntryReturnPolicy)
                     .map(FDBIndexedRecord::getIndexEntry)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -2458,20 +2472,22 @@ public class VersionIndexTest extends FDBTestBase {
     @Nonnull
     private List<FDBIndexedRecord<Message>> scanIndexToRecords(final IndexFetchMethod fetchMethod,
                                                                final String indexName,
-                                                               final ScanProperties direction) throws Exception {
+                                                               final ScanProperties direction,
+                                                               IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         if (fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
         }
 
         IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, IndexEntryReturnPolicy.ALL).asList().get();
+        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, indexEntryReturnPolicy).asList().get();
     }
 
     @Nonnull
-    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
+    protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch, IndexEntryReturnPolicy indexEntryReturnPolicy) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
+                .setIndexEntryReturnPolicy(indexEntryReturnPolicy)
                 .build());
         return planner.plan(query);
     }
