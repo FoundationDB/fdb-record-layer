@@ -48,7 +48,7 @@ public class Generators {
         } else if (isArray(value)) {
             List<Message> messages = new ArrayList<>();
             for (Object v : arrayList(value)) {
-                messages.addAll(yamlToDynamicMessage(v, dmBuilder));
+                messages.addAll(yamlToDynamicMessage(v, dmBuilder.newBuilder()));
             }
             return messages;
         } else if (isMap(value)) {

@@ -28,6 +28,7 @@ import com.google.protobuf.Message;
 
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 
 /**
@@ -70,4 +71,7 @@ public interface DynamicMessageBuilder {
     DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws RelationalException;
 
     Descriptors.Descriptor getDescriptor();
+
+    @Nonnull
+    DynamicMessageBuilder newBuilder();
 }

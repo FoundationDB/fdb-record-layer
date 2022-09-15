@@ -58,19 +58,23 @@ public class ParserContext {
         return scopes.push();
     }
 
+    public Scopes.Scope siblingScope() {
+        return scopes.sibling();
+    }
+
     @Nonnull
     public Scopes.Scope popScope() {
         return scopes.pop();
     }
 
     @Nonnull
-    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier) {
-        return resolveQuantifier(CorrelationIdentifier.of(identifier));
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier, boolean lookIntoSiblings) {
+        return resolveQuantifier(CorrelationIdentifier.of(identifier), lookIntoSiblings);
     }
 
     @Nonnull
-    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
-        return scopes.resolveQuantifier(identifier);
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier, boolean lookIntoSiblings) {
+        return scopes.resolveQuantifier(identifier, lookIntoSiblings);
     }
 
     @Nonnull

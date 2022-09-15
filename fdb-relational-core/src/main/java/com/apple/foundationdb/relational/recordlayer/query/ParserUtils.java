@@ -51,6 +51,7 @@ import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -164,55 +165,139 @@ public final class ParserUtils {
 
     public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
         Assert.thatUnchecked(!fieldPath.isEmpty());
+        final var isUnderlyingSelectWhere = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
+        if (isUnderlyingSelectWhere) {
+            return resolveFieldGroupedQuantifier(fieldPath, parserContext);
+        } else {
+            return resolveFieldSimpleQuantifier(fieldPath, parserContext);
+        }
+    }
+
+    @Nonnull
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
+    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
+        Assert.thatUnchecked(!fieldPath.isEmpty());
         final var scope = parserContext.getCurrentScope();
         FieldValue result = null;
         var fieldAccessors = toAccessors(fieldPath);
         final var isResolvingAggregations = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
-        final var isUnderlyingSelectWhere = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         final var isResolvingSelectHaving = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
         final var fieldPathStr = String.join(".", fieldPath);
 
-        if (isUnderlyingSelectWhere) {
-            Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
-            final var qun = scope.getForEachQuantifiers().get(0);
-            final var types = splitSelectWhereType(qun.getFlowedObjectType());
-            final var visibleType = isResolvingAggregations ? types.getRight() : types.getLeft();
-            if (resolveFieldPath(visibleType, fieldAccessors)) {
-                result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath);
-            }
-            final var flownColumnsSplit = splitSelectWhereFlownColumns(qun);
-            final var visibleColumns = isResolvingAggregations ? flownColumnsSplit.getRight() : flownColumnsSplit.getLeft();
-            for (final var visibleField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
-                if (resolveFieldPath(visibleField.getFieldType(), fieldAccessors)) {
-                    Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                    result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleField.getFieldName()).addAll(fieldPath).build());
-                }
-            }
-            // corner case:
-            if (!isResolvingAggregations && result == null && fieldPath.size() > 1) {
-                for (final var groupingColumnField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
-                    if ((isResolvingSelectHaving || resolveFieldPath(types.getRight(), fieldAccessors)) && resolveFieldPath(groupingColumnField.getFieldType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
-                        Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                        result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleColumns.get(0).getField().getFieldName()).addAll(fieldPath.subList(1, fieldPath.size())).build());
-                    }
-                }
-            }
-            Assert.notNullUnchecked(result, String.format("could not find field name '%s' in the grouping list", fieldPathStr), ErrorCode.GROUPING_ERROR);
-        } else {
-            final var quantifier = parserContext.getCurrentScope().getQuantifier(fieldPath.get(0));
-            if (quantifier.isPresent() && resolveFieldPath(quantifier.get().getFlowedObjectType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
-                Assert.thatUnchecked(fieldPath.size() > 1, String.format("attempt to access alias '%s' as a column name", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                result = FieldValue.ofFieldNames(quantifier.get().getFlowedObjectValue(), fieldPath.subList(1, fieldPath.size()));
-            }
-            for (final var qun : scope.getForEachQuantifiers()) {
-                if (resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors)) {
-                    Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                    result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath);
-                }
-            }
-            Assert.notNullUnchecked(result, String.format("attempting to query non existing column '%s'", fieldPathStr));
+        // Try to resolve the field by looking into the visible part of the only quantifier we have.
+        Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
+        final var qun = scope.getForEachQuantifiers().get(0);
+        final var types = splitSelectWhereType(qun.getFlowedObjectType());
+
+        // todo: check qualified columns.
+        final var visibleType = isResolvingAggregations ? types.getRight() : types.getLeft();
+        if (resolveFieldPath(visibleType, fieldAccessors)) {
+            result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath);
         }
-        return result;
+
+        final var flownColumnsSplit = splitSelectWhereFlownColumns(qun);
+        final var visibleColumns = isResolvingAggregations ? flownColumnsSplit.getRight() : flownColumnsSplit.getLeft();
+        for (final var visibleField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
+            if (resolveFieldPath(visibleField.getFieldType(), fieldAccessors)) {
+                Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+                result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleField.getFieldName()).addAll(fieldPath).build());
+            }
+        }
+
+        if (result != null) {
+            return result;
+        }
+
+        // corner case:
+        if (!isResolvingAggregations && fieldPath.size() > 1) {
+            for (final var groupingColumnField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
+                if ((isResolvingSelectHaving || resolveFieldPath(types.getRight(), fieldAccessors)) && resolveFieldPath(groupingColumnField.getFieldType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
+                    Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+                    result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleColumns.get(0).getField().getFieldName()).addAll(fieldPath.subList(1, fieldPath.size())).build());
+                }
+            }
+        }
+
+        if (result != null) {
+            return result;
+        }
+
+        // We have not found the field in current scope, look into parent scopes for potential matches
+        // because identifiers inside or outside an aggregation could in principles be correlated, and they
+        // should be accepted since they are effectively constants within the subquery context:
+        // select * from t where exists (select max(t.col1) from t2 group by t2.col2);
+        {
+            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(scope);
+            final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
+            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            if (resolved.size() == 1) {
+                return resolved.get(0);
+            }
+        }
+
+        Assert.failUnchecked(String.format("could not find field name '%s' in the grouping list", fieldPathStr), ErrorCode.GROUPING_ERROR);
+        return null;
+    }
+
+    @Nonnull
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
+    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
+        final var scope = parserContext.getCurrentScope();
+        final var fieldAccessors = toAccessors(fieldPath);
+        final var fieldPathStr = String.join(".", fieldPath);
+
+        // Try to resolve the field by looking into all quantifiers in current scope, if exactly one field is found, return it.
+        // precedence resolves potential ambiguity with similarly named fields in top levels, i.e. do not look for ambiguity issues
+        // if we already find a matching field in current scope.
+        {
+            final var resolved = resolveField(scope.getForEachQuantifiers(), fieldAccessors, fieldPath);
+            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            if (resolved.size() == 1) {
+                return resolved.get(0);
+            }
+        }
+
+        // We have not found the field in current scope, look into parent scopes for potential matches
+        {
+            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(scope);
+            final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
+            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            if (resolved.size() == 1) {
+                return resolved.get(0);
+            }
+        }
+        Assert.failUnchecked(String.format("attempting to query non existing column '%s'", fieldPathStr), ErrorCode.INVALID_COLUMN_REFERENCE);
+        return null;
+    }
+
+    @Nonnull
+    private static List<FieldValue> resolveField(@Nonnull final Collection<Quantifier> quns,
+                                                 @Nonnull final List<FieldValue.Accessor> fieldAccessors,
+                                                 @Nonnull final List<String> fieldPath) {
+        Assert.thatUnchecked(fieldPath.size() == fieldAccessors.size());
+        final var result = ImmutableList.<FieldValue>builder();
+        for (final var qun : quns) {
+            if (fieldPath.size() > 1) { // maybe qualified, check if the first part matches the quantifier's alias itself.
+                if (fieldPath.get(0).equals(qun.getAlias().getId()) && resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
+                    result.add(FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath.subList(1, fieldPath.size())));
+                }
+            }  // not qualified, or nested field.
+            if (resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors)) {
+                result.add(FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath));
+            }
+        }
+        return result.build();
+    }
+
+    @Nonnull
+    private static Set<Quantifier> collectQuantifiersFromAncestorBlocks(@Nonnull final Scopes.Scope scope) {
+        final var result = ImmutableSet.<Quantifier>builder();
+        var ancestor = scope.getParent();
+        while (ancestor != null) {
+            result.addAll(ancestor.getForEachQuantifiers());
+            ancestor = ancestor.getParent();
+        }
+        return result.build();
     }
 
     @Nonnull
@@ -290,8 +375,8 @@ public final class ParserUtils {
             final String recordTypeName = identifierValue.getParts()[1];
             Assert.notNullUnchecked(recordTypeName);
             // todo: check if the qualifier is actually a schema name
-            final var maybeQun = parserContext.resolveQuantifier(qualifier);
-            Assert.thatUnchecked(maybeQun.isPresent(), String.format("attempt to field %s from non-existing qualifier %s", recordTypeName, qualifier));
+            final var maybeQun = parserContext.resolveQuantifier(qualifier, true /* PartiQL semantics */);
+            Assert.thatUnchecked(maybeQun.isPresent(), String.format("attempt to query field %s from non-existing qualifier %s", recordTypeName, qualifier)); // TODO (yhatem) proper error code.
             final var qun = maybeQun.get();
             final QuantifiedValue value = qun.getFlowedObjectValue();
             Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.RECORD, String.format("alias is not valid %s", qualifier));

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.base.Verify;
 
@@ -39,7 +40,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,7 +48,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A stack of {@link Scope}s.
+ * A tree of {@link Scope}s.
  */
 public class Scopes {
     @Nullable
@@ -74,28 +74,39 @@ public class Scopes {
     }
 
     @Nonnull
+    public Scope sibling() {
+        this.currentScope = Scope.withParentAndSibling(currentScope == null ? null : currentScope.parent, currentScope);
+        return currentScope;
+    }
+
+    @Nonnull
     public Scope pop() {
+        Assert.notNullUnchecked(currentScope);
         try {
-            return Objects.requireNonNull(currentScope);
+            return currentScope;
         } finally {
-            currentScope = Objects.requireNonNull(currentScope).getParent();
+            currentScope = currentScope.sibling == null ? currentScope.parent : currentScope.sibling;
         }
     }
 
     @Nonnull
-    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier) {
-        return resolveQuantifier(CorrelationIdentifier.of(identifier));
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final String identifier, boolean lookIntoSiblings) {
+        return resolveQuantifier(CorrelationIdentifier.of(identifier), lookIntoSiblings);
     }
 
     @Nonnull
-    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier) {
+    public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier, boolean lookIntoSiblings) {
         Scope scope = currentScope;
         while (scope != null)  {
             final var maybeQuantifier = scope.getQuantifier(identifier);
             if (maybeQuantifier.isPresent()) {
                 return maybeQuantifier;
             }
-            scope = scope.getParent();
+            if (lookIntoSiblings && scope.sibling != null) {
+                scope = scope.sibling;
+            } else {
+                scope = scope.getParent();
+            }
         }
         return Optional.empty();
     }
@@ -115,6 +126,9 @@ public class Scopes {
 
         @Nullable
         private final Scope parent;
+
+        @Nullable
+        private final Scope sibling;
 
         @Nonnull
         private final Map<CorrelationIdentifier, Quantifier> quantifiers;
@@ -136,8 +150,13 @@ public class Scopes {
         @Nonnull
         private List<AggregateValue> aggregateValues;
 
-        private Scope(@Nullable final Scope parent, @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers, @Nonnull final List<Column<? extends Value>> projectionList, @Nullable final QueryPredicate predicate) {
+        private Scope(@Nullable final Scope parent,
+                      @Nullable final Scope sibling,
+                      @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers,
+                      @Nonnull final List<Column<? extends Value>> projectionList,
+                      @Nullable final QueryPredicate predicate) {
             this.parent = parent;
+            this.sibling = sibling;
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
             this.predicate = predicate;
@@ -243,6 +262,11 @@ public class Scopes {
             return parent;
         }
 
+        @Nullable
+        public Scope getSibling() {
+            return sibling;
+        }
+
         public int getAggCounter() {
             return aggCounter;
         }
@@ -283,7 +307,11 @@ public class Scopes {
         }
 
         public static Scope withParent(@Nullable final Scope parent) {
-            return new Scope(parent, new LinkedHashMap<>(), new ArrayList<>(), null);
+            return withParentAndSibling(parent, null);
+        }
+
+        public static Scope withParentAndSibling(@Nullable final Scope parent, @Nullable final Scope sibling) {
+            return new Scope(parent, sibling, new LinkedHashMap<>(), new ArrayList<>(), null);
         }
     }
 }

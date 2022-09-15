@@ -520,7 +520,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void partiqlNestingWorksWithRepeatedLeafWork() throws Exception {
+    void partiqlNestingWorksWithRepeatedLeaf() throws Exception {
         final String schema = "CREATE STRUCT A ( b B )" +
                 " CREATE STRUCT B ( c C )" +
                 " CREATE STRUCT C ( d D )" +
@@ -566,24 +566,6 @@ public class StandardQueryTests {
                             .hasRowExactly(42L, expectedCol2, expectedCol3)
                             .hasNoNextRow();
                 }
-            }
-        }
-    }
-
-    @Test
-    void partiqlNestingNestedPathCollisionWithAlias() throws Exception {
-        final String schema = "CREATE STRUCT A ( b B )" +
-                " CREATE STRUCT B ( c C )" +
-                " CREATE STRUCT C ( d D )" +
-                " CREATE STRUCT D ( e E )" +
-                " CREATE STRUCT E ( f int64 )" +
-                " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))" +
-                " CREATE TABLE tbl2 (id int64, x int64, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from tbl1 x, tbl2 where x = 42"))
-                        .hasErrorCode(ErrorCode.AMBIGUOUS_COLUMN)
-                        .hasMessage("attempt to access alias 'X' as a column name");
             }
         }
     }

@@ -220,7 +220,7 @@ public final class YamlRunner implements AutoCloseable {
                                         notNull(matchResult.getExplanation(), "failure error message") + "%n" +
                                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                                         "↪ expected result:%n" +
-                                        expectedResults.toString() + "%n" +
+                                        (expectedResults == null ? "<NULL>" : expectedResults.toString()) + "%n" +
                                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                                         "↩ actual result:%n" +
                                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +

@@ -238,7 +238,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (groupByClause != null || ParserUtils.hasAggregation(selectElements)) {
             return handleSelectWithGroupBy(selectElements, fromClause, groupByClause);
         } else {
-            parserContext.pushScope();
+            parserContext.siblingScope();
             fromClause.accept(this); // includes checking predicates
             selectElements.accept(this); // potentially sets explicit result columns on top-level select expression.
             return parserContext.popScope().convertToSelectExpression();
@@ -386,7 +386,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             return expandSelectWhereColumns(qun);
         } else {
             return scope.getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach)
-                    .flatMap(qun -> qun.getFlowedColumns().stream())
+                    // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
+                    .flatMap(qun -> qun.getFlowedColumns().stream().map(c -> Column.of(Type.Record.Field.of(c.getField().getFieldType(), c.getField().getFieldNameOptional(), Optional.empty()), c.getValue())))
                     .collect(Collectors.toList());
         }
     }
@@ -415,7 +416,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Column<Value> visitSelectColumnElement(RelationalParser.SelectColumnElementContext ctx) {
-        if (ctx.AS() != null) {
+        if (ctx.uid() != null) {
             return ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this),
                     Objects.requireNonNull(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class)));
         } else {
@@ -554,7 +555,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public Typed visitSubqueryTableItem(RelationalParser.SubqueryTableItemContext ctx) {
-        final var subqueryAlias = ParserUtils.safeCastLiteral(visit(ctx.alias), String.class);
+        Assert.notNullUnchecked(ctx.alias);
+        final var subqueryAlias = ParserUtils.safeCastLiteral(ctx.alias.accept(this), String.class);
         Assert.notNullUnchecked(subqueryAlias);
         final var relationalExpression = ctx.selectStatement() != null ?
                 ctx.selectStatement().accept(this) :
@@ -736,11 +738,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitExistsExpressionAtom(RelationalParser.ExistsExpressionAtomContext ctx) {
         Assert.notNullUnchecked(ctx.selectStatement());
+        parserContext.pushScope();
         final var expression = ctx.selectStatement().accept(this);
+        parserContext.popScope();
         Assert.thatUnchecked(expression instanceof RelationalExpression);
-        RelationalExpression subquery = (RelationalExpression) expression;
-        Assert.notNullUnchecked(subquery);
-        final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of(subquery));
+        final RelationalExpression nestedSubquery = (RelationalExpression) expression;
+        Assert.notNullUnchecked(nestedSubquery);
+        final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of(nestedSubquery));
         parserContext.getCurrentScope().addQuantifier(existsQuantifier);
         return new ExistsValue(existsQuantifier.getFlowedObjectValue());
     }

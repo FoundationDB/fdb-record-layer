@@ -182,6 +182,12 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return typeDescriptor;
     }
 
+    @Override
+    @Nonnull
+    public DynamicMessageBuilder newBuilder() {
+        return new ProtobufDataBuilder(typeDescriptor);
+    }
+
     private Message convert(Message m, Descriptors.Descriptor destinationDescriptor) throws RelationalException {
         /*
          * Annoying RecordLayer-ism, but they don't check for semantic equality, they check for

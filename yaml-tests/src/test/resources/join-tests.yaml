@@ -26,6 +26,8 @@
     create table emp(id int64, fname string, lname string, dept_id int64, primary key(id))
     create table dept(id int64, name string, primary key(id))
     create table project(id int64, name string, dsc string, emp_id int64, primary key(id))
+    create table a(ida int64, a1 int64, a2 int64, a3 int64, primary key(ida))
+    create table b(idb int64, b1 int64, b2 int64, b3 int64, primary key(idb))
 ---
 - query: drop database /JOIN_YAML
 ---
@@ -56,6 +58,18 @@
            {ID: 3, "Feedback", "Turn customer feedback into actionable items", 5}]
 - table: PROJECT
 ---
+- insert: [{1, A1: 0, 100, 0}]
+- table: A
+---
+- insert: [{4, B1: 0, 0, 200}]
+- table: B
+---
+- query: select ida from a where exists (select ida from a where ida = 1);
+- result: [{!l 1}]
+---
+- query: select sq2.y, sq1.x from (select ida as x from a) sq1, (select idb as y from b) sq2;
+- result: [{!l 4, !l 1}]
+---
 # Get names of people working in Engineering:
 - query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
 - result: [{"Jack", "Williams"},
@@ -63,17 +77,24 @@
            {"Emily", "Martinez"},
            {"Amelia", "Johnson"}]
 ---
-# Get names of people working on a project (TODO (Support normal existential subqueries)
-#- query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
-#- result: [{"Emily", "Martinez"},
-#           {"Megan", "Miller"},
-#           {"Daniel", "Miller"}]
-#---
+# Get names of people working on a project
+- query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
+- result: [{"Emily", "Martinez"},
+           {"Daniel", "Miller"},
+           {"Megan", "Miller"}]
+---
+# Get names of people working on a project in Sales department
+- query: select fname, lname from
+             (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
+             dept
+         where sq.dept_id = dept.id and dept.name = 'Sales';
+- result: [{"Daniel", "Miller"}]
+---
 # three-way join to find which departments' corresponding projects.
 - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
 - result: [{"Engineering", "OLAP"},
-           {"Marketing", "SEO"},
-           {"Sales", "Feedback"}]
+           {"Sales", "Feedback"},
+           {"Marketing", "SEO"}]
 ---
 # two-level left-nested join to find which departments' corresponding projects.
 - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;

@@ -271,8 +271,8 @@ public class Matchers {
             this.resultSet = new ArrayList<>();
         }
 
-        public void addCell(@Nonnull final Object cell) {
-            resultSet.get(resultSet.size() - 1).add(cell.toString());
+        public void addCell(@Nullable final Object cell) {
+            resultSet.get(resultSet.size() - 1).add(cell == null ? "<NULL>" : cell.toString());
         }
 
         public void newRow() {

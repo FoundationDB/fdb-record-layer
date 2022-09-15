@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -123,5 +124,10 @@ public class RowArray extends RelationalArray {
                 .collect(Collectors.toList());
 
         return new IteratorResultSet(arrayMetaData, dataStream.iterator(), 0);
+    }
+
+    @Override
+    public String toString() {
+        return StreamSupport.stream(rows.spliterator(), false).map(Objects::toString).collect(Collectors.joining(",", "[", "]"));
     }
 }

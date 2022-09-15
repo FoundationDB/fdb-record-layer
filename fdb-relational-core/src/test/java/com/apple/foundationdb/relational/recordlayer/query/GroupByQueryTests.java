@@ -519,7 +519,7 @@ public class GroupByQueryTests {
                 insertT1Record(statement, 7, 2, 1, 40);
                 insertT1Record(statement, 8, 2, 1, 20);
                 insertT1Record(statement, 9, 2, 1, 90);
-                Assertions.assertTrue(statement.execute("SELECT SUM(c) / COUNT(c), MAX(c) FROM T1 GROUP BY as x, b as y"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT SUM(c) / COUNT(c), MAX(c) FROM T1 GROUP BY a as x, b as y"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(1L, 20L, 1L, 20L)

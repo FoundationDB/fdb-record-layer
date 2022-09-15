@@ -77,4 +77,9 @@ public class YamlIntegrationTests {
     public void joinTests() throws Exception {
         doRun("join-tests.yaml");
     }
+
+    @Test
+    public void subqueryTests() throws Exception {
+        doRun("subquery-tests.yaml");
+    }
 }
