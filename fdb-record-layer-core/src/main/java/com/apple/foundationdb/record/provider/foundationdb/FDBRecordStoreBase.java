@@ -993,6 +993,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param continuation any continuation from a previous scan
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
      * @param scanProperties skip, limit and other scan properties
+     * @param entryReturnPolicy the index entry return policy to use
      * @return a cursor that return records pointed to by the index
      */
     @API(API.Status.EXPERIMENTAL)
@@ -1070,7 +1071,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                int commonPrimaryKeyLength,
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               @Nonnull ScanProperties scanProperties,
+                                                               @Nonnull IndexEntryReturnPolicy entryReturnPolicy) {
         if (!(scanBounds instanceof IndexScanRange)) {
             throw new RecordCoreArgumentException("scanIndexRecords can only be used with IndexScanRange bounds");
         }
@@ -1081,11 +1083,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                 return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
 
             case USE_REMOTE_FETCH:
-                return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
+                return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior, entryReturnPolicy);
 
             case USE_REMOTE_FETCH_WITH_FALLBACK:
                 try {
-                    final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
+                    final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior, entryReturnPolicy);
                     return new FallbackCursor<>(remoteFetchCursor,
                             lastSuccessfulResult -> remoteFetchFallbackFrom(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
                 } catch (UnsupportedRemoteFetchIndexException ex) {
@@ -1176,7 +1178,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ScanProperties scanProperties,
                                                            @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                           @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy);
+                                                           @Nonnull IndexEntryReturnPolicy indexEntryReturnPolicy);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.

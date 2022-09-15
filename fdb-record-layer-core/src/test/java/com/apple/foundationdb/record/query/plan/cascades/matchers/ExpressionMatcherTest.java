@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matchers;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -226,6 +227,7 @@ public class ExpressionMatcherTest {
                         null,
                         fullValueScan,
                         IndexFetchMethod.SCAN_AND_FETCH,
+                        IndexEntryReturnPolicy.ALL,
                         true,
                         false,
                         Optional.empty(),

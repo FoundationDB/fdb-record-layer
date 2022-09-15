@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -89,7 +90,7 @@ public class IndexScanComparisons implements IndexScanParameters {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
+    public int planHash(@Nonnull PlanHashable.PlanHashKind hashKind) {
         return scanType.planHash(hashKind) + scanComparisons.planHash(hashKind);
     }
 

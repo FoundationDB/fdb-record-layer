@@ -1262,8 +1262,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new UnsupportedMethodException("Index Remote Fetch can only be used with API_VERSION of at least 7.1.");
         }
         if (useOldVersionFormat() && (indexEntryReturnPolicy != IndexEntryReturnPolicy.ALL)) {
-            LOGGER.warn(KeyValueLogMessage.of("Old version format can only be used with indexEntryReturnPolicy of ALL",
-                    LogMessageKeys.INDEX_NAME, index.getName()));
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.of("Old version format can only be used with indexEntryReturnPolicy of ALL",
+                        LogMessageKeys.INDEX_NAME, index.getName()));
+            }
             // Replace policy and continue. All index entries are required in this case.
             indexEntryReturnPolicy = IndexEntryReturnPolicy.ALL;
         }
@@ -1329,8 +1331,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (indexEntry == null) {
                     // This should not happen, since we use UNMATCHED or ALL index entry mode that should return a valid
                     // index entry in case of empty mapped range
-                    LOGGER.warn(KeyValueLogMessage.of("Orphan index entry found but no entry info available",
-                            LogMessageKeys.INDEX_NAME, index.getName()));
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.of("Orphan index entry found but no entry info available",
+                                LogMessageKeys.INDEX_NAME, index.getName()));
+                    }
                     // Skip this entry
                     return CompletableFuture.completedFuture(null);
                 } else {

@@ -103,7 +103,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
         assertCounters(fetchMethod, 1, 101);
     }
@@ -117,7 +117,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
         assertCounters(fetchMethod, 1, 101);
     }
@@ -131,7 +131,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = (i < 50) ? (i * 2) : ((i - 50) * 2) + 1;
                     String strValue = (i < 50) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$str_value_indexed", strValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$str_value_indexed", strValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
         assertCounters(fetchMethod, 1, 101);
     }
@@ -151,7 +151,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
         assertCounters(fetchMethod, 1, 6);
         // Second iteration - next 5 records
@@ -161,7 +161,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 94 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
         // Third iteration - final 90 records
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
@@ -170,7 +170,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 89 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         assertNull(continuation);
@@ -194,7 +194,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.USE_REMOTE_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         // Second iteration - second 4 records
@@ -204,7 +204,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 95 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.SCAN_AND_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         // Third iteration - last 92 records
@@ -214,7 +214,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 91 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.USE_REMOTE_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         assertNull(continuation);
@@ -235,7 +235,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.USE_REMOTE_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         executeProperties = ExecuteProperties.newBuilder()
@@ -249,7 +249,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 96 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.USE_REMOTE_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         executeProperties = ExecuteProperties.newBuilder()
@@ -263,7 +263,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     int primaryKey = 95 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, IndexFetchMethod.USE_REMOTE_FETCH, IndexEntryReturnPolicy.ALL);
                 }, splitRecordsHook);
 
         assertNull(continuation);
@@ -298,7 +298,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                                 strValue = "blah";
                             }
                             int numValue = 1000 - primaryKey;
-                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                         });
                 assertCounters(fetchMethod, 1, 60);
             }
@@ -341,7 +341,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                             int primaryKey = i;
                             int numValue = i;
                             String strValue = (i == created.size() - 1) ? "foo" : "";
-                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                         });
             }
         }
@@ -378,7 +378,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                             int primaryKey = 499 - i;
                             int numValue = primaryKey;
                             String strValue = (i == (created.size() - 1)) ? "foo" : "";
-                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                         });
             }
         }
@@ -412,7 +412,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                             int primaryKey = 99 - i;
                             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                             int numValue = 1000 - primaryKey;
-                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                         });
                 assertNull(recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY));
             }
@@ -589,7 +589,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRecords(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"), fetchMethod, scanBounds(),
-                null, orphanBehavior, scanProperties).asList().get();
+                null, orphanBehavior, scanProperties, IndexEntryReturnPolicy.ALL).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {

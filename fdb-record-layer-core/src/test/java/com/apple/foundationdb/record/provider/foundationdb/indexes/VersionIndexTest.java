@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
@@ -2447,7 +2448,7 @@ public class VersionIndexTest extends FDBTestBase {
 
             IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
             // Use the remote fetch / fallback and then get the keys
-            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction)
+            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, IndexEntryReturnPolicy.ALL)
                     .map(FDBIndexedRecord::getIndexEntry)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -2463,7 +2464,7 @@ public class VersionIndexTest extends FDBTestBase {
         }
 
         IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction).asList().get();
+        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction, IndexEntryReturnPolicy.ALL).asList().get();
     }
 
     @Nonnull

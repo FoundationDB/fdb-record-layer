@@ -49,7 +49,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
     /**
      * Get the bound form of the index scan for use by the maintainer.
      * An {@code IndexScanParameters} can contain parameter references that must be resolved against a context bindings
-     * to get the actual scan bounds. Scan types that use forms other than {@link IndexScanComparisons} can also resolve
+     * to get the actual scan bounds. Scan types that use forms other than {IndexScanComparisons} can also resolve
      * similar information from the store.
      * @param store store against which the scan will be performed
      * @param index index to be scanned

@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
+
 /**
- * The policy to use when using one of FDB's
- * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration.IndexFetchMethod}
+ * The policy to use when using one of FDB's {@link IndexFetchMethod}
  * REMOTE_SCAN options. This is an optimization that allows the caller to reduce bandwidth and CPU by not including
  * index entries that are no longer required (since the records are already available).
  * <UL>

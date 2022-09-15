@@ -110,14 +110,14 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
      * @return stream of argument sets
      */
     protected static Stream<Arguments> testedParams() {
-        return Arrays.stream(RecordQueryPlannerConfiguration.IndexFetchMethod.values())
+        return Arrays.stream(IndexFetchMethod.values())
                 .flatMap(indexFetchMethod -> RemoteFetchTestBase.testedReturnPolicies()
                         .map(returnPolicy -> Arguments.of(indexFetchMethod, returnPolicy)));
     }
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
                                 final int numValue, final String indexName, Object indexedValue,
-                                final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+                                final IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
         assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue, indexFetchMethod, indexEntryReturnPolicy);
 
         FDBRecordVersion version = rec.getStoredRecord().getVersion();
@@ -126,7 +126,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
                                 final int numValue, final String indexName, Object indexedValue, final int localVersion,
-                                final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+                                final IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
         assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue, indexFetchMethod, indexEntryReturnPolicy);
 
         FDBRecordVersion version = rec.getStoredRecord().getVersion();
@@ -135,8 +135,8 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     private void assertBaseRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
                                   final int numValue, final String indexName, final Object indexedValue,
-                                  final RecordQueryPlannerConfiguration.IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
-        if ((indexFetchMethod == RecordQueryPlannerConfiguration.IndexFetchMethod.SCAN_AND_FETCH) || (indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL)) {
+                                  final IndexFetchMethod indexFetchMethod, final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        if ((indexFetchMethod == IndexFetchMethod.SCAN_AND_FETCH) || (indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL)) {
             IndexEntry indexEntry = rec.getIndexEntry();
             assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
             List<Object> indexElements = indexEntry.getKey().getItems();
@@ -172,12 +172,12 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     protected byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier,
-                                          final RecordMetaDataHook metaDataHook) throws Exception {
+                                          final FDBRecordStoreTestBase.RecordMetaDataHook metaDataHook) throws Exception {
         return executeAndVerifyData(plan, null, ExecuteProperties.SERIAL_EXECUTE, expectedRecords, recordVerifier, metaDataHook);
     }
 
     protected byte[] executeAndVerifyData(RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
-                                          int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, final RecordMetaDataHook metaDataHook) throws Exception {
+                                          int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, final FDBRecordStoreTestBase.RecordMetaDataHook metaDataHook) throws Exception {
         byte[] lastContinuation;
 
         try (FDBRecordContext context = openContext()) {
@@ -217,7 +217,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         byte[] lastContinuation;
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
                         indexName, fetchMethod, scanBounds,
-                        continuation, IndexOrphanBehavior.ERROR, scanProperties)
+                        continuation, IndexOrphanBehavior.ERROR, scanProperties, IndexEntryReturnPolicy.ALL)
                 .map(FDBQueriedRecord::indexed)
                 .asIterator()) {
             lastContinuation = verifyData(expectedRecords, recordVerifier, iterator);
@@ -265,7 +265,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
                                                          final byte[] continuation) throws Exception {
         final List<FDBQueriedRecord<Message>> results;
 
-        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, continuation, IndexOrphanBehavior.ERROR, scanProperties)
+        try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, continuation, IndexOrphanBehavior.ERROR, scanProperties, IndexEntryReturnPolicy.ALL)
                 .map(FDBQueriedRecord::indexed)) {
             results = cursor.asList().get();
         }
