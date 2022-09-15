@@ -20,15 +20,19 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -36,7 +40,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +61,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests of query planning and execution on cross-record indexes.
@@ -70,15 +76,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
 
-            saveSimpleRecord(100, "first", 1);
-            saveSimpleRecord(110, "second", 2);
-            saveSimpleRecord2("third", 3);
-            saveSimpleRecord2("fourth", 4);
-            saveSimpleRecord(80, "fifth", 5);
-            saveSimpleRecord2("sixth", 6);
-            saveSimpleRecord2("seventh", 7);
-            saveSimpleRecord(60, "seventh", 7);
-            saveSimpleRecord2("seventh again", 7);
+            saveBaseData();
             saveSimpleRecord3("eighth", 8);
 
             commit(context);
@@ -117,24 +115,83 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 7, 7, 8), etags);
     }
 
+    @ParameterizedTest
+    @EnumSource
+    public void testCrossRecordIndex(IndexFetchMethod fetchMethod) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            if (fetchMethod.equals(IndexFetchMethod.USE_REMOTE_FETCH)) {
+                assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+            }
+
+            saveBaseData();
+            saveSimpleRecord3("eighth", 8);
+
+            commit(context);
+        }
+
+        List<String> names = new ArrayList<>();
+        List<Integer> etags = new ArrayList<>();
+
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("versions", fetchMethod,
+                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN).asIterator()) {
+                while (cursor.hasNext()) {
+                    final Message record = cursor.next().getRecord();
+                    names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                    etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                }
+            }
+        }
+        assertEquals(Arrays.asList("first", "second", "third", "fourth", "fifth", "sixth"), names.subList(0, 6));
+        assertThat(names.subList(6, 9), containsInAnyOrder("seventh", "seventh", "seventh again"));
+        assertEquals("eighth", names.get(9));
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 7, 7, 8), etags);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setSort(field("etag"))
+                .build();
+
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setIndexFetchMethod(fetchMethod).build());
+
+        // Index(versions <,>)
+        RecordQueryPlan plan = planner.plan(query);
+        MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
+
+        names.clear();
+        etags.clear();
+        try (FDBRecordContext context = openContext()) {
+            openUnionRecordStore(context);
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    final Message record = cursor.next().getRecord();
+                    names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                    etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                }
+            }
+            assertDiscardedNone(context);
+        }
+        assertEquals(Arrays.asList("first", "second", "third", "fourth", "fifth", "sixth"), names.subList(0, 6));
+        assertThat(names.subList(6, 9), containsInAnyOrder("seventh", "seventh", "seventh again"));
+        assertEquals("eighth", names.get(9));
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 7, 7, 8), etags);
+    }
+
     /**
      * Verify that multi-type record queries can scan multi-type indexes.
      * Verify that single-type record queries can scan multi-type indexes with a type filter.
      */
-    @Test
-    public void testMultiRecordTypeIndexScan() throws Exception {
+    @ParameterizedTest
+    @EnumSource
+    public void testMultiRecordTypeIndexScan(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
+            if (fetchMethod.equals(IndexFetchMethod.USE_REMOTE_FETCH)) {
+                assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
+            }
 
-            saveSimpleRecord(100, "first", 1);
-            saveSimpleRecord(110, "second", 2);
-            saveSimpleRecord2("third", 3);
-            saveSimpleRecord2("fourth", 4);
-            saveSimpleRecord(80, "fifth", 5);
-            saveSimpleRecord2("sixth", 6);
-            saveSimpleRecord2("seventh", 7);
-            saveSimpleRecord(60, "seventh", 7);
-            saveSimpleRecord2("seventh again", 7);
+            saveBaseData();
 
             saveSimpleRecord3("t3 second", 2);
             saveSimpleRecord3("t3 sixth", 6);
@@ -147,8 +204,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("partial_versions",
-                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asIterator()) {
+            try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("partial_versions", fetchMethod,
+                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
                     names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
@@ -160,6 +217,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Arrays.asList("first", "second", "third", "fourth", "fifth", "sixth"), names.subList(0, 6));
         assertThat(names.subList(6, 9), containsInAnyOrder("seventh", "seventh", "seventh again"));
         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 7, 7), etags);
+
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setIndexFetchMethod(fetchMethod).build());
 
         {
             RecordQuery query = RecordQuery.newBuilder()
@@ -286,15 +345,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
 
-            saveSimpleRecord(100, "first", 1);
-            saveSimpleRecord(110, "second", 2);
-            saveSimpleRecord2("third", 3);
-            saveSimpleRecord2("fourth", 4);
-            saveSimpleRecord(80, "fifth", 5);
-            saveSimpleRecord2("sixth", 6);
-            saveSimpleRecord2("seventh", 7);
-            saveSimpleRecord(60, "seventh", 7);
-            saveSimpleRecord2("seventh again", 7);
+            saveBaseData();
 
             commit(context);
         }
@@ -376,8 +427,9 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query against some record types can use an index on more record types, even when comparing against
      * a nested field.
      */
-    @Test
-    public void testNestedPartialCrossRecordTypeQuery() throws Exception {
+    @ParameterizedTest
+    @EnumSource
+    public void testNestedPartialCrossRecordTypeQuery(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
 
@@ -394,6 +446,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("etag").equalsValue(1),
                         Query.field("nested").matches(Query.field("etag").equalsValue(2))))
                 .build();
+
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setIndexFetchMethod(fetchMethod).build());
 
         // Index(partial_nested_versions [[2, 1],[2, 1]]) | [MySimpleRecord2, MySimpleRecord3]
         RecordQueryPlan plan = planner.plan(query);
@@ -413,5 +467,17 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             }
             assertDiscardedNone(context);
         }
+    }
+
+    private void saveBaseData() {
+        saveSimpleRecord(100, "first", 1);
+        saveSimpleRecord(110, "second", 2);
+        saveSimpleRecord2("third", 3);
+        saveSimpleRecord2("fourth", 4);
+        saveSimpleRecord(80, "fifth", 5);
+        saveSimpleRecord2("sixth", 6);
+        saveSimpleRecord2("seventh", 7);
+        saveSimpleRecord(60, "seventh", 7);
+        saveSimpleRecord2("seventh again", 7);
     }
 }

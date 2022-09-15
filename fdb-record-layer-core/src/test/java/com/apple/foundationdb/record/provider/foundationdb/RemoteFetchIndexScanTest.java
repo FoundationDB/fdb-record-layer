@@ -24,8 +24,10 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -95,7 +97,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     @EnumSource()
     void indexPrefetchSimpleIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
-                primaryKey(), null, 100,
+                null, 100,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -109,7 +111,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     @EnumSource()
     void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.REVERSE_SCAN,
-                primaryKey(), null, 100,
+                null, 100,
                 (rec, i) -> {
                     int primaryKey = i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -123,7 +125,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     @EnumSource()
     void indexPrefetchComplexIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
-                primaryKey(), null, 100,
+                null, 100,
                 (rec, i) -> {
                     int primaryKey = (i < 50) ? (i * 2) : ((i - 50) * 2) + 1;
                     String strValue = (i < 50) ? "even" : "odd";
@@ -143,7 +145,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
         // First iteration - first 5 records
         byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), scanProperties,
-                primaryKey(), null, 5,
+                null, 5,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -153,7 +155,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         assertCounters(fetchMethod, 1, 6);
         // Second iteration - next 5 records
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), scanProperties,
-                primaryKey(), continuation, 5,
+                continuation, 5,
                 (rec, i) -> {
                     int primaryKey = 94 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -162,7 +164,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 }, splitRecordsHook);
         // Third iteration - final 90 records
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
-                primaryKey(), continuation, 90,
+                continuation, 90,
                 (rec, i) -> {
                     int primaryKey = 89 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -186,7 +188,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
         // First iteration - first 4 records
         byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
-                scanBounds(), scanProperties, primaryKey(), null, 4,
+                scanBounds(), scanProperties, null, 4,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -196,7 +198,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
         // Second iteration - second 4 records
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.SCAN_AND_FETCH,
-                scanBounds(), scanProperties, primaryKey(), continuation, 4,
+                scanBounds(), scanProperties, continuation, 4,
                 (rec, i) -> {
                     int primaryKey = 95 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -206,7 +208,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
         // Third iteration - last 92 records
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
-                scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), continuation, 92,
+                scanBounds(), ScanProperties.FORWARD_SCAN, continuation, 92,
                 (rec, i) -> {
                     int primaryKey = 91 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -227,7 +229,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         ScanProperties scanProperties = new ScanProperties(executeProperties, false);
 
         byte[] continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
-                scanBounds(), scanProperties, primaryKey(), null, 3,
+                scanBounds(), scanProperties, null, 3,
                 (rec, i) -> {
                     int primaryKey = 99 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -241,7 +243,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         scanProperties = new ScanProperties(executeProperties, false);
 
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
-                scanBounds(), scanProperties, primaryKey(), continuation, 1,
+                scanBounds(), scanProperties, continuation, 1,
                 (rec, i) -> {
                     int primaryKey = 96 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -255,7 +257,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         scanProperties = new ScanProperties(executeProperties, false);
 
         continuation = scanAndVerifyData("MySimpleRecord$num_value_unique", IndexFetchMethod.USE_REMOTE_FETCH,
-                scanBounds(), scanProperties, primaryKey(), continuation, 96,
+                scanBounds(), scanProperties, continuation, 96,
                 (rec, i) -> {
                     int primaryKey = 95 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -287,7 +289,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
-                        scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null, 100,
+                        scanBounds(), ScanProperties.FORWARD_SCAN, null, 100,
                         (rec, i) -> {
                             int primaryKey = 99 - i;
                             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -333,7 +335,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
-                        scanBounds(), ScanProperties.FORWARD_SCAN, primaryKey(), null, 500,
+                        scanBounds(), ScanProperties.FORWARD_SCAN, null, 500,
                         (rec, i) -> {
                             int primaryKey = i;
                             int numValue = i;
@@ -370,7 +372,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 assertThrows(ExecutionException.class, () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.REVERSE_SCAN, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
-                        scanBounds(), ScanProperties.REVERSE_SCAN, primaryKey(), null, 500,
+                        scanBounds(), ScanProperties.REVERSE_SCAN, null, 500,
                         (rec, i) -> {
                             int primaryKey = 499 - i;
                             int numValue = primaryKey;
@@ -398,12 +400,13 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     .setIsolationLevel(IsolationLevel.SNAPSHOT)
                     .build());
 
+            IndexScanRange scanBounds = scanBounds();
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(UnsupportedOperationException.class,
-                        () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), scanProperties, primaryKey(), null));
+                        () -> scanToList(context, "MySimpleRecord$num_value_unique", fetchMethod, scanBounds, scanProperties, primaryKey(), null));
             } else {
                 scanAndVerifyData(context, "MySimpleRecord$num_value_unique", fetchMethod,
-                        scanBounds(), scanProperties, primaryKey(), null, 100,
+                        scanBounds, scanProperties, null, 100,
                         (rec, i) -> {
                             int primaryKey = 99 - i;
                             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
@@ -504,10 +507,63 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
     }
 
+    /**
+     * Tests the scanIndexRecords method that takes a commonPrimaryKeyLength - this is the same as the other tests for index scans
+     * except that it provides a pre-calculated primary key length.
+     */
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
+                            recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
+                            1, null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                    .map(FDBQueriedRecord::indexed)
+                    .asIterator()) {
+                verifyData(100, (rec, i) -> {
+                    int primaryKey = (i < 50) ? (i * 2) : ((i - 50) * 2) + 1;
+                    String strValue = (i < 50) ? "even" : "odd";
+                    int numValue = 1000 - primaryKey;
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$str_value_indexed", strValue, primaryKey);
+                }, iterator);
+            }
+        }
+        assertCounters(fetchMethod, 1, 101);
+    }
+
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testInvalidIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
+
+        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+        IndexScanRange scanBounds = scanBounds();
+        assertThrows(RecordCoreArgumentException.class, () -> {
+            recordStore.scanIndexRecords(
+                    index, fetchMethod, scanBounds,
+                    -1,
+                    null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
+        });
+    }
+
+    @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @EnumSource()
+    void testTooLargeIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
+        assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
+
+        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+        IndexScanRange scanBounds = scanBounds();
+        assertThrows(RecordCoreStorageException.class, () -> recordStore.scanIndexRecords(
+                index, fetchMethod, scanBounds,
+                86,
+                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
+    }
+
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
-        return recordStore.scanIndexRecords("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(),
-                primaryKey(), null, orphanBehavior, scanProperties).asList().get();
+        return recordStore.scanIndexRecords(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"), fetchMethod, scanBounds(),
+                null, orphanBehavior, scanProperties).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {

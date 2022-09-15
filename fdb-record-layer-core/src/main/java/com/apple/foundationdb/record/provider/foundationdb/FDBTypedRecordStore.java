@@ -174,11 +174,11 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
                                                                   @Nonnull IndexScanBounds scanBounds,
-                                                                  @Nonnull final KeyExpression commonPrimaryKey,
+                                                                  int commonPrimaryKeyLength,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ScanProperties scanProperties,
                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        return untypedStore.scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKey, continuation, typedSerializer, scanProperties, orphanBehavior);
+        return untypedStore.scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, typedSerializer, scanProperties, orphanBehavior);
     }
 
     @Nonnull

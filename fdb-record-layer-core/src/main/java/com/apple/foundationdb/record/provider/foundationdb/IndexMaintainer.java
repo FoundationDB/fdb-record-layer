@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
@@ -272,14 +271,15 @@ public abstract class IndexMaintainer {
      * @param scanBounds the index range to scan
      * @param continuation the continuation to use
      * @param scanProperties the scan properties to use
-     * @param commonPrimaryKey the common primary key for the derefenced records
-     * @return a cursor of the index prefetch call result: will contain both index entries and dereferenced records
+     * @param commonPrimaryKeyLength the length (# of components) of common primary key for the de-referenced records
+     * @return a cursor of the index prefetch call result: will contain both index entries and de-referenced records
      */
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
     public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
-                                                             @Nonnull final KeyExpression commonPrimaryKey) {
+                                                             int commonPrimaryKeyLength) {
         // Not implemented by default - needs to be overridden by individual maintainers
         throw new UnsupportedRemoteFetchIndexException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
     }

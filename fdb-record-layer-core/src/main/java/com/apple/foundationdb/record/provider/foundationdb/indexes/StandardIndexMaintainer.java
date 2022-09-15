@@ -147,14 +147,17 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      */
     @SuppressWarnings("PMD.CloseResource")
     protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
-                                                             @Nullable final byte[] continuation,
-                                                             @Nonnull final ScanProperties scanProperties,
-                                                             @Nonnull final KeyExpression commonPrimaryKey) {
+                                                                       @Nullable final byte[] continuation,
+                                                                       @Nonnull final ScanProperties scanProperties,
+                                                                       int commonPrimaryKeyLength) {
+        if (commonPrimaryKeyLength <= 0) {
+            throw new RecordCoreArgumentException("scanRemoteFetch requires a positive commonPrimaryKeyLength");
+        }
         if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE) || (!(scanBounds instanceof IndexScanRange))) {
             throw new RecordCoreArgumentException("scanRemoteFetch can only be used with VALUE index scan type and Range Scan");
         }
         IndexScanRange scanRange = (IndexScanRange)scanBounds;
-        Tuple mapper = createRemoteFetchMapper(commonPrimaryKey);
+        Tuple mapper = createRemoteFetchMapper(commonPrimaryKeyLength);
         final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
                 .setContext(state.context)
                 .setRange(scanRange.getScanRange())
@@ -723,13 +726,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
      * Since {@link Index#trimPrimaryKey(List)} removes redundant key entries, we need to construct the list of locations of the primary key
      * elements by using the keyLocations (if there are any), followed by the remaining key elements.
-     * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
+     * @param commonPrimaryKeyLength the length (# of elements) of the primary key (used to construct the PK locations in the de-referenced record)
      * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
      */
     @Nonnull
-    private Tuple createRemoteFetchMapper(@Nonnull KeyExpression commonPrimaryKey) {
+    private Tuple createRemoteFetchMapper(int commonPrimaryKeyLength) {
         int prefixLength = Tuple.fromBytes(state.indexSubspace.pack()).size();
-        List<Integer> keyLocations = state.index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
+        List<Integer> keyLocations = state.index.getEntryPrimaryKeyPositions(commonPrimaryKeyLength);
 
         Tuple result =  Tuple.fromBytes(state.store.recordsSubspace().pack());
         for (int i: keyLocations) {

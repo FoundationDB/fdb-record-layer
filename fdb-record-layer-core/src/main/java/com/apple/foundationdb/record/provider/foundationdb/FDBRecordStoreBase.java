@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -74,6 +75,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -948,6 +950,27 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
         final Index index = getRecordMetaData().getIndex(indexName);
+        return scanIndexRecords(index, scanType, range, continuation, orphanBehavior, scanProperties);
+    }
+
+    /**
+     * Scan the records pointed to by an index.
+     * @param index the index to scan
+     * @param scanType the type of scan to perform
+     * @param range the range of the index to scan
+     * @param continuation any continuation from a previous scan
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
+                                                               @Nonnull final IndexScanType scanType,
+                                                               @Nonnull final TupleRange range,
+                                                               @Nullable byte[] continuation,
+                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                               @Nonnull ScanProperties scanProperties) {
         return fetchIndexRecords(scanIndex(index, scanType, range, continuation, scanProperties), orphanBehavior,
                 scanProperties.getExecuteProperties().getState());
     }
@@ -960,12 +983,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *     <LI>USE_REMOTE_FETCH: Use FDB's remote fetch feature to scan the index and fetch the records in one call</LI>
      *     <LI>USE_REMOTE_FETCH_WITH_FALLBACK: Use FDB's remote fetch feature but fall back to SCAN_AND_FETCH in case of failure</LI>
      * </UL>
-     * This method can only be used with {@link IndexScanRange} scan bounds
+     * This method can only be used with {@link IndexScanRange} scan bounds.
+     * This method requires that there is a common primary key length for all types defined for the index when using
+     * USE_REMOTE_FETCH or USE_REMOTE_FETCH_WITH_FALLBACK.
      *
      * @param indexName the name of the index
      * @param fetchMethod the fetch method to use when getting records from the index
      * @param scanBounds the range of the index to scan, has to be a IndexScanRange
-     * @param commonPrimaryKey the common primary key for the records that would be returned, only required for USE_REMOTE_FETCH and USE_REMOTE_FETCH_WITH_FALLBACK
      * @param continuation any continuation from a previous scan
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
      * @param scanProperties skip, limit and other scan properties
@@ -976,12 +1000,81 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
                                                                @Nonnull final IndexFetchMethod fetchMethod,
                                                                @Nonnull final IndexScanBounds scanBounds,
-                                                               @Nullable final KeyExpression commonPrimaryKey,
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
-        if ((fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKey == null)) {
-            throw new RecordCoreArgumentException("scanIndexRecords with remote fetch requires a commonPrimaryKey", LogMessageKeys.INDEX_NAME, indexName);
+        return scanIndexRecords(getRecordMetaData().getIndex(indexName), fetchMethod, scanBounds, continuation, orphanBehavior, scanProperties);
+    }
+
+    /**
+     * Scan the records pointed to by an index. This version of the method can choose between various scan options as
+     * determined by the {@link IndexFetchMethod} parameter:
+     * <UL>
+     *     <LI>SCAN_AND_FETCH: Scan the index and fetch each record individually</LI>
+     *     <LI>USE_REMOTE_FETCH: Use FDB's remote fetch feature to scan the index and fetch the records in one call</LI>
+     *     <LI>USE_REMOTE_FETCH_WITH_FALLBACK: Use FDB's remote fetch feature but fall back to SCAN_AND_FETCH in case of failure</LI>
+     * </UL>
+     * This method can only be used with {@link IndexScanRange} scan bounds.
+     * This method requires that there is a common primary key length for all types defined for the index when using
+     * USE_REMOTE_FETCH or USE_REMOTE_FETCH_WITH_FALLBACK.
+     *
+     * @param index the index to scan
+     * @param fetchMethod the fetch method to use when getting records from the index
+     * @param scanBounds the range of the index to scan, has to be a IndexScanRange
+     * @param continuation any continuation from a previous scan
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
+                                                               @Nonnull final IndexFetchMethod fetchMethod,
+                                                               @Nonnull final IndexScanBounds scanBounds,
+                                                               @Nullable byte[] continuation,
+                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                               @Nonnull ScanProperties scanProperties) {
+        int commonPrimaryKeyLength = -1;
+        if (fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
+            commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
+        }
+        return scanIndexRecords(index, fetchMethod, scanBounds, commonPrimaryKeyLength, continuation, orphanBehavior, scanProperties);
+    }
+
+    /**
+     * Scan the records pointed to by an index. This version of the method can choose between various scan options as
+     * determined by the {@link IndexFetchMethod} parameter:
+     * <UL>
+     *     <LI>SCAN_AND_FETCH: Scan the index and fetch each record individually</LI>
+     *     <LI>USE_REMOTE_FETCH: Use FDB's remote fetch feature to scan the index and fetch the records in one call</LI>
+     *     <LI>USE_REMOTE_FETCH_WITH_FALLBACK: Use FDB's remote fetch feature but fall back to SCAN_AND_FETCH in case of failure</LI>
+     * </UL>
+     * This method can only be used with {@link IndexScanRange} scan bounds.
+     * This method requires a positive common primary key length for USE_REMOTE_FETCH and USE_REMOTE_FETCH_WITH_FALLBACK.
+     * Common primary key length is the length (# of elements) that is the same for all types defined for the index.
+     *
+     * @param index the index to scan
+     * @param fetchMethod the fetch method to use when getting records from the index
+     * @param scanBounds the range of the index to scan, has to be a IndexScanRange
+     * @param commonPrimaryKeyLength the length of the common primary key for the records that would be returned, only required for USE_REMOTE_FETCH and USE_REMOTE_FETCH_WITH_FALLBACK
+     * @param continuation any continuation from a previous scan
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that return records pointed to by the index
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
+                                                               @Nonnull final IndexFetchMethod fetchMethod,
+                                                               @Nonnull final IndexScanBounds scanBounds,
+                                                               int commonPrimaryKeyLength,
+                                                               @Nullable byte[] continuation,
+                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
+                                                               @Nonnull ScanProperties scanProperties) {
+        // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
+        if ((fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKeyLength <= 0)) {
+            throw new RecordCoreArgumentException("scanIndexRecords with remote fetch requires a positive commonPrimaryKeyLength",
+                    LogMessageKeys.INDEX_NAME, index.getName());
         }
         if (!(scanBounds instanceof IndexScanRange)) {
             throw new RecordCoreArgumentException("scanIndexRecords can only be used with IndexScanRange bounds");
@@ -990,30 +1083,30 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         switch (fetchMethod) {
             case SCAN_AND_FETCH:
-                return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
 
             case USE_REMOTE_FETCH:
-                return scanIndexRemoteFetch(indexName, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+                return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
 
             case USE_REMOTE_FETCH_WITH_FALLBACK:
                 try {
-                    final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(indexName, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+                    final RecordCursor<FDBIndexedRecord<M>> remoteFetchCursor = scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
                     return new FallbackCursor<>(remoteFetchCursor,
-                            lastSuccessfulResult -> remoteFetchFallbackFrom(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
+                            lastSuccessfulResult -> remoteFetchFallbackFrom(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties, lastSuccessfulResult));
                 } catch (UnsupportedRemoteFetchIndexException ex) {
                     // In this case (e.g. the index maintainer does not support remote fetch), log as info
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("scanIndexRecords: Remote fetch unsupported, continuing with Index scan",
                                 LogMessageKeys.MESSAGE, ex.getMessage(),
-                                LogMessageKeys.INDEX_NAME, indexName));
+                                LogMessageKeys.INDEX_NAME, index.getName()));
                     }
-                    return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                    return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("scanIndexRecords: Remote Fetch execution failed, falling back to Index scan",
-                                LogMessageKeys.INDEX_NAME, indexName), ex);
+                                LogMessageKeys.INDEX_NAME, index.getName()), ex);
                     }
-                    return scanIndexRecords(indexName, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
+                    return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 }
 
             default:
@@ -1023,33 +1116,54 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     * This method requires that there is a common primary key length to all types defined for the index.
+     *
      * @param indexName the name of the index
      * @param scanBounds the range of the index to scan
-     * @param commonPrimaryKey the common primary key for the records that would be returned
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
      * @return a cursor that return records pointed to by the index
      */
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final String indexName,
                                                                    @Nonnull final IndexScanBounds scanBounds,
-                                                                   @Nonnull final KeyExpression commonPrimaryKey,
                                                                    @Nullable byte[] continuation,
                                                                    @Nonnull ScanProperties scanProperties,
                                                                    @Nonnull final IndexOrphanBehavior orphanBehavior) {
-
         final Index index = getRecordMetaData().getIndex(indexName);
-        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKey, continuation, scanProperties, orphanBehavior);
+        return scanIndexRemoteFetch(index, scanBounds, continuation, scanProperties, orphanBehavior);
+    }
+
+    /**
+     * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
+     * This method requires that there is a common primary key length to all types defined for the index.
+     *
+     * @param index the index to scan
+     * @param scanBounds the range of the index to scan
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
+     * @return a cursor that return records pointed to by the index
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final Index index,
+                                                                   @Nonnull final IndexScanBounds scanBounds,
+                                                                   @Nullable byte[] continuation,
+                                                                   @Nonnull ScanProperties scanProperties,
+                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        int commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
+        return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
     }
 
     /**
      * Scan the records pointed to by an index, using a single scan-and-dereference FDB operation.
      * @param index the index to scan
      * @param scanBounds the range for the index to scan
-     * @param commonPrimaryKey the common primary key for the records that would be returned
+     * @param commonPrimaryKeyLength the length (# of elements) of the common primary key for the records that would be returned.
+     *     This parameter has to be a positive number.
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
@@ -1060,7 +1174,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @API(API.Status.EXPERIMENTAL)
     RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
                                                            @Nonnull IndexScanBounds scanBounds,
-                                                           @Nonnull KeyExpression commonPrimaryKey,
+                                                           int commonPrimaryKeyLength,
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ScanProperties scanProperties,
                                                            @Nonnull IndexOrphanBehavior orphanBehavior);
@@ -1117,17 +1231,16 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan the records pointed to by an index equal to indexed values using the Index Prefetch method.
      * @param indexName the name of the index
-     * @param primaryKey the primary key for the record
      * @param values a left-subset of values of indexed fields
      * @return a cursor of the records pointed to by the index
      */
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, KeyExpression primaryKey, @Nonnull final Object... values) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, @Nonnull final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
-        return scanIndexRemoteFetch(indexName, bounds, primaryKey, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
+        return scanIndexRemoteFetch(indexName, bounds, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**
@@ -1921,7 +2034,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
      *        bindings that are used to execute the query
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery) 
      */
     @Nonnull
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
@@ -1934,7 +2047,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *        bindings that are used to execute the query
      * @param plannerConfiguration an override for the {@link RecordQueryPlannerConfiguration} for the planner
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery)
      */
     RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
                               @Nonnull RecordQueryPlannerConfiguration plannerConfiguration);
@@ -1943,7 +2056,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Plan a query.
      * @param query the query to plan
      * @return a query plan
-     * @see RecordQueryPlanner#plan
+     * @see RecordQueryPlanner#plan(RecordQuery)
      */
     @Nonnull
     default RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
@@ -2231,7 +2344,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         }
 
         /**
-         * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion}.
+         * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion(UserVersionChecker, StoreExistenceCheck)}.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
         @Nonnull
@@ -2277,7 +2390,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     @API(API.Status.INTERNAL)
-    default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final String indexName,
+    default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final Index index,
                                                                       final IndexScanType scanType,
                                                                       final TupleRange scanRange,
                                                                       final byte[] continuation,
@@ -2286,10 +2399,44 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                       final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
             // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
-            return scanIndexRecords(indexName, scanType, scanRange, continuation, orphanBehavior, scanProperties);
+            return scanIndexRecords(index, scanType, scanRange, continuation, orphanBehavior, scanProperties);
         } else {
             // Use the continuation from the last result to continue from
-            return scanIndexRecords(indexName, scanType, scanRange, lastSuccessfulResult.getContinuation().toBytes(), orphanBehavior, scanProperties);
+            return scanIndexRecords(index, scanType, scanRange, lastSuccessfulResult.getContinuation().toBytes(), orphanBehavior, scanProperties);
         }
+    }
+
+    /**
+     * Return the common primary key for a given index. This method calculates the common primary key for an index based
+     * off of the types the index is defined on. This can be null in the case where there is no common PK that is the same
+     * across all types.
+     * @param index the index for which the common primary key is needed
+     * @return the primary key common to all record types defined for the index, or null if no such key exists
+     */
+    @API(API.Status.INTERNAL)
+    @Nullable
+    default KeyExpression getCommonPrimaryKey(@Nonnull Index index) {
+        RecordMetaData metaData = getRecordMetaData();
+        Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        return RecordMetaData.commonPrimaryKey(recordTypes);
+    }
+
+    /**
+     * Return the length of the common primary key for a given index. The length of common primary key is the number of
+     * elements in the primary keys of all types the index is defined on, if they are equal. This is different from the
+     * calculation of the common primary key as there can be a common length even if the {@link #getCommonPrimaryKey}
+     * returns null.
+     * For example, for types A with PK {@code field("a")} and B with PK {@code field("b")} there is no common primary
+     * key, but the common primary key length can be calculated as 1.
+     *
+     * @param index the index for which the common primary key is needed
+     * @return the length of the primary key common to all record types defined for the index, or -1 if no such key exists
+     */
+    @API(API.Status.INTERNAL)
+    @Nullable
+    default int getCommonPrimaryKeyLength(@Nonnull Index index) {
+        RecordMetaData metaData = getRecordMetaData();
+        Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        return RecordMetaData.commonPrimaryKeyLength(recordTypes);
     }
 }

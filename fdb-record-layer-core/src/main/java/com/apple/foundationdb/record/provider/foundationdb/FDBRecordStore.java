@@ -1226,22 +1226,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public RecordCursor<FDBIndexedRecord<Message>> scanIndexRemoteFetch(@Nonnull Index index,
                                                                         @Nonnull IndexScanBounds scanBounds,
-                                                                        @Nonnull final KeyExpression commonPrimaryKey,
+                                                                        int commonPrimaryKeyLength,
                                                                         @Nullable byte[] continuation,
                                                                         @Nonnull ScanProperties scanProperties,
                                                                         @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKey, continuation, serializer, scanProperties, orphanBehavior);
+        return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, serializer, scanProperties, orphanBehavior);
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchInternal(@Nonnull final Index index,
                                                                                                  @Nonnull final IndexScanBounds scanBounds,
-                                                                                                 @Nonnull final KeyExpression commonPrimaryKey,
+                                                                                                 int commonPrimaryKeyLength,
                                                                                                  @Nullable final byte[] continuation,
                                                                                                  @Nonnull RecordSerializer<M> typedSerializer,
                                                                                                  @Nonnull final ScanProperties scanProperties,
                                                                                                  @Nonnull final IndexOrphanBehavior orphanBehavior) {
+        // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
+        if (commonPrimaryKeyLength <= 0) {
+            throw new RecordCoreArgumentException("commonPrimaryKeyLength has to be a positive number", LogMessageKeys.INDEX_NAME, index.getName());
+        }
         if (!isIndexScannable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
@@ -1259,7 +1263,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         // Get the cursor with the index entries and the records from FDB
-        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKey);
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
         // Parse the index entries and payload and build records
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 
