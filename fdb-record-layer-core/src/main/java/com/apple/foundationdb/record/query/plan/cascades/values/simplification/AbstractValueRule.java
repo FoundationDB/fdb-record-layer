@@ -76,15 +76,18 @@ public abstract class AbstractValueRule<R, C extends AbstractValueRuleCall<R, C>
      * @see PlannerRuleSet
      */
     @Nonnull
+    @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 
     @Nonnull
+    @Override
     public BindingMatcher<T> getMatcher() {
         return matcher;
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return getClass().getSimpleName();

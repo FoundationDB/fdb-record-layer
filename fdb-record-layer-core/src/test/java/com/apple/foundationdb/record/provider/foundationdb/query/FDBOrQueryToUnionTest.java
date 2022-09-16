@@ -153,7 +153,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                     coveringIndexPlan()
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
                                     coveringIndexPlan()
@@ -270,7 +270,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
                                             coveringIndexPlan()
@@ -397,7 +397,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
                                             coveringIndexPlan()
@@ -482,7 +482,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))))),
                                             coveringIndexPlan()
@@ -565,7 +565,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))))),
                                             coveringIndexPlan()
@@ -812,7 +812,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))),
                                             coveringIndexPlan()
@@ -966,7 +966,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
                                             coveringIndexPlan()
@@ -1037,7 +1037,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
                                             coveringIndexPlan()
@@ -1088,7 +1088,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
                                             coveringIndexPlan()
@@ -1310,7 +1310,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))))),
                                             intersectionOnValuesPlan(
                                                     coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))))),
@@ -1377,7 +1377,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))))),
                                             coveringIndexPlan()
@@ -1460,7 +1460,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))))),
                                             coveringIndexPlan()
@@ -1534,7 +1534,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))),
                                             coveringIndexPlan()
@@ -1774,7 +1774,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
-                            RecordQueryPlanMatchers.unionOnValuePlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
                                     coveringIndexPlan()
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
                                     coveringIndexPlan()
@@ -1815,9 +1815,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1714281445, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                    RecordQueryPlanMatchers.unionOnValuePlan(
+                    RecordQueryPlanMatchers.unionOnValuesPlan(
                             fetchFromPartialRecordPlan(
-                                    RecordQueryPlanMatchers.unionOnValuePlan(
+                                    RecordQueryPlanMatchers.unionOnValuesPlan(
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
                                             coveringIndexPlan()
@@ -1899,7 +1899,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     .where(queryComponents(exactly(equalsObject(Query.field("str_value_indexed").equalsValue("outer")))));
 
         } else {
-            planMatcher = RecordQueryPlanMatchers.unionOnValuePlan(
+            planMatcher = RecordQueryPlanMatchers.unionOnValuesPlan(
                             predicatesFilterPlan(
                                     indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))))
                                     .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "outer"))))),

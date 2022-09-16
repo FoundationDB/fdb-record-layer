@@ -78,6 +78,7 @@ public class Simplification {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Value computeCurrent(@Nonnull final Value current, @Nonnull final Iterable<? extends Value> mappedChildren) {
         final var children = current.getChildren();
         final var childrenIterator = children.iterator();
@@ -108,6 +109,7 @@ public class Simplification {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull final Value root,
                                                                                    @Nonnull Value current,
                                                                                    @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
@@ -165,10 +167,10 @@ public class Simplification {
      */
     @FunctionalInterface
     public interface RuleCallCreator<R, C extends AbstractValueRuleCall<R, C>> {
-        C create(@Nonnull final AbstractValueRule<R, C, ? extends Value> rule,
-                 @Nonnull final Value root,
-                 @Nonnull final Value current,
-                 @Nonnull final PlannerBindings plannerBindings);
+        C create(@Nonnull AbstractValueRule<R, C, ? extends Value> rule,
+                 @Nonnull Value root,
+                 @Nonnull Value current,
+                 @Nonnull PlannerBindings plannerBindings);
     }
 }
 

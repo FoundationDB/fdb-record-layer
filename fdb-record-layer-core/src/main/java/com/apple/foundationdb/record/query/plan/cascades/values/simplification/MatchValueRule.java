@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
@@ -35,8 +33,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
@@ -45,9 +41,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchValueRule extends ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, Value> {
-    @Nonnull
-    private static final CollectionMatcher<Type.Record.Field> fieldPathMatcher = all(anyObject());
-
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 

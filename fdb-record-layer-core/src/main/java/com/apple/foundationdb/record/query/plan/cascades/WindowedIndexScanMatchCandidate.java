@@ -238,16 +238,28 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
-            Objects.requireNonNull(normalizedKey);
+            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+            Objects.requireNonNull(normalizedKeyExpression);
             Objects.requireNonNull(parameterId);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
             @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
+            if (normalizedKeyExpression.createsDuplicates()) {
+                if (comparisonRange != null) {
+                    if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKey).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             if (parameterId.equals(scoreAlias)) {
@@ -290,6 +302,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
 
+            if (normalizedKeyExpression.createsDuplicates()) {
+                continue;
+            }
+
             final var normalizedValue =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
@@ -303,10 +319,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         final var result = ImmutableList.<KeyPart>builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
-            final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
+            final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                break;
+            }
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             //
@@ -337,7 +357,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
-                                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                                new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 reverseScanOrder,
                                 false,

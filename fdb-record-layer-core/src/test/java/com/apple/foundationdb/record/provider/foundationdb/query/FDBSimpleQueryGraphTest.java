@@ -163,7 +163,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(nameValue.getResultType(), Optional.of("nameNew")), nameValue));
                     graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restNoValue.getResultType(), Optional.of("restNoNew")), restNoValue));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
-                    return GroupExpressionRef.of(new LogicalSortExpression(null, false, qun));
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
@@ -174,7 +174,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         typeFilterPlan(
                                 scanPlan()
                                         .where(scanComparisons(range("([1],>")))))
-                        .where(mapResult(recordConstructorValue(exactly(fieldValue("name"), fieldValue("rest_no"))))));
+                        .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("name"), fieldValueWithFieldNames("rest_no"))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

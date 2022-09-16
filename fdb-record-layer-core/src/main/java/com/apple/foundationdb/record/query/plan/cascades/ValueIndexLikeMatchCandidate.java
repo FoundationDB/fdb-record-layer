@@ -68,16 +68,16 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
 
             Objects.requireNonNull(parameterId);
-            Objects.requireNonNull(normalizedKey);
+            Objects.requireNonNull(normalizedKeyExpression);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
             @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
-            if (normalizedKey.createsDuplicates()) {
+            if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
                     if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
                         continue;
@@ -93,7 +93,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             // Compute a Value for this normalized key.
             //
             final var value =
-                    new ScalarTranslationVisitor(normalizedKey).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             builder.add(
@@ -116,18 +116,26 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
-            final var currentKeyExpression = normalizedKeyExpressions.get(i);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
 
+            if (normalizedKeyExpression.createsDuplicates()) {
+                continue;
+            }
+
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
             equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
         }
 
         final var result = ImmutableList.<KeyPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
-            final var currentKeyExpression = normalizedKeyExpressions.get(i);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                break;
+            }
 
             //
             // Note that it is not really important here if the keyExpression can be normalized in a lossless way
@@ -136,7 +144,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             // I think that restriction can be relaxed.
             //
             final var normalizedValue =
-                    new ScalarTranslationVisitor(currentKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             result.add(KeyPart.of(normalizedValue, isReverse));

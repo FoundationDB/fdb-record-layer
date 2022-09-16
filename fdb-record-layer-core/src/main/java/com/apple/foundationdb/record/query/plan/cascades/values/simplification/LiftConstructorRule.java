@@ -62,7 +62,7 @@ public class LiftConstructorRule extends ValueSimplificationRule<RecordConstruct
         final var outerRecordConstructorValue = bindings.get(rootMatcher);
         final var innerRecordConstructorValue = bindings.get(innerRecordMatcher);
 
-        if (call.getRoot() != outerRecordConstructorValue) {
+        if (!call.isRoot()) {
             return;
         }
 

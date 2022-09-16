@@ -30,7 +30,7 @@ import java.util.Optional;
  * Basic rule interface.
  *
  * @param <R> the kind of result the rule yields
- * @param <C> the kind of subclass of {@link PlannerRuleCall} that {@link #onMatch(C)} is called on
+ * @param <C> the kind of subclass of {@link PlannerRuleCall} that {@link #onMatch(PlannerRuleCall)} is called on
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  * @see com.apple.foundationdb.record.query.plan.cascades
  * @see PlannerRuleCall

@@ -85,6 +85,7 @@ public abstract class CascadesRule<T> implements PlannerRule<ExpressionRef<? ext
      * @see PlannerRuleSet
      */
     @Nonnull
+    @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
@@ -94,9 +95,11 @@ public abstract class CascadesRule<T> implements PlannerRule<ExpressionRef<? ext
         return requirementDependencies;
     }
 
+    @Override
     public abstract void onMatch(@Nonnull CascadesRuleCall call);
 
     @Nonnull
+    @Override
     public BindingMatcher<T> getMatcher() {
         return matcher;
     }

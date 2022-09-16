@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -406,12 +407,12 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static BindingMatcher<RecordQueryUnionOnValuesPlan> unionOnValuePlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+    public static BindingMatcher<RecordQueryUnionOnValuesPlan> unionOnValuesPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
         return childrenPlans(RecordQueryUnionOnValuesPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionOnValuesPlan> unionOnValuePlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
+    public static BindingMatcher<RecordQueryUnionOnValuesPlan> unionOnValuesPlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
         return childrenPlans(RecordQueryUnionOnValuesPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
     
@@ -488,12 +489,12 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnion(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionOnExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecordQueryInUnionOnKeyExpressionPlan.class, any(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+    public static BindingMatcher<RecordQueryInUnionOnKeyExpressionPlan> inUnionOnExpressionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryInUnionOnKeyExpressionPlan.class, all(downstream));
     }
 
@@ -509,6 +510,16 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryInUnionOnKeyExpressionPlan.class,
                 Extractor.of(RecordQueryInUnionOnKeyExpressionPlan::getComparisonKeyExpression, name -> "comparisonKeyExpression(" + name + ")"),
                 PrimitiveMatchers.equalsObject(probe));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionOnValuesPlan> inUnionOnValues(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryInUnionOnValuesPlan.class, any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionOnValuesPlan> inUnionOnValuesPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInUnionOnValuesPlan.class, all(downstream));
     }
 
     @Nonnull

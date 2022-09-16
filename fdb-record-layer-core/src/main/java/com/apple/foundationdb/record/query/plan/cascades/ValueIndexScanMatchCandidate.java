@@ -172,6 +172,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
+    @Override
     public Type getBaseType() {
         return baseType;
     }

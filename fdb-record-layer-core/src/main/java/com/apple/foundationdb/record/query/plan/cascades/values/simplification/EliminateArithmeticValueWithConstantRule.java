@@ -62,7 +62,7 @@ public class EliminateArithmeticValueWithConstantRule extends ValueSimplificatio
         //
         // We can only do this if the arithmetic value is the root
         //
-        if (arithmeticValue != call.getRoot()) {
+        if (!call.isRoot()) {
             return;
         }
         

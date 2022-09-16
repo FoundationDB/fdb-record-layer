@@ -68,6 +68,8 @@ public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> {
             CacheBuilder.newBuilder()
                     .maximumSize(100)
                     .build(new CacheLoader<>() {
+                        @Nonnull
+                        @Override
                         @SuppressWarnings("UnstableApiUsage")
                         public List<AbstractValueRule<R, C, ? extends Value>> load(@Nonnull final Class<? extends Value> key) {
                             final var applicableRules =
@@ -102,6 +104,7 @@ public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public Stream<AbstractValueRule<R, C, ? extends Value>> getValueRules(@Nonnull Value value,
                                                                           @Nonnull final Predicate<AbstractValueRule<R, C, ? extends Value>> rulePredicate) {
         try {
