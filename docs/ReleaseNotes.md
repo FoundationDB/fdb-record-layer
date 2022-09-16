@@ -38,12 +38,11 @@ This release also updates downstream dependency versions. Most notably, the prot
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support for remote fetch when common primary key is unavailable. This changes the (experimental) API in a non-backwards-compatible way - the common-primary-key is no longer required and can be calculated internally [(Issue #1805)](https://github.com/FoundationDB/fdb-record-layer/issues/1805)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Merge online indexer sub modules - "by records" and 'multi target by records" [(Issue #1432)](https://github.com/FoundationDB/fdb-record-layer/issues/1432)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Introduce JMH framework [(Issue #1157)](https://github.com/FoundationDB/fdb-record-layer/issues/1157)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -52,6 +51,12 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.2.291.0
+
+* **Feature** Support for remote fetch when common primary key is unavailable. This changes the (experimental) API in a non-backwards-compatible way - the common-primary-key is no longer required and can be calculated internally [(Issue #1805)](https://github.com/FoundationDB/fdb-record-layer/issues/1805)
+* **Feature** Merge online indexer sub modules - "by records" and 'multi target by records" [(Issue #1432)](https://github.com/FoundationDB/fdb-record-layer/issues/1432)
+* **Feature** Introduce JMH framework [(Issue #1157)](https://github.com/FoundationDB/fdb-record-layer/issues/1157)
 
 ### 3.2.290.0
 
