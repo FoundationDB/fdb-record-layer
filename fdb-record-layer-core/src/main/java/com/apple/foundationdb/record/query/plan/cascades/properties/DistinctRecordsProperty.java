@@ -157,7 +157,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan element) {
-            return false;
+            return true;
         }
 
         @Nonnull
@@ -253,7 +253,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan element) {
-            return false;
+            return true;
         }
 
         @Nonnull
@@ -271,7 +271,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan element) {
-            return false;
+            return true;
         }
 
         @Nonnull

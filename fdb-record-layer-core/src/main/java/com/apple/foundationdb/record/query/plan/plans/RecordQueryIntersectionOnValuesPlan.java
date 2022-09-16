@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  * Intersection plan that compares using a {@link Value}.
  */
 @SuppressWarnings("java:S2160")
-public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersectionPlan {
+public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersectionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
     public RecordQueryIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                @Nonnull final List<? extends Value> comparisonKeyValues,
@@ -76,6 +76,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     }
 
     @Nonnull
+    @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }

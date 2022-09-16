@@ -470,7 +470,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             if (comparisonKeyValuesOptional.isEmpty()) {
                 continue;
             }
-            final var comparisonKey = comparisonKeyValuesOptional.get();
+            final var comparisonKeyValues = comparisonKeyValuesOptional.get();
 
             final var compensation =
                     partition
@@ -485,7 +485,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             .collect(ImmutableList.toImmutableList());
 
             if (!compensation.isImpossible()) {
-                final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKey);
+                final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKeyValues);
                 final var compensatedIntersection =
                         compensation.isNeeded()
                         ? compensation.apply(logicalIntersectionExpression)

@@ -43,7 +43,7 @@ import java.util.Set;
  * Union plan that compares using a {@link Value}.
  */
 @SuppressWarnings("java:S2160")
-public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan {
+public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
     public RecordQueryInUnionOnValuesPlan(@Nonnull final Quantifier.Physical inner,
                                           @Nonnull final List<? extends InSource> inSources,
@@ -81,6 +81,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan {
     }
 
     @Nonnull
+    @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }

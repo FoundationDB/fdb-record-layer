@@ -360,8 +360,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan element) {
-            return Ordering.emptyOrder();
+        public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+            return orderingFromSingleChild(typeFilterPlan);
         }
 
         @Nonnull

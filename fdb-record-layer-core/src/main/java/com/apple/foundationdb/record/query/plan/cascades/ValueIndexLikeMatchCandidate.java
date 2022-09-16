@@ -77,15 +77,27 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
+            if (normalizedKey.createsDuplicates()) {
+                if (comparisonRange != null) {
+                    if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
             //
             // Compute a Value for this normalized key.
             //
-            final var normalizedValue =
+            final var value =
                     new ScalarTranslationVisitor(normalizedKey).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
             builder.add(
-                    BoundKeyPart.of(normalizedValue,
+                    BoundKeyPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
                             isReverse));

@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisonKeyValues;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -413,11 +414,12 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<RecordQueryUnionOnValuesPlan> unionOnValuePlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
         return childrenPlans(RecordQueryUnionOnValuesPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
-
+    
+    @SuppressWarnings("unchecked")
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionOnValuesPlan> comparisonKeyValues(@Nonnull CollectionMatcher<? extends Value> comparisonKeyMatcher) {
-        return typedWithDownstream(RecordQueryUnionOnValuesPlan.class,
-                Extractor.of(RecordQueryUnionOnValuesPlan::getComparisonKeyValues, name -> "comparisonKeyValues(" + name + ")"),
+    public static <C extends RecordQueryPlanWithComparisonKeyValues> BindingMatcher<C> comparisonKeyValues(@Nonnull CollectionMatcher<? extends Value> comparisonKeyMatcher) {
+        return typedWithDownstream((Class<C>)(Class<?>)RecordQueryPlanWithComparisonKeyValues.class,
+                Extractor.of(RecordQueryPlanWithComparisonKeyValues::getComparisonKeyValues, name -> "comparisonKeyValues(" + name + ")"),
                 comparisonKeyMatcher);
     }
 
