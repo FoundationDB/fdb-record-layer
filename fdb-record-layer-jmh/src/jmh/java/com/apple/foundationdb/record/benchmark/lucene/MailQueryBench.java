@@ -143,7 +143,7 @@ public class MailQueryBench {
                 //the map() call here is to mimic projecting out the uid from the index entry response
                 long cnt;
                 try {
-                    cnt = textCursor.map(ie -> ie.getKey().get(2)).getCount().get();
+                    cnt = textCursor.map(ie -> ie.getKey().get(0)).getCount().get();
                 } catch (InterruptedException | ExecutionException e) {
                     throw new RuntimeException(e);
                 }

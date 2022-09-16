@@ -98,14 +98,14 @@ public class MailDataLoader {
 
     public static void main(String... args) throws Exception {
         String mailDataDir = System.getProperty("user.dir") + "/fdb-record-layer-lucene/src/test/resources/mail_test_data";
-        RecordMetaData schemaSetup = MailBenchmarkUtils.mboxInLuceneMetaData();
+        RecordMetaData schemaSetup = MailBenchmarkUtils.joinedRecordTypeMetaData();
 
         FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
-        KeySpacePath ksPath = BenchmarkRecordStore.KEY_SPACE.path("record-layer-benchmark").add("data").add("name","Covering");
+        KeySpacePath ksPath = BenchmarkRecordStore.KEY_SPACE.path("record-layer-benchmark").add("data").add("name","Joined");
 
         System.out.println("Loading data");
         long startTime = System.currentTimeMillis();
-        new MailDataLoader(schemaSetup,new UniformMbox(1, new Random(0),0), 128, mailDataDir).loadData(fdbDb, ksPath);
+        new MailDataLoader(schemaSetup,new UniformMbox(1, new Random(0),200), 128, mailDataDir).loadData(fdbDb, ksPath);
         long endTime = System.currentTimeMillis();
         System.out.printf("Data loaded in %s%n", Duration.ofMillis(endTime - startTime));
 
