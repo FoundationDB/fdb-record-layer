@@ -1071,11 +1071,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nullable byte[] continuation,
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
-        // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
-        if ((fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) && (commonPrimaryKeyLength <= 0)) {
-            throw new RecordCoreArgumentException("scanIndexRecords with remote fetch requires a positive commonPrimaryKeyLength",
-                    LogMessageKeys.INDEX_NAME, index.getName());
-        }
         if (!(scanBounds instanceof IndexScanRange)) {
             throw new RecordCoreArgumentException("scanIndexRecords can only be used with IndexScanRange bounds");
         }
