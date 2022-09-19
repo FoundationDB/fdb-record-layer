@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -535,29 +536,54 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void testInvalidIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
-        assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+            Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            IndexScanRange scanBounds = scanBounds();
 
-        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-        IndexScanRange scanBounds = scanBounds();
-        assertThrows(RecordCoreArgumentException.class, () -> {
-            recordStore.scanIndexRecords(
-                    index, fetchMethod, scanBounds,
-                    -1,
-                    null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
-        });
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
+                assertThrows(RecordCoreArgumentException.class, () -> {
+                    recordStore.scanIndexRecords(
+                            index, fetchMethod, scanBounds,
+                            -1,
+                            null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
+                });
+            } else {
+                List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(
+                                index, fetchMethod, scanBounds,
+                                -1,
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                        .asList().get();
+                assertEquals(100, records.size());
+            }
+        }
     }
 
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
     void testTooLargeIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
-        assumeTrue(fetchMethod != IndexFetchMethod.SCAN_AND_FETCH);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, splitRecordsHook);
+            Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            IndexScanRange scanBounds = scanBounds();
 
-        Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-        IndexScanRange scanBounds = scanBounds();
-        assertThrows(RecordCoreStorageException.class, () -> recordStore.scanIndexRecords(
-                index, fetchMethod, scanBounds,
-                86,
-                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN));
+            if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
+                // In this case, the failure comes from FDB once it sees that the request contains key elements that do not exist ({K[7]} ... {K[85]})
+                Exception ex = assertThrows(ExecutionException.class, () -> recordStore.scanIndexRecords(
+                                index, fetchMethod, scanBounds,
+                                86,
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                        .asList().get());
+                assertTrue(ex.getCause() instanceof FDBException);
+            } else {
+                List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(
+                                index, fetchMethod, scanBounds,
+                                86,
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                        .asList().get();
+                assertEquals(100, records.size());
+            }
+        }
     }
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
