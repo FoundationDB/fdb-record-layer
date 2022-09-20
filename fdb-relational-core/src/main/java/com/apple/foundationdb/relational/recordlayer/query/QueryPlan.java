@@ -21,9 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -97,7 +99,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         @VisibleForTesting
         private static RecordQueryPlan generatePhysicalPlan(@Nonnull final String query, @Nonnull final PlanContext planContext) throws RelationalException {
-            final CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
+            final CascadesPlanner planner = createPlanner(planContext);
             // need to do this step, so we can populate the record type names.
             final Plan<?> plan = Plan.generate(query, planContext);
             try {
@@ -167,6 +169,16 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             return new QpQueryplan(relationalExpression, query, continuation);
         }
 
+    }
+
+    private static CascadesPlanner createPlanner(PlanContext planContext) {
+        CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
+        RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+                .setIndexFetchMethod(IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK)
+                .build();
+        planner.setConfiguration(configuration);
+
+        return planner;
     }
 
     class MetadataQueryPlan implements QueryPlan {

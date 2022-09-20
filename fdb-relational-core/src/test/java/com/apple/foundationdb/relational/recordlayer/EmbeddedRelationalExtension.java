@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -70,6 +71,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
                 1);
         //here we are extending the StorageCluster so that we can track which internal Databases were
         // connected to and we can validate that they were all closed properly
+
+        // This needs to be done prior to the first call to factory.getDatabase()
+        FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final KeySpace keySpace = keySpaceSupplier.get();
