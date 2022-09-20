@@ -287,7 +287,7 @@ public interface Type extends Narrowable<Type> {
                 return primitiveType(typeCode, isNullable);
             } else if (typeCode == TypeCode.ENUM) {
                 final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+                return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()), enumDescriptor.getName());
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
@@ -318,7 +318,7 @@ public interface Type extends Narrowable<Type> {
             return new Array(isNullable, primitiveType);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            final var enumType = new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()));
+            final var enumType = new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()), enumDescriptor.getName());
             return new Array(isNullable, enumType);
         } else {
             if (isNullable) {
@@ -585,11 +585,15 @@ public interface Type extends Narrowable<Type> {
         final boolean isNullable;
         @Nullable
         final List<EnumValue> enumValues;
+        @Nullable
+        final String name;
 
         public Enum(final boolean isNullable,
-                    @Nullable final List<EnumValue> enumValues) {
+                    @Nullable final List<EnumValue> enumValues,
+                    @Nullable final String name) {
             this.isNullable = isNullable;
             this.enumValues = enumValues;
+            this.name = name;
         }
 
         @Override
@@ -618,7 +622,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void defineProtoType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder) {
             Verify.verify(!isErased());
-            final var typeName = uniqueCompliantTypeName();
+            final var typeName = name == null ? uniqueCompliantTypeName() : name;
             final var enumDescriptorProtoBuilder = DescriptorProtos.EnumDescriptorProto.newBuilder();
             enumDescriptorProtoBuilder.setName(typeName);
 
@@ -640,12 +644,13 @@ public interface Type extends Narrowable<Type> {
                                   @Nonnull final Optional<String> typeNameOptional,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+            FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
                     .setType(protoType)
-                    .setLabel(label)
-                    .build());
+                    .setLabel(label);
+            typeNameOptional.ifPresent(builder::setTypeName);
+            descriptorBuilder.addField(builder);
         }
 
         @Nonnull
@@ -655,26 +660,20 @@ public interface Type extends Narrowable<Type> {
         }
 
         @Override
-        public int hashCode() {
-            return Objects.hash(getTypeCode().name().hashCode(), isNullable(), enumValues);
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Enum anEnum = (Enum)o;
+            return isNullable == anEnum.isNullable && Objects.equals(enumValues, anEnum.enumValues) && Objects.equals(name, anEnum.name);
         }
 
         @Override
-        public boolean equals(final Object obj) {
-            if (obj == null) {
-                return false;
-            }
-
-            if (this == obj) {
-                return true;
-            }
-
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-
-            final var otherType = (Type)obj;
-            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        public int hashCode() {
+            return Objects.hash(isNullable, enumValues, name);
         }
 
         @Override
@@ -716,6 +715,23 @@ public interface Type extends Narrowable<Type> {
 
             public int getNumber() {
                 return number;
+            }
+
+            @Override
+            public boolean equals(final Object o) {
+                if (this == o) {
+                    return true;
+                }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                final EnumValue enumValue = (EnumValue)o;
+                return number == enumValue.number && name.equals(enumValue.name);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(name, number);
             }
         }
     }
