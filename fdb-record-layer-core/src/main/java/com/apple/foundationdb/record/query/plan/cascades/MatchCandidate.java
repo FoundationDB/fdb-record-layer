@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -160,7 +159,7 @@ public interface MatchCandidate {
      * Compute a list of {@link MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
      * {@link QueryPredicate}s.
      * @param matchInfo a pre-existing match info structure
-     * @param sortParameterIds the query should be ordered by
+     * @param sortParameterIds the parameter IDs which the query should be ordered by
      * @param isReverse reversed-ness of the order
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
@@ -207,7 +206,7 @@ public interface MatchCandidate {
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
      * to be implemented by specific implementations of {@link MatchCandidate}.
-     * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
+     * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
      * @param planContext the plan context for the query
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
      * @return a new {@link RelationalExpression}
@@ -287,6 +286,18 @@ public interface MatchCandidate {
                     isReverse,
                     commonPrimaryKeyForIndex,
                     new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
+                    .ifPresent(resultBuilder::add);
+        }
+
+        if (AggregateIndexExpansionVisitor.isAggregateIndex(type)) {
+            expandIndexMatchCandidate(index,
+                    availableRecordTypeNames,
+                    availableRecordTypes,
+                    queriedRecordTypeNames,
+                    queriedRecordTypes,
+                    isReverse,
+                    commonPrimaryKeyForIndex,
+                    new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
                     .ifPresent(resultBuilder::add);
         }
 

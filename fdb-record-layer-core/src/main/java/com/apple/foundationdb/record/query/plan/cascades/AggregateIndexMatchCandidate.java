@@ -20,13 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -38,8 +46,22 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     @Nonnull
     private final Index index;
 
-    public AggregateIndexMatchCandidate(@Nonnull final Index index) {
+    @Nonnull
+    private final ExpressionRefTraversal traversal;
+
+    @Nonnull
+    private final List<CorrelationIdentifier> groupingColumnsAliases;
+
+    @Nonnull
+    private List<RecordType> recordTypes;
+
+    public AggregateIndexMatchCandidate(@Nonnull final Index index,
+                                        @Nonnull final ExpressionRefTraversal traversal,
+                                        @Nonnull final List<CorrelationIdentifier> groupingColumnsAliases, final Collection<RecordType> recordTypes) {
         this.index = index;
+        this.traversal = traversal;
+        this.groupingColumnsAliases = groupingColumnsAliases;
+        this.recordTypes =  ImmutableList.copyOf(recordTypes);
     }
 
     @Nonnull
@@ -51,42 +73,60 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     @Nonnull
     @Override
     public ExpressionRefTraversal getTraversal() {
-        return null;
+        return traversal;
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
-        return null;
+        return groupingColumnsAliases; // only these for now, later on we should also add the aggregated column alias as well.
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
-        return null;
+        return groupingColumnsAliases;
     }
 
     @Nonnull
     @Override
     public KeyExpression getAlternativeKeyExpression() {
-        return null;
-    }
-
-    @Nonnull
-    @Override
-    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
-        return null;
+        return index.getRootExpression();
     }
 
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        return null;
+        // TODO: refactor
+        return ValueIndexLikeMatchCandidate.computeOrderingFromKeyAndScanComparisons(((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey(), scanComparisons, isReverse, isDistinct);
     }
 
     @Nonnull
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch, @Nonnull final PlanContext planContext, @Nonnull final List<ComparisonRange> comparisonRanges) {
-        return null;
+        final var reverseScanOrder =
+                partialMatch.getMatchInfo()
+                        .deriveReverseScanOrder()
+                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
+
+        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
+
+        return new RecordQueryIndexPlan(index.getName(),
+                null,
+                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                reverseScanOrder,
+                false,
+                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
+                baseRecordType);
+    }
+
+    @Nonnull
+    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+        ScanComparisons.Builder builder = new ScanComparisons.Builder();
+        for (ComparisonRange comparisonRange : comparisonRanges) {
+            builder.addComparisonRange(comparisonRange);
+        }
+        return builder.build();
     }
 }
