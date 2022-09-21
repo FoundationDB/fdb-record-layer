@@ -89,6 +89,8 @@ public class PartialMatch {
     @Nonnull
     private final MatchInfo matchInfo;
 
+    // mapping between predicates what follows:
+
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
 
@@ -243,6 +245,12 @@ public class PartialMatch {
     public Compensation compensate() {
         return queryExpression.compensate(this, getBoundParameterPrefixMap());
     }
+
+    // have a way of saying yes we match, but we're missing some columns or the columns have to be switched.
+    // Maybe subclass to reflect these requirements (avoid at all costs).
+    // it is used to create compensation (do the difference), here we're bookkeeping only.
+    // compensate is doing the real thing, e.g. apply a streaming-aggregate, or maybe a map-plan, or maybe both.
+    //
 
     @Nonnull
     public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {

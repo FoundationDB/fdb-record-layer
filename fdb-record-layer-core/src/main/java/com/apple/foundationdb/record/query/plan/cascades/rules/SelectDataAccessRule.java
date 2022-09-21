@@ -96,6 +96,9 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
 
         // group all successful matches by their sets of compensated aliases
+
+
+        // HERE: the SELECT on top of GROUP BY it only shows the match candidate of the group by (mission complete).
         final var matchPartitionsByAliasesMap =
                 completeMatches
                         .stream()

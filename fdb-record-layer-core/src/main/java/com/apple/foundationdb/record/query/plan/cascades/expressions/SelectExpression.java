@@ -217,7 +217,25 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
-    
+
+    /**
+     * partialMatchMap: childrenQun -> alreadyExistingMatchingQun
+     * GroupBy: we MUST have a partialMatchMap contains an element, i.e. the select has matched at least something.
+     *
+     * PartialMatch: holds on to references candidate <--> query graph
+     *
+     * If I am being presented by a partial match that is NOT an agg. index => OUT
+     *
+     * Use semantic equals to check if we're the same in the map w.r.t. aliasMap.
+     *
+     * AliasMap: maps aliases to aliases: SOURCE -> TARGET, it tells what we consider equal.
+     * rebasing bijective
+     *
+     * (a,b) , group by (b,a) --> this should work, but records have to be configured correctly. (MAP compensation).
+     *
+     * partialMatchMap -> figure out what is the saem and what not only for compensation.
+     */
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

@@ -195,18 +195,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         //
         Verify.verify(!matchPartition.isEmpty());
 
+
+        // Reduce the amount of matches to consider (best effort).
         final var bestMaximumCoverageMatches = maximumCoverageMatches(matchPartition, requestedOrderings);
         if (bestMaximumCoverageMatches.isEmpty()) {
             return GroupExpressionRef.empty();
         }
 
-        // create scans for all best matches
+        // create scans for all best matches (agnostic to PK).
         final var bestMatchToExpressionMap =
                 createScansForMatches(bestMaximumCoverageMatches, planContext);
 
+        // add scans + compensation to references (agnostic to PK).
         final var toBeInjectedReference = GroupExpressionRef.empty();
 
-        // create single scan accesses
+        // create single scan accesses (agnostic to PK).
         for (final var bestMatch : bestMaximumCoverageMatches) {
             applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
                     .ifPresent(toBeInjectedReference::insertUnchecked);
@@ -214,7 +217,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
                 distinctMatchToScanMap(bestMatchToExpressionMap);
+        // all fine up to here (agnostic to PK).
 
+        // from now on, this logic is very important for proper intersection.
+        // 1. separate matches, agg. matches, other matches.
+        // 2. agg. matches, the aggs. are PK for example.
+        // intersect agg. index with non-agg. index, sounds like a conundrum.
+        // ---- let's say it happens:
+        // ------ agg. index / value index:
+        //         compatibly-ordered + PK must be part of these ordering
+        //         select MAX(y) from where a = x and b = 42 group by a;
+        //         VALUEINDEX=(a,b)
+        //         AGGINDEX=(MAX(Y),a)
+        // rank index: we have 2: index by value, index by rank, => two candidates for the same structure.
+        // uniqueness: com.apple.foundationdb.record.query.plan.cascades.Ordering.isDistinct
+        // Normen: distinct iff equality reduces the max-cardinality to one.
         final var commonPrimaryKeyValuesOptional =
                 WithPrimaryKeyMatchCandidate.commonPrimaryKeyValuesMaybe(
                         bestMaximumCoverageMatches.stream()
@@ -224,6 +241,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         commonPrimaryKeyValuesOptional.ifPresent(commonPrimaryKeyValues -> {
             final var boundPartitions = Lists.<List<PartialMatchWithCompensation>>newArrayList();
             // create intersections for all n choose k partitions from k = 2 .. n
+
+            // create combinations for logic that tries intersection.
             IntStream.range(2, bestMaximumCoverageMatches.size() + 1)
                     .mapToObj(k -> ChooseK.chooseK(bestMaximumCoverageMatches, k))
                     .flatMap(iterable -> StreamSupport.stream(iterable.spliterator(), false))
