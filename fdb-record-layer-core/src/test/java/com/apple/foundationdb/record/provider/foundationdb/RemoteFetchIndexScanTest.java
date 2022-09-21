@@ -513,7 +513,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             // NONE and MATCHED will omit the orphan index entry in FDB, so we have no (null->null) entry, and only 99 entries overall
             assertEquals(99, records.size());
             int c = 0;
-            for (long i = 99 ; i >=0 ; i--) {
+            for (long i = 99 ; i >= 0 ; i--) {
                 if (i != 2) {
                     assertEquals(i, records.get(c) .getStoredRecord().getPrimaryKey().get(0));
                     c++;
@@ -534,14 +534,14 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
             openSimpleRecordStore(context, splitRecordsHook);
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
                             recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"), fetchMethod, scanBounds(),
-                            1, null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                            1, null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL)
                     .map(FDBQueriedRecord::indexed)
                     .asIterator()) {
                 verifyData(100, (rec, i) -> {
                     int primaryKey = (i < 50) ? (i * 2) : ((i - 50) * 2) + 1;
                     String strValue = (i < 50) ? "even" : "odd";
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$str_value_indexed", strValue, primaryKey);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$str_value_indexed", strValue, fetchMethod, IndexEntryReturnPolicy.ALL);
                 }, iterator);
             }
         }
@@ -561,13 +561,13 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                     recordStore.scanIndexRecords(
                             index, fetchMethod, scanBounds,
                             -1,
-                            null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
+                            null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL);
                 });
             } else {
                 List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(
                                 index, fetchMethod, scanBounds,
                                 -1,
-                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL)
                         .asList().get();
                 assertEquals(100, records.size());
             }
@@ -587,14 +587,14 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
                 Exception ex = assertThrows(ExecutionException.class, () -> recordStore.scanIndexRecords(
                                 index, fetchMethod, scanBounds,
                                 86,
-                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL)
                         .asList().get());
                 assertTrue(ex.getCause() instanceof FDBException);
             } else {
                 List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(
                                 index, fetchMethod, scanBounds,
                                 86,
-                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)
+                                null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL)
                         .asList().get();
                 assertEquals(100, records.size());
             }

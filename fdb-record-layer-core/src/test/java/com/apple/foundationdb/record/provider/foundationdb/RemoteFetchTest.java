@@ -583,7 +583,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // NONE and MATCHED will omit the orphan index entry in FDB, so we have no (null->null) entry, and only 99 entries overall
             assertEquals(99, records.size());
             int c = 0;
-            for (long i = 99 ; i >=0 ; i--) {
+            for (long i = 99 ; i >= 0 ; i--) {
                 if (i != 2) {
                     assertEquals(i, records.get(c) .getStoredRecord().getPrimaryKey().get(0));
                     c++;

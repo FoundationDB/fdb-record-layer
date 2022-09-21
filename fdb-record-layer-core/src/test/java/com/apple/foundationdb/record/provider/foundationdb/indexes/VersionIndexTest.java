@@ -87,7 +87,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -252,7 +251,7 @@ public class VersionIndexTest extends FDBTestBase {
                         .map(indexEntryPolicy -> Arguments.of(arg.get()[0], arg.get()[1], arg.get()[2], indexEntryPolicy)));
     }
 
-     // Provide a combination of remote fetch and index entry return policy option
+    // Provide a combination of remote fetch and index entry return policy option
     private static Stream<Arguments> remoteFetchAndEntryPolicyProvider() {
         // USE_REMOTE_FETCH is skipped for now in order to allow the test to pass when running with fdb < 7.1.10
         return Stream.of(IndexFetchMethod.values())

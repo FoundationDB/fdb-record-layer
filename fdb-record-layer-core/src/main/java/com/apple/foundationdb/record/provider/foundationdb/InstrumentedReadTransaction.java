@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyArrayResult;
+import com.apple.foundationdb.KeyRangeArrayResult;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MappedKeyValue;
@@ -218,6 +219,11 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Override
     public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
         return underlying.getEstimatedRangeSizeBytes(range);
+    }
+
+    @Override
+    public CompletableFuture<KeyRangeArrayResult> getBlobGranuleRanges(byte[] var1, byte[] var2, int var3) {
+        return underlying.getBlobGranuleRanges(var1, var2, var3);
     }
 
     @Override

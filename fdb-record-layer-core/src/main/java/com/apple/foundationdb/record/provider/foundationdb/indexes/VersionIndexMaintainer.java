@@ -120,8 +120,8 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
     public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
-                                                             int commonPrimaryKeyLength) {
-        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength,
-        @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy);
+                                                             int commonPrimaryKeyLength,
+                                                             @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength, indexEntryReturnPolicy);
     }
 }

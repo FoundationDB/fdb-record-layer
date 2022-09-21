@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -136,7 +137,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
             try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("versions", fetchMethod,
-                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN).asIterator()) {
+                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
                     names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
@@ -205,7 +206,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
             try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("partial_versions", fetchMethod,
-                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN).asIterator()) {
+                    new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN, IndexEntryReturnPolicy.ALL).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
                     names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
