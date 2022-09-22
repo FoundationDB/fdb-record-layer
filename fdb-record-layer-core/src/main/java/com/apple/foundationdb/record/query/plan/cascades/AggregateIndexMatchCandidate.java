@@ -50,17 +50,17 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     private final ExpressionRefTraversal traversal;
 
     @Nonnull
-    private final List<CorrelationIdentifier> groupingColumnsAliases;
+    private final List<CorrelationIdentifier> sargableAndOrderAliases;
 
     @Nonnull
     private List<RecordType> recordTypes;
 
     public AggregateIndexMatchCandidate(@Nonnull final Index index,
                                         @Nonnull final ExpressionRefTraversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> groupingColumnsAliases, final Collection<RecordType> recordTypes) {
+                                        @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases, final Collection<RecordType> recordTypes) {
         this.index = index;
         this.traversal = traversal;
-        this.groupingColumnsAliases = groupingColumnsAliases;
+        this.sargableAndOrderAliases = sargableAndOrderAliases;
         this.recordTypes =  ImmutableList.copyOf(recordTypes);
     }
 
@@ -79,13 +79,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
-        return groupingColumnsAliases; // only these for now, later on we should also add the aggregated column alias as well.
+        return sargableAndOrderAliases; // only these for now, later on we should also add the aggregated column alias as well.
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
-        return groupingColumnsAliases;
+        return sargableAndOrderAliases;
     }
 
     @Nonnull
