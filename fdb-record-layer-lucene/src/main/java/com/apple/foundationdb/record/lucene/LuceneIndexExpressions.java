@@ -29,9 +29,11 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.protobuf.Descriptors;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -141,11 +143,34 @@ public class LuceneIndexExpressions {
         public boolean isSorted() {
             return sorted;
         }
+
+        /**
+         * Get the Point configuration that is used by the Lucene Parser to interpret the type of data
+         * stored for this field.
+         *
+         * @return the PointsConfig for this field.
+         */
+        public PointsConfig getPointsConfig() {
+            switch (type) {
+                case INT:
+                    return new PointsConfig(DecimalFormat.getInstance(), Integer.class);
+                case LONG:
+                    return new PointsConfig(DecimalFormat.getInstance(), Long.class);
+                case DOUBLE:
+                    return new PointsConfig(DecimalFormat.getInstance(), Double.class);
+                case STRING:
+                case TEXT:
+                case BOOLEAN:
+                default:
+                    //we skip fields that are non-numeric because they don't parse differently in lucene anyway
+                    return null;
+            }
+        }
     }
 
     /**
      * Get the derivations of known document fields.
-     * @param root the {@code LUCENE} index root expresison
+     * @param root the {@code LUCENE} index root expression
      * @param recordType Protobuf meta-data for record type
      * @return a map of document field names to {@link DocumentFieldDerivation}
      */
