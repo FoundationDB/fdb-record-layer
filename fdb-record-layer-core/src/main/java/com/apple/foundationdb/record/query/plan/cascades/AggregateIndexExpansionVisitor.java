@@ -135,7 +135,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var aggregationAlias = selectHavingGraphExpansion.getPlaceholderAliases();
         final var sorted = new MatchableSortExpression(selectHavingGraphExpansion.getPlaceholderAliases(), isReverse, selectHavingGraphExpansion.buildSelect());
         final var traversal = ExpressionRefTraversal.withRoot(GroupExpressionRef.of(sorted));
-        return new AggregateIndexMatchCandidate(index, traversal, aggregationAlias, recordTypes);
+        return new AggregateIndexMatchCandidate(index, traversal, aggregationAlias, recordTypes, baseQuantifier.getFlowedObjectType());
     }
 
     @Nonnull

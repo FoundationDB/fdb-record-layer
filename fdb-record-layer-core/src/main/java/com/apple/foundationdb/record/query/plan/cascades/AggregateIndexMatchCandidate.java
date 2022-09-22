@@ -24,23 +24,28 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Case class that represents a grouping index with an aggregate function(s).
  */
-public class AggregateIndexMatchCandidate implements MatchCandidate {
+public class AggregateIndexMatchCandidate implements WithBaseQuantifierMatchCandidate {
 
     // The backing index metadata structure.
     @Nonnull
@@ -53,15 +58,19 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     private final List<CorrelationIdentifier> sargableAndOrderAliases;
 
     @Nonnull
-    private List<RecordType> recordTypes;
+    private final List<RecordType> recordTypes;
+
+    @Nonnull
+    private final Type baseType;
 
     public AggregateIndexMatchCandidate(@Nonnull final Index index,
                                         @Nonnull final ExpressionRefTraversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases, final Collection<RecordType> recordTypes) {
+                                        @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases, final Collection<RecordType> recordTypes, @Nonnull final Type baseType) {
         this.index = index;
         this.traversal = traversal;
         this.sargableAndOrderAliases = sargableAndOrderAliases;
         this.recordTypes =  ImmutableList.copyOf(recordTypes);
+        this.baseType = baseType;
     }
 
     @Nonnull
@@ -90,15 +99,114 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public KeyExpression getAlternativeKeyExpression() {
+    public KeyExpression getFullKeyExpression() {
         return index.getRootExpression();
+    }
+
+    @Override
+    public boolean createsDuplicates() {
+        return false;
+    }
+
+    @Nonnull
+    @Override
+    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
+                                            @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                            boolean isReverse) {
+        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
+
+        final var normalizedKeys =
+                getFullKeyExpression().normalizeKeyForPositions();
+
+        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var candidateParameterIds = getOrderingAliases();
+
+        for (final var parameterId : sortParameterIds) {
+            final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
+            Verify.verify(ordinalInCandidate >= 0);
+            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+
+            Objects.requireNonNull(parameterId);
+            Objects.requireNonNull(normalizedKeyExpression);
+            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
+
+            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                if (comparisonRange != null) {
+                    if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            //
+            // Compute a Value for this normalized key.
+            //
+            final var value =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+
+            builder.add(
+                    BoundKeyPart.of(value,
+                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
+                            queryPredicate,
+                            isReverse));
+        }
+
+        return builder.build();
     }
 
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         // TODO: refactor
-        return ValueIndexLikeMatchCandidate.computeOrderingFromKeyAndScanComparisons(((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey(), scanComparisons, isReverse, isDistinct);
+        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
+        final var equalityComparisons = scanComparisons.getEqualityComparisons();
+
+        for (var i = 0; i < equalityComparisons.size(); i++) {
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+            final var comparison = equalityComparisons.get(i);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                continue;
+            }
+
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+            equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
+        }
+
+        final var result = ImmutableList.<KeyPart>builder();
+        for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                break;
+            }
+
+            //
+            // Note that it is not really important here if the keyExpression can be normalized in a lossless way
+            // or not. A key expression containing repeated fields is sort-compatible with its normalized key
+            // expression. We used to refuse to compute the sort order in the presence of repeats, however,
+            // I think that restriction can be relaxed.
+            //
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+
+            result.add(KeyPart.of(normalizedValue, isReverse));
+        }
+
+        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
     }
 
     @Nonnull
@@ -128,5 +236,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Type getBaseType() {
+        return baseType;
     }
 }
