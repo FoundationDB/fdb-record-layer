@@ -272,6 +272,7 @@ public abstract class IndexMaintainer {
      * @param continuation the continuation to use
      * @param scanProperties the scan properties to use
      * @param commonPrimaryKeyLength the length (# of components) of common primary key for the de-referenced records
+     * @param indexEntryReturnPolicy the policy to use for returning index entry
      * @return a cursor of the index prefetch call result: will contain both index entries and de-referenced records
      */
     @Nonnull
@@ -279,7 +280,8 @@ public abstract class IndexMaintainer {
     public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
-                                                             int commonPrimaryKeyLength) {
+                                                             int commonPrimaryKeyLength,
+                                                             @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
         // Not implemented by default - needs to be overridden by individual maintainers
         throw new UnsupportedRemoteFetchIndexException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
     }

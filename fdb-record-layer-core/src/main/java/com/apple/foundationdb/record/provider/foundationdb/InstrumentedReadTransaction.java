@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyArrayResult;
+import com.apple.foundationdb.KeyRangeArrayResult;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MappedKeyValue;
@@ -195,9 +196,9 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final boolean reverse, final StreamingMode mode) {
+    public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final int matchIndex, final boolean reverse, final StreamingMode mode) {
         increment(FDBStoreTimer.Counts.REMOTE_FETCH);
-        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
+        return underlying.getMappedRange(begin, end, mapper, limit, matchIndex, reverse, mode);
     }
 
     @Override
@@ -218,6 +219,11 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Override
     public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
         return underlying.getEstimatedRangeSizeBytes(range);
+    }
+
+    @Override
+    public CompletableFuture<KeyRangeArrayResult> getBlobGranuleRanges(byte[] var1, byte[] var2, int var3) {
+        return underlying.getBlobGranuleRanges(var1, var2, var3);
     }
 
     @Override

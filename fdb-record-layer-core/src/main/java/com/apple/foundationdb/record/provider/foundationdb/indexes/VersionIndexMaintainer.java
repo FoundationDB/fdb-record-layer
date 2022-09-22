@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
@@ -119,7 +120,8 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
     public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
                                                              @Nonnull final ScanProperties scanProperties,
-                                                             int commonPrimaryKeyLength) {
-        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
+                                                             int commonPrimaryKeyLength,
+                                                             @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength, indexEntryReturnPolicy);
     }
 }

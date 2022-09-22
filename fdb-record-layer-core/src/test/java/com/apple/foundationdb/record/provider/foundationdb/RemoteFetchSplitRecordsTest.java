@@ -27,7 +27,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 
@@ -45,46 +45,46 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
     }
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchSplitRecordTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("testedParams")
+    void indexPrefetchSplitRecordTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         saveLargeRecord(1, 200, 2000);
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
 
         executeAndVerifyData(plan, 11, (rec, i) -> {
             if (i < 10) {
                 int primaryKey = 9 - i;
                 String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                 int numValue = 1000 - primaryKey;
-                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
             } else {
                 // this is the extra, split, record
-                assertRecord(rec, 200, "even", 2000, "MySimpleRecord$num_value_unique", (long)2000, 0);
+                assertRecord(rec, 200, "even", 2000, "MySimpleRecord$num_value_unique", (long)2000, 0, fetchMethod, indexEntryReturnPolicy);
             }
         }, simpleMetadataHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchSplitRecordReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchSplitRecordReverseTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("testedParams")
+    void indexPrefetchSplitRecordReverseTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         saveLargeRecord(1, 200, 2000);
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, fetchMethod, indexEntryReturnPolicy);
 
         executeAndVerifyData(plan, 11, (rec, i) -> {
             if (i > 0) {
                 int primaryKey = i - 1;
                 String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                 int numValue = 1000 - primaryKey;
-                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
             } else {
                 // this is the extra, split, record
-                assertRecord(rec, 200, "even", 2000, "MySimpleRecord$num_value_unique", (long)2000, 0);
+                assertRecord(rec, 200, "even", 2000, "MySimpleRecord$num_value_unique", (long)2000, 0, fetchMethod, indexEntryReturnPolicy);
             }
         }, simpleMetadataHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("testedParams")
+    void indexPrefetchManySplitRecordTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
         int numTransactions = 8;
@@ -94,14 +94,14 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
             int numValueUniqueOffset = 2000 - (i * numRecordsPerTransaction);
             saveLargeRecord(numRecordsPerTransaction, firstPrimaryKey, numValueUniqueOffset);
         }
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_1000_REVERSE, useIndexPrefetch);
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_1000_REVERSE, fetchMethod, indexEntryReturnPolicy);
 
         executeAndVerifyData(plan, numRecordsPerTransaction * numTransactions, (rec, i) -> {
             int primaryKey = 200 + i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 2000 - i;
             int localVersion = i % numRecordsPerTransaction;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, localVersion);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, localVersion, fetchMethod, indexEntryReturnPolicy);
         }, simpleMetadataHook);
     }
 

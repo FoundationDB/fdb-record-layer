@@ -47,6 +47,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -184,7 +185,7 @@ public class IndexingByIndex extends IndexingBase {
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          Objects.requireNonNull(lastResult.get().get().getIndexEntry()).getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
                                 .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
@@ -248,7 +249,7 @@ public class IndexingByIndex extends IndexingBase {
                 this::getRecordIfTypeMatch,
                 lastResult, hasMore, recordsScanned, isIdempotent
         ).thenApply(vignore -> hasMore.get() ?
-                               lastResult.get().get().getIndexEntry().getKey() :
+                               Objects.requireNonNull(lastResult.get().get().getIndexEntry()).getKey() :
                                null );
     }
 }

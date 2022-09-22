@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -34,7 +35,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FDBIndexedRawRecord {
-    @Nonnull
+    @Nullable
     private final IndexEntry indexEntry;
     @Nonnull
     private final MappedKeyValue rawRecord;
@@ -47,7 +48,7 @@ public class FDBIndexedRawRecord {
      * @param rawRecord the {@link FDBRawRecord} containing the record's data
      */
     @API(API.Status.INTERNAL)
-    public FDBIndexedRawRecord(@Nonnull IndexEntry indexEntry, @Nonnull MappedKeyValue rawRecord) {
+    public FDBIndexedRawRecord(@Nullable IndexEntry indexEntry, @Nonnull MappedKeyValue rawRecord) {
         this.indexEntry = indexEntry;
         this.rawRecord = rawRecord;
     }
@@ -56,16 +57,16 @@ public class FDBIndexedRawRecord {
      * Get the index for this record.
      * @return the index that contained the entry pointing to this record
      */
-    @Nonnull
+    @Nullable
     public Index getIndex() {
-        return indexEntry.getIndex();
+        return (indexEntry != null) ? indexEntry.getIndex() : null;
     }
 
     /**
      * Get the index entry for this record.
      * @return the index entry that pointed to this record
      */
-    @Nonnull
+    @Nullable
     public IndexEntry getIndexEntry() {
         return indexEntry;
     }
@@ -76,27 +77,20 @@ public class FDBIndexedRawRecord {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(final Object o) {
         if (this == o) {
             return true;
         }
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        FDBIndexedRawRecord that = (FDBIndexedRawRecord)o;
-
-        if (!indexEntry.equals(that.indexEntry)) {
-            return false;
-        }
-        return Objects.equals(this.rawRecord, that.rawRecord);
+        final FDBIndexedRawRecord that = (FDBIndexedRawRecord)o;
+        return Objects.equals(indexEntry, that.indexEntry) && rawRecord.equals(that.rawRecord);
     }
 
     @Override
     public int hashCode() {
-        int result = indexEntry.hashCode();
-        result = 31 * result + Objects.hashCode(rawRecord);
-        return result;
+        return Objects.hash(indexEntry, rawRecord);
     }
 
     @Override

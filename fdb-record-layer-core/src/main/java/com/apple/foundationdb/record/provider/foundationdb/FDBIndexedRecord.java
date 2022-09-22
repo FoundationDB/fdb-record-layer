@@ -39,7 +39,7 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
-    @Nonnull
+    @Nullable
     private final IndexEntry indexEntry;
     // When scanning for orphaned index entries (which can happen when index maintenance is too expensive to perform
     // in-line in a transaction), this will be null to indicate that the entry in the index has no corresponding record.
@@ -54,7 +54,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
      * @param storedRecord the {@link FDBStoredRecord} containing the record's data
      */
     @API(API.Status.INTERNAL)
-    public FDBIndexedRecord(@Nonnull IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
+    public FDBIndexedRecord(@Nullable IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
         this.indexEntry = indexEntry;
         this.storedRecord = storedRecord;
     }
@@ -63,16 +63,16 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
      * Get the index for this record.
      * @return the index that contained the entry pointing to this record
      */
-    @Nonnull
+    @Nullable
     public Index getIndex() {
-        return indexEntry.getIndex();
+        return (indexEntry != null) ? indexEntry.getIndex() : null;
     }
 
     /**
      * Get the index entry for this record.
      * @return the index entry that pointed to this record
      */
-    @Nonnull
+    @Nullable
     public IndexEntry getIndexEntry() {
         return indexEntry;
     }
@@ -89,9 +89,13 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     @Nonnull
     public FDBStoredRecord<M> getStoredRecord() {
         if (storedRecord == null) {
-            throw new RecordCoreException("No record associated with index entry").addLogInfo(
-                    LogMessageKeys.INDEX_NAME, getIndex().getName(),
-                    LogMessageKeys.INDEX_KEY, indexEntry.getKey());
+            RecordCoreException ex = new RecordCoreException("No record associated with index entry");
+            if (indexEntry != null) {
+                ex.addLogInfo(
+                        LogMessageKeys.INDEX_NAME, indexEntry.getIndex().getName(),
+                        LogMessageKeys.INDEX_KEY, indexEntry.getKey());
+            }
+            throw ex;
         }
         return storedRecord;
     }

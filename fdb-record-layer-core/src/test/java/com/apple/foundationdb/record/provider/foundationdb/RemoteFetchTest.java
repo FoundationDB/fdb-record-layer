@@ -42,9 +42,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -83,6 +82,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                             Query.field("num_value_unique").lessThan(910))))
             .build();
 
+    // The setup parameter to control the set up of the store (to use split records or not)
     private boolean useSplitRecords = true;
 
     @BeforeEach
@@ -91,29 +91,31 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     }
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchSimpleIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchSimpleIndexTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey,
+                    fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 1, 11);
+        assertCounters(fetchMethod, 1, 11);
     }
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990_REVERSE, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey,
+                    fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 1, 11);
+        assertCounters(fetchMethod, 1, 11);
     }
 
     /**
@@ -121,60 +123,62 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * entries), this test uses a different index ("PrimaryKeyIndex"). The test runs through a scenario where the primary
      * key component is also present in the index entry and is therefore removed from the actual index key primary key
      * location (since it is duplicate) - see {@link Index#getEntryPrimaryKeyPositions(int)}
-     * @param useIndexPrefetch the fetch method mode to use
+     * @param fetchMethod the fetch method mode to use
      */
     @ParameterizedTest(name = "indexPrefetchPrimaryKeyIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 1, (rec, i) -> {
             int primaryKey = 1;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecordWithPrimaryKeyIndex(rec, primaryKey, strValue, numValue, "PrimaryKeyIndex", (long)numValue);
+            // There is always only one returned record, so it has the index entry regardless of mode
+            assertRecordWithPrimaryKeyIndex(rec, primaryKey, strValue, numValue, "PrimaryKeyIndex");
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 1, 2);
+        assertCounters(fetchMethod, 1, 2);
     }
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchComplexIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchComplexIndexTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(STR_VALUE_EVEN, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 50, (rec, i) -> {
-            int primaryKey = i * 2;
+            int primaryKey = i * 2; // we are filtering out all odd entries, so count*2 are the keys of the even ones
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
+            assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey,
+                    fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 1, 51);
+        assertCounters(fetchMethod, 1, 51);
     }
 
     @ParameterizedTest(name = "indexPrefetchInQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchInQueryTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(IN_VALUE, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchInQueryTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(IN_VALUE, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 5, (rec, i) -> {
             int primaryKey = i * 10;
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchAndOrQueryTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchAndOrQueryTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(OR_AND_VALUE, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchAndOrQueryTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(OR_AND_VALUE, fetchMethod, indexEntryReturnPolicy);
         executeAndVerifyData(plan, 10, (rec, i) -> {
             int primaryKey = (i == 9) ? 0 : (99 - i);
             int numValue = 1000 - primaryKey;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
     }
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchWithContinuationTest(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void indexPrefetchWithContinuationTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(5)
                 .build();
@@ -184,31 +188,32 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 1, 6);
+        assertCounters(fetchMethod, 1, 6);
         // Second iteration - last 5 records
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 5, (rec, i) -> {
             int primaryKey = 4 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
-        assertCounters(useIndexPrefetch, 2, 12);
+        assertCounters(fetchMethod, 2, 12);
         // Third iteration - no more values to read
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 0, (rec, i) -> {
         }, splitRecordsHook);
         assertNull(continuation);
-        assertCounters(useIndexPrefetch, 3, 13);
+        assertCounters(fetchMethod, 3, 13);
     }
 
     /*
      * Test continuation where the continued plan uses a different prefetch mode than the original plan.
      */
-    @Test
-    void indexPrefetchWithMixedContinuationTest() throws Exception {
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
+    @ParameterizedTest(name = "indexPrefetchWithMixedContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void indexPrefetchWithMixedContinuationTest(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH, indexEntryReturnPolicy);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(4)
                 .build();
@@ -218,33 +223,33 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
         }, splitRecordsHook);
         // Second iteration - second 4 records
         continuation = executeAndVerifyData(planWithScan, continuation, executeProperties, 4, (rec, i) -> {
             int primaryKey = 5 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, IndexFetchMethod.SCAN_AND_FETCH, indexEntryReturnPolicy);
         }, splitRecordsHook);
         // Third iteration - last 2 records
         continuation = executeAndVerifyData(planWithPrefetch, continuation, executeProperties, 2, (rec, i) -> {
             int primaryKey = 1 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
         }, splitRecordsHook);
         assertNull(continuation);
         assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 2, 8);
     }
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
+    @MethodSource("testedParams")
     @Disabled("This test is inconsistently failing when running as part of the larger suite")
-    void indexPrefetchByteLimitContinuation(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+    void indexPrefetchByteLimitContinuation(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
         // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
-        int scanBytesLimit = (useIndexPrefetch == IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
+        int scanBytesLimit = (fetchMethod == IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(scanBytesLimit)
                 .build();
@@ -253,7 +258,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
         executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(500)
@@ -263,55 +268,56 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             int primaryKey = 1 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey, fetchMethod, indexEntryReturnPolicy);
         }, splitRecordsHook);
         assertNull(continuation);
     }
 
     @ParameterizedTest(name = "testScanLimit(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void testScanLimit(IndexFetchMethod useIndexPrefetch) throws Exception {
-        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
+    @MethodSource("testedParams")
+    void testScanLimit(IndexFetchMethod useIndexPrefetch, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch, indexEntryReturnPolicy);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setScannedRecordsLimit(3)
+                .setReturnedRowLimit(3)
                 .build();
 
         byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 3, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, useIndexPrefetch, indexEntryReturnPolicy);
         }, splitRecordsHook);
 
         executeProperties = ExecuteProperties.newBuilder()
-                .setScannedRecordsLimit(1)
+                .setReturnedRowLimit(1)
                 .build();
 
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 1, (rec, i) -> {
             int primaryKey = 6 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, useIndexPrefetch, indexEntryReturnPolicy);
         }, splitRecordsHook);
 
         executeProperties = ExecuteProperties.newBuilder()
-                .setScannedRecordsLimit(100)
+                .setReturnedRowLimit(100)
                 .build();
 
         continuation = executeAndVerifyData(plan, continuation, executeProperties, 6, (rec, i) -> {
             int primaryKey = 5 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
-            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
+            assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, useIndexPrefetch, indexEntryReturnPolicy);
         }, splitRecordsHook);
 
         assertNull(continuation);
     }
 
-    @Test
-    void testIndexPrefetchWithComparatorPlan() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
+    @ParameterizedTest(name = "testIndexPrefetchWithComparatorPlan(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void testIndexPrefetchWithComparatorPlan(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH, indexEntryReturnPolicy);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -326,10 +332,11 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 11);
     }
 
-    @Test
-    void testIndexPrefetchWithComparatorPlanFails() throws Exception {
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, IndexFetchMethod.USE_REMOTE_FETCH);
+    @ParameterizedTest(name = "testIndexPrefetchWithComparatorPlanFails(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void testIndexPrefetchWithComparatorPlanFails(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH, indexEntryReturnPolicy);
+        RecordQueryPlan planWithPrefetch = plan(STR_VALUE_EVEN, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         RecordQueryPlan plan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithPrefetch), primaryKey(), 0, true);
 
@@ -346,10 +353,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * This test writes a value to the store within the range of the scan.
      */
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void testReadYourWriteInRange(IndexFetchMethod fetchMethod) throws Exception {
+    @MethodSource("testedParams")
+    void testReadYourWriteInRange(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
-
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record in range (don't commit)
@@ -359,7 +365,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             recBuilder.setStrValueIndexed("blah");
             recordStore.saveRecord(recBuilder.build());
 
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
 
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
@@ -371,7 +377,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                         strValue = "blah";
                     }
                     int numValue = 1000 - primaryKey;
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
                 });
             }
         }
@@ -382,10 +388,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * This test writes a value to the store outside the range of the scan.
      */
     @ParameterizedTest(name = "testReadYourWriteOutOfRangeSucceeds(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void testReadYourWriteOutOfRangeSucceeds(IndexFetchMethod fetchMethod) throws Exception {
+    @MethodSource("testedParams")
+    void testReadYourWriteOutOfRangeSucceeds(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
-
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Save record out of range (don't commit)
@@ -396,13 +401,13 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             recordStore.saveRecord(recBuilder.build());
 
             // Execute the query (will fail because a record in memory cannot be processed by fdb)
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod, indexEntryReturnPolicy);
 
             executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
                 int primaryKey = 9 - i;
                 String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                 int numValue = 1000 - primaryKey;
-                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
             });
             assertCounters(fetchMethod, 1, 11);
         }
@@ -414,8 +419,8 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * the modified range conflict. This should be recovered by the fallback mode.
      */
     @ParameterizedTest(name = "failAfterRecordsReturnedTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void failAfterRecordsReturnedTest(IndexFetchMethod fetchMethod) throws Exception {
+    @MethodSource("testedParams")
+    void failAfterRecordsReturnedTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -435,7 +440,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // data (essentially the first few pages of data from scanning the index), but once it
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0, fetchMethod);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0, fetchMethod, indexEntryReturnPolicy);
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
@@ -443,15 +448,15 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                     int primaryKey = i;
                     int numValue = i;
                     String strValue = (i == created.size() - 1) ? "foo" : "";
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
                 });
             }
         }
     }
 
     @ParameterizedTest(name = "failAfterRecordsReturnedReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void failAfterRecordsReturnedReverseTest(IndexFetchMethod fetchMethod) throws Exception {
+    @MethodSource("testedParams")
+    void failAfterRecordsReturnedReverseTest(IndexFetchMethod fetchMethod, IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         List<TestRecords1Proto.MySimpleRecord> created = saveManyRecords();
@@ -471,7 +476,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // data (essentially the first few pages of data from scanning the index), but once it
             // gets to the final page, it should fail because it sees a modified range when trying to look
             // up the record
-            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0_REVERSE, fetchMethod);
+            RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0_REVERSE, fetchMethod, indexEntryReturnPolicy);
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
                 assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
             } else {
@@ -479,19 +484,20 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                     int primaryKey = 499 - i;
                     int numValue = primaryKey;
                     String strValue = (i == (created.size() - 1)) ? "foo" : "";
-                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue);
+                    assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, fetchMethod, indexEntryReturnPolicy);
                 });
             }
         }
     }
 
-    @Test
-    void indexPrefetchSimpleIndexFallbackTest() throws Exception {
+    @ParameterizedTest(name = "indexPrefetchSimpleIndexFallbackTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void indexPrefetchSimpleIndexFallbackTest(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
-        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH);
-        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH);
-        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+        RecordQueryPlan planWithScan = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.SCAN_AND_FETCH, indexEntryReturnPolicy);
+        RecordQueryPlan planWithPrefetch = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH, indexEntryReturnPolicy);
+        RecordQueryPlan planWithFallback = plan(NUM_VALUES_LARGER_THAN_990, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK, indexEntryReturnPolicy);
         RecordQueryPlan comparatorPlan = RecordQueryComparatorPlan.from(List.of(planWithScan, planWithFallback), primaryKey(), 0, true);
 
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
@@ -511,21 +517,23 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         }
     }
 
-    @Test
-    void testOrphanPolicyError() throws Exception {
+    @ParameterizedTest(name = "testOrphanPolicyError(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void testOrphanPolicyError(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         createOrphanEntry();
 
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            Exception ex = assertThrows(ExecutionException.class, () -> scanIndex(IndexOrphanBehavior.ERROR));
+            Exception ex = assertThrows(ExecutionException.class, () -> scanIndex(IndexOrphanBehavior.ERROR, indexEntryReturnPolicy));
             assertTrue(ex.getCause() instanceof RecordCoreStorageException);
         }
     }
 
-    @Test
-    void testOrphanPolicySkip() throws Exception {
+    @ParameterizedTest(name = "testOrphanPolicySkip(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void testOrphanPolicySkip(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         createOrphanEntry();
@@ -533,7 +541,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         List<FDBIndexedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            records = scanIndex(IndexOrphanBehavior.SKIP);
+            records = scanIndex(IndexOrphanBehavior.SKIP, indexEntryReturnPolicy);
         }
         assertEquals(99, records.size());
         long c = 99;
@@ -549,8 +557,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
     }
 
-    @Test
-    void testOrphanPolicyReturn() throws Exception {
+    @ParameterizedTest(name = "testOrphanPolicySkip(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
+    @MethodSource("testedReturnPolicies")
+    void testOrphanPolicyReturn(IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
         createOrphanEntry();
@@ -558,24 +567,35 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         List<FDBIndexedRecord<Message>> records;
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, splitRecordsHook);
-            records = scanIndex(IndexOrphanBehavior.RETURN);
+            records = scanIndex(IndexOrphanBehavior.RETURN, indexEntryReturnPolicy);
         }
-        assertEquals(100, records.size());
-        long c = 99;
-        for (FDBIndexedRecord<Message> rec : records) {
-            if (c != 2) {
-                assertEquals(c, rec.getStoredRecord().getPrimaryKey().get(0));
-            } else {
-                assertFalse(rec.hasStoredRecord());
+        if ((indexEntryReturnPolicy == IndexEntryReturnPolicy.ALL) || (indexEntryReturnPolicy == IndexEntryReturnPolicy.UNMATCHED)) {
+            assertEquals(100, records.size());
+            for (long i = 0 ; i < 100 ; i++) {
+                if (i != 97) {
+                    assertEquals(99 - i, records.get((int)i) .getStoredRecord().getPrimaryKey().get(0));
+                } else {
+                    assertFalse(records.get((int)i).hasStoredRecord());
+                }
             }
-            c--;
+            assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
+        } else {
+            // NONE and MATCHED will omit the orphan index entry in FDB, so we have no (null->null) entry, and only 99 entries overall
+            assertEquals(99, records.size());
+            int c = 0;
+            for (long i = 99 ; i >= 0 ; i--) {
+                if (i != 2) {
+                    assertEquals(i, records.get(c) .getStoredRecord().getPrimaryKey().get(0));
+                    c++;
+                }
+            }
+            assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 100);
         }
-        assertCounters(IndexFetchMethod.USE_REMOTE_FETCH, 1, 101);
     }
 
-    private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {
+    private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior, final IndexEntryReturnPolicy indexEntryReturnPolicy) throws Exception {
         return recordStore.scanIndexRemoteFetch("MySimpleRecord$num_value_unique", new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL),
-                null, ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
+                null, ScanProperties.FORWARD_SCAN, orphanBehavior, indexEntryReturnPolicy).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {
@@ -608,7 +628,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         metaDataBuilder.addIndex("MySimpleRecord", "PrimaryKeyIndex", "rec_no");
     };
 
-    private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
+    private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName) {
         IndexEntry indexEntry = rec.getIndexEntry();
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
         List<Object> indexElements = indexEntry.getKey().getItems();

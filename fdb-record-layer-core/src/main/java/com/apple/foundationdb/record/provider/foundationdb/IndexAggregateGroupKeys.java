@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -132,7 +133,7 @@ public abstract class IndexAggregateGroupKeys {
                 throw new Comparisons.EvaluationContextRequiredException("Cannot get parameter without context");
             }
             final FDBQueriedRecord<?> record = (FDBQueriedRecord<?>) context.getBinding(recordKey);
-            final IndexEntry indexEntry = record.getIndexEntry();
+            final IndexEntry indexEntry = Objects.requireNonNull(record.getIndexEntry());
             return Key.Evaluated.fromTuple(TupleHelpers.subTuple(indexEntry.getKey(), 0, prefixSize));
         }
 

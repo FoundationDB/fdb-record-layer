@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.provider.foundationdb.IndexEntryReturnPolicy;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -61,6 +62,7 @@ public class CombineFilterRuleTest {
                     null,
                     IndexScanComparisons.byValue(),
                     IndexFetchMethod.SCAN_AND_FETCH,
+                    IndexEntryReturnPolicy.ALL,
                     false,
                     false,
                     Optional.empty(),

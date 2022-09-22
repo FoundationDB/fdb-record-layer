@@ -1229,8 +1229,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                         int commonPrimaryKeyLength,
                                                                         @Nullable byte[] continuation,
                                                                         @Nonnull ScanProperties scanProperties,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, serializer, scanProperties, orphanBehavior);
+                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior,
+                                                                        @Nonnull final IndexEntryReturnPolicy indexEntryReturnPolicy) {
+        return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, serializer, scanProperties, orphanBehavior, indexEntryReturnPolicy);
     }
 
     @Nonnull
@@ -1241,7 +1242,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                                  @Nullable final byte[] continuation,
                                                                                                  @Nonnull RecordSerializer<M> typedSerializer,
                                                                                                  @Nonnull final ScanProperties scanProperties,
-                                                                                                 @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                                                 @Nonnull final IndexOrphanBehavior orphanBehavior,
+                                                                                                 @Nonnull IndexEntryReturnPolicy indexEntryReturnPolicy) {
         // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
         if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("commonPrimaryKeyLength has to be a positive number", LogMessageKeys.INDEX_NAME, index.getName());
@@ -1259,13 +1261,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (!getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
             throw new UnsupportedMethodException("Index Remote Fetch can only be used with API_VERSION of at least 7.1.");
         }
+        if (useOldVersionFormat() && (indexEntryReturnPolicy != IndexEntryReturnPolicy.ALL)) {
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.of("Old version format can only be used with indexEntryReturnPolicy of ALL",
+                        LogMessageKeys.INDEX_NAME, index.getName()));
+            }
+            // Replace policy and continue. All index entries are required in this case.
+            indexEntryReturnPolicy = IndexEntryReturnPolicy.ALL;
+        }
 
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         // Get the cursor with the index entries and the records from FDB
-        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
+        RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength, indexEntryReturnPolicy);
         // Parse the index entries and payload and build records
-        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(index, scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
 
         return context.instrument(FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY, indexedRecordCursor);
     }
@@ -1273,7 +1283,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @VisibleForTesting
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final ScanProperties scanProperties,
+    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final Index index,
+                                                                                     @Nonnull final ScanProperties scanProperties,
                                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior,
                                                                                      @Nonnull final Subspace recordSubspace,
                                                                                      @Nonnull final RecordCursor<FDBIndexedRawRecord> indexEntries,
@@ -1285,15 +1296,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
             FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
             if (fdbRawRecord == null) {
-                return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
+                return handleOrphanEntry(index, indexedRawRecord.getIndexEntry(), orphanBehavior);
             } else {
                 Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
                 // The version future will be ignored in case the record already has a version
                 if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
-                    versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+                    // In the case of oldVersionFormat we know the index entry will always be there
+                    versionFutureOptional = loadRecordVersionAsync(Objects.requireNonNull(indexedRawRecord.getIndexEntry()).getPrimaryKey());
+
                 }
                 final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
-                byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
+                // Only count the index entry if it was actually fetched
+                if (indexedRawRecord.getIndexEntry() != null) {
+                    byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
+                }
                 byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
 
                 // Deserialize the raw record
@@ -1302,27 +1318,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }, 1);
 
-        if (orphanBehavior == IndexOrphanBehavior.SKIP) {
-            indexedRecordCursor = indexedRecordCursor.filter(Objects::nonNull);
-        }
+        indexedRecordCursor = indexedRecordCursor.filter(Objects::nonNull);
+
         return indexedRecordCursor;
     }
 
-    private <M extends Message> CompletableFuture<FDBIndexedRecord<M>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
+    private <M extends Message> CompletableFuture<FDBIndexedRecord<M>> handleOrphanEntry(@Nonnull final Index index, @Nullable final IndexEntry indexEntry, @Nonnull final IndexOrphanBehavior orphanBehavior) {
         switch (orphanBehavior) {
             case SKIP:
                 return CompletableFuture.completedFuture(null);
             case RETURN:
-                return CompletableFuture.completedFuture(new FDBIndexedRecord<>(indexEntry, null));
+                if (indexEntry == null) {
+                    // This should not happen, since we use UNMATCHED or ALL index entry mode that should return a valid
+                    // index entry in case of empty mapped range
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.of("Orphan index entry found but no entry info available",
+                                LogMessageKeys.INDEX_NAME, index.getName()));
+                    }
+                    // Skip this entry
+                    return CompletableFuture.completedFuture(null);
+                } else {
+                    return CompletableFuture.completedFuture(new FDBIndexedRecord<>(indexEntry, null));
+                }
             case ERROR:
                 if (getTimer() != null) {
                     getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
                 }
-                throw new RecordCoreStorageException("record not found for prefetched index entry").addLogInfo(
-                        LogMessageKeys.INDEX_NAME, indexEntry.getIndex().getName(),
-                        LogMessageKeys.PRIMARY_KEY, indexEntry.getPrimaryKey(),
-                        LogMessageKeys.INDEX_KEY, indexEntry.getKey(),
+                RecordCoreException ex = new RecordCoreStorageException("Record not found for prefetched index entry");
+                ex.addLogInfo(LogMessageKeys.INDEX_NAME, index.getName(),
                         getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
+                if (indexEntry != null) {
+                    ex.addLogInfo(LogMessageKeys.PRIMARY_KEY, indexEntry.getPrimaryKey(),
+                            LogMessageKeys.INDEX_KEY, indexEntry.getKey());
+                }
+                throw ex;
             default:
                 throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
         }
