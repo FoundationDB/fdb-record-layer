@@ -124,7 +124,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         LuceneScanParameters scanParameters = getSpecialScan(state, filterMask);
         if (scanParameters == null) {
             // Scan by means of normal Lucene search API.
-            LuceneQueryClause query = getQueryForFilter(state, filter, null, filterMask);
+            LuceneQueryClause query = getQueryForFilter(state, filter, new ArrayList<>(), filterMask);
             if (query == null) {
                 return null;
             }
@@ -218,28 +218,30 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     private LuceneQueryClause getQueryForFilter(@Nonnull LucenePlanState state, @Nonnull QueryComponent filter,
-                                                @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
+                                                @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
         if (filter instanceof LuceneQueryComponent) {
-            return getQueryForLuceneComponent(state, (LuceneQueryComponent)filter, filterMask);
+            return getQueryForLuceneComponent(state, (LuceneQueryComponent)filter, parentFieldPath, filterMask);
         } else if (filter instanceof AndOrComponent) {
-            return getQueryForAndOr(state, (AndOrComponent) filter, parentFieldName, filterMask);
+            return getQueryForAndOr(state, (AndOrComponent) filter, parentFieldPath, filterMask);
         } else if (filter instanceof NotComponent) {
-            return getQueryForNot(state, (NotComponent) filter, parentFieldName, filterMask);
+            return getQueryForNot(state, (NotComponent) filter, parentFieldPath, filterMask);
         } else if (filter instanceof FieldWithComparison) {
-            return getQueryForFieldWithComparison(state, (FieldWithComparison) filter, parentFieldName, filterMask);
+            return getQueryForFieldWithComparison(state, (FieldWithComparison) filter, parentFieldPath, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
-            return getQueryForNestedField(state, (OneOfThemWithComponent)filter, true, parentFieldName, filterMask);
+            return getQueryForNestedField(state, (OneOfThemWithComponent)filter, true, parentFieldPath, filterMask);
         } else if (filter instanceof NestedField) {
-            return getQueryForNestedField(state, (NestedField) filter, false, parentFieldName, filterMask);
+            return getQueryForNestedField(state, (NestedField) filter, false, parentFieldPath, filterMask);
         }
         return null;
     }
 
     @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
-                                                         @Nullable FilterSatisfiedMask filterMask) {
-        //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
-        // oneOfThem. Not sure if thats even allowed via the metadata validation on the query at the start of the planner.
+                                                         @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+        if (!parentFieldPath.isEmpty()) {
+            // TODO: Or should this be an error?
+            return null;
+        }
         for (String field : filter.getFields()) {
             if (!validateIndexField(state, field)) {
                 return null;
@@ -259,7 +261,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     @SuppressWarnings({"java:S3776", "PMD.CompareObjectsWithEquals"})
     private LuceneQueryClause getQueryForAndOr(@Nonnull LucenePlanState state, @Nonnull AndOrComponent filter,
-                                               @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
+                                               @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
         final List<QueryComponent> filters = filter.getChildren();
         final List<LuceneQueryClause> childClauses = new ArrayList<>(filters.size());
@@ -267,7 +269,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         final BooleanClause.Occur occur = filter instanceof OrComponent ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST;
         for (QueryComponent subFilter : filters) {
             final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
-            LuceneQueryClause childClause = getQueryForFilter(state, subFilter, parentFieldName, childMask);
+            LuceneQueryClause childClause = getQueryForFilter(state, subFilter, parentFieldPath, childMask);
             if (childClause == null) {
                 if (filter == state.filter && filter instanceof AndComponent) {
                     continue;    // Partially unsatisfied at top-level is okay.
@@ -301,8 +303,8 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     private LuceneQueryClause getQueryForNot(@Nonnull LucenePlanState state, @Nonnull NotComponent filter,
-                                             @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterMask) {
-        final LuceneQueryClause childClause = getQueryForFilter(state, filter.getChild(), parentFieldName, filterMask == null ? null : filterMask.getChildren().get(0));
+                                             @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+        final LuceneQueryClause childClause = getQueryForFilter(state, filter.getChild(), parentFieldPath, filterMask == null ? null : filterMask.getChildren().get(0));
         if (childClause == null) {
             return null;
         }
@@ -354,23 +356,21 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     private LuceneQueryClause getQueryForFieldWithComparison(@Nonnull LucenePlanState state, @Nonnull FieldWithComparison filter,
-                                                             @Nullable String parentFieldName, @Nullable FilterSatisfiedMask filterSatisfiedMask) {
+                                                             @Nonnull List<String> fieldPath, @Nullable FilterSatisfiedMask filterSatisfiedMask) {
         if (filterSatisfiedMask != null && filterSatisfiedMask.isSatisfied()) {
             return null;        // Already done as part of group comparisons
         }
-        String completeFieldName = filter.getFieldName();
-        if (parentFieldName != null) {
-            completeFieldName = parentFieldName + "_" + completeFieldName;
-        }
-        LuceneIndexExpressions.DocumentFieldType fieldType = getIndexFieldType(state, completeFieldName);
-        if (fieldType == null) {
+        fieldPath.add(filter.getFieldName());
+        LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = findIndexField(state, fieldPath);
+        fieldPath.remove(fieldPath.size() - 1);
+        if (fieldDerivation == null) {
             return null;
         }
         if (filterSatisfiedMask != null) {
             filterSatisfiedMask.setSatisfied(true);
         }
         try {
-            return LuceneQueryFieldComparisonClause.create(completeFieldName, fieldType, filter.getComparison());
+            return LuceneQueryFieldComparisonClause.create(fieldDerivation.getDocumentField(), fieldDerivation.getType(), filter.getComparison());
         } catch (RecordCoreException ex) {
             if (logger.isDebugEnabled()) {
                 logger.debug("no query for comparison " + filter, ex);
@@ -380,17 +380,12 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    // TODO Better implementation of nesting that actually takes into account
-    //  positioning of the fields in relation to each other
-    // This should use the multiField query parser. Very much a TODO
     private LuceneQueryClause getQueryForNestedField(@Nonnull LucenePlanState state, @Nonnull BaseField filter, boolean repeated,
-                                                     @Nullable String parentFieldName, @Nullable FilterSatisfiedMask mask) {
-        String fieldName = filter.getFieldName();
-        if (parentFieldName != null) {
-            fieldName = parentFieldName + "_" + fieldName;
-        }
+                                                     @Nonnull List<String> fieldPath, @Nullable FilterSatisfiedMask mask) {
         QueryComponent child = ((ComponentWithSingleChild)filter).getChild();
-        LuceneQueryClause comparison = getQueryForFilter(state, child, fieldName, (mask != null) ? mask.getChild(child) : null);
+        fieldPath.add(filter.getFieldName());
+        LuceneQueryClause comparison = getQueryForFilter(state, child, fieldPath, (mask != null) ? mask.getChild(child) : null);
+        fieldPath.remove(fieldPath.size() - 1);
         if (comparison != null ) {
             if (mask != null) {
                 mask.setSatisfied(true);
@@ -421,11 +416,18 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneIndexExpressions.DocumentFieldType getIndexFieldType(@Nonnull LucenePlanState state, @Nonnull String field) {
-        // For a filter made from components, we have the complete path of record fields and so the actual document field name.
-        final LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = state.documentFields.get(field);
-        if (fieldDerivation != null) {
-            return fieldDerivation.getType();
+    private LuceneIndexExpressions.DocumentFieldDerivation findIndexField(@Nonnull LucenePlanState state, @Nonnull List<String> fieldPath) {
+        if (fieldPath.size() == 1) {
+            // Quickly check simple case by name to save looking through all document fields.
+            final LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = state.documentFields.get(fieldPath.get(0));
+            if (fieldDerivation != null && fieldDerivation.getRecordFieldPath().equals(fieldPath)) {
+                return fieldDerivation;
+            }
+        }
+        for (LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
+            if (fieldDerivation.getRecordFieldPath().equals(fieldPath)) {
+                return fieldDerivation;
+            }
         }
         return null;
     }
