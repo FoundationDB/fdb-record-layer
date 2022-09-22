@@ -52,6 +52,9 @@ This release also updates downstream dependency versions. Most notably, the prot
 // end next release
 -->
 
+### 3.2.293.0
+
+
 ### 3.2.292.0
 
 * **Bug fix** incorrect assertion of PK length fails remote fetch with fallback [(Issue #1845)](https://github.com/FoundationDB/fdb-record-layer/issues/1845)
