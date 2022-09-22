@@ -83,7 +83,7 @@ public class KeyBuilder {
         }
 
         if (failOnIncompleteKey && flattenedFields.stream().anyMatch(Objects::isNull)) {
-            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) != null).findFirst().getAsInt();
+            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) == null).findFirst().getAsInt();
             throw new RelationalException("Cannot form incomplete key: missing key at position <" + missing + ">", ErrorCode.INVALID_PARAMETER);
         }
 
@@ -93,12 +93,12 @@ public class KeyBuilder {
         }
 
         // Remove trailing nulls
-        while (flattenedFields.get(flattenedFields.size() - 1) == null) {
+        while (!flattenedFields.isEmpty() && flattenedFields.get(flattenedFields.size() - 1) == null) {
             flattenedFields.remove(flattenedFields.size() - 1);
         }
 
         if (flattenedFields.stream().anyMatch(Objects::isNull)) {
-            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) != null).findFirst().getAsInt();
+            int missing = IntStream.range(0, flattenedFields.size()).filter(i -> flattenedFields.get(i) == null).findFirst().getAsInt();
             throw new RelationalException("Cannot form key: missing key at position <" + missing + ">", ErrorCode.INVALID_PARAMETER);
         }
 
