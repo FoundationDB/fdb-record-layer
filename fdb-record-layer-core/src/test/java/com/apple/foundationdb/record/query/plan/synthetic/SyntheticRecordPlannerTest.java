@@ -742,13 +742,66 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    public void concatenatedFields() throws Exception {
+        metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
+        metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiFieldJoin");
+        joined.addConstituent("simple", "MySimpleRecord");
+        joined.addConstituent("other", "MyOtherRecord");
+        joined.addJoin("simple", Key.Expressions.concat(field("num_value"), field("other_rec_no")), "other", Key.Expressions.concat(field("num_value"), field("rec_no")));
+        metaDataBuilder.addIndex(joined, new Index("simple.str_value_other.num_value_3", concat(field("simple").nest("str_value"), field("other").nest("num_value_3"))));
+
+        //load data
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            for (int n = 1; n <= 2; n++) {
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < i; j++) {
+                        TestRecordsJoinIndexProto.MySimpleRecord.Builder simple = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder();
+                        simple.setNumValue(n);
+                        simple.setRecNo(100 * i + j).setOtherRecNo(1000 + i);
+                        simple.setStrValue((i + j) % 2 == 0 ? "even" : "odd");
+                        recordStore.saveRecord(simple.build());
+                    }
+                    TestRecordsJoinIndexProto.MyOtherRecord.Builder other = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder();
+                    other.setNumValue(n);
+                    other.setRecNo(1000 + i);
+                    other.setNumValue3(i);
+                    recordStore.saveRecord(other.build());
+                }
+            }
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            List<FDBSyntheticRecord> recs = recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("simple.str_value_other.num_value_3"),
+                            IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
+                    .mapPipelined(entry -> recordStore.loadSyntheticRecord(entry.getPrimaryKey()), 1)
+                    .asList().join();
+            for (FDBSyntheticRecord record : recs) {
+                TestRecordsJoinIndexProto.MySimpleRecord.Builder simple = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder();
+                TestRecordsJoinIndexProto.MyOtherRecord.Builder other = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder();
+                simple.mergeFrom(record.getConstituent("simple").getRecord());
+                other.mergeFrom(record.getConstituent("other").getRecord());
+                assertEquals(200, simple.getRecNo());
+                assertEquals(1002, other.getRecNo());
+                assertEquals(record.getPrimaryKey(), record.getRecordType().getPrimaryKey().evaluateSingleton(record).toTuple());
+            }
+
+        }
+    }
+
+    @Test
     public void multiFieldKeys() throws Exception {
         metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiFieldJoin");
         joined.addConstituent("simple", "MySimpleRecord");
         joined.addConstituent("other", "MyOtherRecord");
-        // TODO: Not supported alternative would be to join concatenateFields("num_value", "other_rec_no") with concatenateFields("num_value", "rec_no").
         joined.addJoin("simple", "num_value", "other", "num_value");
         joined.addJoin("simple", "other_rec_no", "other", "rec_no");
         metaDataBuilder.addIndex(joined, new Index("simple.str_value_other.num_value_3", concat(field("simple").nest("str_value"), field("other").nest("num_value_3"))));

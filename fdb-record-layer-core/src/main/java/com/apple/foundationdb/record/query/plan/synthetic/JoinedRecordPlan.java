@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.Key;
@@ -145,10 +144,11 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         protected static Object toValue(@Nonnull Key.Evaluated evaluated) {
-            if (evaluated.size() != 1) {
-                throw new RecordCoreException("binding expression should evaluate to scalar values");
+            if (evaluated.size() == 1) {
+                return evaluated.getObject(0);
+            } else {
+                return evaluated.toTuple();
             }
-            return evaluated.getObject(0);
         }
 
         @Nonnull

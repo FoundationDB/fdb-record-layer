@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
@@ -33,6 +34,8 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.expressions.ThenQueryKeyExpression;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -261,9 +264,11 @@ class JoinedRecordPlanner {
                 default:
                     throw new RecordCoreException("unsupported fan type in join key expression: " + expression);
             }
+        } else if (expression instanceof ThenKeyExpression) {
+            final ThenKeyExpression thenKey = (ThenKeyExpression)expression;
+            return new QueryKeyExpressionWithComparison(new ThenQueryKeyExpression(thenKey), comparison);
         } else {
             throw new RecordCoreException("unsupported join key expression: " + expression);
         }
     }
-
 }
