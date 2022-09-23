@@ -76,7 +76,7 @@ public class DdlStatementParsingTest {
     private final PlanContext fakePlanContext;
 
     private static final String[] validPrimitiveDataTypes = new String[]{
-            "int64", "double", "boolean", "string", "bytes"
+            "int32", "int64", "double", "boolean", "string", "bytes"
     };
 
     public DdlStatementParsingTest() throws RelationalException {

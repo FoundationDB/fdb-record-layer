@@ -239,6 +239,7 @@ INT2:                                'INT2';
 INT3:                                'INT3';
 INT4:                                'INT4';
 INT8:                                'INT8';
+INT32:                               'INT32';
 INT64:                               'INT64';
 INTEGER:                             'INTEGER';
 BIGINT:                              'BIGINT';

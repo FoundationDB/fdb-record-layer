@@ -138,7 +138,7 @@ columnDefinition
     ;
 
 columnType
-    : BOOLEAN | INT64 | DOUBLE | STRING | TIMESTAMP | BYTES| customType=uid;
+    : BOOLEAN | INT32 | INT64 | DOUBLE | STRING | TIMESTAMP | BYTES| customType=uid;
 
 primaryKeyDefinition
     : PRIMARY KEY '(' (RECORD TYPE | uid) (COMMA uid)* ')'

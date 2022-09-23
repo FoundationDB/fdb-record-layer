@@ -417,6 +417,8 @@ public final class ParserUtils {
         switch (text.toUpperCase(Locale.ROOT)) {
             case "STRING":
                 return Type.TypeCode.STRING;
+            case "INT32":
+                return Type.TypeCode.INT;
             case "INT64":
                 return Type.TypeCode.LONG;
             case "DOUBLE":

@@ -47,6 +47,8 @@ public class DdlTestUtil {
             String type = "";
             switch (descriptor.getType()) {
                 case TYPE_INT32:
+                    type += "INT32";
+                    break;
                 case TYPE_INT64:
                     type += "INT64";
                     break;
