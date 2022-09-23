@@ -82,4 +82,9 @@ public class YamlIntegrationTests {
     public void subqueryTests() throws Exception {
         doRun("subquery-tests.yaml");
     }
+
+    @Test
+    public void selectAStar() throws Exception {
+        doRun("select-a-star.yaml");
+    }
 }

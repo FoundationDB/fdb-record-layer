@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -216,7 +217,7 @@ public final class YamlRunner implements AutoCloseable {
                             final var expectedResults = config.getValue();
                             final var matchResult = matchResultSet(expectedResults, resultSet);
                             if (!matchResult.equals(ResultSetMatchResult.success())) {
-                                Assert.fail(String.format("‼️ result mismatch:%n" +
+                                Assertions.fail(String.format("‼️ result mismatch:%n" +
                                         notNull(matchResult.getExplanation(), "failure error message") + "%n" +
                                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                                         "↪ expected result:%n" +
@@ -251,7 +252,7 @@ public final class YamlRunner implements AutoCloseable {
                             }
                             final var errorCode = string(config.getValue(), "expected error code");
                             if (!sqlException.getSQLState().equals(errorCode)) {
-                                Assert.fail(String.format("‼️ expecting '%s' error code, got '%s' instead!", errorCode, sqlException.getSQLState()));
+                                Assertions.fail(String.format("‼️ expecting '%s' error code, got '%s' instead!", errorCode, sqlException.getSQLState()));
                             } else {
                                 debug(String.format("✔️ error codes '%s' match!", errorCode));
                             }
@@ -369,7 +370,7 @@ public final class YamlRunner implements AutoCloseable {
             final var command = resolveCommand(commandAndConfiguration);
             try {
                 command.invoke(commandAndConfiguration, commandFactory, dbState);
-            } catch (Exception e) {
+            } catch (Exception | Error e) {
                 addYamlFileStackFrameToException(e, resourcePath, currentLine);
                 throw e;
             }
@@ -377,7 +378,7 @@ public final class YamlRunner implements AutoCloseable {
         debug(String.format("🏁 executed all tests in '%s' successfully!", resourcePath));
     }
 
-    private static void addYamlFileStackFrameToException(@Nonnull final Exception exception, @Nonnull final String path, int line) {
+    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path, int line) {
         final StackTraceElement[] stackTrace = exception.getStackTrace();
         StackTraceElement[] newStackTrace = new StackTraceElement[stackTrace.length + 1];
         newStackTrace[0] = new StackTraceElement("<YAML FILE>", "", path, line);

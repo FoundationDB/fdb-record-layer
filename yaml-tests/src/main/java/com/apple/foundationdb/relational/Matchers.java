@@ -491,7 +491,8 @@ public class Matchers {
                 }
             }
         }
-        if (Objects.equals(expected, actual)) {
+        if (expected instanceof Integer && actual instanceof Long && actual.equals(((Integer) expected).longValue()) ||
+                Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();
         } else {
             return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 does not match 🟡.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);

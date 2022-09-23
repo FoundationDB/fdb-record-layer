@@ -502,12 +502,12 @@ selectSpec
     ;
 
 selectElements // done
-    : (star='*' | selectElement ) (',' selectElement)*
+    : (STAR | selectElement ) (',' selectElement)*
     ;
 
 // done
 selectElement
-    : fullId '.' '*'                                                #selectStarElement // done (unsupported)
+    : uid DOT STAR                                                  #selectStarElement // done
     | fullColumnName (AS? uid)?                                     #selectColumnElement // done
     | functionCall (AS? uid)?                                       #selectFunctionElement // done (partially supported)
     | (LOCAL_ID VAR_ASSIGN)? expression (AS? uid)?                  #selectExpressionElement // done

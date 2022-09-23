@@ -338,8 +338,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
     }
 
-    @Nonnull List<Column<? extends Value>> expandSelectWhereColumns(@Nonnull final Quantifier qun) {
-        final List<Column<? extends FieldValue>> expandedColumnNames = qun.getFlowedColumns().subList(1, qun.getFlowedColumns().size());
+    @Nonnull List<Column<? extends Value>> expandSelectWhereColumns(@Nonnull final Quantifier qun, @Nullable final Value id) {
+        List<Column<? extends FieldValue>> expandedColumnNames;
+        if (id == null) {
+            expandedColumnNames = qun.getFlowedColumns().subList(1, qun.getFlowedColumns().size());
+        } else {
+            expandedColumnNames = qun.getFlowedColumns().stream()
+                    .filter(fv -> fv.getValue().getFieldPath().get(0).getFieldName().equals(id.toString()))
+                    .collect(Collectors.toList());
+        }
         // now validate each column using the parser to make sure that it is visible.
         final var fieldNames = expandedColumnNames.stream().flatMap(q -> {
             Assert.thatUnchecked(q.getValue().getResultType() instanceof Type.Record, "can not expand '*'");
@@ -351,7 +358,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    private List<Column<? extends Value>> expandStarColumns() {
+    private List<Column<? extends Value>> expandStarColumns(Value id) {
         final var scope = parserContext.getCurrentScope();
         final var isUnderlyingSelectWhere = scope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         final var isUnderlyingGroupByExpression = scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
@@ -378,76 +385,96 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final var groupByQun = parserContext.getCurrentScope().getForEachQuantifiers().get(0);
             final var selectWhereQun = groupByQun.getRangesOver().get().getQuantifiers().stream().filter(q -> q instanceof Quantifier.ForEach).collect(Collectors.toList());
             Assert.thatUnchecked(selectWhereQun.size() == 1);
-            return expandSelectWhereColumns(selectWhereQun.get(0));
+            return expandSelectWhereColumns(selectWhereQun.get(0), id);
 
         } else if (isUnderlyingSelectWhere) { // expand { GB, -> {... rest} }
             Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
             final var qun = parserContext.getCurrentScope().getForEachQuantifiers().get(0);
-            return expandSelectWhereColumns(qun);
+            return expandSelectWhereColumns(qun, id);
         } else {
-            return scope.getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach)
-                    // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
-                    .flatMap(qun -> qun.getFlowedColumns().stream().map(c -> Column.of(Type.Record.Field.of(c.getField().getFieldType(), c.getField().getFieldNameOptional(), Optional.empty()), c.getValue())))
-                    .collect(Collectors.toList());
+            List<Column<? extends Value>> columns = new ArrayList<>();
+            for (Quantifier quantifier : scope.getForEachQuantifiers()) {
+                if (id == null || quantifier.getAlias().getId().equals(id.toString())) {
+                    for (var column : quantifier.getFlowedColumns()) {
+                        var field = column.getField();
+                        // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
+                        columns.add(Column.of(
+                                Type.Record.Field.of(field.getFieldType(), field.getFieldNameOptional(), Optional.empty()),
+                                column.getValue())
+                        );
+                    }
+                }
+            }
+            return columns;
         }
     }
 
     @Override
     public Void visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx) {
-        if (ctx.star != null) {
-            final var cols = expandStarColumns();
+        if (ctx.STAR() != null) {
+            final var cols = expandStarColumns(null);
             final var scope = parserContext.getCurrentScope();
             cols.forEach(scope::addProjectionColumn);
         } else {
-            ctx.selectElement().forEach(element -> {
-                Column<? extends Value> column = (Column<? extends Value>) element.accept(this);
-                parserContext.getCurrentScope().addProjectionColumn(column);
-            });
+            for (var selectElement : ctx.selectElement()) {
+                visit(selectElement);
+            }
         }
         return null;
     }
 
-    @Override // not supported yet
+    @Override
     @ExcludeFromJacocoGeneratedReport
-    public Column<Value> visitSelectStarElement(RelationalParser.SelectStarElementContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
+    public Void visitSelectStarElement(RelationalParser.SelectStarElementContext ctx) {
+        final var cols = expandStarColumns((Value) visit(ctx.uid()));
+        final var scope = parserContext.getCurrentScope();
+        cols.forEach(scope::addProjectionColumn);
         return null;
     }
 
     @Override
-    public Column<Value> visitSelectColumnElement(RelationalParser.SelectColumnElementContext ctx) {
+    public Void visitSelectColumnElement(RelationalParser.SelectColumnElementContext ctx) {
+        Column<Value> column;
         if (ctx.uid() != null) {
-            return ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this),
+            column = ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this),
                     Objects.requireNonNull(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class)));
         } else {
-            return ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this));
+            column = ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this));
         }
+        parserContext.getCurrentScope().addProjectionColumn(column);
+        return null;
     }
 
     @Override
-    public Column<Value> visitSelectFunctionElement(RelationalParser.SelectFunctionElementContext ctx) {
+    public Void visitSelectFunctionElement(RelationalParser.SelectFunctionElementContext ctx) {
+        Column<Value> column;
         if (ctx.AS() != null) {
-            return ParserUtils.toColumn((Value) ctx.functionCall().accept(this),
+            column = ParserUtils.toColumn((Value) ctx.functionCall().accept(this),
                     Objects.requireNonNull(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class)));
         } else {
-            return ParserUtils.toColumn((Value) ctx.functionCall().accept(this));
+            column = ParserUtils.toColumn((Value) ctx.functionCall().accept(this));
         }
+        parserContext.getCurrentScope().addProjectionColumn(column);
+        return null;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport // can not reach code path for now
-    public Column<Value> visitSelectExpressionElement(RelationalParser.SelectExpressionElementContext ctx) {
+    public Void visitSelectExpressionElement(RelationalParser.SelectExpressionElementContext ctx) {
         Assert.isNullUnchecked(ctx.LOCAL_ID(), UNSUPPORTED_QUERY);
         final var expressionObj = ctx.expression().accept(this);
         Assert.thatUnchecked(expressionObj instanceof Value, UNSUPPORTED_QUERY);
         final var expression = (Value) expressionObj;
+        Column<Value> column;
         if (ctx.AS() != null) {
             final String alias = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
             Assert.notNullUnchecked(alias, UNSUPPORTED_QUERY);
-            return Column.of(Type.Record.Field.of(expression.getResultType(), Optional.of(alias), Optional.empty()), expression);
+            column = Column.of(Type.Record.Field.of(expression.getResultType(), Optional.of(alias), Optional.empty()), expression);
         } else {
-            return Column.unnamedOf(expression);
+            column = Column.unnamedOf(expression);
         }
+        parserContext.getCurrentScope().addProjectionColumn(column);
+        return null;
     }
 
     @Override
