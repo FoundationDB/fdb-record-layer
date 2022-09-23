@@ -185,7 +185,7 @@ public final class TypingContext {
         // indexes should reference non-existing columns
         indexes.forEach((table, pair) -> {
             var unknownFields = pair.getRight().stream().filter(indexedField -> types.stream().filter(t -> t.name.equals(table)).findFirst().get().fields.stream().map(f -> f.name).noneMatch(fName -> fName.equals(indexedField))).collect(Collectors.toSet());
-            Assert.thatUnchecked(unknownFields.isEmpty(), String.format("index %s references non-existing field(s) (%s)", pair.getLeft().getName(), String.join(",", unknownFields)), ErrorCode.INVALID_COLUMN_REFERENCE);
+            Assert.thatUnchecked(unknownFields.isEmpty(), String.format("index %s references non-existing column(s) (%s)", pair.getLeft().getName(), String.join(",", unknownFields)), ErrorCode.INVALID_COLUMN_REFERENCE);
         });
     }
 
