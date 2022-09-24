@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -162,15 +164,14 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                      @Nonnull final Set<CorrelationIdentifier> explodeAliases,
                                                                      @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
-                                                                     @Nonnull final Ordering providedInnerOrdering,
+                                                                     @Nonnull final Ordering innerOrdering,
                                                                      @Nonnull final RequestedOrdering requestedOrdering) {
         final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
 
         final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
         final var sourcesBuilder = ImmutableList.<InSource>builder();
-        final var resultOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
-        final var innerOrderingKeyParts = providedInnerOrdering.getOrderingKeyParts();
-        final var innerEqualityBoundKeyMap = providedInnerOrdering.getEqualityBoundKeyMap();
+        final var outerOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        final var innerEqualityBoundKeyMap = innerOrdering.getEqualityBoundKeyMap();
         final var resultOrderingEqualityBoundKeyMap  =
                 HashMultimap.create(innerEqualityBoundKeyMap);
 
@@ -252,7 +253,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             sourcesBuilder.add(inSource);
 
             resultOrderingEqualityBoundKeyMap.removeAll(requestedOrderingKeyPart.getValue());
-            resultOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
+            outerOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
         }
 
         if (availableExplodeAliases.isEmpty()) {
@@ -260,11 +261,15 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // All available explode aliases have been depleted. Create an ordering and check against the requested
             // ordering.
             //
-            resultOrderingKeyPartsBuilder.addAll(innerOrderingKeyParts);
-            final var resultOrdering = new Ordering(resultOrderingEqualityBoundKeyMap, resultOrderingKeyPartsBuilder.build(), providedInnerOrdering.isDistinct());
-            return Ordering.satisfiesRequestedOrdering(resultOrdering, requestedOrdering)
-                   ? sourcesBuilder.build()
-                   : ImmutableList.of();
+            final var outerOrderingSet =
+                    PartialOrder.<KeyPart>builder()
+                            .addListWithDependencies(outerOrderingKeyPartsBuilder.build())
+                            .build();
+            final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
+            final var resultOrdering = Ordering.concatOrderings(outerOrdering, innerOrdering, (l, r) -> resultOrderingEqualityBoundKeyMap);
+            return Iterables.isEmpty(resultOrdering.satisfiesRequestedOrdering(requestedOrdering))
+                   ? ImmutableList.of()
+                   : sourcesBuilder.build();
         } else {
             //
             // We may still have some explodes available that we don't have a particular order requirement for.

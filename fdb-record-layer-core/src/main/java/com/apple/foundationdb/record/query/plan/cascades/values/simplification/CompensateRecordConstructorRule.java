@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class CompensateRecordConstructorRule extends ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, RecordConstructorValue> {
+public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, RecordConstructorValue> {
     @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(all(anyValue()));
@@ -60,7 +59,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<List<V
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<List<Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
 

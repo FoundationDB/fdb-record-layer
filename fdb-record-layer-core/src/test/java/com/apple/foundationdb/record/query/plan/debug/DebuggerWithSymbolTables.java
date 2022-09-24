@@ -72,6 +72,11 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
+    public boolean isSane() {
+        return true;
+    }
+
+    @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
         return getCurrentState().getIndex(clazz);
     }

@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -36,17 +35,17 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class PullUpValueRuleSet extends ValueComputationRuleSet<List<Value>, Map<Value, Function<Value, Value>>> {
-    protected static final ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchValueRule = new MatchValueRule();
-    protected static final ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
-    protected static final ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
+public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> {
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchValueRule = new MatchValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
 
-    protected static final Set<ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_RULES =
+    protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_RULES =
             ImmutableSet.of(matchValueRule,
                     matchOrCompensateFieldValueRule,
                     compensateRecordConstructorRule);
 
-    protected static final SetMultimap<ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value>, ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_DEPENDS_ON =
+    protected static final SetMultimap<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
     public PullUpValueRuleSet() {

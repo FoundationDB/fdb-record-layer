@@ -38,7 +38,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderingTest {
     @Test
@@ -47,7 +46,7 @@ class OrderingTest {
         final var b = KeyPart.of(field("b"));
         final var c = KeyPart.of(field("c"));
 
-        final var requestedOrdering = ImmutableList.of(a, b, c);
+        final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
         final var providedOrdering =
                 new Ordering(
@@ -55,12 +54,11 @@ class OrderingTest {
                         ImmutableList.of(a, c),
                         false);
 
-        final var satisfyingOrderingOptional = providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of());
-        assertTrue(satisfyingOrderingOptional.isPresent());
+        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.satisfiesRequestedOrdering(requestedOrdering));
+        assertEquals(1, satisfyingOrderings.size());
 
-        satisfyingOrderingOptional
-                .ifPresentOrElse(satisfyingOrdering -> assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering),
-                        Assertions::fail);
+        final var satisfyingOrdering = satisfyingOrderings.get(0);
+        assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering);
     }
 
     @Test
@@ -69,7 +67,7 @@ class OrderingTest {
         final var b = KeyPart.of(field("b"));
         final var c = KeyPart.of(field("c"));
 
-        final var requestedOrdering = ImmutableList.of(a, b, c);
+        final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
         final var providedOrdering =
                 new Ordering(
@@ -78,11 +76,11 @@ class OrderingTest {
                         ImmutableList.of(c),
                         false);
 
-        final var satisfyingOrderingOptional = providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of());
+        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.satisfiesRequestedOrdering(requestedOrdering));
+        assertEquals(1, satisfyingOrderings.size());
 
-        satisfyingOrderingOptional
-                .ifPresentOrElse(satisfyingOrdering -> assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering),
-                        Assertions::fail);
+        final var satisfyingOrdering = satisfyingOrderings.get(0);
+        assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering);
     }
 
     @Test

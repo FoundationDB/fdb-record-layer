@@ -45,7 +45,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, FieldValue> {
+public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, FieldValue> {
     @Nonnull
     private static final CollectionMatcher<Type.Record.Field> fieldPathMatcher = all(anyObject());
 
@@ -58,7 +58,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<List<V
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<List<Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
         final var bindings = call.getBindings();
         final var fieldValue = bindings.get(rootMatcher);
 

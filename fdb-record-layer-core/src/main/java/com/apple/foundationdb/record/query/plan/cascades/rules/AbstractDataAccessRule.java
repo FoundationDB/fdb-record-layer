@@ -458,14 +458,20 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .collect(ImmutableSet.toImmutableSet());
 
         for (final var requestedOrdering : requestedOrderings) {
-            final var satisfyingOrderingPartsOptional =
-                    Ordering.satisfyingKeyPartsOrdering(orderingPartialOrder,
+            final var satisfyingOrderingPartsList =
+                    ImmutableList.copyOf(Ordering.satisfyingKeyPartsOrdering(orderingPartialOrder,
                             requestedOrdering.getOrderingKeyParts(),
-                            BoundKeyPart::getKeyPart);
-            final var comparisonKeyValuesOptional =
-                    satisfyingOrderingPartsOptional
-                            .map(parts -> parts.stream().filter(part -> !equalityBoundKeyParts.contains(part)).collect(ImmutableList.toImmutableList()))
-                            .flatMap(parts -> comparisonKey(commonPrimaryKeyParts, equalityBoundKeyParts, parts));
+                            BoundKeyPart::getKeyPart));
+            if (satisfyingOrderingPartsList.isEmpty()) {
+                continue;
+            }
+            Verify.verify(satisfyingOrderingPartsList.size() == 1);
+            final var satisfyingOrderingParts = satisfyingOrderingPartsList.get(0);
+            final var comparisonKeyValuesOptional = comparisonKey(commonPrimaryKeyParts,
+                    equalityBoundKeyParts,
+                    satisfyingOrderingParts.stream()
+                            .filter(part -> !equalityBoundKeyParts.contains(part))
+                            .collect(ImmutableList.toImmutableList()));
 
             if (comparisonKeyValuesOptional.isEmpty()) {
                 continue;

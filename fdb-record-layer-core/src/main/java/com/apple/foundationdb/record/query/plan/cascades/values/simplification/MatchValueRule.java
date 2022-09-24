@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,7 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<List<Value>, Map<Value, Function<Value, Value>>, Value> {
+public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 
@@ -55,7 +54,7 @@ public class MatchValueRule extends ValueComputationRule<List<Value>, Map<Value,
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<List<Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
 

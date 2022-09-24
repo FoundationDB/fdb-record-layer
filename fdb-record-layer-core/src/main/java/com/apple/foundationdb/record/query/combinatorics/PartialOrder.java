@@ -24,10 +24,13 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.Dependen
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -81,6 +84,10 @@ public class PartialOrder<T> {
         return set;
     }
 
+    public boolean isEmpty() {
+        return getSet().isEmpty();
+    }
+
     @Nonnull
     public ImmutableSetMultimap<T, T> getDependencyMap() {
         return dependencyMap;
@@ -91,7 +98,7 @@ public class PartialOrder<T> {
         return transitiveClosureSupplier.get();
     }
 
-    int size() {
+    public int size() {
         return set.size();
     }
 
@@ -119,7 +126,52 @@ public class PartialOrder<T> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getSet(), getDependencyMap());
+        return Objects.hash(getSet(), getTransitiveClosure());
+    }
+    
+    @Nonnull
+    public <R> PartialOrder<R> mapEach(@Nonnull final Function<T, R> mapFunction) {
+        final var resultMapBuilder = ImmutableBiMap.<T, R>builder();
+        for (final var element : getSet()) {
+            resultMapBuilder.put(element, mapFunction.apply(element));
+        }
+        final var elementsToMappedElementsMap = resultMapBuilder.build();
+
+        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
+        for (final var entry : getTransitiveClosure().entries()) {
+            final var key = entry.getKey();
+            final var value = entry.getValue();
+            Verify.verify(elementsToMappedElementsMap.containsKey(key));
+            Verify.verify(elementsToMappedElementsMap.containsKey(value));
+            resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
+        }
+
+        return PartialOrder.of(elementsToMappedElementsMap.values(), resultDependencyMapBuilder.build());
+    }
+
+    @Nonnull
+    public <R> PartialOrder<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
+        final var elements = getSet();
+        final var elementsToMappedElementsMap = mapFunction.apply(elements);
+
+        final var mappedElements = Sets.newLinkedHashSet(elementsToMappedElementsMap.values());
+
+        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
+        for (final var entry : getTransitiveClosure().entries()) {
+            final var key = entry.getKey();
+            final var value = entry.getValue();
+
+            if (elementsToMappedElementsMap.containsKey(key) && elementsToMappedElementsMap.containsKey(value)) {
+                resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
+            } else {
+                if (!elementsToMappedElementsMap.containsKey(value)) {
+                    // key depends on value that does not exist -- do not insert the dependency and also remove key
+                    mappedElements.remove(key);
+                }
+            }
+        }
+
+        return PartialOrder.of(mappedElements, resultDependencyMapBuilder.build());
     }
 
     @Nonnull
@@ -137,7 +189,7 @@ public class PartialOrder<T> {
      * the caller can remove elements from the set of currently eligible elements, thus creating a new,
      * albeit smaller in cardinality, partial order.
      *
-     * By repeatedly removing elements, a caller can consumer the entire partial order in a well-defined way. This
+     * By repeatedly removing elements, a caller can consume the entire partial order in a well-defined way. This
      * concept of iteration is a little more complex than the standard Java {@link java.util.Iterator} approach,
      * as the next step of the iteration is defined by removing a particular subset of elements that is determined
      * by the caller.

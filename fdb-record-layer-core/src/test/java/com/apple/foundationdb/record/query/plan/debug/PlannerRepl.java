@@ -137,6 +137,12 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
+    public boolean isSane() {
+        // run all sanity checks
+        return false;
+    }
+
+    @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
         return getCurrentState().getIndex(clazz);
     }

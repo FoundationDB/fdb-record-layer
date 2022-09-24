@@ -170,20 +170,20 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         for (final var planPartition : planPartitions) {
             for (final var requestedOrdering : requestedOrderings) {
                 final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-                final var matchingKeyExpressionsBuilder = ImmutableSet.<Value>builder();
+                final var equalityBoundValuesBuilder = ImmutableSet.<Value>builder();
                 for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
                     final var comparison = expressionComparisonEntry.getValue();
                     if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
                         final var parameterComparison = (Comparisons.ParameterComparison)comparison;
                         if (parameterComparison.isCorrelation() && explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                            matchingKeyExpressionsBuilder.add(expressionComparisonEntry.getKey());
+                            equalityBoundValuesBuilder.add(expressionComparisonEntry.getKey());
                         }
                     }
                 }
 
                 // Compute a comparison key that satisfies the requested ordering
                 final Optional<Ordering> combinedOrderingOptional =
-                        orderingForInUnion(providedOrdering, requestedOrdering, matchingKeyExpressionsBuilder.build());
+                        orderingForInUnion(providedOrdering, requestedOrdering, equalityBoundValuesBuilder.build());
                 if (combinedOrderingOptional.isEmpty()) {
                     continue;
                 }
@@ -231,7 +231,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
     private static Optional<Ordering> orderingForInUnion(@Nonnull final Ordering providedOrdering,
                                                          @Nonnull final RequestedOrdering requestedOrdering,
-                                                         @Nonnull final Set<Value> innerBoundExpressions) {
+                                                         @Nonnull final Set<Value> innerEqualityBoundValues) {
         final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
 
@@ -247,8 +247,8 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
             }
 
             if (toBeAdded == null) {
-                final var requestedKeyExpression = requestedKeyPart.getValue();
-                if (innerBoundExpressions.contains(requestedKeyExpression)) {
+                final var requestedKeyValue = requestedKeyPart.getValue();
+                if (innerEqualityBoundValues.contains(requestedKeyValue)) {
                     toBeAdded = requestedKeyPart;
                 }
             }
@@ -275,7 +275,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
-        innerBoundExpressions.forEach(resultEqualityBoundKeyMap::removeAll);
+        innerEqualityBoundValues.forEach(resultEqualityBoundKeyMap::removeAll);
 
         return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build(), providedOrdering.isDistinct()));
     }
