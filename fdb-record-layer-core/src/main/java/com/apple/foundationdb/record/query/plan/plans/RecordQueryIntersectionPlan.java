@@ -265,9 +265,9 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     @Nonnull
     public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                      @Nonnull final List<? extends Value> comparisonKeyValue) {
+                                                                      @Nonnull final List<? extends Value> comparisonKeyValues) {
         return RecordQueryIntersectionOnValuesPlan.intersection(quantifiers,
-                comparisonKeyValue,
+                comparisonKeyValues,
                 Quantifiers.isReversed(quantifiers));
     }
 

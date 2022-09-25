@@ -192,7 +192,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 }
 
                 if (merge.size() == orderings.size()) {
-                    final var orderingWithoutEqualityBoundKeys = merge.get(merge.size() - 1).getKey().withoutEqualityBoundKeys();
+                    final var mergedOrdering = merge.get(merge.size() - 1).getKey();
 
                     //
                     // create new quantifiers
@@ -204,19 +204,14 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                             .map(Quantifier::physical)
                             .collect(ImmutableList.toImmutableList());
 
-                    final var enumeratedOrderingKeyPartsIterable =
-                            orderingWithoutEqualityBoundKeys.satisfiesRequestedOrdering(requestedOrdering);
+                    final var enumeratedSatisfyingComparisonKeyValues =
+                            mergedOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
 
-                    for (final var enumeratedOrderingKeys : enumeratedOrderingKeyPartsIterable) {
-                        final var orderingKeyValues =
-                                enumeratedOrderingKeys
-                                        .stream()
-                                        .map(KeyPart::getValue)
-                                        .collect(ImmutableList.toImmutableList());
+                    for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, orderingKeyValues, true)));
+                        call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true)));
                     }
                 }
             }
@@ -229,14 +224,8 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                        @Nonnull final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
         for (final var providedOrdering : providedOrderings) {
-            for (final var orderingKeyParts : providedOrdering.satisfiesRequestedOrdering(requestedOrdering)) {
-                final var innerRequestedOrdering =
-                        new RequestedOrdering(orderingKeyParts,
-                                providedOrdering.isDistinct()
-                                ? RequestedOrdering.Distinctness.DISTINCT
-                                : RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
-                call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, ImmutableSet.of(innerRequestedOrdering));
-            }
+            final var requestedOrderings = providedOrdering.deriveRequestedOrderings(requestedOrdering);
+            call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, requestedOrderings);
         }
     }
 

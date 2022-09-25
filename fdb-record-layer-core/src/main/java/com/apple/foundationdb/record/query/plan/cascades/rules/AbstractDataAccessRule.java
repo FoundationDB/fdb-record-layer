@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
@@ -47,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalInte
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +64,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
@@ -425,7 +426,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
-     * @param commonPrimaryKeyParts normalized common primary key
+     * @param commonPrimaryKeyValues normalized common primary key
      * @param matchToExpressionMap a map from match to single data access expression
      * @param partition a partition (i.e. a list of {@link PartialMatch}es that the caller would like to compute
      *        and intersected data access for
@@ -434,7 +435,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
      */
     @Nonnull
-    private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<Value> commonPrimaryKeyParts,
+    private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<Value> commonPrimaryKeyValues,
                                                                                 @Nonnull final Map<PartialMatch, RelationalExpression> matchToExpressionMap,
                                                                                 @Nonnull final List<PartialMatchWithCompensation> partition,
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
@@ -447,56 +448,49 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .map(MatchInfo::getOrderingKeyParts)
                 .collect(ImmutableList.toImmutableList());
 
-        final var orderingPartialOrder = intersectionOrdering(partitionOrderings);
-
-        final ImmutableSet<BoundKeyPart> equalityBoundKeyParts =
+        final var equalityBoundKeyValues =
                 partitionOrderings
                         .stream()
                         .flatMap(orderingKeyParts ->
                                 orderingKeyParts.stream()
-                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY))
+                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
+                                        .map(BoundKeyPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
+        final var orderingPartialOrder = intersectionOrderingPartialOrder(partitionOrderings);
+
         for (final var requestedOrdering : requestedOrderings) {
-            final var satisfyingOrderingPartsList =
-                    ImmutableList.copyOf(Ordering.satisfyingKeyPartsOrdering(orderingPartialOrder,
-                            requestedOrdering.getOrderingKeyParts(),
-                            BoundKeyPart::getKeyPart));
-            if (satisfyingOrderingPartsList.isEmpty()) {
-                continue;
-            }
-            Verify.verify(satisfyingOrderingPartsList.size() == 1);
-            final var satisfyingOrderingParts = satisfyingOrderingPartsList.get(0);
-            final var comparisonKeyValuesOptional = comparisonKey(commonPrimaryKeyParts,
-                    equalityBoundKeyParts,
-                    satisfyingOrderingParts.stream()
-                            .filter(part -> !equalityBoundKeyParts.contains(part))
-                            .collect(ImmutableList.toImmutableList()));
+            final var comparisonKeyValuesIterable =
+                    Ordering.enumerateSatisfyingOrderingComparisonKeyValues(orderingPartialOrder,
+                            equalityBoundKeyValues,
+                            requestedOrdering.getOrderingKeyParts());
+            for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
+                if (!isCompatibleComparisonKey(comparisonKeyValues,
+                        commonPrimaryKeyValues,
+                        equalityBoundKeyValues)) {
+                    continue;
+                }
 
-            if (comparisonKeyValuesOptional.isEmpty()) {
-                continue;
-            }
-            final var comparisonKeyValues = comparisonKeyValuesOptional.get();
+                final var compensation =
+                        partition
+                                .stream()
+                                .map(PartialMatchWithCompensation::getCompensation)
+                                .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
-            final var compensation =
-                    partition
-                            .stream()
-                            .map(PartialMatchWithCompensation::getCompensation)
-                            .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
+                final var scans =
+                        partition
+                                .stream()
+                                .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch.getPartialMatch())))
+                                .collect(ImmutableList.toImmutableList());
 
-            final var scans =
-                    partition
-                            .stream()
-                            .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch.getPartialMatch())))
-                            .collect(ImmutableList.toImmutableList());
-
-            if (!compensation.isImpossible()) {
-                final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKeyValues);
-                final var compensatedIntersection =
-                        compensation.isNeeded()
-                        ? compensation.apply(logicalIntersectionExpression)
-                        : logicalIntersectionExpression;
-                expressionsBuilder.add(compensatedIntersection);
+                if (!compensation.isImpossible()) {
+                    final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, ImmutableList.copyOf(comparisonKeyValues));
+                    final var compensatedIntersection =
+                            compensation.isNeeded()
+                            ? compensation.apply(logicalIntersectionExpression)
+                            : logicalIntersectionExpression;
+                    expressionsBuilder.add(compensatedIntersection);
+                }
             }
         }
 
@@ -507,23 +501,32 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * Private helper method that computes the ordering of the intersection using matches and the common primary key
      * of the data source.
      * @param partitionOrderings partition we would like to intersect
-     * @return a {@link PartialOrder}  of {@link BoundKeyPart} representing a common intersection ordering.
+     * @return a {@link PartialOrder}  of {@link KeyPart}s representing a common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static PartialOrder<BoundKeyPart> intersectionOrdering(@Nonnull final List<List<BoundKeyPart>> partitionOrderings) {
+    private static PartialOrder<KeyPart> intersectionOrderingPartialOrder(@Nonnull final List<List<BoundKeyPart>> partitionOrderings) {
 
         final var orderingPartialOrders =
                 partitionOrderings.stream()
                         .map(boundKeyParts -> {
-                            final var orderingKeyParts =
+                            final var boundKeyPartsPartitions =
                                     boundKeyParts.stream()
+                                            .collect(Collectors.partitioningBy(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY));
+
+                            final var equalityBoundKeyParts = boundKeyPartsPartitions.get(true).stream()
+                                    .map(BoundKeyPart::getKeyPart)
+                                    .collect(ImmutableSet.toImmutableSet());
+                            final var orderingKeyParts =
+                                    boundKeyPartsPartitions.get(false)
+                                            .stream()
                                             .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY)
+                                            .map(BoundKeyPart::getKeyPart)
                                             .collect(ImmutableList.toImmutableList());
 
-                            return PartialOrder.<BoundKeyPart>builder()
+                            return PartialOrder.<KeyPart>builder()
                                     .addListWithDependencies(orderingKeyParts)
-                                    .addAll(boundKeyParts)
+                                    .addAll(equalityBoundKeyParts)
                                     .build();
                         })
                         .collect(ImmutableList.toImmutableList());
@@ -532,44 +535,25 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     /**
-     * Private helper method to compute a {@link Value} representing a comparison key based upon a primary key and
-     * ordering information coming from a match in form of a list of {@link BoundKeyPart}.
-     * @param commonPrimaryKeyParts common primary key
-     * @param equalityBoundKeyParts  a set of equality-bound key parts
-     * @param indexOrderingParts alist of {@link BoundKeyPart}s
-     * @return a newly constructed list of {@link Value}s that is used for the comparison key of the intersection
-     *         expression
+     * Private helper method to verify that a list of {@link Value}s can be used as a comparison key.
+     * ordering information coming from a match in form of a list of {@link Value}s.
+     * @param comparisonKeyValues a list of {@link Value}s
+     * @param commonPrimaryKeyValues common primary key
+     * @param equalityBoundKeyValues  a set of equality-bound key parts
+     * @return a boolean that indicates if the list of values passed in can be used as comparison key
      */
-    @Nonnull
-    private static Optional<List<? extends Value>> comparisonKey(@Nonnull List<Value> commonPrimaryKeyParts,
-                                                                 @Nonnull ImmutableSet<BoundKeyPart> equalityBoundKeyParts,
-                                                                 @Nonnull List<BoundKeyPart> indexOrderingParts) {
-        final var equalityBoundPartsSet = equalityBoundKeyParts.stream()
-                .map(BoundKeyPart::getValue)
-                .collect(ImmutableSet.toImmutableSet());
-
-        final var indexOrderingPartsSet = indexOrderingParts.stream()
-                .map(BoundKeyPart::getValue)
-                .collect(ImmutableSet.toImmutableSet());
-
-        final var allCommonPrimaryKeyPartsInIndexParts =
-                commonPrimaryKeyParts
-                        .stream()
-                        .filter(commonPrimaryKeyPart -> !equalityBoundPartsSet.contains(commonPrimaryKeyPart))
-                        .allMatch(indexOrderingPartsSet::contains);
-
-        if (!allCommonPrimaryKeyPartsInIndexParts) {
-            return Optional.empty();
+    private static boolean isCompatibleComparisonKey(@Nonnull Set<Value> comparisonKeyValues,
+                                                     @Nonnull List<Value> commonPrimaryKeyValues,
+                                                     @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
+        if (comparisonKeyValues.isEmpty()) {
+            // everything is in one row
+            return true;
         }
 
-        if (indexOrderingParts.isEmpty()) {
-            return Optional.of(ImmutableList.of(LiteralValue.ofScalar(true)));
-        }
-
-        return Optional.of(
-                indexOrderingParts.stream()
-                        .map(BoundKeyPart::getValue)
-                        .collect(ImmutableList.toImmutableList()));
+        return commonPrimaryKeyValues
+                .stream()
+                .filter(commonPrimaryKeyValue -> !equalityBoundKeyValues.contains(commonPrimaryKeyValue))
+                .allMatch(comparisonKeyValues::contains);
     }
 
     private static class PartialMatchWithCompensation {

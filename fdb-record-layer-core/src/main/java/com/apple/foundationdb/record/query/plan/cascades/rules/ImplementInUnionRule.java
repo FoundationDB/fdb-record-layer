@@ -26,13 +26,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -49,17 +47,14 @@ import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -168,8 +163,22 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
         for (final var planPartition : planPartitions) {
+            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var filteredEqualityBoundKeyMap =
+                    Multimaps.filterEntries(providedOrdering.getEqualityBoundKeyMap(),
+                            expressionComparisonEntry -> {
+                                final var comparison = expressionComparisonEntry.getValue();
+                                if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
+                                    return true;
+                                }
+                                final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+                                return !parameterComparison.isCorrelation() ||
+                                       !explodeAliases.containsAll(parameterComparison.getCorrelatedTo());
+                            });
+            final var inUnionOrdering =
+                    Ordering.ofUnnormalized(filteredEqualityBoundKeyMap, providedOrdering.getOrderingSet(), providedOrdering.isDistinct());
+
             for (final var requestedOrdering : requestedOrderings) {
-                final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
                 final var equalityBoundValuesBuilder = ImmutableSet.<Value>builder();
                 for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
                     final var comparison = expressionComparisonEntry.getValue();
@@ -181,33 +190,19 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     }
                 }
 
-                // Compute a comparison key that satisfies the requested ordering
-                final Optional<Ordering> combinedOrderingOptional =
-                        orderingForInUnion(providedOrdering, requestedOrdering, equalityBoundValuesBuilder.build());
-                if (combinedOrderingOptional.isEmpty()) {
-                    continue;
+                for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
+                    //
+                    // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
+                    //
+                    final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
+                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
+                    call.yield(GroupExpressionRef.of(
+                            RecordQueryInUnionPlan.from(newInnerQuantifier,
+                                    inSources,
+                                    ImmutableList.copyOf(satisfyingComparisonKeyValues),
+                                    attemptFailedInJoinAsUnionMaxSize,
+                                    CORRELATION)));
                 }
-
-                final Ordering combinedOrdering = combinedOrderingOptional.get();
-                final List<KeyPart> orderingKeyParts = combinedOrdering.getOrderingKeyParts();
-
-                final List<Value> orderingKeyValues =
-                        orderingKeyParts
-                                .stream()
-                                .map(KeyPart::getValue)
-                                .collect(ImmutableList.toImmutableList());
-
-                //
-                // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
-                //
-                final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
-                final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
-                call.yield(GroupExpressionRef.of(
-                        RecordQueryInUnionPlan.from(newInnerQuantifier,
-                                inSources,
-                                orderingKeyValues,
-                                attemptFailedInJoinAsUnionMaxSize,
-                                CORRELATION)));
             }
         }
     }
@@ -227,56 +222,5 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
             }
         }
         return resultMap;
-    }
-
-    private static Optional<Ordering> orderingForInUnion(@Nonnull final Ordering providedOrdering,
-                                                         @Nonnull final RequestedOrdering requestedOrdering,
-                                                         @Nonnull final Set<Value> innerEqualityBoundValues) {
-        final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
-        final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
-
-        for (final var requestedKeyPart : requestedOrdering.getOrderingKeyParts()) {
-            KeyPart toBeAdded = null;
-            if (providedKeyPartIterator.hasNext()) {
-                final var providedKeyPart = providedKeyPartIterator.peek();
-
-                if (requestedKeyPart.equals(providedKeyPart)) {
-                    toBeAdded = providedKeyPart;
-                    providedKeyPartIterator.next();
-                }
-            }
-
-            if (toBeAdded == null) {
-                final var requestedKeyValue = requestedKeyPart.getValue();
-                if (innerEqualityBoundValues.contains(requestedKeyValue)) {
-                    toBeAdded = requestedKeyPart;
-                }
-            }
-
-            if (toBeAdded != null) {
-                resultingOrderingKeyPartBuilder.add(toBeAdded);
-            } else {
-                return Optional.empty();
-            }
-        }
-
-        //
-        // Skip all inner bound expressions that are still available. We could potentially add them here, however,
-        // doing so will be adverse to any hopes of getting an in-join planned as the provided orderings for IN-JOIN
-        // and IN-UNION should be compatible if possible when created in their respective Implement... rules.
-        //
-
-        //
-        // For all provided parts that are left-overs.
-        //
-        while (providedKeyPartIterator.hasNext()) {
-            final var providedKeyPart = providedKeyPartIterator.next();
-            resultingOrderingKeyPartBuilder.add(providedKeyPart);
-        }
-
-        final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
-        innerEqualityBoundValues.forEach(resultEqualityBoundKeyMap::removeAll);
-
-        return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build(), providedOrdering.isDistinct()));
     }
 }

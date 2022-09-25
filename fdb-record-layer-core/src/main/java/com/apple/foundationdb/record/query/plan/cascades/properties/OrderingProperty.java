@@ -75,10 +75,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BinaryOperator;
@@ -254,26 +256,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var inSource = inJoinPlan.getInSource();
             final var inAlias = inJoinPlan.getInAlias();
 
-            final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundKeyMap =
-                    HashMultimap.create(equalityBoundKeyMap);
-            Value inValue = null;
-            for (final var entry : equalityBoundKeyMap.entries()) {
-                // TODO we only look for the first entry that matches. That is enough for the in-to-join case,
-                //      however, it is possible that more than one different key expressions are equality-bound
-                //      by this in. That would constitute to more than one concurrent order which we cannot
-                //      express at the moment (we need the PartialOrder approach for that).
-                final var comparison = entry.getValue();
-                final var correlatedTo = comparison.getCorrelatedTo();
-                if (correlatedTo.size() != 1) {
-                    continue;
-                }
+            final Value inValue = findValueForIn(equalityBoundKeyMap, inAlias);
 
-                if (inAlias.equals(Iterables.getOnlyElement(correlatedTo))) {
-                    inValue = entry.getKey();
-                    resultEqualityBoundKeyMap.removeAll(inValue);
-                    break;
-                }
-            }
+            final var resultEqualityBoundKeyMap =
+                    inValue != null
+                    ? Multimaps.filterKeys(equalityBoundKeyMap, value -> !value.equals(inValue))
+                    : equalityBoundKeyMap;
 
             if (inValue == null || !inSource.isSorted()) {
                 //
@@ -289,7 +277,34 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     .build();
             final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
 
-            return Ordering.concatOrderings(outerOrdering, innerOrdering, (l, r) -> resultEqualityBoundKeyMap);
+            final var filteredInnerOrderingSet =
+                    innerOrdering.getOrderingSet()
+                            .filterIndependentElements(keyPart -> !inValue.equals(keyPart.getValue()));
+            final var filteredInnerOrdering = new Ordering(resultEqualityBoundKeyMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+
+            return Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultEqualityBoundKeyMap);
+        }
+
+        @Nullable
+        private static Value findValueForIn(final SetMultimap<Value, Comparisons.Comparison> equalityBoundKeyMap, final CorrelationIdentifier inAlias) {
+            Value inValue = null;
+            for (final var entry : equalityBoundKeyMap.entries()) {
+                // TODO we only look for the first entry that matches. That is enough for the in-to-join case,
+                //      however, it is possible that more than one different key expressions are equality-bound
+                //      by this in. That would constitute to more than one concurrent order which we cannot
+                //      express at the moment (we need the PartialOrder approach for that).
+                final var comparison = entry.getValue();
+                final var correlatedTo = comparison.getCorrelatedTo();
+                if (correlatedTo.size() != 1) {
+                    continue;
+                }
+
+                if (inAlias.equals(Iterables.getOnlyElement(correlatedTo))) {
+                    inValue = entry.getKey();
+                    break;
+                }
+            }
+            return inValue;
         }
 
         @Nonnull

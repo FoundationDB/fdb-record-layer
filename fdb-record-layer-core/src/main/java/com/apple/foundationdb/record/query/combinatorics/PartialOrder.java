@@ -39,7 +39,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A class to represent partially ordered set of elements of some type. A partially ordered set or partial order over
@@ -128,7 +130,15 @@ public class PartialOrder<T> {
     public int hashCode() {
         return Objects.hash(getSet(), getTransitiveClosure());
     }
-    
+
+    @Override
+    public String toString() {
+        return "{" +
+               set.stream().map(Object::toString).collect(Collectors.joining(", ")) +
+               (dependencyMap.isEmpty() ? "" : "| " + dependencyMap.entries().stream().map(entry -> entry.getValue() + "←" + entry.getKey()).collect(Collectors.joining(", "))) +
+               "}";
+    }
+
     @Nonnull
     public <R> PartialOrder<R> mapEach(@Nonnull final Function<T, R> mapFunction) {
         final var resultMapBuilder = ImmutableBiMap.<T, R>builder();
@@ -172,6 +182,21 @@ public class PartialOrder<T> {
         }
 
         return PartialOrder.of(mappedElements, resultDependencyMapBuilder.build());
+    }
+
+    /**
+     * Method that computes a new partially-ordered set that does not have any independent elements, i.e. elements
+     * that do not use exert dependencies and that are not dependent upon any other items.
+     * @param retainIfPredicate a predicate that can decide whether an independent element is removed or retained
+     * @return a new {@link PartialOrder}
+     */
+    @Nonnull
+    public PartialOrder<T> filterIndependentElements(@Nonnull final Predicate<T> retainIfPredicate) {
+        final var filteredOrderingKeyParts =
+                set.stream()
+                        .filter(element -> dependencyMap.containsKey(element) || dependencyMap.containsValue(element) || retainIfPredicate.test(element))
+                        .collect(ImmutableSet.toImmutableSet());
+        return PartialOrder.of(filteredOrderingKeyParts, getDependencyMap());
     }
 
     @Nonnull

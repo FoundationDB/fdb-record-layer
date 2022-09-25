@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -42,8 +40,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -77,12 +73,11 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var groupingValue = groupByExpression.getGroupingValue();
         final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
 
-        final var requiredOrderingKeyParts =
+        final var requiredOrderingKeyValues =
                 currentGroupingValue == null || currentGroupingValue.isConstant()
                 ? null
                 : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                         .stream()
-                        .map(orderingValue -> KeyPart.of(orderingValue, false))
                         .collect(ImmutableSet.toImmutableSet());
 
         final var innerReference = innerQuantifier.getRangesOver();
@@ -90,21 +85,10 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            if (requiredOrderingKeyParts == null || satisfiesOrderingKeyParts(providedOrdering, requiredOrderingKeyParts)) {
+            if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
                 call.yield(implementGroupBy(planPartition, groupByExpression));
             }
         }
-    }
-
-    private boolean satisfiesOrderingKeyParts(@Nonnull final Ordering providedOrdering, @Nonnull final Set<KeyPart> requiredOrderingKeyParts) {
-        final var remainingRequiredOrderingValues = requiredOrderingKeyParts.stream()
-                .map(KeyPart::getValue)
-                .collect(Collectors.toSet());
-        providedOrdering.getOrderingKeyParts()
-                .forEach(providedOrderingKeyPart -> remainingRequiredOrderingValues.remove(providedOrderingKeyPart.getValue()));
-        providedOrdering.getEqualityBoundKeys()
-                .forEach(remainingRequiredOrderingValues::remove);
-        return remainingRequiredOrderingValues.isEmpty();
     }
 
     @Nonnull

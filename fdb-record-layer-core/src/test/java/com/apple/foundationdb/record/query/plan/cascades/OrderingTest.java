@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import org.junit.jupiter.api.Assertions;
+import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -54,7 +54,7 @@ class OrderingTest {
                         ImmutableList.of(a, c),
                         false);
 
-        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.satisfiesRequestedOrdering(requestedOrdering));
+        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.enumerateSatisfyingOrderings(requestedOrdering));
         assertEquals(1, satisfyingOrderings.size());
 
         final var satisfyingOrdering = satisfyingOrderings.get(0);
@@ -76,7 +76,7 @@ class OrderingTest {
                         ImmutableList.of(c),
                         false);
 
-        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.satisfiesRequestedOrdering(requestedOrdering));
+        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.enumerateSatisfyingOrderings(requestedOrdering));
         assertEquals(1, satisfyingOrderings.size());
 
         final var satisfyingOrdering = satisfyingOrderings.get(0);
@@ -207,18 +207,17 @@ class OrderingTest {
                 ImmutableList.of(a, b, c),
                 false);
 
+        final var mergedOrdering =
+                Ordering.mergeOrderings(ImmutableList.of(one, two, three, four), Ordering::intersectEqualityBoundKeys, false);
+
         final var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, c),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var commonOrderingKeysOptional =
-                Ordering.commonOrderingKeys(
-                        ImmutableList.of(one, two, three, four),
-                        requestedOrdering);
-
-        commonOrderingKeysOptional
-                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, b, c, d), commonOrderingKeys),
-                        Assertions::fail);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var onlySatisfyingOrdering =
+                Iterables.getOnlyElement(satisfyingOrderingsIterable);
+        assertEquals(ImmutableList.of(a, b, c, d), onlySatisfyingOrdering);
     }
 
     @Test
@@ -238,18 +237,18 @@ class OrderingTest {
                 ImmutableList.of(a, c, x),
                 false);
 
+        final var mergedOrdering =
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+
         var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, c, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        var commonOrderingKeysOptional =
-                Ordering.commonOrderingKeys(
-                        ImmutableList.of(one, two),
-                        requestedOrdering);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var onlySatisfyingOrdering =
+                Iterables.getOnlyElement(satisfyingOrderingsIterable);
 
-        commonOrderingKeysOptional
-                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, b, c, x), commonOrderingKeys),
-                        Assertions::fail);
+        assertEquals(ImmutableList.of(a, b, c, x), onlySatisfyingOrdering);
     }
 
     @Test
@@ -269,18 +268,18 @@ class OrderingTest {
                 ImmutableList.of(a, c, x),
                 false);
 
+        final var mergedOrdering =
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+
         final var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, c, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var commonOrderingKeysOptional =
-                Ordering.commonOrderingKeys(
-                        ImmutableList.of(one, two),
-                        requestedOrdering);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var onlySatisfyingOrdering =
+                Iterables.getOnlyElement(satisfyingOrderingsIterable);
 
-        commonOrderingKeysOptional
-                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, c, b, x), commonOrderingKeys),
-                        Assertions::fail);
+        assertEquals(ImmutableList.of(a, c, b, x), onlySatisfyingOrdering);
     }
 
     @Test
@@ -300,16 +299,14 @@ class OrderingTest {
                 ImmutableList.of(a, c, x),
                 false);
 
+        final var mergedOrdering =
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+
         var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var commonOrderingKeysOptional =
-                Ordering.commonOrderingKeys(
-                        ImmutableList.of(one, two),
-                        requestedOrdering);
-
-        assertFalse(commonOrderingKeysOptional.isPresent());
+        assertFalse(mergedOrdering.satisfies(requestedOrdering));
     }
 
     @Nonnull

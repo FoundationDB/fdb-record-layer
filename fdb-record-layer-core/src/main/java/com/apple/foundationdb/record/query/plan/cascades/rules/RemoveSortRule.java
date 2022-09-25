@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -40,8 +40,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -87,31 +85,25 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         final var ordering = innerPlanPartition.getAttributeValue(OrderingProperty.ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundKeys();
         int equalityBoundUnsorted = equalityBoundKeys.size();
-        final List<KeyPart> orderingKeys = ordering.getOrderingKeyParts();
-        final Iterator<KeyPart> orderingKeysIterator = orderingKeys.iterator();
 
         for (final var sortValue : sortValues) {
             if (equalityBoundKeys.contains(sortValue)) {
-                equalityBoundUnsorted--;
-                continue;
+                equalityBoundUnsorted --;
             }
-            if (!orderingKeysIterator.hasNext()) {
-                return;
-            }
+        }
 
-            final KeyPart currentOrderingKeyPart = orderingKeysIterator.next();
+        final boolean isSatisfyingOrdering =
+                ordering.satisfies(
+                        RequestedOrdering.fromSortValues(sortValues, sortExpression.isReverse(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
 
-            if (!sortValue.equals(currentOrderingKeyPart.getValue())) {
-                return;
-            }
+        if (!isSatisfyingOrdering) {
+            return;
         }
 
         final var resultExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
-                    // If we have exhausted the ordering info's keys, too, then its constituents are strictly ordered.
-                    !orderingKeysIterator.hasNext() ||
                     // Also a unique index if have gone through declared fields.
                     strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
 

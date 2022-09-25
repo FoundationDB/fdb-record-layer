@@ -110,7 +110,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Override
     public String toString() {
-        return "$" + alias;
+        return alias.equals(Quantifier.CURRENT) ? "_" : "$" + alias;
     }
 
     @Override

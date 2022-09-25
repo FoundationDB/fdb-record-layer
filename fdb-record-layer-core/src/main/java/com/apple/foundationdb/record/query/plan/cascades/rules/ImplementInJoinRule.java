@@ -261,15 +261,22 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // All available explode aliases have been depleted. Create an ordering and check against the requested
             // ordering.
             //
+            final var outerOrderingKeyParts = outerOrderingKeyPartsBuilder.build();
+            final var outerOrderingKeyValues = outerOrderingKeyParts.stream().map(KeyPart::getValue).collect(ImmutableSet.toImmutableSet());
             final var outerOrderingSet =
                     PartialOrder.<KeyPart>builder()
-                            .addListWithDependencies(outerOrderingKeyPartsBuilder.build())
+                            .addListWithDependencies(outerOrderingKeyParts)
                             .build();
             final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
-            final var resultOrdering = Ordering.concatOrderings(outerOrdering, innerOrdering, (l, r) -> resultOrderingEqualityBoundKeyMap);
-            return Iterables.isEmpty(resultOrdering.satisfiesRequestedOrdering(requestedOrdering))
-                   ? ImmutableList.of()
-                   : sourcesBuilder.build();
+
+            final var filteredInnerOrderingSet =
+                    innerOrdering.getOrderingSet()
+                            .filterIndependentElements(keyPart -> !outerOrderingKeyValues.contains(keyPart.getValue()));
+            final var filteredInnerOrdering = new Ordering(resultOrderingEqualityBoundKeyMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+            final var resultOrdering = Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultOrderingEqualityBoundKeyMap);
+            return resultOrdering.satisfies(requestedOrdering)
+                   ? sourcesBuilder.build()
+                   : ImmutableList.of();
         } else {
             //
             // We may still have some explodes available that we don't have a particular order requirement for.
