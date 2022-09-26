@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsNestedAsRecord;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -72,6 +75,21 @@ public class KeyExpressionExpansionVisitorTest extends FDBRecordStoreQueryTestBa
         Assertions.assertNotNull(plan);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void generateMatchIndexFromGroupingKeyExpression2() throws Exception {
+        setupHookAndAddData2(true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                this::constructSimpleSelect2,
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+        Assertions.assertNotNull(plan);
+        //MetaDataPlanContext.forRootReference()
+
+    }
+
     @Nonnull
     private GroupExpressionRef<RelationalExpression> constructSimpleSelect() {
         final var cascadesPlanner = (CascadesPlanner)planner;
@@ -81,6 +99,18 @@ public class KeyExpressionExpansionVisitorTest extends FDBRecordStoreQueryTestBa
         qun = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"), qun, Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
         final var num3Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
         final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(Column.unnamedOf(num3Value))).build().buildSelect();
+        return GroupExpressionRef.of(result);
+    }
+
+    @Nonnull
+    private GroupExpressionRef<RelationalExpression> constructSimpleSelect2() {
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var allRecordTypes = ImmutableSet.of("OuterRecord", "InnerRecord", "OtherRecord");
+        var qun = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)), new AccessHints())));
+        qun = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(ImmutableSet.of("OuterRecord"), qun, Type.Record.fromDescriptor(TestRecordsNestedAsRecord.OuterRecord.getDescriptor()))));
+        final var recNoField = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
+        final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(Column.unnamedOf(recNoField))).build().buildSelect();
         return GroupExpressionRef.of(result);
     }
 
@@ -181,6 +211,42 @@ public class KeyExpressionExpansionVisitorTest extends FDBRecordStoreQueryTestBa
             */
             for (int i = 0; i < 10; ++i) {
                 rec.setRecNo(i).setNumValue3Indexed(i % 5);
+                recordStore.saveRecord(rec.build());
+            }
+            commit(context);
+        }
+    }
+
+    protected void setupHookAndAddData2(boolean addIndex) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsNestedAsRecord.getDescriptor());
+            metaDataBuilder.getRecordType("OuterRecord").setPrimaryKey(field("rec_no"));
+            metaDataBuilder.getRecordType("InnerRecord").setPrimaryKey(field("rec_no"));
+            createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+            if (addIndex) {
+                metaDataBuilder.addIndex("OuterRecord", new Index("sumIdx", field("rec_no").groupBy(field("inner").nest(field("rec_no")), field("inner").nest(field("other_field"))), IndexTypes.SUM));
+            }
+
+            var rec = TestRecordsNestedAsRecord.OuterRecord.newBuilder();
+            /*
+                 0 -> 0
+                 1 -> 1
+                 2 -> 2
+                 3 -> 3
+                 4 -> 4
+                 5 -> 0
+                 6 -> 1
+                 7 -> 2
+                 8 -> 3
+                 9 -> 4
+                 0 -> {0, 5} = 5
+                 1 -> {1, 6} = 7
+                 2 -> {2, 7} = 9
+                 3 -> {3, 8} = 11
+                 4 -> {4, 9} = 13
+            */
+            for (int i = 0; i < 10; ++i) {
+                rec.setRecNo(i).setInner(TestRecordsNestedAsRecord.OuterRecord.InnerRecord.newBuilder().setRecNo(i % 5).build());
                 recordStore.saveRecord(rec.build());
             }
             commit(context);

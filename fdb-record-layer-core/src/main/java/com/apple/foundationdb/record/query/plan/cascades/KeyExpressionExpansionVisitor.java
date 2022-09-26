@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -43,7 +42,6 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Expansion visitor that implements the shared logic between primary scan data access and value index access.
@@ -148,9 +146,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
-                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.of(Type.Record.Field.of(value.getResultType(), Optional.of(fieldName), Optional.empty()), value), predicate);
+                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
                 }
-                return GraphExpansion.ofResultColumn(Column.of(Type.Record.Field.of(value.getResultType(), Optional.of(fieldName), Optional.empty()), value));
+                return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
             case Concatenate: // TODO collect/concatenate function
             default:
         }
