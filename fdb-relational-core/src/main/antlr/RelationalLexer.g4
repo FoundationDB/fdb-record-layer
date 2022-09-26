@@ -610,7 +610,6 @@ QUERY:                               'QUERY';
 QUICK:                               'QUICK';
 REBUILD:                             'REBUILD';
 RECOVER:                             'RECOVER';
-RECORD:                              'RECORD';
 REDO_BUFFER_SIZE:                    'REDO_BUFFER_SIZE';
 REDUNDANT:                           'REDUNDANT';
 RELAY:                               'RELAY';

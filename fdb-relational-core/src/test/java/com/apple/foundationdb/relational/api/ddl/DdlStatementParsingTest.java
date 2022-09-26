@@ -264,7 +264,7 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
-        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", PRIMARY KEY(RECORD TYPE))");
+        final String baseTableDef = makeColumnDefinition(columns, false).replace(")", ", SINGLE ROW ONLY)");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE TABLE FOO " + baseTableDef
         ;
