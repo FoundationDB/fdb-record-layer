@@ -75,13 +75,14 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         final Collection<RecordType> recordTypes = store.getRecordMetaData().recordTypesForIndex(index);
         for (RecordType type : recordTypes) {
             LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
-                if (pointsConfigMap.containsKey(key)) {
-                    //TODO(bfines) this may not be correct
-                    throw new RecordCoreException("Duplicate key in Index");
-                }
-                PointsConfig pointsConfig = value.getPointsConfig();
-                if (pointsConfig != null) {
-                    pointsConfigMap.put(key, pointsConfig);
+                PointsConfig valueConfig = value.getPointsConfig();
+                if (valueConfig != null) {
+                    PointsConfig oldConfig = pointsConfigMap.get(key);
+                    if (oldConfig != null && !oldConfig.equals(valueConfig)) {
+                        throw new RecordCoreException("The same key has two different points config types");
+                    } else {
+                        pointsConfigMap.put(key, valueConfig);
+                    }
                 }
             });
         }
