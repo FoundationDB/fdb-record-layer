@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -198,8 +197,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingValueReference != null) {
             return GroupExpressionRef.of(new MatchableSortExpression(selectHavingGraphExpansion.getPlaceholderAliases(), isReverse, selectHavingGraphExpansion.buildSelect()));
         } else {
-            // unsure about semantics of empty sort values here.
-            return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), isReverse, Quantifier.forEach(GroupExpressionRef.of(selectHavingGraphExpansion.buildSelect()))));
+            // single group, sorting by constant
+            return GroupExpressionRef.of(selectHavingGraphExpansion.buildSelect());
         }
     }
 

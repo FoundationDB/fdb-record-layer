@@ -24,7 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -247,6 +250,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     public Value getRuntimeValue() {
         return computeRuntimeResultSupplier.get();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return RelationalExpressionWithChildren.super.subsumedBy(candidateExpression, aliasMap, partialMatchMap);
     }
 
     @Nonnull
