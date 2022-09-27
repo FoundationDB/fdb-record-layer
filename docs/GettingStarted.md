@@ -37,13 +37,16 @@ Be sure you see the message `The database is available.` type `exit` to quit the
 fdb> exit
 ```
 
-Let’s create a fresh demo project. For this example, we’ll be creating a sample Java app with Gradle:
+Let’s create a fresh demo project. For this example, we’ll be creating a basic Java app with Gradle:
 
 ```bash
 $ mkdir record-layer-demo
 $ cd record-layer-demo
-$ gradle init --type java-application
+$ gradle init --type basic
 ```
+Gradle 'init' will ask you some questions on which DSL to use in build scripts,
+whether to use new APIs and behaviors, and how you would like to name your project.
+Choose `groovy`, `yes` to new APIs, and take the proffered project name `record-layer-demo`.
 
 Now we should add the Record Layer as a dependency of our project. The Record Layer dependencies
 are published to Maven Central, so we can declare the dependency by adding the following to our
@@ -51,7 +54,6 @@ project's `build.gradle` file:
 
 ```gradle
 repositories {
-    // gradle init put some other stuff here...
     mavenCentral()
     maven {
       url "https://ossartifacts.jfrog.io/artifactory/fdb-record-layer/"
@@ -62,38 +64,46 @@ dependencies {
     implementation 'org.foundationdb:fdb-record-layer-core-pb3:VERSION_NUMBER'
 }
 ```
-
-Replace `VERSION_NUMBER` with a recent version of the artifact from Maven Central.
+Replace `VERSION_NUMBER` with a recent version of the artifact from Maven Central (See
+[mvnrepository](https://mvnrepository.com/artifact/org.foundationdb/fdb-record-layer-core-pb3)
+for a listing of published versions).
 
 ### ProtoBuf Configuration
 
 Our sample project will use [Protocol Buffers](https://developers.google.com/protocol-buffers/) (protobuf)
-to define our record meta-data. First, since we are using Gradle, let's apply the protobuf plugin,
-which will allow us to add protobuf compilation as a step in our build process. Add this to `build.gradle`:
+to define our record meta-data. First, since we are using Gradle, let's apply the
+[protobuf-gradle-plugin](https://github.com/google/protobuf-gradle-plugin),
+which will allow us to add protobuf compilation as a step in our build process.
+Add this to the top of your `build.gradle`, ahead of the above `repositories` and
+`dependencies` added above:
 
 ```gradle
 plugins {
-    // ...
-    id 'com.google.protobuf' version "0.8.7"
+    id 'java'
+    id 'com.google.protobuf' version "0.8.19"
 }
 ```
+Gradle complains the java plugin must be appled before the protobuf plugin will run so also
+include `id'java'`.
 
-Additionally, we need to add the following:
+Additionally, add the following:
 
 ```gradle
 protobuf {
     generatedFilesBaseDir = "${projectDir}/src/main/generated"
     protoc {
-        artifact = 'com.google.protobuf:protoc:3.6.1'
+        artifact = 'com.google.protobuf:protoc:3.11.4'
     }
 }
 ```
 
-This will tell the protobuf Gradle plugin to use the `3.6.1` version of protoc to compile the protos in our project.
+This will tell the protobuf Gradle plugin to use the `3.11.4` version of protoc to compile the protos in our project.
 You may have noticed above that the Record Layer artifact we are using is `fdb-record-layer-core-pb3` instead of
-`fdb-record-layer-core`, which is the version to use with version 2 of protoc. This also configures `generatedFileBaseDir`
-to be a separate directory at the same level as our Java code and proto definitions. The structure of our project source looks like:
+`fdb-record-layer-core`, which is the record-layer version to use with version 2 of protoc. This also configures
+`generatedFileBaseDir` to be a separate directory at the same level as our Java code and proto definitions.
 
+Create `src/main/generated`, `src/main/java`, and `src/main/proto` directories so the structure of our project
+source looks like this:
 ```
 src
 ├── main
@@ -122,38 +132,37 @@ sourceSets {
 Now we are ready to define the record types and indexes we will use through the *record meta-data*.
 We can think of this as a type of schema definition for our application. We’ll define our meta-data
 as a set of protobuf messages. For this example, we will create a very simple meta-data definition
-for our application that will keep track of customer orders for flowers. Let's create a directory
-(if it doesn't already exist) in our project `src/main/proto` and add the file `record_layer_demo.proto`
-in that directory:
+for our application that will keep track of customer orders for flowers. Add the below protobuf
+as the file `record_layer_demo.proto` in the `src/main/proto` directory:
 
 ```protobuf
-syntax = "proto2";
+syntax = "proto3";
 
 option java_outer_classname = "RecordLayerDemoProto";
 
 import "record_metadata_options.proto";
 
 message Order {
-    optional int64 order_id = 1;
-    optional Flower flower = 2;
-    optional int32 price = 3;
+    int64 order_id = 1;
+    Flower flower = 2;
+    int32 price = 3;
 }
 
 message Flower {
-    optional string type = 1;
-    optional Color color = 2;
+    string type = 1;
+    Color color = 2;
 }
 
 enum Color {
-    RED = 1;
-    BLUE = 2;
-    YELLOW = 3;
-    PINK = 4;
+    RED = 0;
+    BLUE = 1;
+    YELLOW = 2;
+    PINK = 3;
 }
 
 message UnionDescriptor {
     option (com.apple.foundationdb.record.record).usage = UNION;
-    optional Order _Order = 1;
+    Order _Order = 1;
 }
 ```
 
@@ -167,7 +176,7 @@ can query the values of nested fields.
 
 Finally, the Record Layer requires we have a `UnionDescriptor` message which contains all of the top level
 record types to be stored in our record store (here only `Order`). We must either set the `usage = UNION`
-option for this message or we can omit the option and name the message `RecordTypeUnion`.
+option for this message or we can omit the option and instead name the message `RecordTypeUnion`.
 
 ### Creating an Application
 
@@ -175,7 +184,7 @@ Run `./gradlew generateProto` to see that the above configuration is correct.
 You should see the generated code put into `src/main/generated/main/java/RecordLayerDemoProto.java`.
 
 Now we're ready to start developing our application. Create a demo app class `src/main/java/Demo.java` and add
-a main method (if you used `gradle init` there may already be a main `App` class; you can use that or delete it and create your own):
+a main method.
 
 ```java
 public class Demo {
@@ -228,9 +237,16 @@ Add a secondary index on `price`:
 metaDataBuilder.addIndex("Order", new Index("priceIndex", Key.Expressions.field("price")));
 ```
 
+
 The primary and secondary index definitions take a `Key.Expression` as an argument. It is possible to have more
 complex index definitions (e.g., compound primary keys or fan-out indexes on repeated fields).
 For more advanced examples, see the [Record Layer Overview](Overview.md).
+
+Now we have finished with configuraiton, build the `RecordMetaData`:
+
+```java
+RecordMetaData recordMetaData = metaDataBuilder.build();
+```
 
 We can now create an instance of our record store. As you may know, FDB is a transactional key-value store.
 In the Record Layer, those transactions are wrapped in an `FDBRecordContext`. The `FDBRecordStore` object only has
