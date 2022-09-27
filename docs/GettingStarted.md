@@ -244,7 +244,7 @@ The primary and secondary index definitions take a `Key.Expression` as an argume
 complex index definitions (e.g., compound primary keys or fan-out indexes on repeated fields).
 For more advanced examples, see the [Record Layer Overview](Overview.md).
 
-Now we have finished with configuraiton, build the `RecordMetaData`:
+Now we have finished with configuration, build the `RecordMetaData`:
 
 ```java
 RecordMetaData recordMetaData = metaDataBuilder.build();
