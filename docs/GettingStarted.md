@@ -71,7 +71,7 @@ for a listing of published versions).
 ### ProtoBuf Configuration
 
 Our sample project will use [Protocol Buffers](https://developers.google.com/protocol-buffers/) (protobuf)
-to define our record meta-data. First, since we are using Gradle, let's apply the
+to define our record meta-data. First, since we are using Gradle, let's include the
 [protobuf-gradle-plugin](https://github.com/google/protobuf-gradle-plugin),
 which will allow us to add protobuf compilation as a step in our build process.
 Add this to the top of your `build.gradle`, ahead of the above `repositories` and
@@ -83,7 +83,7 @@ plugins {
     id 'com.google.protobuf' version "0.8.19"
 }
 ```
-Gradle complains the java plugin must be appled before the protobuf plugin will run so also
+Gradle complains the `java` plugin must be included for the protobuf plugin to run so also
 include `id'java'`.
 
 Additionally, add the following:
@@ -136,33 +136,35 @@ for our application that will keep track of customer orders for flowers. Add the
 as the file `record_layer_demo.proto` in the `src/main/proto` directory:
 
 ```protobuf
-syntax = "proto3";
+// While we pull in the proto3 org.foundationdb:fdb-record-layer-core-pb3 dependency
+// above, we write record-layer protos files using `proto2` syntax.
+syntax = "proto2";
 
 option java_outer_classname = "RecordLayerDemoProto";
 
 import "record_metadata_options.proto";
 
 message Order {
-    int64 order_id = 1;
-    Flower flower = 2;
-    int32 price = 3;
+    optional int64 order_id = 1;
+    optional Flower flower = 2;
+    optional int32 price = 3;
 }
 
 message Flower {
-    string type = 1;
-    Color color = 2;
+    optional string type = 1;
+    optional Color color = 2;
 }
 
 enum Color {
-    RED = 0;
-    BLUE = 1;
-    YELLOW = 2;
-    PINK = 3;
+    RED = 1;
+    BLUE = 2;
+    YELLOW = 3;
+    PINK = 4;
 }
 
 message UnionDescriptor {
     option (com.apple.foundationdb.record.record).usage = UNION;
-    Order _Order = 1;
+    optional Order _Order = 1;
 }
 ```
 
