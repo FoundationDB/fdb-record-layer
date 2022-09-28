@@ -27,7 +27,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Refactor KeyValueCursor to allow extension [(Issue #1957)](https://github.com/FoundationDB/fdb-record-layer/issues/1957)
 * **Feature** Expose version change info from FDBRecordStore [(Issue #1965)](https://github.com/FoundationDB/fdb-record-layer/issues/1965)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Mutual concurrent indexing [(Issue #1853)](https://github.com/FoundationDB/fdb-record-layer/issues/1853)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Indexing: Throw PartlyBuiltException when appropriate [(Issue #1961)](https://github.com/FoundationDB/fdb-record-layer/issues/1961)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

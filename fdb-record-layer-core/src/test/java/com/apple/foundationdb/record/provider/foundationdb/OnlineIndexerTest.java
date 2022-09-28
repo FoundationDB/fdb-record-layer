@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.subspace.Subspace;
@@ -41,7 +42,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests for {@link OnlineIndexer}.
@@ -89,6 +93,37 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
             return IndexMaintenanceFilter.NORMAL;
         } else {
             return indexMaintenanceFilter;
+        }
+    }
+
+    protected void disableAll(List<Index> indexes) {
+        try (FDBRecordContext context = openContext()) {
+            // disable all
+            for (Index index : indexes) {
+                recordStore.markIndexDisabled(index).join();
+            }
+            context.commit();
+        }
+    }
+
+    protected void validateIndexes(List<Index> indexes) {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        for (Index index: indexes) {
+            if (index.getType().equals(IndexTypes.VALUE)) {
+                try (OnlineIndexScrubber indexScrubber = newScrubberBuilder()
+                        .setIndex(index)
+                        .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                                .setLogWarningsLimit(Integer.MAX_VALUE)
+                                .setAllowRepair(false)
+                                .build())
+                        .setTimer(timer)
+                        .build()) {
+                    indexScrubber.scrubDanglingIndexEntries();
+                    indexScrubber.scrubMissingIndexEntries();
+                }
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            }
         }
     }
 
