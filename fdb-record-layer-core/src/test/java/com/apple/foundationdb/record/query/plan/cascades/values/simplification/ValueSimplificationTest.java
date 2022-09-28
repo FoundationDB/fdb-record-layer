@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * TODO.
@@ -404,12 +403,7 @@ class ValueSimplificationTest {
     private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
         return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), ImmutableSet.of());
     }
-
-    @Nonnull
-    private static Value simplifyWithConstantAliases(@Nonnull final Value toBeSimplified, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases);
-    }
-
+    
     @Nonnull
     private static List<Value> simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
         return toBeSimplified.simplifyOrderingValue(AliasMap.emptyMap(), ImmutableSet.of());

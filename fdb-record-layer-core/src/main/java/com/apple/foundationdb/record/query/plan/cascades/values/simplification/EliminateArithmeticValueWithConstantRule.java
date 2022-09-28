@@ -39,6 +39,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * <li> this is an addition and one of the operands is constant. </li>
  * <li> TODO this is a multiplication and one of the operands is constant and the constant operand is greater than 0
  * </ul>
+ *
+ * Note that this simplification rule was implemented to simplify {@link Value}s used for modelling ordering. The
+ * simplification employs the idea that {@code ORDER BY x + 5} is equivalent to {@code ORDER BY x}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
