@@ -33,7 +33,7 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -153,11 +153,11 @@ public class LuceneIndexExpressions {
         public PointsConfig getPointsConfig() {
             switch (type) {
                 case INT:
-                    return new PointsConfig(DecimalFormat.getInstance(), Integer.class);
+                    return new PointsConfig(NumberFormat.getInstance(), Integer.class);
                 case LONG:
-                    return new PointsConfig(DecimalFormat.getInstance(), Long.class);
+                    return new PointsConfig(NumberFormat.getInstance(), Long.class);
                 case DOUBLE:
-                    return new PointsConfig(DecimalFormat.getInstance(), Double.class);
+                    return new PointsConfig(NumberFormat.getInstance(), Double.class);
                 case STRING:
                 case TEXT:
                 case BOOLEAN:
