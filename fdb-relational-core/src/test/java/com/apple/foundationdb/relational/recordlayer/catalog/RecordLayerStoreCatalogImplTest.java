@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
@@ -50,6 +49,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class RecordLayerStoreCatalogImplTest {
     private FDBDatabase fdb;
@@ -103,6 +103,80 @@ public class RecordLayerStoreCatalogImplTest {
     }
 
     @Test
+    void testDoesSchemaTemplateExist() throws RelationalException {
+        // save record in FDB
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1L);
+            storeCatalog.updateSchemaTemplate(txn, template1);
+            txn.commit();
+        }
+
+        // test doesSchemaTemplateExist method
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            boolean exist = storeCatalog.doesSchemaTemplateExist(txn, "test_template_name");
+            Assertions.assertTrue(exist);
+        }
+    }
+
+    @Test
+    void testLoadSchemaTemplateLatestVersion() throws RelationalException {
+        // save record in FDB
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1L);
+            // a new template with an unset version number, its version number will be set to 2L automatically
+            SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 0L);
+            storeCatalog.updateSchemaTemplate(txn, template1);
+            storeCatalog.updateSchemaTemplate(txn, template2);
+            txn.commit();
+        }
+
+        // load latest version returns version = 2L
+        try (Transaction loadTxn3 = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate result = storeCatalog.loadSchemaTemplate(loadTxn3, "test_template_name");
+            Assertions.assertEquals("test_template_name", result.getUniqueId());
+            Assertions.assertEquals(2L, result.getVersion());
+            Assertions.assertEquals(2, result.getTables().size());
+            Set<String> resultTableNames = result.getTables().stream().map(TableInfo::getTableName).collect(Collectors.toSet());
+            org.assertj.core.api.Assertions.assertThat(resultTableNames)
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
+        }
+    }
+
+    @Test
+    void testLoadSchemaTemplate() throws RelationalException {
+        // save record in FDB
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1L);
+            // a new template with an unset version number, its version number will be set to 2L automatically
+            SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 0L);
+            storeCatalog.updateSchemaTemplate(txn, template1);
+            storeCatalog.updateSchemaTemplate(txn, template2);
+            txn.commit();
+        }
+
+        // check that both templates are stored. method loadSchemaTemplate is tested.
+        try (Transaction loadTxn1 = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate result = storeCatalog.loadSchemaTemplate(loadTxn1, "test_template_name", 1L);
+            Assertions.assertEquals("test_template_name", result.getUniqueId());
+            Assertions.assertEquals(1L, result.getVersion());
+            Assertions.assertEquals(2, result.getTables().size());
+            Set<String> resultTableNames = result.getTables().stream().map(TableInfo::getTableName).collect(Collectors.toSet());
+            org.assertj.core.api.Assertions.assertThat(resultTableNames)
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
+        }
+
+        try (Transaction loadTxn2 = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate result = storeCatalog.loadSchemaTemplate(loadTxn2, "test_template_name", 2L);
+            Assertions.assertEquals("test_template_name", result.getUniqueId());
+            Assertions.assertEquals(2L, result.getVersion());
+            Assertions.assertEquals(2, result.getTables().size());
+            Set<String> resultTableNames = result.getTables().stream().map(TableInfo::getTableName).collect(Collectors.toSet());
+            org.assertj.core.api.Assertions.assertThat(resultTableNames)
+                    .containsExactlyInAnyOrder("test_table1", "test_table2");
+        }
+    }
+
+    @Test
     void loadSchemaFailsWithNonexistentDatabase() throws RelationalException {
         // test loadSchema method with a nonexistent database_id
         try (Transaction loadTxn2 = new RecordContextTransaction(fdb.openContext())) {
@@ -126,9 +200,14 @@ public class RecordLayerStoreCatalogImplTest {
     void listAllTheSchemas() throws RelationalException, SQLException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final RelationalResultSet relationalResultSet = storeCatalog.listSchemas(txn, Continuation.BEGIN);
+            int schemaCount = 0;
+            String schemaName = "";
             while (relationalResultSet.next()) {
-                System.out.println(relationalResultSet.getString("SCHEMA_NAME"));
+                schemaCount += 1;
+                schemaName = relationalResultSet.getString("SCHEMA_NAME");
             }
+            Assertions.assertEquals(1, schemaCount);
+            Assertions.assertEquals("CATALOG", schemaName);
         }
     }
 
@@ -431,6 +510,13 @@ public class RecordLayerStoreCatalogImplTest {
                                       String schemaTemplateName,
                                       int schemaVersion,
                                       List<String> tableNames) throws RelationalException {
+        final SchemaTemplate template = generateTestSchemaTemplate(schemaTemplateName, 1L);
+        Schema genSchema = template.generateSchema(databaseId, schemaName);
+        //set the schema version
+        return new Schema(genSchema.getDatabaseId(), genSchema.getSchemaName(), genSchema.getMetaData(), genSchema.getSchemaTemplateName(), schemaVersion);
+    }
+
+    private SchemaTemplate generateTestSchemaTemplate(String schemaTemplateName, long version) {
         TypingContext ctx = TypingContext.create();
 
         TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
@@ -439,9 +525,6 @@ public class RecordLayerStoreCatalogImplTest {
         ctx.addType(new TypingContext.TypeDefinition("test_table2", List.of(aField), true, Optional.of(List.of("A"))));
 
         ctx.addAllToTypeRepository();
-        final SchemaTemplate template = ctx.generateSchemaTemplate(schemaTemplateName);
-        Schema genSchema = template.generateSchema(databaseId, schemaName);
-        //set the schema version
-        return new Schema(genSchema.getDatabaseId(), genSchema.getSchemaName(), genSchema.getMetaData(), genSchema.getSchemaTemplateName(), schemaVersion);
+        return ctx.generateSchemaTemplate(schemaTemplateName, version);
     }
 }

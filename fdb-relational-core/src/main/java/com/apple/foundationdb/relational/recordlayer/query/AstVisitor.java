@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -57,6 +56,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -1112,7 +1112,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                 .withIndexNames(typingContext.getIndexNames());
 
-        SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate(schemaTemplateName);
+        // schema template version will be set automatically at update operation to lastVersion + 1
+        SchemaTemplate schemaTemplate = typingContext.generateSchemaTemplate(schemaTemplateName, 1L);
         return ProceduralPlan.of(constantActionFactory.getCreateSchemaTemplateConstantAction(schemaTemplate, Options.NONE));
     }
 

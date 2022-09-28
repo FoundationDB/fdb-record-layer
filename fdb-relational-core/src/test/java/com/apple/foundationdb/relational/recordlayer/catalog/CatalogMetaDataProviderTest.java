@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
@@ -98,6 +97,6 @@ class CatalogMetaDataProviderTest {
         typingContext.addType(typeDefinition);
         typingContext.addAllToTypeRepository();
 
-        return typingContext.generateSchemaTemplate("testTemplate");
+        return typingContext.generateSchemaTemplate("testTemplate", 1L);
     }
 }

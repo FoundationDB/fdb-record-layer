@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExi
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 

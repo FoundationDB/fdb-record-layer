@@ -22,12 +22,12 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import java.net.URI;

@@ -22,10 +22,10 @@ package com.apple.foundationdb.relational.transactionbound.catalog;
 
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;

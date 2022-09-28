@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import java.net.URI;
@@ -77,6 +78,28 @@ public class InMemoryCatalog implements StoreCatalog {
         schem.createTables();
         schemas.add(schem);
         return true;
+    }
+
+    @Override
+    @Nonnull
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+        throw new RelationalException("No such schema template", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+    }
+
+    @Override
+    @Nonnull
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+        throw new RelationalException("No such schema template", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+    }
+
+    @Override
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+        return false;
+    }
+
+    @Override
+    public boolean updateSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) {
+        return false;
     }
 
     @Override

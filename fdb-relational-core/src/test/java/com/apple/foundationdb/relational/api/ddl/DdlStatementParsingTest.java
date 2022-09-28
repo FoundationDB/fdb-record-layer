@@ -28,10 +28,10 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
@@ -84,7 +84,7 @@ public class DdlStatementParsingTest {
         SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
         SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
         ctx.addAllToTypeRepository();
-        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("CATALOG_TEMPLATE").generateSchema("__SYS", "CATALOG").getMetaData();
+        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("CATALOG_TEMPLATE", 1L).generateSchema("__SYS", "CATALOG").getMetaData();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))

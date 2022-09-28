@@ -25,21 +25,24 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -49,7 +52,8 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     private final LinkedHashSet<TableInfo> tables;
     private final Set<TypeInfo> customTypes;
     @SuppressWarnings("PMD.UnusedPrivateField") //this will be used eventually
-    private final long version;
+    private long version;
+    private final RecordMetaDataProto.MetaData metaData;
 
     @SuppressWarnings("PMD.LooseCoupling")
     public SchemaTemplateDescriptor(String name,
@@ -60,11 +64,36 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
         this.tables = tables;
         this.customTypes = customTypes;
         this.version = version;
+        this.metaData = null;
+    }
+
+    public SchemaTemplateDescriptor(String name, @Nonnull RecordMetaDataProto.MetaData metaData, long version) {
+        this.name = name;
+        this.metaData = metaData;
+        this.tables = new LinkedHashSet<>();
+        RecordMetaData recordMetaData = RecordMetaData.build(metaData);
+        Map<String, RecordType> recordTypeMap = recordMetaData.getRecordTypes();
+        for (RecordType recordType : recordTypeMap.values()) {
+            this.tables.add(TableInfo.fromRecordType(recordType));
+        }
+        this.customTypes = recordMetaData.getRecordsDescriptor().getMessageTypes().stream().filter(mType -> !recordTypeMap.containsKey(mType.getName())).map(mType -> new TypeInfo(mType.toProto())).collect(Collectors.toSet());
+        this.version = version;
     }
 
     @Override
     public String getUniqueId() {
         return name;
+    }
+
+    @Override
+    public long getVersion() {
+        return version;
+    }
+
+    @Override
+    @Nonnull
+    public RecordMetaDataProto.MetaData getMetaData() throws RelationalException {
+        return metaData == null ? buildMetaData() : metaData;
     }
 
     @Override
@@ -135,6 +164,25 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     @Override
     public Set<TypeInfo> getTypes() {
         return customTypes;
+    }
+
+    private RecordMetaDataProto.MetaData buildMetaData() throws RelationalException {
+        try {
+            final Descriptors.FileDescriptor fd = Descriptors.FileDescriptor.buildFrom(toProtobufDescriptor(),
+                    new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
+            RecordMetaDataBuilder rmd = RecordMetaData.newBuilder().setRecords(fd);
+            int typeKey = 0;
+            for (TableInfo table : tables) {
+                final KeyExpression keyExpression = table.getPrimaryKey();
+                final RecordTypeBuilder recordType = rmd.getRecordType(table.getTableName());
+                recordType.setRecordTypeKey(typeKey++);
+                recordType.setPrimaryKey(keyExpression);
+                table.getIndexes().forEach(index -> rmd.addIndex(table.getTableName(), new Index(index)));
+            }
+            return rmd.build().toProto();
+        } catch (Descriptors.DescriptorValidationException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        }
     }
 
 }

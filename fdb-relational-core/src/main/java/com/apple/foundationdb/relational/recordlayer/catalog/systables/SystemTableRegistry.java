@@ -37,12 +37,17 @@ public final class SystemTableRegistry {
     public static final long SCHEMA_RECORD_TYPE_KEY = 0L;
     public static final long DATABASE_INFO_RECORD_TYPE_KEY = 1L;
 
+    public static final long SCHEMA_TEMPLATE_RECORD_TYPE_KEY = 2L;
+
     public static final String SCHEMAS_TABLE_NAME = "SCHEMAS";
     public static final String DATABASE_TABLE_NAME = "DATABASES";
+    public static final String SCHEMA_TEMPLATE_TABLE_NAME = "TEMPLATES";
+
     @Nonnull
     private static final Map<String, SystemTable> tablesMap = Map.of(
             SCHEMAS_TABLE_NAME, new SchemaSystemTable(),
-            DATABASE_TABLE_NAME, new DatabaseInfoSystemTable()
+            DATABASE_TABLE_NAME, new DatabaseInfoSystemTable(),
+            SCHEMA_TEMPLATE_TABLE_NAME, new SchemaTemplateSystemTable()
     );
 
     @Nonnull

@@ -18,14 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
 import com.google.protobuf.DescriptorProtos;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TableInfo {
     String tableName;
@@ -58,5 +61,9 @@ public class TableInfo {
 
     public KeyExpression getPrimaryKey() {
         return primaryKey;
+    }
+
+    public static TableInfo fromRecordType(RecordType recordType) {
+        return new TableInfo(recordType.getName(), recordType.getPrimaryKey(), recordType.getIndexes().stream().map(Index::toProto).collect(Collectors.toList()), recordType.getDescriptor().toProto());
     }
 }

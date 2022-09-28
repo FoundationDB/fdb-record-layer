@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
@@ -116,7 +116,7 @@ class MessageTupleTest {
         typingContext.addType(restaurant);
         typingContext.addAllToTypeRepository();
 
-        SchemaTemplate template = typingContext.generateSchemaTemplate("testTemplate");
+        SchemaTemplate template = typingContext.generateSchemaTemplate("testTemplate", 1L);
 
         Descriptors.Descriptor descriptor = Descriptors.FileDescriptor.buildFrom(template.toProtobufDescriptor(), new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()})
                 .getMessageTypes()

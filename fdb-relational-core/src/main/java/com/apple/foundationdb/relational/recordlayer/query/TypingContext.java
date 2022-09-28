@@ -26,10 +26,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.api.catalog.TableInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
@@ -87,7 +87,7 @@ public final class TypingContext {
     }
 
     @SuppressWarnings("PMD.LooseCoupling")
-    public SchemaTemplate generateSchemaTemplate(@Nonnull final String name) {
+    public SchemaTemplate generateSchemaTemplate(@Nonnull final String name, long version) {
         final TypeRepository repository = typeRepositoryBuilder.build();
         final var tableInfos = types.stream()
                 .filter(type -> type.isTable)
@@ -106,7 +106,7 @@ public final class TypingContext {
                         .noneMatch(included -> included.equals(type)))
                 .map(t -> new TypeInfo(repository.getMessageDescriptor(t).toProto()));
         final var allTypeInfos = Streams.concat(typeInfos.stream(), residualTypeInfos).collect(Collectors.toSet());
-        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, 1L);
+        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, version);
     }
 
     private KeyExpression createKeyExpression(TypeDefinition typeDef) {

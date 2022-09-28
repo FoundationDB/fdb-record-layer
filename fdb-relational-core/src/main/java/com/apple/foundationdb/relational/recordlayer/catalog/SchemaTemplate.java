@@ -18,10 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 
 import com.google.protobuf.DescriptorProtos;
 
@@ -41,6 +43,10 @@ public interface SchemaTemplate {
      * @return the unique identifier for this template. All templates <em>must</em> have a unique name
      */
     String getUniqueId();
+
+    long getVersion();
+
+    RecordMetaDataProto.MetaData getMetaData() throws RelationalException;
 
     /**
      * Get a new SchemaData instance for this template. This is useful as a starting point

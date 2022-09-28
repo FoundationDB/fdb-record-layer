@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 

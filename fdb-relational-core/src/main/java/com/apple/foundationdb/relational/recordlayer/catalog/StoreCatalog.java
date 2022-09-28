@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 
 public interface StoreCatalog {
     /**
-     * Returns a RecordLayerSchemaData object of a table.
+     * Returns a Schema object of a table.
      *
      * @param txn        a Transaction
      * @param databaseId id of the database
@@ -45,16 +45,51 @@ public interface StoreCatalog {
     Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
 
     /**
+     * Returns a SchemaTemplate object.
+     *
+     * @param txn          a Transaction
+     * @param templateName name of the schema template
+     * @param version      version of the schema template
+     * @return the schema template
+     * @throws RelationalException UNKNOWN_SCHEMA_TEMPLATE if the combination of templateName and version not found
+     */
+    @Nonnull
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;
+
+    /**
+     * Returns the latest version of a schema template.
+     *
+     * @param txn          a Transaction
+     * @param templateName name of the schema template
+     * @return the schema template
+     * @throws RelationalException UNKNOWN_SCHEMA_TEMPLATE if the templateName not found
+     */
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
+
+    /**
      * Updates schema, returns true if succeeds. Change applied after transaction is committed.
      * When 2 transactions try to update the same schema simultaneously, transaction commit fails with FDBExceptions.FDBStoreTransactionConflictException
      *
      * @param txn         a Transaction
-     * @param dataToWrite CatalogData.Schema object that will be stored in FDB
+     * @param dataToWrite the new Schema
      * @return true if the update succeeds
      * @throws RelationalException InternalError if txn is compatible type
      *                           TransactionInactive if txn is no longer active
      */
     boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
+
+    /**
+     * Updates a schema template. If version field in the new schema template is unset (=0L), set the version to be lastVersion (=0L if the template doesn't exist) + 1.
+     *
+     * @param txn         a Transaction
+     * @param dataToWrite the new schema template
+     * @return true if the update succeeds
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
+     */
+    boolean updateSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException;
+
+    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
 
     void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
 
@@ -94,8 +129,9 @@ public interface StoreCatalog {
 
     /**
      * Delete the schema from the Catalog.
-     * @param txn the transaction to use
-     * @param dbUri the path to the specific database to delete the schema for
+     *
+     * @param txn        the transaction to use
+     * @param dbUri      the path to the specific database to delete the schema for
      * @param schemaName the name of the schema to delete
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
@@ -103,7 +139,7 @@ public interface StoreCatalog {
 
     boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException;
 
-    boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName)  throws RelationalException;
+    boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName) throws RelationalException;
 
     void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException;
 }

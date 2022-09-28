@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import org.junit.jupiter.api.Assertions;
@@ -97,7 +98,7 @@ public class CatalogValidatorTest {
         ctx.addType(new TypingContext.TypeDefinition("test_table", List.of(aField), true, Optional.of(List.of("A"))));
 
         ctx.addAllToTypeRepository();
-        final SchemaTemplate template = ctx.generateSchemaTemplate("test_template");
+        final SchemaTemplate template = ctx.generateSchemaTemplate("test_template", 1L);
         return template.generateSchema("test_db", "test_schema");
     }
 }

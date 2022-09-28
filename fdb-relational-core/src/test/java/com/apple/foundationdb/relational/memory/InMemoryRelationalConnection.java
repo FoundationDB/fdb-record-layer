@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
@@ -39,6 +38,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
@@ -215,7 +215,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(ctx);
 
         ctx.addAllToTypeRepository();
-        SchemaTemplate schemaTemplate = ctx.generateSchemaTemplate("CATALOG_TEMPLATE");
+        SchemaTemplate schemaTemplate = ctx.generateSchemaTemplate("CATALOG_TEMPLATE", 1L);
         Schema schema = schemaTemplate.generateSchema("__SYS", "CATALOG");
         return RecordMetaData.build(schema.getMetaData());
     }

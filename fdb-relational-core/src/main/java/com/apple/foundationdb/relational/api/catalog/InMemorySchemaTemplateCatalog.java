@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
+import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 
 import java.sql.Types;
 import java.util.Iterator;
