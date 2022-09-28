@@ -78,10 +78,10 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
                 PointsConfig valueConfig = value.getPointsConfig();
                 if (valueConfig != null) {
                     PointsConfig oldConfig = pointsConfigMap.get(key);
-                    if (oldConfig != null && !oldConfig.equals(valueConfig)) {
-                        throw new RecordCoreException("The same key has two different points config types");
-                    } else {
+                    if (oldConfig == null) {
                         pointsConfigMap.put(key, valueConfig);
+                    } else if (!oldConfig.equals(valueConfig)) {
+                        throw new RecordCoreException("The same key has two different points config types");
                     }
                 }
             });

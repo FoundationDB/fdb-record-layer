@@ -151,53 +151,112 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
             if (Integer.class.equals(cfg.getType())) {
                 int s = start.intValue();
                 int e = end.intValue();
+                if (s > e) {
+                    //probably not the best error message, but it's what Lucene offers us
+                    throw new ParseException(QueryParserMessages.INVALID_SYNTAX);
+                }
                 //lucene range queries are inclusive, so adjust ranges as needed
                 if (!startInclusive) {
-                    s = Math.addExact(s, 1);
+                    if (s == Integer.MAX_VALUE) {
+                        return IntPoint.newSetQuery(field);
+                    } else {
+                        s = Math.addExact(s, 1);
+                    }
                 }
                 if (!endInclusive) {
-                    e = Math.addExact(e, -1);
+                    if (e == Integer.MIN_VALUE) {
+                        return IntPoint.newSetQuery(field);
+                    } else {
+                        e = Math.addExact(e, -1);
+                    }
                 }
 
                 return IntPoint.newRangeQuery(field, s, e);
             } else if (Long.class.equals(cfg.getType())) {
                 long s = start.longValue();
                 long e = end.longValue();
+                if (s > e) {
+                    throw new ParseException(QueryParserMessages.INVALID_SYNTAX);
+                }
+                /*
+                 * we need to adjust ranges to remove inclusive values if we need to.
+                 *
+                 * If s == Long.MAX_VALUE, then we can't increment it without potentially
+                 * causing an error (due to long overflows), but we know that if you are specifying
+                 * the range as (MAX_VALUE,...) then that is an empty set by definition, so
+                 * we  return a Query that will always be empty. Similarly if we have e == Long.MIN_VALUE
+                 * and we want to be exclusive on the end point
+                 */
                 //lucene range queries are inclusive, so adjust ranges as needed
                 if (!startInclusive) {
-                    s = Math.addExact(s, 1);
+                    if (s == Long.MAX_VALUE) {
+                        //does a point-in-set query but with an empty set, so should always return false.
+                        //there may be cheaper ways to do this in Lucene, but I'm not aware of them
+                        return LongPoint.newSetQuery(field);
+                    } else {
+                        s = Math.incrementExact(s);
+                    }
                 }
                 if (!endInclusive) {
-                    e = Math.addExact(e, -1);
+                    if (e == Long.MIN_VALUE) {
+                        return LongPoint.newSetQuery(field);
+                    } else {
+                        e = Math.decrementExact(e);
+                    }
                 }
 
                 return LongPoint.newRangeQuery(field, s, e);
             } else if (Double.class.equals(cfg.getType())) {
-                double s = start.longValue();
-                double e = end.longValue();
+                double s = start.doubleValue();
+                double e = end.doubleValue();
+
+                if (s > e) {
+                    throw new ParseException(QueryParserMessages.INVALID_SYNTAX);
+                }
                 //lucene range queries are inclusive, so adjust ranges as needed
                 if (!startInclusive) {
-                    s = Math.nextAfter(s, Double.MIN_VALUE);
+                    if (s == Double.MAX_VALUE || s == Double.POSITIVE_INFINITY) {
+                        return DoublePoint.newSetQuery(field);
+                    } else {
+                        s = Math.nextAfter(s, Double.MAX_VALUE);
+                    }
                 }
                 if (!endInclusive) {
-                    e = Math.nextAfter(e, -Double.MIN_VALUE);
+                    if (e == Double.MIN_VALUE || e == Double.NEGATIVE_INFINITY) {
+                        return DoublePoint.newSetQuery(field);
+                    } else {
+                        e = Math.nextAfter(e, -Double.MAX_VALUE);
+                    }
                 }
 
                 return DoublePoint.newRangeQuery(field, s, e);
             } else if (Float.class.equals(cfg.getType())) {
-                float s = start.longValue();
-                float e = end.longValue();
+                float s = start.floatValue();
+                float e = end.floatValue();
+                if (s > e) {
+                    //probably not the best error message, but it's what Lucene offers us
+                    throw new ParseException(QueryParserMessages.INVALID_SYNTAX);
+                }
+
                 //lucene range queries are inclusive, so adjust ranges as needed
                 if (!startInclusive) {
-                    s = Math.nextAfter(s, Float.MIN_VALUE);
+                    if (s == Float.MAX_VALUE || s == Float.POSITIVE_INFINITY) {
+                        return FloatPoint.newSetQuery(field);
+                    } else {
+                        s = Math.nextAfter(s, Float.MAX_VALUE);
+                    }
                 }
                 if (!endInclusive) {
-                    e = Math.nextAfter(e, -Float.MIN_VALUE);
+                    if (e == Float.MIN_VALUE || e == Float.NEGATIVE_INFINITY) {
+                        return FloatPoint.newSetQuery(field);
+                    } else {
+                        e = Math.nextAfter(e, -Float.MAX_VALUE);
+                    }
                 }
 
                 return FloatPoint.newRangeQuery(field, s, e);
             } else {
-                throw new ParseException("Unknown numeric type: " + cfg.getType().getCanonicalName());
+                throw new ParseException(QueryParserMessages.UNSUPPORTED_NUMERIC_DATA_TYPE);
             }
         }
     }
