@@ -48,6 +48,9 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.URI;
@@ -480,5 +483,28 @@ public final class ParserUtils {
         final Type.Record record = (Type.Record) type;
         Assert.thatUnchecked(!record.getFields().isEmpty());
         return record.getFields().size() - 1;
+    }
+
+    @Nonnull
+    public static String underlineParsingError(@Nonnull final Recognizer<?, ?> recognizer,
+                                               @Nonnull Token offendingToken,
+                                               int line,
+                                               int charPositionInLine) {
+        // I got this recipe from the book: "The Definitive ANTLR 4 Reference, 2nd Edition".
+        final StringBuilder stringBuilder = new StringBuilder();
+        final CommonTokenStream tokens = (CommonTokenStream) recognizer.getInputStream();
+        final String input = tokens.getTokenSource().getInputStream().toString();
+        final String[] lines = input.split("\n");
+        final String errorLine = lines[line - 1];
+        stringBuilder.append(errorLine).append("\n");
+        stringBuilder.append(" ".repeat(Math.max(0, charPositionInLine)));
+        int start = offendingToken.getStartIndex();
+        int stop = offendingToken.getStopIndex();
+        if (stop < start) {
+            stringBuilder.append("^^"); // missing token
+        } else if (start >= 0) {
+            stringBuilder.append("^".repeat(Math.max(0, stop - start + 1)));
+        }
+        return stringBuilder.toString();
     }
 }

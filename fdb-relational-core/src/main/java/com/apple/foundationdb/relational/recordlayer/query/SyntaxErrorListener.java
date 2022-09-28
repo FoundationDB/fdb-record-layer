@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
@@ -62,31 +61,8 @@ public class SyntaxErrorListener extends BaseErrorListener
             this.offendingSymbol = offendingSymbol;
             this.line = line;
             this.charPositionInLine = charPositionInLine;
-            this.message = underlineError(recognizer, (Token) offendingSymbol, line, charPositionInLine);
+            this.message = ParserUtils.underlineParsingError(recognizer, (Token) offendingSymbol, line, charPositionInLine);
             this.recognitionException = recognitionException;
-        }
-
-        @Nonnull
-        protected String underlineError(@Nonnull final Recognizer<?, ?> recognizer,
-                                        @Nonnull Token offendingToken,
-                                        int line,
-                                        int charPositionInLine) {
-            // I got this recipe from the book: "The Definitive ANTLR 4 Reference, 2nd Edition".
-            final StringBuilder stringBuilder = new StringBuilder();
-            final CommonTokenStream tokens = (CommonTokenStream) recognizer.getInputStream();
-            final String input = tokens.getTokenSource().getInputStream().toString();
-            final String[] lines = input.split("\n");
-            final String errorLine = lines[line - 1];
-            stringBuilder.append(errorLine).append("\n");
-            stringBuilder.append(" ".repeat(Math.max(0, charPositionInLine)));
-            int start = offendingToken.getStartIndex();
-            int stop = offendingToken.getStopIndex();
-            if (stop < start) {
-                stringBuilder.append("^^"); // missing token
-            } else if (start >= 0) {
-                stringBuilder.append("^".repeat(Math.max(0, stop - start + 1)));
-            }
-            return stringBuilder.toString();
         }
 
         public Recognizer<?, ?> getRecognizer()
