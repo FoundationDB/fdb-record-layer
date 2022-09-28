@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -127,7 +128,14 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
-            return distinctRecordsFromSingleChild(mapPlan);
+            final var resultValue = mapPlan.getResultValue();
+
+            if (resultValue instanceof QuantifiedObjectValue) {
+                if (((QuantifiedObjectValue)resultValue).getAlias().equals(mapPlan.getInner().getAlias())) {
+                    return distinctRecordsFromSingleChild(mapPlan);
+                }
+            }
+            return false;
         }
 
         @Nonnull

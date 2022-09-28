@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -32,12 +33,13 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -46,7 +48,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty.DISTINCT_RECORDS;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty.ORDERING;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty.PRIMARY_KEY;
 
 /**
  * A rule that implements a sort expression by removing this expression if appropriate.
@@ -59,7 +65,9 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
-            planPartitions(any(innerPlanPartitionMatcher));
+            planPartitions(rollUpTo(any(innerPlanPartitionMatcher), ImmutableSet.of(ORDERING, DISTINCT_RECORDS, PRIMARY_KEY)));
+
+    //rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))))
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
@@ -74,15 +82,15 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         final var sortExpression = call.get(root);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
-        final var referenceOverPlans = GroupExpressionRef.from(innerPlanPartition.getPlans());
-
         final var sortValues = sortExpression.getSortValues();
         if (sortValues.isEmpty()) {
-            call.yield(referenceOverPlans);
+            call.yield(GroupExpressionRef.from(innerPlanPartition.getPlans()));
             return;
         }
 
-        final var ordering = innerPlanPartition.getAttributeValue(OrderingProperty.ORDERING);
+        final var sortValuesSet = ImmutableSet.copyOf(sortValues);
+
+        final var ordering = innerPlanPartition.getAttributeValue(ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundKeys();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
@@ -98,6 +106,22 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         if (!isSatisfyingOrdering) {
             return;
+        }
+
+        final var isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
+
+        if (isDistinct) {
+            if (ordering.getOrderingSet()
+                    .getSet()
+                    .stream()
+                    .allMatch(keyPart -> sortValuesSet.contains(keyPart.getValue()) || equalityBoundKeys.contains(keyPart.getValue()))) {
+                final var strictlySortedInnerPlans =
+                        innerPlanPartition.getPlans()
+                                .stream()
+                                .map(QueryPlan::strictlySorted)
+                                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+                call.yield(GroupExpressionRef.from(strictlySortedInnerPlans));
+            }
         }
 
         final var resultExpressionsBuilder = ImmutableList.<RelationalExpression>builder();

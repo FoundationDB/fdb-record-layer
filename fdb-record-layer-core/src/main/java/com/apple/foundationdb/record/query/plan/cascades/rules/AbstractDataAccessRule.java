@@ -520,7 +520,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             final var orderingKeyParts =
                                     boundKeyPartsPartitions.get(false)
                                             .stream()
-                                            .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY)
                                             .map(BoundKeyPart::getKeyPart)
                                             .collect(ImmutableList.toImmutableList());
 

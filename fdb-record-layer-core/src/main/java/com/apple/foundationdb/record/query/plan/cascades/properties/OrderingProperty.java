@@ -31,13 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -82,9 +80,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Set;
 import java.util.function.BinaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -506,17 +502,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitDefault(@Nonnull final RecordQueryPlan element) {
             return Ordering.emptyOrder();
-        }
-
-        @Nonnull
-        private RequestedOrdering requestedOrderingFromComparisonKeyValue(@Nonnull final List<? extends Value> comparisonKeyValues, @Nonnull final Set<CorrelationIdentifier> correlatedTo, final boolean isReverse) {
-            final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
-            return new RequestedOrdering(
-                    comparisonKeyValues
-                            .stream()
-                            .map(orderByValue -> KeyPart.of(orderByValue.simplify(ruleSet, AliasMap.emptyMap(), correlatedTo), isReverse))
-                            .collect(Collectors.toList()),
-                    RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
         }
 
         @Nonnull

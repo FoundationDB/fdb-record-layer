@@ -396,6 +396,15 @@ public class Ordering {
                 .build();
     }
 
+    /**
+     * Method to <em>normalize</em> a partially-ordered set representing an ordering, that is, it removes all
+     * dependencies from or to a particular element contained in the set if that element is also equality-bound. If an
+     * element is equality-bound, that is, it is constant for all practical purposes, it is in also independent with
+     * respect to all other elements in the set.
+     * @param equalityBoundKeyMap a multimap relating values and equality comparisons
+     * @param orderingSet a partially ordered set representing the ordering set of an ordering
+     * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
+     */
     @Nonnull
     private static PartialOrder<KeyPart> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
                                                               @Nonnull final PartialOrder<KeyPart> orderingSet) {

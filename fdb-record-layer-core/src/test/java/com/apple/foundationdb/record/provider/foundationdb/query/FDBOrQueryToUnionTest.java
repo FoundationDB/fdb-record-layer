@@ -1098,8 +1098,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(941569104, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1690438043, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(17585533, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1690253531, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(17401021, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
