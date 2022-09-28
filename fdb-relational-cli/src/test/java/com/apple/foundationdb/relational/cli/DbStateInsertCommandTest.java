@@ -60,7 +60,7 @@ public class DbStateInsertCommandTest {
     @Test
     void insertCommandWithoutConnectionFails() {
         DbStateCommandFactory factory = new DbStateCommandFactory(dbState);
-        SqlCommand<Integer> showComm = factory.getInsertCommand("CATALOG", "SCHEMA", Json.createArrayBuilder().build());
+        CliCommand<Integer> showComm = factory.getInsertCommand("CATALOG", "SCHEMA", Json.createArrayBuilder().build());
         SQLException sqle = Assertions.assertThrows(SQLException.class, showComm::call);
         Assertions.assertEquals(ErrorCode.CONNECTION_DOES_NOT_EXIST.getErrorCode(), sqle.getSQLState(), "Incorrect error code");
     }
@@ -69,7 +69,7 @@ public class DbStateInsertCommandTest {
     void insertCommandWithoutSchemaFails() throws SQLException {
         DbStateCommandFactory factory = new DbStateCommandFactory(dbState);
         factory.getConnectCommand(URI.create("jdbc:embed:/__SYS")).call(); //set connection
-        SqlCommand<Integer> showComm = factory.getInsertCommand(null, "schema", Json.createArrayBuilder().build());
+        CliCommand<Integer> showComm = factory.getInsertCommand(null, "schema", Json.createArrayBuilder().build());
         SQLException sqle = Assertions.assertThrows(SQLException.class, showComm::call);
         Assertions.assertEquals(ErrorCode.UNDEFINED_SCHEMA.getErrorCode(), sqle.getSQLState(), "Incorrect error code");
     }
@@ -246,7 +246,7 @@ public class DbStateInsertCommandTest {
                             .add("REST_NO", "a string?")
                             .build())
                     .build();
-            final SqlCommand<Integer> insertCommand = factory.getInsertCommand("test_schema", "TEST_TABLE", data);
+            final CliCommand<Integer> insertCommand = factory.getInsertCommand("test_schema", "TEST_TABLE", data);
             Assertions.assertThrows(NumberFormatException.class, insertCommand::call);
         } finally {
             factory.getDisconnectCommand().call();
