@@ -211,6 +211,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3), LuceneIndexTypes.LUCENE);
 
+    private static final Index TEXT_AND_NUMBER_INDEX = new Index(
+            "text_and_number_idx",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("group"))),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap());
+
     private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE = new Index("Map_with_auto_complete$entry-value",
             new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
             LuceneIndexTypes.LUCENE,
@@ -393,6 +399,65 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithNumberEquals() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 1));
+
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:2"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_NUMBER_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithNumberRange() {
+        /*
+         * Check that a range query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 1));
+
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:[2 TO 4]"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_NUMBER_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextWithNumberRangeInfinite() {
+        /*
+         * Check that a range query returns empty if you feed it a range that is logically empty (i.e. (Long.MAX_VALUE,...)
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 1));
+
+            //positive infinity
+            assertIndexEntryPrimaryKeys(List.of(),
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:{" + Long.MAX_VALUE + " TO " + Long.MAX_VALUE + "]"), null, ScanProperties.FORWARD_SCAN));
+
+
+            //negative infinite
+            assertIndexEntryPrimaryKeys(List.of(),
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:[" + Long.MIN_VALUE + " TO " + Long.MIN_VALUE + "}"), null, ScanProperties.FORWARD_SCAN));
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_NUMBER_INDEX), context, "_0.cfs", true);
         }
     }
 
