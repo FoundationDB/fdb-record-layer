@@ -181,6 +181,22 @@ subprojects {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
 
+    def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
+    if (publishBuild) {
+        autoServiceVersion = autoServiceVersion
+    } else {
+        autoServiceVersion = autoServiceVersionForDevelopment
+    }
+
+    project.configurations.all {
+        resolutionStrategy.eachDependency {details ->
+            if (details.requested.group == 'com.google.auto.service'
+                    && details.requested.name == 'auto-service') {
+                details.useVersion autoServiceVersion
+            }
+        }
+    }
+
     ext {
         if (System.getenv('PROTO_VERSION') != null) {
             protoMajorVersion = System.getenv('PROTO_VERSION')
