@@ -55,6 +55,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
@@ -239,7 +240,7 @@ public class KeyExpressionExpansionVisitorTest extends FDBRecordStoreQueryTestBa
             metaDataBuilder.getRecordType("InnerRecord").setPrimaryKey(field("rec_no"));
             createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
             if (addIndex) {
-                metaDataBuilder.addIndex("OuterRecord", new Index("sumIdx", field("rec_no").groupBy(field("inner").nest(field("rec_no")), field("inner").nest(field("other_field"))), IndexTypes.SUM));
+                metaDataBuilder.addIndex("OuterRecord", new Index("sumIdx", concat(field("inner").nest(field("rec_no")), field("rec_no")).groupBy(concat(field("inner").nest(field("rec_no")), field("inner").nest(field("other_field")))), IndexTypes.SUM));
             }
 
             var rec = TestRecordsNestedAsRecord.OuterRecord.newBuilder();

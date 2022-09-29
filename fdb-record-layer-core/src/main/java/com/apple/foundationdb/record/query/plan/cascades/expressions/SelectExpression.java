@@ -218,22 +218,22 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
 
-    /**
+    /*
      * partialMatchMap: childrenQun -> alreadyExistingMatchingQun
      * GroupBy: we MUST have a partialMatchMap contains an element, i.e. the select has matched at least something.
      *
-     * PartialMatch: holds on to references candidate <--> query graph
+     * PartialMatch: holds on to references candidate -to- query graph
      *
-     * If I am being presented by a partial match that is NOT an agg. index => OUT
+     * If I am being presented by a partial match that is NOT an agg. index = OUT
      *
      * Use semantic equals to check if we're the same in the map w.r.t. aliasMap.
      *
-     * AliasMap: maps aliases to aliases: SOURCE -> TARGET, it tells what we consider equal.
+     * AliasMap: maps aliases to aliases: SOURCE to TARGET, it tells what we consider equal.
      * rebasing bijective
      *
-     * (a,b) , group by (b,a) --> this should work, but records have to be configured correctly. (MAP compensation).
+     * (a,b) , group by (b,a) -to- this should work, but records have to be configured correctly. (MAP compensation).
      *
-     * partialMatchMap -> figure out what is the saem and what not only for compensation.
+     * partialMatchMap - figure out what is the same and what not only for compensation.
      */
 
     @Nonnull
@@ -378,16 +378,16 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // FROM R r, S s
         // WHERE r.a < 5 AND s.b = 10 AND r.x = s.y
         //
-        // The predicate 'r.x = r.y' can be used as a predicate for matching an index on R(x, a) or for
+        // The predicate 'r.x = s.y' can be used as a predicate for matching an index on R(x, a) or for
         // matching an index on S(b, y). In fact the predicate needs to be shared in some way such that the planner
         // can later on make the right decision based on cost, etc.
         //
         // The way this is implemented is to create two matches one where the predicate is repossessed to the match
         // at hand. When we match R(x, a) we repossess r.x = r.y to be subsumed by r.x = ? on
-        // the candidate side. Vica versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
+        // the candidate side. Vice versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
         // candidate side.
         //
-        // Using this approach we create a problem that these two matches cannot coexist in a way that they cannot
+        // Using this approach we create a problem that these two matches can coexist in a way that they cannot
         // be realized, that is planned together at all as both matches provide the other's placeholder value. In fact,
         // we have forced the match to (if it were to be planned) become the inner of a join. It would be beneficial,
         // however, to also create a version of the match that does not consider the join predicate at all.

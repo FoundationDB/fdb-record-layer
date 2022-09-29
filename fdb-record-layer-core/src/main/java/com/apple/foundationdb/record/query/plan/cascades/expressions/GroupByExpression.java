@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -254,8 +255,26 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return RelationalExpressionWithChildren.super.subsumedBy(candidateExpression, aliasMap, partialMatchMap);
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+
+        // the candidate must be a GROUP-BY expression.
+        if (candidateExpression.getClass() != this.getClass()) {
+            return ImmutableList.of();
+        }
+
+        final var otherGroupByExpression = (GroupByExpression)candidateExpression;
+
+        // very rigid _exact_ matching at the moment, later on we must check whether we can be subsumed by the candidate _but_
+        // with a proper compensation w.r.t. coarse grouping for example.
+        if (this.equalsWithoutChildren(otherGroupByExpression, aliasMap)) {
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+        } else {
+            return ImmutableList.of();
+        }
     }
 
     @Nonnull
