@@ -21,24 +21,24 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -144,7 +144,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicatesFilterPlan> {
+public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicatesFilterPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -162,7 +162,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryPredicatesFilterPlan filterPlan = bindings.get(root);
@@ -175,7 +175,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
         final ImmutableList.Builder<QueryPredicate> pushedPredicatesBuilder = ImmutableList.builder();
         final ImmutableList.Builder<QueryPredicate> residualPredicatesBuilder = ImmutableList.builder();
 
-        final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
 
         for (final QueryPredicate queryPredicate : queryPredicates) {
             final Optional<QueryPredicate> pushedPredicateOptional =
@@ -210,7 +210,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
 
         if (residualPredicates.isEmpty()) {
             // case 2
-            call.yield(call.ref(newFetchPlan));
+            call.yield(GroupExpressionRef.of(newFetchPlan));
         } else {
             // case 3
             // create yet another physical quantifier on top of the fetch

@@ -61,8 +61,7 @@ public class PrimitiveMatchers {
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
                 // The normal contract for all binding matchers is that only bindMatches() or an override of this method
                 // should ever invoke this method. As we also override bindMatches(), this place is not reachable without
-                // breaking that mentioned contract. It would be better if bindMatchesSafely() were declared protected
-                // in the BindMatcher interface. TODO: Do this when we go to Java 9.
+                // breaking that mentioned contract.
                 throw new RecordCoreException("this should never be called");
             }
 
@@ -149,5 +148,10 @@ public class PrimitiveMatchers {
                 return "match " + boundId + " { case { predicate.test(" + boundId + ") => success }";
             }
         };
+    }
+
+    @Nonnull
+    public static <T> BindingMatcher<T> anyObject() {
+        return satisfies(t -> true);
     }
 }

@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 
@@ -41,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * if all fields needed by the projection are already available prior to the fetch.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RemoveProjectionRule extends PlannerRule<LogicalProjectionExpression> {
+public class RemoveProjectionRule extends CascadesRule<LogicalProjectionExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -54,9 +55,9 @@ public class RemoveProjectionRule extends PlannerRule<LogicalProjectionExpressio
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
         // just remove the projection
-        call.yield(call.ref(innerPlan));
+        call.yield(GroupExpressionRef.of(innerPlan));
     }
 }

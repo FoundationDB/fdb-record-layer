@@ -62,19 +62,24 @@ import java.util.stream.StreamSupport;
 public class RecordConstructorValue implements Value, AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
+    private final Type.Record resultType;
+    @Nonnull
     protected final List<Column<? extends Value>> columns;
     @Nonnull
     private final Supplier<List<? extends Value>> childrenSupplier;
     @Nonnull
-    private final Supplier<Type.Record> resultTypeSupplier;
-    @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
     private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns) {
-        this.columns = ImmutableList.copyOf(columns);
+        this.resultType = computeResultType(columns);
+        this.columns = resolveColumns(resultType, columns);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
-        this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+    }
+
+    @Nonnull
+    public List<Column<? extends Value>> getColumns() {
+        return columns;
     }
 
     @Nonnull
@@ -93,16 +98,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Nonnull
     @Override
     public Type.Record getResultType() {
-        return resultTypeSupplier.get();
-    }
-
-    @Nonnull
-    public Type.Record computeResultType() {
-        final var fields = columns
-                .stream()
-                .map(Column::getField)
-                .collect(ImmutableList.toImmutableList());
-        return Type.Record.fromFields(fields);
+        return resultType;
     }
 
     @Nullable
@@ -277,18 +273,31 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         };
     }
 
-    public static List<Value> tryUnwrapIfTuple(@Nonnull final List<Value> values) {
-        if (values.size() != 1) {
-            return values;
-        }
-
-        final var onlyElement = Iterables.getOnlyElement(values);
-        if (!(onlyElement instanceof RecordConstructorValue)) {
-            return values;
-        }
-
-        return ImmutableList.copyOf(onlyElement.getChildren());
+    @Nonnull
+    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns) {
+        final var fields = columns
+                .stream()
+                .map(Column::getField)
+                .collect(ImmutableList.toImmutableList());
+        return Type.Record.fromFields(fields);
     }
+
+    @Nonnull
+    private static List<Column<? extends Value>> resolveColumns(@Nonnull final Type.Record recordType,
+                                                                @Nonnull final Collection<Column<? extends Value>> columns) {
+        final var fields = recordType.getFields();
+        Verify.verify(fields.size() == columns.size());
+
+        final var resolvedColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        final var columnsIterator = columns.iterator();
+
+        for (final var field : fields) {
+            final var column = columnsIterator.next();
+            resolvedColumnsBuilder.add(Column.of(field, column.getValue()));
+        }
+        return resolvedColumnsBuilder.build();
+    }
+
 
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
         return new RecordConstructorValue(columns);

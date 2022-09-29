@@ -21,25 +21,23 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -50,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushRequestedOrderingThroughSortRule extends PlannerRule<LogicalSortExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSortExpression> implements PreOrderRule {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<LogicalSortExpression> root =
@@ -61,22 +59,24 @@ public class PushRequestedOrderingThroughSortRule extends PlannerRule<LogicalSor
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PlannerBindings bindings = call.getBindings();
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
+        final var bindings = call.getBindings();
 
-        final LogicalSortExpression logicalSortExpression = bindings.get(root);
-        final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
+        final var logicalSortExpression = bindings.get(root);
+        final var innerQuantifier = bindings.get(innerQuantifierMatcher);
+        final var lowerRef = bindings.get(lowerRefMatcher);
 
-        final KeyExpression sortKeyExpression = logicalSortExpression.getSort();
-        if (sortKeyExpression == null) {
+        final var sortValues = logicalSortExpression.getSortValues();
+        if (sortValues.isEmpty()) {
             call.pushConstraint(lowerRef,
                     RequestedOrderingConstraint.REQUESTED_ORDERING,
                     ImmutableSet.of(RequestedOrdering.preserve()));
         } else {
-            final List<KeyExpression> normalizedSortKeys = sortKeyExpression.normalizeKeyForPositions();
+            final AliasMap translationMap = AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT);
+
             final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
-            for (final KeyExpression keyExpression : normalizedSortKeys) {
-                keyPartBuilder.add(KeyPart.of(keyExpression, logicalSortExpression.isReverse()));
+            for (final var sortValue : sortValues) {
+                keyPartBuilder.add(KeyPart.of(sortValue.rebase(translationMap), logicalSortExpression.isReverse()));
             }
 
             final var orderings =

@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -84,7 +85,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -368,8 +368,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                             predicatesFilterPlan(anyPlan())
                                                     .where(predicates(
                                                             SetMatcher.exactlyInAnyOrder(
-                                                                    valuePredicate(fieldValue("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
-                                                                    valuePredicate(fieldValue("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
             assertEquals(-83643638, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(2070938825, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(451655116, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -459,7 +459,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("stats$school"))
                                     .and(scanComparisons(range("([0],>"))))
                             .where(predicates(
-                                    valuePredicate(fieldValue("stats.school_name"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Human University")))));
+                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("stats.school_name"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Human University")))));
 
             assertEquals(-2139547699, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(766602000, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -503,8 +503,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("stats$school"))
                                     .and(scanComparisons(range("([null],[1000]]"))))
                             .where(predicates(
-                                    valuePredicate(fieldValue("stats.hometown"), new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "H")),
-                                    valuePredicate(fieldValue("stats.school_name"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "University of Procrastination")))));
+                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("stats.hometown"), new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "H")),
+                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("stats.school_name"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "University of Procrastination")))));
 
             assertEquals(-1842706543, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1351064721, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -592,7 +592,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("hometownEmail"))
                                     .and(scanComparisons(range("[[Home Town, University of Learning],[Home Town, University of Learning]]"))))
                             .where(predicates(
-                                    valuePredicate(fieldValue("email"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "pmp@example.com")))));
+                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("email"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "pmp@example.com")))));
 
             assertEquals(-1385621911, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(945827751, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -660,8 +660,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                             predicatesFilterPlan(anyPlan())
                                                     .where(predicates(
                                                             SetMatcher.exactlyInAnyOrder(
-                                                                    valuePredicate(fieldValue("key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
-                                                                    valuePredicate(fieldValue("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
+                                                                    valuePredicate(ValueMatchers.fieldValueWithFieldNames("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
             assertEquals(1553340978, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1576438682, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

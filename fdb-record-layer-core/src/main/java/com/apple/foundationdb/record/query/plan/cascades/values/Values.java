@@ -20,13 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Helper class for dealing with {@link Value}s.
@@ -38,14 +44,14 @@ public class Values {
      * @return a list of field values
      */
     @Nonnull
-    public static List<? extends Value> deconstructRecord(@Nonnull Value recordValue) {
+    public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
         Verify.verify(recordValue.getResultType().getTypeCode() == Type.TypeCode.RECORD);
         Verify.verify(recordValue.getResultType() instanceof Type.Record);
         final Type.Record resultType = (Type.Record)recordValue.getResultType();
 
         if (recordValue instanceof RecordConstructorValue) {
             final var recordConstructorValue = (RecordConstructorValue)recordValue;
-            final List<? extends Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
+            final List<Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
             Verify.verify(Objects.requireNonNull(resultType.getFields()).size() == children.size());
             return children;
         }
@@ -56,5 +62,41 @@ public class Values {
             resultBuilder.add(FieldValue.ofOrdinalNumber(recordValue, i));
         }
         return resultBuilder.build();
+    }
+
+    /**
+     * Method to construct a set of {@link Value} that can be used to express orderings based on the type of a flowed
+     * object.
+     * <br>
+     * For instance, a {@link QuantifiedObjectValue} of some alias flows records of the shape
+     * {@code ((a as a, b as b) as x, c as y)} where {@code a}, {@code b}, and {@code c} are of primitive types. This
+     * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
+     * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
+     * <br>
+     * Note that the returned values are simplified according to the default simplification rule set.
+     * @param type the type used to construct accessors for
+     * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a set of {@link Value}s consisting of the accessors to primitive elements of the given type.
+     */
+    @Nonnull
+    public static Set<Value> primitiveAccessorsForType(@Nonnull final Type type,
+                                                       @Nonnull final Supplier<Value> baseValueSupplier,
+                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        if (type.getTypeCode() != Type.TypeCode.RECORD) {
+            return ImmutableSet.of(baseValueSupplier.get());
+        }
+
+        final var orderingValuesBuilder = ImmutableSet.<Value>builder();
+        final var recordType = (Type.Record)type;
+        final var fields = recordType.getFields();
+
+        for (final var field : fields) {
+            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
+                    .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
+                    .forEach(orderingValuesBuilder::add);
+        }
+
+        return orderingValuesBuilder.build();
     }
 }

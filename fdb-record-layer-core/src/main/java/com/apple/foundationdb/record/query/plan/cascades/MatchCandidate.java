@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -106,7 +107,9 @@ public interface MatchCandidate {
      * @return a key expression that can be evaluated based on a base record
      */
     @Nonnull
-    KeyExpression getAlternativeKeyExpression();
+    KeyExpression getFullKeyExpression();
+
+    boolean createsDuplicates();
 
     /**
      * Computes a map from {@link CorrelationIdentifier} to {@link ComparisonRange} that is physically compatible with
@@ -351,5 +354,14 @@ public interface MatchCandidate {
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
+    }
+
+    @Nonnull
+    static Optional<List<Value>> computePrimaryKeyValuesMaybe(@Nullable KeyExpression primaryKey, @Nonnull Type flowedType) {
+        if (primaryKey == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(ScalarTranslationVisitor.translateKeyExpression(primaryKey, flowedType));
     }
 }

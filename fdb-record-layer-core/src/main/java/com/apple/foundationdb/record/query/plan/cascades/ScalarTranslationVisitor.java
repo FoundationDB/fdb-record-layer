@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -93,7 +94,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
     /**
      * Specific implementation of the fall-back visitation method. Sub classes of this class do not tolerate visits
-     * from unknown sub classes of {@link KeyExpression}. Implementors of new sub classes of {@link KeyExpression}
+     * from unknown subclasses of {@link KeyExpression}. Implementors of new sub classes of {@link KeyExpression}
      * should also add a new visitation method in {@link KeyExpressionVisitor}.
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
@@ -178,6 +179,20 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
         return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, inputType, ImmutableList.of()))));
+    }
+
+    @Nonnull
+    public static List<Value> translateKeyExpression(@Nullable KeyExpression keyExpression, @Nonnull Type flowedType) {
+        if (keyExpression == null) {
+            return ImmutableList.of();
+        }
+
+        final var primaryKeyComponents = keyExpression.normalizeKeyForPositions();
+
+        return primaryKeyComponents
+                .stream()
+                .map(primaryKeyComponent -> new ScalarTranslationVisitor(primaryKeyComponent).toResultValue(Quantifier.CURRENT, flowedType))
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**

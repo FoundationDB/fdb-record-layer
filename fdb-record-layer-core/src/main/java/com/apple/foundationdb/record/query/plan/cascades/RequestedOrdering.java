@@ -21,11 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
@@ -111,6 +114,68 @@ public class RequestedOrdering {
     @Override
     public int hashCode() {
         return Objects.hash(getOrderingKeyParts(), getDistinctness());
+    }
+
+    /**
+     * Method to push this requested ordering through the value that is passed in. The method delegates the actual
+     * process of pushing the constituent parts of this requested ordering to {@link Value}
+     * (which are also {@link Value}s). The rule set for simplifications of this requested ordering that is used is
+     * created by specific ordering simplification rule sets.
+     * <br>
+     * Examples:
+     * <br>
+     * This example highlights that references get translated by the push down logic:
+     * <pre>
+     *     {@code
+     *     this: requested ordering [_.a, _.b.i]
+     *     value: (x as a, (y as i, z as j) as b, w + v as c)
+     *     result: requested ordering [_.x, _y]
+     *     }
+     * </pre>
+     * <br>
+     * This example highlights that certain arithmetic operations (involving constants in a limited fashion) can
+     * be ignored and therefore can be removed by the push down logic:
+     * <pre>
+     *     {@code
+     *     this: requested ordering [_.a, _.b]
+     *     value: ((x + 3) as a, (2 * y) as b)
+     *     result: requested ordering [_.x, _.y]
+     *     }
+     * </pre>
+     * @param value the value this requested value should be pushed down through
+     * @param lowerBaseAlias the alias that the new values should be referring to
+     * @param aliasMap an {@link AliasMap} of equalities
+     * @param constantAliases a set of aliases that can be considered constant for the purpose of this push down
+     * @return a new requested ordering whose constituent values are expressed in terms of quantifiers prior to the
+     *         computation of the {@link Value} passed in.
+     */
+    @Nonnull
+    public RequestedOrdering pushDown(@Nonnull Value value,
+                                      @Nonnull CorrelationIdentifier lowerBaseAlias,
+                                      @Nonnull AliasMap aliasMap,
+                                      @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        //
+        // Need to push every participating value of this requested ordering through the value.
+        //
+        final var orderingKeyValues =
+                orderingKeyParts
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pushedDownOrderingKeyValues =
+                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+
+        final var translationMap = AliasMap.of(lowerBaseAlias, Quantifier.CURRENT);
+
+        final var pushedDownOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        for (int i = 0; i < orderingKeyParts.size(); i++) {
+            final var orderingKeyPart = orderingKeyParts.get(i);
+            final var orderingKeyValue = Objects.requireNonNull(pushedDownOrderingKeyValues.get(i));
+            final var rebasedOrderingKeyValue = orderingKeyValue.rebase(translationMap);
+            pushedDownOrderingKeyPartsBuilder.add(KeyPart.of(rebasedOrderingKeyValue, orderingKeyPart.isReverse()));
+        }
+        return new RequestedOrdering(pushedDownOrderingKeyPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
     }
 
     /**

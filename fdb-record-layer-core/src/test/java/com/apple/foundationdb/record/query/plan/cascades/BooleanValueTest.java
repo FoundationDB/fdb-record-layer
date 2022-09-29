@@ -65,7 +65,7 @@ import java.util.stream.Stream;
  * </ul>
  */
 class BooleanValueTest {
-    private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED, Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
+    private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.CURRENT, Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
     private static final LiteralValue<?> UNKNOWN = new LiteralValue<>(Type.primitiveType(Type.TypeCode.UNKNOWN));
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
@@ -640,7 +640,7 @@ class BooleanValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         Typed value = function.encapsulate(typeRepositoryBuilder, args);
         Assertions.assertTrue(value instanceof BooleanValue);
-        Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(CorrelationIdentifier.UNGROUNDED);
+        Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(Quantifier.CURRENT);
         Assertions.assertFalse(maybePredicate.isEmpty());
         Assertions.assertEquals(result, maybePredicate.get());
     }

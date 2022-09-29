@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -34,7 +34,7 @@ import java.util.Set;
  */
 public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     @Nonnull
-    Optional<KeyExpression> getPrimaryKeyMaybe();
+    Optional<List<Value>> getPrimaryKeyValuesMaybe();
 
     @Nonnull
     List<RecordType> getQueriedRecordTypes();
@@ -47,13 +47,13 @@ public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     }
 
     @Nonnull
-    static Optional<KeyExpression> commonPrimaryKeyMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {
-        KeyExpression common = null;
+    static Optional<List<Value>> commonPrimaryKeyValuesMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {
+        List<Value> common = null;
         var first = true;
         for (final var matchCandidate : matchCandidates) {
             if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
                 final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
-                final var primaryKeyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyMaybe();
+                final var primaryKeyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
                 if (primaryKeyMaybe.isEmpty()) {
                     return Optional.empty();
                 }

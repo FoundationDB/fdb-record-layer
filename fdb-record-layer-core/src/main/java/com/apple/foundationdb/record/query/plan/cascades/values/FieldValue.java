@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -139,7 +140,7 @@ public class FieldValue implements ValueWithChild {
     @Override
     public String toString() {
         final var fieldPathString = getFieldPathAsString();
-        if (childValue instanceof QuantifiedValue) {
+        if (childValue instanceof QuantifiedValue || childValue instanceof ObjectValue) {
             return childValue + fieldPathString;
         } else {
             return "(" + childValue + ")" + fieldPathString;
@@ -213,12 +214,41 @@ public class FieldValue implements ValueWithChild {
     }
 
     public static FieldValue ofAccessors(@Nonnull Value childValue, @Nonnull final List<Accessor> accessors) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), accessors));
+        return ofFields(childValue, resolveFieldPath(childValue.getResultType(), accessors));
+    }
+
+    public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
+        return new FieldValue(childValue, fields);
+    }
+
+    public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
+        if (childValue instanceof FieldValue) {
+            final var childFieldValue = (FieldValue)childValue;
+            return FieldValue.ofFields(childFieldValue.getChild(),
+                    ImmutableList.<Field>builder().addAll(childFieldValue.getFieldPath()).addAll(fields).build());
+        }
+        return FieldValue.ofFields(childValue, fields);
     }
 
     @Nonnull
     public static FieldValue ofOrdinalNumber(@Nonnull Value childValue, final int ordinalNumber) {
         return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber))));
+    }
+
+    @Nonnull
+    public static Optional<List<Field>> stripFieldPrefixMaybe(@Nonnull List<Field> fieldPath,
+                                                              @Nonnull List<Field> potentialPrefixPath) {
+        if (fieldPath.size() < potentialPrefixPath.size()) {
+            return Optional.empty();
+        }
+
+        for (int i = 0; i < potentialPrefixPath.size(); i++) {
+            if (!potentialPrefixPath.get(i).equals(fieldPath.get(i))) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(ImmutableList.copyOf(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size())));
     }
 
     /**

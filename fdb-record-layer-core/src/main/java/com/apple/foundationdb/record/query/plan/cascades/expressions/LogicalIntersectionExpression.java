@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -64,21 +63,21 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     @Nonnull
     private final List<Quantifier.ForEach> quantifiers;
     @Nonnull
-    private final KeyExpression comparisonKey;
+    private final List<? extends Value> comparisonKeyValues;
     @Nonnull
     private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
-                                          @Nonnull KeyExpression comparisonKey) {
+                                          @Nonnull List<? extends Value> comparisonKeyValue) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
-        this.comparisonKey = comparisonKey;
+        this.comparisonKeyValues = ImmutableList.copyOf(comparisonKeyValue);
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Nonnull
-    public KeyExpression getComparisonKey() {
-        return comparisonKey;
+    public List<? extends Value> getComparisonKeyValues() {
+        return comparisonKeyValues;
     }
 
     @Nonnull
@@ -104,7 +103,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalIntersectionExpression(
                 Quantifiers.narrow(Quantifier.ForEach.class, translatedQuantifiers),
-                getComparisonKey());
+                getComparisonKeyValues());
     }
 
     @Nonnull
@@ -124,7 +123,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
             return false;
         }
         final LogicalIntersectionExpression other = (LogicalIntersectionExpression) otherExpression;
-        return comparisonKey.equals(other.comparisonKey);
+        return comparisonKeyValues.equals(other.comparisonKeyValues);
     }
 
     @Override
@@ -140,7 +139,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Override
     public int hashCodeWithoutChildren() {
-        return getComparisonKey().hashCode();
+        return getComparisonKeyValues().hashCode();
     }
 
     @Override
@@ -154,11 +153,11 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
      * {@code comparisonKey}.
      *
      * @param children the list of plans to take the intersection of
-     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @param comparisonKeyValues a list of values by which the results of both plans are ordered
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static LogicalIntersectionExpression from(@Nonnull List<RelationalExpression> children, @Nonnull KeyExpression comparisonKey) {
+    public static LogicalIntersectionExpression from(@Nonnull List<RelationalExpression> children, @Nonnull List<? extends Value> comparisonKeyValues) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to intersection expression");
         }
@@ -167,7 +166,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
         for (final RelationalExpression child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new LogicalIntersectionExpression(Quantifiers.fromExpressions(childRefsBuilder.build(), Quantifier::forEach), comparisonKey);
+        return new LogicalIntersectionExpression(Quantifiers.fromExpressions(childRefsBuilder.build(), Quantifier::forEach), comparisonKeyValues);
     }
 
     @Nonnull
@@ -177,7 +176,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,
                         ImmutableList.of("COMPARE BY {{comparisonKey}}"),
-                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKeyValues.toString()))),
                 childGraphs);
     }
 }

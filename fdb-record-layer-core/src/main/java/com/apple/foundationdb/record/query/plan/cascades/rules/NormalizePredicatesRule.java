@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -49,7 +50,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * upper boundary of the {@link BooleanPredicateNormalizer}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
+public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
     private static final CollectionMatcher<QueryPredicate> predicatesMatcher = all(anyPredicate());
     private static final CollectionMatcher<Quantifier> innerQuantifiersMatcher = all(anyQuantifier());
 
@@ -61,7 +62,7 @@ public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
         final Collection<? extends QueryPredicate> predicates = bindings.get(predicatesMatcher);
@@ -76,7 +77,7 @@ public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
 
         cnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
+                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 AndPredicate.conjuncts(cnfPredicate)))));
 
@@ -86,7 +87,7 @@ public class NormalizePredicatesRule extends PlannerRule<SelectExpression> {
 
         dnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(dnfPredicate ->
-                        call.yield(call.ref(new SelectExpression(selectExpression.getResultValue(),
+                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 ImmutableList.of(dnfPredicate)))));
     }

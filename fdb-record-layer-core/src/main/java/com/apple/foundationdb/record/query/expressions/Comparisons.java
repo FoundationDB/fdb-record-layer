@@ -1156,7 +1156,6 @@ public class Comparisons {
      */
     public static class ValueComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Comparison");
-
         @Nonnull
         private final Type type;
         @Nonnull
@@ -1192,6 +1191,11 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        public Value getComparandValue() {
+            return comparandValue;
         }
 
         @Nullable

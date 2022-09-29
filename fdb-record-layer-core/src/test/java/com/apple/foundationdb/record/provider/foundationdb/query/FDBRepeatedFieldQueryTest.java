@@ -494,8 +494,23 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that sorts on repeated fields are implemented with fanout indexes.
      * Verify that they include distinctness filters and value filters where necessary.
+     *
+     * This query cannot be planned by the cascades planner as its data flow cannot be modelled.
+     * It is not possible (and certainly not the intention of the query in the test case) to sort by something that
+     * at the time the order is semantically applied is a collection. The intention of the query is to inform the planner
+     * that a particular index (due to the ordering of the nested repeated that is provided by the index) would be
+     * beneficial for the client. In a sense, that aspect of the query works like a hint rather than an ORDER BY.
+     *
+     * In SQL, this query needs a nested scalar query expression:
+     *
+     * SELECT (DISTINCT) restaurant
+     * FROM RestaurantRecord restaurant,
+     *      (SELECT review
+     *       FROM restaurant.reviews review
+     *       WHERE review.rating IS NOT NULL) review
+     * ORDER BY review.rating
      */
-    @DualPlannerTest
+    @Test
     void sortRepeated2() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);

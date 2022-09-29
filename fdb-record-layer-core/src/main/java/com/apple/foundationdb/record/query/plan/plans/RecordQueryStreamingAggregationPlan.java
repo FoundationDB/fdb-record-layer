@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -146,6 +145,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
+    }
+
+    @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
     }
 
     @Nonnull
@@ -334,7 +338,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         } else {
             return RecordConstructorValue.ofUnnamed(ImmutableList.of(
                     RecordConstructorValue.ofUnnamed(ImmutableList.of()),
-                    QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
         }
     }
 
@@ -368,9 +372,24 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         return aggregateValue;
     }
 
+    @Nonnull
+    public CorrelationIdentifier getAggregateAlias() {
+        return aggregateAlias;
+    }
+
     @Nullable
     public Value getGroupingValue() {
         return groupingKeyValue;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getGroupingKeyAlias() {
+        return groupingKeyAlias;
+    }
+
+    @Nonnull
+    public Value getCompleteResultValue() {
+        return completeResultValue;
     }
 
     /**

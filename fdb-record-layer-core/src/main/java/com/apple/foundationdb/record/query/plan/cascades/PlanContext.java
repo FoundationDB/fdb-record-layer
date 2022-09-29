@@ -29,7 +29,7 @@ import java.util.Set;
 /**
  * A basic context object that stores all of the metadata about a record store, such as the available indexes.
  * It provides access to this information to the planner and the
- * {@link PlannerRule#onMatch(PlannerRuleCall)} method.
+ * {@link CascadesRule#onMatch(CascadesRuleCall)} method.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {

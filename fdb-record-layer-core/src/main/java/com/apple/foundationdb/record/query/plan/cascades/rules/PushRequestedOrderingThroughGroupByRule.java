@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -30,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -44,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Rule that passes sorting requirements from {@code GROUP BY} expression downstream. This limits the search space of available
  * access paths to the ones having a compatible sort order allowing physical grouping operator later on to generate the correct results.
  */
-public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupByExpression> implements PlannerRule.PreOrderRule  {
+public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupByExpression> implements CascadesRule.PreOrderRule  {
 
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
@@ -58,16 +62,17 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
     }
 
     @Override
-    public void onMatch(@Nonnull final PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var groupByExpression = bindings.get(root);
+        final var innerQuantifier = bindings.get(innerQuantifierMatcher);
         final var lowerRef = bindings.get(lowerRefMatcher);
 
         final var requestedOrderings =
                 call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
-        final var refinedRequestedOrderings = collectCompatibleOrderings(groupByExpression, requestedOrderings);
+        final var refinedRequestedOrderings = collectCompatibleOrderings(groupByExpression, innerQuantifier, requestedOrderings);
 
         if (!refinedRequestedOrderings.isEmpty()) {
             call.pushConstraint(lowerRef,
@@ -77,29 +82,94 @@ public class PushRequestedOrderingThroughGroupByRule extends PlannerRule<GroupBy
     }
 
     @Nonnull
-    private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final GroupByExpression groupByExpression, @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var groupByOrdering = groupByExpression.getOrderingRequirement();
-        // case 1: if no ordering is required, simply specify the group by ordering as a requirement.
-        if (requestedOrderings.isEmpty()) {
-            return Set.of(groupByOrdering);
-        }
-        final var groupByOrderingAsSet = new LinkedHashSet<>(groupByOrdering.getOrderingKeyParts());
-        ImmutableSet.Builder<RequestedOrdering> result = ImmutableSet.builder();
+    private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final GroupByExpression groupByExpression,
+                                                              @Nonnull final Quantifier innerQuantifier,
+                                                              @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+        final var correlatedTo = groupByExpression.getCorrelatedTo();
+        final var resultValue = groupByExpression.getResultValue(); // full result value
+        final var groupingValue = groupByExpression.getGroupingValue();
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
+
+        final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
-            if (requestedOrdering.getDistinctness() == RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS) {
-                // ignore preserve as it might cause e.g. an underlying FUSE operator to be substituted with an access path that is incompatibly-ordered.
-                continue; // ignore
-            }
-            // todo this looks too strict, if requested ordering is more specific (e.g. (a,b,c)) than the requested group by ordering (e.g. (a,b)) should still be accepted.
-            if (!new LinkedHashSet<>(requestedOrdering.getOrderingKeyParts()).equals(groupByOrderingAsSet)) {
-                // case 2: if an incompatible ordering is found, fail.
-                return Set.of(); // fail
+            if (requestedOrdering.isPreserve()) {
+                if (groupingValue == null || groupingValue.isConstant()) {
+                    toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
+                } else {
+                    final var orderingKeyParts =
+                            Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                                    .stream()
+                                    .map(orderingValue -> KeyPart.of(orderingValue, false))
+                                    .collect(ImmutableList.toImmutableList());
+
+                    toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingKeyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                }
             } else {
-                result.add(requestedOrdering);
+                //
+                // Synthesize the requested ordering from above and the grouping columns
+                //
+
+                //
+                // Push the requested ordering through the result value. We need to do that in any case.
+                //
+                final var pushedRequestedOrdering =
+                        requestedOrdering.pushDown(resultValue, innerQuantifier.getAlias(), AliasMap.emptyMap(), correlatedTo);
+
+                if (groupingValue == null || groupingValue.isConstant()) {
+                    //
+                    // No grouping or constant grouping, there is only 0-1 record(s), and that can naturally be
+                    // considered as ordered in any way needed.
+                    //
+                    toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
+                } else {
+                    //
+                    // We have a requested ordering as well as a grouping. Today, we push down the grouping by key parts
+                    // in the order they were written (or constructed). The exception is if a requested ordering is
+                    // also considered (this case). So for instance:
+                    //
+                    //   requested ordering: a, b
+                    // and
+                    //   group by b, a, c, d
+                    // results in
+                    //   pushed requested ordering: a, b, c, d
+                    //
+                    // TODO we should push down all permutations
+                    //
+                    // Note in the remained we use the terminology 'requested...' for the ordering imposed on this
+                    // expression by a constraint push, and 'required...' for the ordering imposed by the grouping
+                    // columns of this expression.
+                    //
+                    
+                    // create a mutable set of required ordering values
+                    final var requiredOrderingValues =
+                            new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
+
+                    final var resultOrderingKeyPartBuilder = ImmutableList.<KeyPart>builder();
+                    boolean isPushedAndRequiredCompatible = true;
+                    for (final var pushedRequestedOrderingKeyPart : pushedRequestedOrdering.getOrderingKeyParts()) {
+                        if (requiredOrderingValues.remove(pushedRequestedOrderingKeyPart.getValue())) {
+                            resultOrderingKeyPartBuilder.add(pushedRequestedOrderingKeyPart);
+                        } else {
+                            isPushedAndRequiredCompatible = false;
+                            break;
+                        }
+                    }
+
+                    if (isPushedAndRequiredCompatible) {
+                        if (!pushedRequestedOrdering.isDistinct() || requiredOrderingValues.isEmpty()) {
+                            // add the remaining key parts from the required set
+                            requiredOrderingValues
+                                    .stream()
+                                    .map(value -> KeyPart.of(value, false))
+                                    .forEach(resultOrderingKeyPartBuilder::add);
+                            toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(resultOrderingKeyPartBuilder.build(), pushedRequestedOrdering.getDistinctness()));
+                        }
+                    }
+                }
+
             }
         }
-        result.add(groupByOrdering);
-        // case 3: return the group by ordering in addition to any other compatible ordering required from earlier steps.
-        return result.build();
+
+        return toBePushedRequestedOrderingsBuilder.build();
     }
 }

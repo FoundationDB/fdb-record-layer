@@ -35,8 +35,8 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -161,7 +161,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         // of the experimental planner. However, they provide access to the underlying groups, which allow us to
         // substitute children without adding additional mutable access to the children of a query plan.
         // This makes some amount of conceptual sense, too, since we're performing the same kind of substitution
-        // that a PlannerRule would provide.
+        // that a CascadesRule would provide.
 
         for (Quantifier childQuantifier : getQuantifiers()) {
             if (!(childQuantifier instanceof Quantifier.Physical)) {

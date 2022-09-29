@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -102,7 +101,7 @@ public class ExpressionMatcherTest {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), CorrelationIdentifier.UNGROUNDED)),
+                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5), Quantifier.CURRENT)),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();
@@ -137,7 +136,7 @@ public class ExpressionMatcherTest {
     public void nestedTypeMatchers() {
         BindingMatcher<RecordQueryIndexPlan> childMatcher1 = RecordQueryPlanMatchers.indexPlan();
         BindingMatcher<RecordQueryScanPlan> childMatcher2 = RecordQueryPlanMatchers.scanPlan();
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifier(childMatcher1),
                         QuantifierMatchers.physicalQuantifier(childMatcher2)));
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
@@ -163,7 +162,7 @@ public class ExpressionMatcherTest {
 
     @Test
     public void matchChildOrder() {
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> parentMatcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifier(RecordQueryPlanMatchers.indexPlan()),
                         QuantifierMatchers.physicalQuantifier(RecordQueryPlanMatchers.scanPlan())));
 
@@ -183,7 +182,7 @@ public class ExpressionMatcherTest {
     public void matchChildrenAsReferences() {
         BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher1 = ReferenceMatchers.anyRef();
         BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher2 = ReferenceMatchers.anyRef();
-        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> matcher = RecordQueryPlanMatchers.union(
+        BindingMatcher<RecordQueryUnionOnKeyExpressionPlan> matcher = RecordQueryPlanMatchers.unionOnExpression(
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifierOverRef(childMatcher1),
                         QuantifierMatchers.physicalQuantifierOverRef(childMatcher2)));
 

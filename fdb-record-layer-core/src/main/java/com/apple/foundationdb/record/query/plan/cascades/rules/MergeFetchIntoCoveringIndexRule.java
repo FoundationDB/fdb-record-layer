@@ -21,11 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
 import javax.annotation.Nonnull;
 
@@ -38,7 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that merges a fetch into a covering index scan.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MergeFetchIntoCoveringIndexRule extends PlannerRule<RecordQueryFetchFromPartialRecordPlan> {
+public class MergeFetchIntoCoveringIndexRule extends CascadesRule<RecordQueryFetchFromPartialRecordPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryIndexPlan> innerPlanMatcher = indexPlan();
     @Nonnull
@@ -50,8 +51,8 @@ public class MergeFetchIntoCoveringIndexRule extends PlannerRule<RecordQueryFetc
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryIndexPlan innerPlan = call.get(innerPlanMatcher);
-        call.yield(call.ref(innerPlan));
+        call.yield(GroupExpressionRef.of(innerPlan));
     }
 }

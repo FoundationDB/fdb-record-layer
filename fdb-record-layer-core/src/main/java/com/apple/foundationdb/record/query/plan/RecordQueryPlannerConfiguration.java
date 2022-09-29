@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -56,7 +56,7 @@ public class RecordQueryPlannerConfiguration {
     @Nullable
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
-    private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
+    private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
     private final IndexFetchMethod indexFetchMethod;
 
     /**
@@ -78,7 +78,7 @@ public class RecordQueryPlannerConfiguration {
                                             boolean useFullKeyForValueIndex,
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
-                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules,
+                                            @Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
                                             boolean planOtherAttemptWholeFilter) {
@@ -231,7 +231,7 @@ public class RecordQueryPlannerConfiguration {
      * @param rule in question
      * @return {@code true} is enabled, {@code false} otherwise
      */
-    public boolean isRuleEnabled(@Nonnull PlannerRule<?> rule) {
+    public boolean isRuleEnabled(@Nonnull CascadesRule<?> rule) {
         return !disabledTransformationRules.contains(rule.getClass());
     }
 
@@ -283,7 +283,7 @@ public class RecordQueryPlannerConfiguration {
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
         @Nonnull
-        private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
+        private Set<Class<? extends CascadesRule<?>>> disabledTransformationRules = Sets.newHashSet();
         @Nonnull
         private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
 
@@ -418,7 +418,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @Nonnull
-        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
+        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
             this.disabledTransformationRules = Sets.newHashSet(disabledTransformationRules);
             return this;
         }
@@ -434,9 +434,9 @@ public class RecordQueryPlannerConfiguration {
         @SuppressWarnings("unchecked")
         @Nonnull
         public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlannerRuleSet plannerRuleSet) {
-            final Stream<? extends PlannerRule<?>> allRules = plannerRuleSet.getAllRules();
+            final Stream<? extends CascadesRule<?>> allRules = plannerRuleSet.getAllRules();
             this.disabledTransformationRules =
-                    allRules.map(rule -> (Class<? extends PlannerRule<?>>)rule.getClass())
+                    allRules.map(rule -> (Class<? extends CascadesRule<?>>)rule.getClass())
                             .filter(ruleClass -> disabledTransformationRuleNames.contains(ruleClass.getSimpleName()))
                             .collect(Collectors.toSet());
             return this;
@@ -448,7 +448,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @Nonnull
-        public Builder disableTransformationRule(@Nonnull Class<? extends PlannerRule<?>> ruleClass) {
+        public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
             this.disabledTransformationRules.add(ruleClass);
             return this;
         }

@@ -109,9 +109,47 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return constraintsMap;
     }
 
+    /**
+     * Legacy method that calls {@link #pruneWith(RelationalExpression)} while being synchronized on {@code this}.
+     * @param newValue new expression to replace members of this reference.
+     */
     public synchronized void replace(@Nonnull T newValue) {
+        pruneWith(newValue);
+    }
+
+    /**
+     * Method that replaces the current members of this reference with a new value. This is called by the planner
+     * to prune the variations of a reference down to exactly one new member.
+     * @param newValue new value to replace existing members
+     */
+    public void pruneWith(@Nonnull T newValue) {
+        final Map<PlanProperty<?>, ?> propertiesForPlan;
+        if (newValue instanceof RecordQueryPlan) {
+            propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
+        } else {
+            propertiesForPlan = null;
+        }
         clear();
-        insertUnchecked(newValue);
+        insertUnchecked(newValue, propertiesForPlan);
+    }
+
+    /**
+     * Inserts a new expression into this reference. This particular overload utilized the precomputed propertied of
+     * a {@link RecordQueryPlan} that already is thought to reside in another {@link ExpressionRef}.
+     * @param newValue new expression to be inserted
+     * @param otherRef a reference that already contains {@code newValue}
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
+     *         otherwise.
+     */
+    @Override
+    public boolean insertFrom(@Nonnull final T newValue, @Nonnull final ExpressionRef<T> otherRef) {
+        if (newValue instanceof RecordQueryPlan && otherRef instanceof GroupExpressionRef) {
+            final var propertiesForPlan =
+                    Objects.requireNonNull(((GroupExpressionRef<T>)otherRef).propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
+
+            return insert(newValue, propertiesForPlan);
+        }
+        return insert(newValue, null);
     }
 
     /**
@@ -122,7 +160,20 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      *         otherwise.
      */
     @Override
-    public boolean insert(@Nonnull T newValue) {
+    public boolean insert(@Nonnull final T newValue) {
+        return insert(newValue, null);
+    }
+
+    /**
+     * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
+     * in within the reference. If the expression is already contained in this reference, the reference is not modified.
+     * @param newValue new expression to be inserted
+     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
+     *        that will be inserted into this reference verbatim, otherwise it will be computed
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
+     *         otherwise.
+     */
+    private boolean insert(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
         final boolean containsInMemo;
         try {
@@ -131,25 +182,43 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
         }
         if (!containsInMemo) {
-            insertUnchecked(newValue);
+            insertUnchecked(newValue, precomputedPropertiesMap);
             return true;
         }
         return false;
     }
 
     /**
-     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression)}}, this method does
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, Map)}}, this method does
      * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
      * caution to only call this method on a reference if it is known that the reference cannot possibly already have
      * the expression memoized.
      * @param newValue new expression to be inserted (without check)
      */
-    public void insertUnchecked(final @Nonnull T newValue) {
+    public void insertUnchecked(@Nonnull final T newValue) {
+        insertUnchecked(newValue, null);
+    }
+
+    /**
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, Map)}}, this method does
+     * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
+     * caution to only call this method on a reference if it is known that the reference cannot possibly already have
+     * the expression memoized.
+     * @param newValue new expression to be inserted (without check)
+     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
+     *        that will be inserted into this reference verbatim, otherwise it will be computed
+     */
+    public void insertUnchecked(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
         members.add(newValue);
         if (newValue instanceof RecordQueryPlan) {
-            Verify.verify(propertiesMap.insert(newValue)); // this must return true
+            final var newRecordQueryPlan = (RecordQueryPlan)newValue;
+            if (precomputedPropertiesMap != null) {
+                propertiesMap.add(newRecordQueryPlan, precomputedPropertiesMap);
+            } else {
+                propertiesMap.add(newRecordQueryPlan);
+            }
         }
     }
 

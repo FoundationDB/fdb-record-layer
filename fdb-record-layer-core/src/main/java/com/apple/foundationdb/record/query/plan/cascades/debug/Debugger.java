@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner.Task;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -268,7 +268,7 @@ public interface Debugger {
          * @return the rule
          */
         @Nonnull
-        PlannerRule<?> getRule();
+        CascadesRule<?> getRule();
     }
 
     /**
@@ -463,14 +463,14 @@ public interface Debugger {
         @Nonnull
         private final Object bindable;
         @Nonnull
-        private final PlannerRule<?> rule;
+        private final CascadesRule<?> rule;
 
         public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
                               @Nonnull final Object bindable,
-                              @Nonnull final PlannerRule<?> rule) {
+                              @Nonnull final CascadesRule<?> rule) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.bindable = bindable;
@@ -502,7 +502,7 @@ public interface Debugger {
 
         @Nonnull
         @Override
-        public PlannerRule<?> getRule() {
+        public CascadesRule<?> getRule() {
             return rule;
         }
     }
@@ -516,7 +516,7 @@ public interface Debugger {
         @Nonnull
         private final Object bindable;
         @Nonnull
-        private final PlannerRule<?> rule;
+        private final CascadesRule<?> rule;
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
@@ -525,7 +525,7 @@ public interface Debugger {
                                       @Nonnull final Location location,
                                       @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
                                       @Nonnull final Object bindable,
-                                      @Nonnull final PlannerRule<?> rule,
+                                      @Nonnull final CascadesRule<?> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -558,7 +558,7 @@ public interface Debugger {
         }
 
         @Nonnull
-        public PlannerRule<?> getRule() {
+        public CascadesRule<?> getRule() {
             return rule;
         }
 

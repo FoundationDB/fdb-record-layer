@@ -21,16 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -41,11 +39,11 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -76,7 +74,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Store
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpression> {
+public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpression> {
 
     @Nonnull
     private static final CollectionMatcher<PlanPartition> unionLegPlanPartitionsMatcher = all(anyPlanPartition());
@@ -103,7 +101,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
 
     @Override
     @SuppressWarnings("java:S135")
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var requiredOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requiredOrderingsOptional.isEmpty()) {
             return;
@@ -149,16 +147,15 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
             while (partitionsCrossProductIterator.hasNext()) {
                 final var partitions = partitionsCrossProductIterator.next();
 
-                final var commonPrimaryKeyMaybe =
-                        PrimaryKeyProperty.commonPrimaryKeyMaybeFromOptionals(partitions.stream()
+                final var commonPrimaryKeyValuesMaybe =
+                        PrimaryKeyProperty.commonPrimaryKeyValuesMaybeFromOptionals(partitions.stream()
                                 .map(partition -> partition.getAttributeValue(PRIMARY_KEY))
                                 .collect(ImmutableList.toImmutableList()));
 
-                if (commonPrimaryKeyMaybe.isEmpty()) {
+                if (commonPrimaryKeyValuesMaybe.isEmpty()) {
                     continue;
                 }
-                final var commonPrimaryKey = commonPrimaryKeyMaybe.get();
-                final var commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
+                final var commonPrimaryKeyValues = commonPrimaryKeyValuesMaybe.get();
 
                 final ImmutableList<Ordering> orderings =
                         partitions
@@ -205,14 +202,14 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                         final var equalityBoundKeys = mergedOrdering.getEqualityBoundKeys();
                         final var orderingKeyParts = mergedOrdering.getOrderingKeyParts();
 
-                        final var orderingKeys =
+                        final var orderingKeyValues =
                                 orderingKeyParts
                                         .stream()
-                                        .map(KeyPart::getNormalizedKeyExpression)
+                                        .map(KeyPart::getValue)
                                         .collect(ImmutableList.toImmutableList());
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyParts, orderingKeys, equalityBoundKeys)) {
+                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
                             // this is a good merged ordering so far
                             merge.add(Pair.of(mergedOrdering, orderings.get(merge.size())));
                         } else {
@@ -236,23 +233,20 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                     final var equalityBoundKeys = ordering.getEqualityBoundKeys();
                     final var orderingKeyParts = ordering.getOrderingKeyParts();
 
-                    final var orderingKeys =
+                    final var orderingKeyValues =
                             orderingKeyParts
                                     .stream()
-                                    .map(KeyPart::getNormalizedKeyExpression)
+                                    .map(KeyPart::getValue)
                                     .collect(ImmutableList.toImmutableList());
 
                     // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                    if (!isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyParts, orderingKeys, equalityBoundKeys)) {
+                    if (!isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
                         continue;
                     }
 
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final var comparisonKey =
-                            orderingKeys.size() == 1
-                            ? Iterables.getOnlyElement(orderingKeys) : Key.Expressions.concat(orderingKeys);
 
                     //
                     // create new quantifiers
@@ -264,13 +258,13 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                             .map(Quantifier::physical)
                             .collect(ImmutableList.toImmutableList());
 
-                    call.yield(call.ref(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, comparisonKey, true)));
+                    call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, orderingKeyValues, true)));
                 }
             }
         }
     }
 
-    private void pushInterestingOrders(@Nonnull PlannerRuleCall call,
+    private void pushInterestingOrders(@Nonnull final CascadesRuleCall call,
                                        @Nonnull final Quantifier unionForEachQuantifier,
                                        @Nonnull final ImmutableList<Ordering> providedOrderings,
                                        @Nonnull final RequestedOrdering requestedOrdering) {
@@ -287,9 +281,9 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
         }
     }
 
-    private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull List<KeyExpression> primaryKeyParts,
-                                                       @Nonnull List<KeyExpression> orderingKeys,
-                                                       @Nonnull Set<KeyExpression> equalityBoundKeys) {
+    private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyParts,
+                                                       @Nonnull final List<Value> orderingKeys,
+                                                       @Nonnull final Set<Value> equalityBoundKeys) {
         for (final var commonPrimaryKeyPart : primaryKeyParts) {
             if (!equalityBoundKeys.contains(commonPrimaryKeyPart) && !orderingKeys.contains(commonPrimaryKeyPart)) {
                 return false;

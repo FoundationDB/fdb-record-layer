@@ -175,6 +175,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 index,
                 recordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
+                baseQuantifier.getFlowedObjectType(),
                 baseAlias,
                 groupingAliases,
                 scoreAlias,

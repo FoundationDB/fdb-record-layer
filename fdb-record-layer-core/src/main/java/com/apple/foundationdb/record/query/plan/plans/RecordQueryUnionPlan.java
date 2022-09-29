@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -154,6 +155,16 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                                                                       boolean showComparisonKey) {
         return new RecordQueryUnionOnKeyExpressionPlan(quantifiers,
                 comparisonKey,
+                Quantifiers.isReversed(quantifiers),
+                showComparisonKey);
+    }
+
+    @Nonnull
+    public static RecordQueryUnionOnValuesPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                               @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                               boolean showComparisonKey) {
+        return RecordQueryUnionOnValuesPlan.union(quantifiers,
+                comparisonKeyValues,
                 Quantifiers.isReversed(quantifiers),
                 showComparisonKey);
     }

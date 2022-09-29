@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
@@ -45,10 +46,20 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -56,6 +67,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -87,7 +99,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      * Iterates over the entire expression tree collecting a set of all dynamically-generated types.
      * A {@link Type} could be generated dynamically by a {@link Value} that e.g. encapsulates children {@link Type}s
      * into a single structured type such as a {@link Type.Record}.
-     *
+     * <br>
      * For more information, check implementations of {@link CreatesDynamicTypesValue} interface.
      *
      * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
@@ -356,11 +368,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return other.getClass() == getClass();
     }
 
-    static List<? extends Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
+    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
         return fromKeyExpressions(expressions, quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
 
-    static List<? extends Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
         return expressions
                 .stream()
                 .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType))
@@ -401,4 +413,144 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     @API(API.Status.EXPERIMENTAL)
     interface NondeterministicValue extends Value {}
+
+    /**
+     * Method to simplify this value using a rule set passed in.
+     * @param ruleSet a rule set
+     * @param aliasMap and alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a new (simplified) value
+     */
+    @Nonnull
+    default Value simplify(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                           @Nonnull final AliasMap aliasMap,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return Simplification.simplify(this, aliasMap, constantAliases, ruleSet);
+    }
+
+    /**
+     * Method to simplify this value using the default simplification rule set.
+     * @param aliasMap and alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a new (simplified) value
+     */
+    @Nonnull
+    default Value simplify(@Nonnull final AliasMap aliasMap,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.ofSimplificationRules());
+    }
+
+    /**
+     * Method to pull up a list of values through this value. The logic employed by this method heavily
+     * relies on value simplification techniques. The goal of pulling up a value {@code v} through some other value
+     * (this value) is to express {@code v} as if applied on top of this value. For instance, if this method is called
+     * for some value {@code _.x} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.a}.
+     * This method supports to pull up as list of values together, as pulling up many values at once is more efficient
+     * than to separately pulling up the individual elements of the list.
+     * @param toBePulledUpValues a list of {@link Value}s to be pulled up through {@code this}
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param upperBaseAlias an alias to be used as <em>current</em> alias
+     * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
+     *         resulting values of the pull-up logic
+     */
+    @Nonnull
+    default Map<Value, Value> pullUp(@Nonnull final List<Value> toBePulledUpValues,
+                                     @Nonnull final AliasMap aliasMap,
+                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                     @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        //
+        // Construct an alias map for equivalences.
+        //
+        final var correlatedTos = toBePulledUpValues.stream()
+                .map(value -> getCorrelatedTo())
+                .collect(ImmutableList.toImmutableList());
+
+        final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
+        correlatedTos.forEach(correlatedToIntersection::retainAll);
+
+        final var equivalenceMap = aliasMap.derived()
+                .identitiesFor(correlatedToIntersection)
+                .build();
+
+        final var valueWitResult =
+                Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
+        if (valueWitResult == null) {
+            return ImmutableMap.of();
+        }
+
+        final var matchedValuesMap = valueWitResult.getResult();
+        final var resultsMap = new LinkedIdentityMap<Value, Value>();
+        for (final var toBePulledUpValue : toBePulledUpValues) {
+            final var compensation = matchedValuesMap.get(toBePulledUpValue);
+            if (compensation != null) {
+                resultsMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
+            }
+        }
+
+        return resultsMap;
+    }
+
+    /**
+     * Method to push down a list of values through this value. The logic employed by this method heavily
+     * relies on value simplification techniques. The goal of pushing down a value {@code v} through some other value
+     * (this value) is to express {@code v} in terms of aliases used by {@code this}. For instance, if this method is
+     * called for some value {@code _.a} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.x}.
+     * This method supports to push down as list of values together, as pushing down many values at once is more efficient
+     * than to separately pushing down the individual elements of the list.
+     * @param toBePushedDownValues a list of {@link Value}s to be pushed down through {@code this}
+     * @param simplificationRuleSet a rule set to be used for simplification while pushing down values
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param upperBaseAlias an alias to be treated as <em>current</em> alias
+     * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
+     *         resulting values of the pull-up logic
+     */
+    @Nonnull
+    default List<Value> pushDown(@Nonnull final List<Value> toBePushedDownValues,
+                                 @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
+                                 @Nonnull final AliasMap aliasMap,
+                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                 @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        return toBePushedDownValues.stream()
+                .map(toBePulledUpValue ->
+                        toBePulledUpValue.replaceLeavesMaybe(value -> {
+                            if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
+                                return this;
+                            }
+                            return value;
+                        }))
+                .map(valueOptional -> valueOptional.orElseThrow(() -> new RecordCoreException("unexpected empty optional")))
+                .map(composedValue -> composedValue.simplify(simplificationRuleSet, aliasMap, constantAliases))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Method to simplify the current value using the specific rule set for orderings. When values pertaining to
+     * orderings are simplified we often can simplify more aggressively knowing that this value is only used to
+     * express ordering parts.
+     * <br>
+     * For instance, a value representing {@code ((_.a, (_.b, _.c)) as x, d).x} can be
+     * simplified to {@code (_.a, (_.b, _.c))} with regular default simplification rules, but it can further be
+     * simplified to {@code (_.a, _.b, _.c)} as the additional level of nesting is not important for orderings.
+     * The record constructor {@code (_.a, _.b, _.c)} is then deconstructed a list consisting of the values
+     * {@code [_.a, _.b, _.c]} is returned.
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a list of values that is the deconstructed simplified representation of this value using
+     *         ordering simplification rules
+     */
+    @Nonnull
+    default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        final var simplifiedOrderingValue =
+                Simplification.simplify(this, aliasMap, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules());
+
+        if (simplifiedOrderingValue instanceof RecordConstructorValue) {
+            return Streams.stream(simplifiedOrderingValue.getChildren())
+                    .map(partValue -> Simplification.simplify(partValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()))
+                    .collect(ImmutableList.toImmutableList());
+        } else {
+            return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
+        }
+    }
 }

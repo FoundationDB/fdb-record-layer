@@ -110,7 +110,7 @@ public class ObjectValue implements LeafValue {
 
     @Override
     public String toString() {
-        return "[" + alias + "]";
+        return alias.toString();
     }
 
     @Override

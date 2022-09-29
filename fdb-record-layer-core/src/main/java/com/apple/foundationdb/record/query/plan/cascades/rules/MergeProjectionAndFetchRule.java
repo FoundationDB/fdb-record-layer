@@ -21,14 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -46,7 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MergeProjectionAndFetchRule extends PlannerRule<LogicalProjectionExpression> {
+public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> innerPlanMatcher = fetchFromPartialRecordPlan(anyPlan());
     @Nonnull
@@ -59,13 +60,13 @@ public class MergeProjectionAndFetchRule extends PlannerRule<LogicalProjectionEx
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final LogicalProjectionExpression projectionExpression = call.get(root);
 
         // if the fetch is able to push all values we can eliminate the fetch as well
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = call.get(innerPlanMatcher);
         final CorrelationIdentifier oldInnerAlias = Iterables.getOnlyElement(projectionExpression.getQuantifiers()).getAlias();
-        final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
         final boolean allPushable = projectedValues
                 .stream()
@@ -73,7 +74,7 @@ public class MergeProjectionAndFetchRule extends PlannerRule<LogicalProjectionEx
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch
-            call.yield(call.ref(fetchPlan.getChild()));
+            call.yield(GroupExpressionRef.of(fetchPlan.getChild()));
         }
     }
 }

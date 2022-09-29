@@ -108,7 +108,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .map(Quantifier::getAlias)
                         .collect(Collectors.toSet());
 
-        final CorrelationIdentifier targetAlias = CorrelationIdentifier.uniqueID();
+        final CorrelationIdentifier targetAlias = Quantifier.uniqueID();
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(targetAlias));
@@ -252,21 +252,21 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
-        class OnValue implements ComparisonKeyFunction {
+        class OnValues implements ComparisonKeyFunction {
             @Nonnull
             private final CorrelationIdentifier baseAlias;
             @Nonnull
-            private final Value comparisonKeyValue;
+            private final List<? extends Value> comparisonKeyValues;
 
-            protected OnValue(@Nonnull final CorrelationIdentifier baseAlias,
-                              @Nonnull final Value comparisonKeyValue) {
+            protected OnValues(@Nonnull final CorrelationIdentifier baseAlias,
+                               @Nonnull final List<? extends Value> comparisonKeyValues) {
                 this.baseAlias = baseAlias;
-                this.comparisonKeyValue = comparisonKeyValue;
+                this.comparisonKeyValues = ImmutableList.copyOf(comparisonKeyValues);
             }
 
             @Nonnull
-            public Value getComparisonKeyValue() {
-                return comparisonKeyValue;
+            public List<? extends Value> getComparisonKeyValues() {
+                return comparisonKeyValues;
             }
 
             @Nonnull
@@ -274,13 +274,17 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
                 return queryResult -> {
                     final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
-                    return Lists.newArrayList(comparisonKeyValue.eval(store, nestedContext));
+                    final var resultList = Lists.newArrayList();
+                    for (final Value comparisonKeyValue : comparisonKeyValues) {
+                        resultList.add(comparisonKeyValue.eval(store, nestedContext));
+                    }
+                    return resultList;
                 };
             }
 
             @Override
             public int hashCode() {
-                return comparisonKeyValue.hashCode();
+                return comparisonKeyValues.hashCode();
             }
 
             @Override
@@ -297,18 +301,18 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     return false;
                 }
 
-                final var other = (OnValue)o;
-                return comparisonKeyValue.equals(other.comparisonKeyValue);
+                final var other = (OnValues)o;
+                return comparisonKeyValues.equals(other.comparisonKeyValues);
             }
 
             @Override
             public String toString() {
-                return comparisonKeyValue.toString();
+                return comparisonKeyValues.toString();
             }
 
             @Override
             public int planHash(@Nonnull final PlanHashKind hashKind) {
-                return comparisonKeyValue.planHash(hashKind);
+                return PlanHashable.planHash(hashKind, comparisonKeyValues);
             }
         }
     }

@@ -40,6 +40,18 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface ExpressionRef<T extends RelationalExpression> extends Correlated<ExpressionRef<T>>, Typed {
+
+    /**
+     * Inserts a new expression into this reference. This particular overload utilizes the precomputed properties of
+     * a {@link RecordQueryPlan} that already resides in another {@link ExpressionRef} whose already-computed
+     * properties we can leverage.
+     * @param newValue new expression to be inserted
+     * @param otherRef a reference that already contains {@code newValue}
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
+     *         otherwise.
+     */
+    boolean insertFrom(@Nonnull T newValue, @Nonnull ExpressionRef<T> otherRef);
+
     /**
      * Insert a new expression into this reference.
      * @param newValue the value to be inserted

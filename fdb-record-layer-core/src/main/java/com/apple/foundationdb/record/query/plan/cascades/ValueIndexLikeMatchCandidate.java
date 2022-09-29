@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -36,8 +36,7 @@ import java.util.Objects;
  * Trait to implement some default logic for {@link MatchCandidate}s that are defined over value index-like
  * data structures such as {@link PrimaryScanMatchCandidate} and {@link ValueIndexScanMatchCandidate}.
  */
-public interface ValueIndexLikeMatchCandidate extends MatchCandidate {
-
+public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
      This synthesizes a list of {@link BoundKeyPart}s from the partial match and the ordering information
      * passed in. Using a list of parameter ids, each {@link BoundKeyPart} links together the
@@ -61,7 +60,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate {
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
-                getAlternativeKeyExpression().normalizeKeyForPositions();
+                getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<BoundKeyPart>builder();
         final var candidateParameterIds = getOrderingAliases();
@@ -69,17 +68,36 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate {
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKey = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
 
             Objects.requireNonNull(parameterId);
-            Objects.requireNonNull(normalizedKey);
+            Objects.requireNonNull(normalizedKeyExpression);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
             @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
+            if (normalizedKeyExpression.createsDuplicates()) {
+                if (comparisonRange != null) {
+                    if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            //
+            // Compute a Value for this normalized key.
+            //
+            final var value =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+
             builder.add(
-                    BoundKeyPart.of(normalizedKey,
+                    BoundKeyPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
                             isReverse));
@@ -93,28 +111,31 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate {
     default Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
                                                         final boolean isReverse,
                                                         final boolean isDistinct) {
-        return computeOrderingFromKeyAndScanComparisons(getAlternativeKeyExpression(), scanComparisons, isReverse, isDistinct);
-    }
-
-    @Nonnull
-    static Ordering computeOrderingFromKeyAndScanComparisons(@Nonnull final KeyExpression keyExpression,
-                                                             @Nonnull final ScanComparisons scanComparisons,
-                                                             final boolean isReverse,
-                                                             final boolean isDistinct) {
-        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<KeyExpression, Comparisons.Comparison>builder();
-        final var normalizedKeyExpressions = keyExpression.normalizeKeyForPositions();
+        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
 
-            equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
+            if (normalizedKeyExpression.createsDuplicates()) {
+                continue;
+            }
+
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+            equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
         }
 
         final var result = ImmutableList.<KeyPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
-            final var currentKeyExpression = normalizedKeyExpressions.get(i);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+
+            if (normalizedKeyExpression.createsDuplicates()) {
+                break;
+            }
 
             //
             // Note that it is not really important here if the keyExpression can be normalized in a lossless way
@@ -122,7 +143,11 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate {
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(KeyPart.of(currentKeyExpression, isReverse));
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            getBaseType());
+
+            result.add(KeyPart.of(normalizedValue, isReverse));
         }
 
         return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);

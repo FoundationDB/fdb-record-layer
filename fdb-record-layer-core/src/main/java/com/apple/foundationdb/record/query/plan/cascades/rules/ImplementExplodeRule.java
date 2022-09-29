@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -37,7 +37,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementExplodeRule extends PlannerRule<ExplodeExpression> {
+public class ImplementExplodeRule extends CascadesRule<ExplodeExpression> {
     private static final BindingMatcher<ExplodeExpression> root =
             explodeExpression();
 
@@ -46,7 +46,7 @@ public class ImplementExplodeRule extends PlannerRule<ExplodeExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var explodeExpression = call.get(root);
         call.yield(GroupExpressionRef.of(
                 new RecordQueryExplodePlan(explodeExpression.getCollectionValue())));

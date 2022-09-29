@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -65,7 +65,7 @@ class State {
 
     @Nonnull private final Map<Class<? extends Debugger.Event>, Stats> eventClassStatsMap;
 
-    @Nonnull private final Map<Class<? extends PlannerRule<?>>, Stats> plannerRuleClassStatsMap;
+    @Nonnull private final Map<Class<? extends CascadesRule<?>>, Stats> plannerRuleClassStatsMap;
 
     @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
@@ -130,7 +130,7 @@ class State {
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
                   @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, Stats> eventClassStatsMap,
-                  @Nonnull final LinkedHashMap<Class<? extends PlannerRule<?>>, Stats> plannerRuleClassStatsMap,
+                  @Nonnull final LinkedHashMap<Class<? extends CascadesRule<?>>, Stats> plannerRuleClassStatsMap,
                   @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
                   final int currentTick,
                   final long startTs) {
@@ -266,8 +266,8 @@ class State {
                 forEventClass.increaseTotalTimeInNs(totalTime);
                 forEventClass.increaseOwnTimeInNs(ownTime);
                 if (event instanceof Debugger.TransformRuleCallEvent) {
-                    final PlannerRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
-                    final Class<? extends PlannerRule<?>> ruleClass = (Class<? extends PlannerRule<?>>)rule.getClass();
+                    final CascadesRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
+                    final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
                     final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
                     forPlannerRuleClass.increaseTotalTimeInNs(totalTime);
                     forPlannerRuleClass.increaseOwnTimeInNs(ownTime);
@@ -290,8 +290,8 @@ class State {
         final Stats forEventClass = getEventStatsForEventClass(event.getClass());
         forEventClass.increaseCount(event.getLocation(), 1L);
         if (event instanceof Debugger.EventWithRule) {
-            final PlannerRule<?> rule = ((Debugger.EventWithRule)event).getRule();
-            final Class<? extends PlannerRule<?>> ruleClass = (Class<? extends PlannerRule<?>>)rule.getClass();
+            final CascadesRule<?> rule = ((Debugger.EventWithRule)event).getRule();
+            final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
             final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
             forPlannerRuleClass.increaseCount(event.getLocation(), 1L);
         }
@@ -301,7 +301,7 @@ class State {
         return eventClassStatsMap.compute(eventClass, (eC, stats) -> stats != null ? stats : new Stats());
     }
 
-    private Stats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends PlannerRule<?>> plannerRuleClass) {
+    private Stats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends CascadesRule<?>> plannerRuleClass) {
         return plannerRuleClassStatsMap.compute(plannerRuleClass, (eC, stats) -> stats != null ? stats : new Stats());
     }
 

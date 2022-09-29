@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
@@ -30,13 +32,11 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -49,7 +49,7 @@ import java.util.Set;
  * further rules such as {@link MatchIntermediateRule} and {@link AdjustMatchRule}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MatchLeafRule extends PlannerRule<RelationalExpression> {
+public class MatchLeafRule extends CascadesRule<RelationalExpression> {
     // match any relational expression that is a leaf, that is, any expression that does not have any children
     private static final BindingMatcher<RelationalExpression> root =
             RelationalExpressionMatchers.ofTypeOwning(RelationalExpression.class, CollectionMatcher.empty());
@@ -65,13 +65,14 @@ public class MatchLeafRule extends PlannerRule<RelationalExpression> {
      * utilized we return {@code Optional.empty()} here.
      * @return {@code Optional.empty()}
      */
+    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlanContext context = call.getContext();
         final RelationalExpression expression = call.get(root);
         // iterate through all candidates known to the context

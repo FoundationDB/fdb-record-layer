@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
@@ -28,8 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -74,7 +74,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738", "java:S3776"})
-public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
+public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
@@ -87,7 +87,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
@@ -176,7 +176,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
 
         for (var i = 0; i < requestedOrderingKeyParts.size() && !availableExplodeAliases.isEmpty(); i++) {
             final var requestedOrderingKeyPart = requestedOrderingKeyParts.get(i);
-            final var comparisons = innerEqualityBoundKeyMap.get(requestedOrderingKeyPart.getNormalizedKeyExpression());
+            final var comparisons = innerEqualityBoundKeyMap.get(requestedOrderingKeyPart.getValue());
             if (comparisons.isEmpty()) {
                 return ImmutableList.of();
             }
@@ -251,7 +251,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
             availableExplodeAliases.remove(explodeAlias);
             sourcesBuilder.add(inSource);
 
-            resultOrderingEqualityBoundKeyMap.removeAll(requestedOrderingKeyPart.getNormalizedKeyExpression());
+            resultOrderingEqualityBoundKeyMap.removeAll(requestedOrderingKeyPart.getValue());
             resultOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
         }
 

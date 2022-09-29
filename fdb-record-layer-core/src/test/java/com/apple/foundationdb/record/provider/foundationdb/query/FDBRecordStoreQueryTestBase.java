@@ -46,6 +46,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.protobuf.Message;
@@ -470,6 +472,13 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 .asBuilder()
                 .setOptimizeForIndexFilters(shouldOptimizeForIndexFilters)
                 .build());
+    }
+
+    @Nonnull
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan) {
+        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
+        return plan.execute(recordStore, EvaluationContext.forTypeRepository(typeRepository)).asIterator();
     }
 
     protected static class Holder<T> {

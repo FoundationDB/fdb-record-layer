@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
@@ -43,18 +43,18 @@ public class BoundKeyPart {
 
     /**
      * Constructor.
-     * @param normalizedKeyExpression normalized key expression as an alternative representation of this part
+     * @param orderByValue value that defines what to order by
      * @param comparisonRangeType type of comparison
      * @param queryPredicate reference to {@link QueryPredicate} on query side
      */
-    private BoundKeyPart(@Nonnull final KeyExpression normalizedKeyExpression,
+    private BoundKeyPart(@Nonnull final Value orderByValue,
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,
                          final boolean isReverse) {
         Preconditions.checkArgument((queryPredicate == null && comparisonRangeType == ComparisonRange.Type.EMPTY) ||
                                     (queryPredicate != null && comparisonRangeType != ComparisonRange.Type.EMPTY));
 
-        this.keyPart = KeyPart.of(normalizedKeyExpression, isReverse);
+        this.keyPart = KeyPart.of(orderByValue, isReverse);
         this.comparisonRangeType = comparisonRangeType;
         this.queryPredicate = queryPredicate;
     }
@@ -65,8 +65,8 @@ public class BoundKeyPart {
     }
 
     @Nonnull
-    public KeyExpression getNormalizedKeyExpression() {
-        return keyPart.getNormalizedKeyExpression();
+    public Value getValue() {
+        return keyPart.getValue();
     }
 
     public boolean isReverse() {
@@ -102,10 +102,10 @@ public class BoundKeyPart {
     }
 
     @Nonnull
-    public static BoundKeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
+    public static BoundKeyPart of(@Nonnull final Value orderByValue,
                                   @Nonnull final ComparisonRange.Type comparisonRangeType,
                                   @Nullable final QueryPredicate queryPredicate,
                                   final boolean isReverse) {
-        return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, isReverse);
+        return new BoundKeyPart(orderByValue, comparisonRangeType, queryPredicate, isReverse);
     }
 }
