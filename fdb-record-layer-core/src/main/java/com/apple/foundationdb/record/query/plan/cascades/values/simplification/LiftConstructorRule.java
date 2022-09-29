@@ -1,5 +1,5 @@
 /*
- * EliminateArithmeticValueWithConstantRule.java
+ * LiftConstructorRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,11 +35,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
- * A rule that eliminates an arithmetic operation. One of the following conditions have to be met:
- * <ul>
- * <li> this is an addition and one of the operands is constant. </li>
- * <li> TODO this is a multiplication and one of the operands is constant and the constant operand is greater than 0
- * </ul>
+ * A rule that lifts the fields of a nested record constructor into the current record constructor. This simplification
+ * is not an equivalent transformation and only suited for {@link Value}s used in groupings and orderings, where the
+ * inner nesting is not important for semantic correctness.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

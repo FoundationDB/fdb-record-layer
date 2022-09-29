@@ -1,5 +1,5 @@
 /*
- * RecordQueryUnionOnKeyExpressionPlan.java
+ * RecordQueryUnionOnValuesPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *

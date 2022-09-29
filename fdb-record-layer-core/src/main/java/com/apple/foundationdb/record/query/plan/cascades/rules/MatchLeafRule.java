@@ -72,7 +72,7 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull CascadesRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlanContext context = call.getContext();
         final RelationalExpression expression = call.get(root);
         // iterate through all candidates known to the context

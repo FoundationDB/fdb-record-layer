@@ -80,7 +80,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var requiredOrderingKeyParts =
                 currentGroupingValue == null || currentGroupingValue.isConstant()
                 ? null
-                : Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                         .stream()
                         .map(orderingValue -> KeyPart.of(orderingValue, false))
                         .collect(ImmutableSet.toImmutableSet());

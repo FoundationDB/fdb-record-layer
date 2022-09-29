@@ -1,5 +1,5 @@
 /*
- * LiteralValue.java
+ * ConstantValue.java
  *
  * This source file is part of the FoundationDB open source project
  *

@@ -32,7 +32,8 @@ import java.util.Optional;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that detects a value that evaluates to one constant value given the a set of aliases that are considered
+ * being bound to constant objects.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

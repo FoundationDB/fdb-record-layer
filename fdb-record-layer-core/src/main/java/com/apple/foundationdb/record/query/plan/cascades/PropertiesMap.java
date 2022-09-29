@@ -45,9 +45,21 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Class to manage properties for plans.
+ * Class to manage properties for plans. A properties map is part of an expression reference ({@link GroupExpressionRef}).
+ * <br>
+ * Properties for plans managed by this map are computed lazily when a caller attempts to retrieve the value of a property.
+ * The reason for that is twofold. First, we want to avoid unnecessary computation of a property if it is not retrieved
+ * at a later point in time. Second, the basic planner {@link RecordQueryPlan} uses a simplified way of creating a dag of
+ * {@link RecordQueryPlan}s that lacks some fundamental information (e.g. no type system) that some properties computations
+ * depend on meaning that these properties cannot be computed if the plan was created by {@link RecordQueryPlan}.
+ * In order to still allow that planner to create the same structures as the {@link CascadesPlanner} we need these property
+ * computations to be lazy as {@link RecordQueryPlan} never accesses the properties afterwards.
  */
 public class PropertiesMap {
+    /**
+     * This set works a bit like an enumeration; it defines the domain of {@link PlanProperty}s that are being maintained
+     * by the properties map.
+     */
     private static final Set<PlanProperty<?>> planProperties =
             ImmutableSet.<PlanProperty<?>>builder()
                     .add(OrderingProperty.ORDERING)
@@ -56,10 +68,21 @@ public class PropertiesMap {
                     .add(PrimaryKeyProperty.PRIMARY_KEY)
                     .build();
 
+    /**
+     * A queue with plans whose properties have not been computed yet.
+     */
     @Nonnull
     private final Deque<RecordQueryPlan> toBeInsertedPlans;
+
+    /**
+     * Map from {@link RecordQueryPlan} to a map of {@link PlanProperty} to a computed property value.
+     */
     @Nonnull
     private final Map<RecordQueryPlan, Map<PlanProperty<?>, ?>> planPropertiesMap;
+
+    /**
+     * {@link SetMultimap} from a map of computed properties to a set of {@link RecordQueryPlan}.
+     */
     @Nonnull
     private final SetMultimap<Map<PlanProperty<?>, ?>, RecordQueryPlan> attributeGroupedPlansMap;
 
@@ -74,6 +97,11 @@ public class PropertiesMap {
                 .forEach(this::add);
     }
 
+    /**
+     * Method to compute the properties of the plans residing in the queue of to-be-inserted plans. Plans and their
+     * computed properties are then used to update the internal structures. Every retrieve operation to this class
+     * must call this method to ensure that the internals of this object are up-to-date.
+     */
     private void update() {
         while (!toBeInsertedPlans.isEmpty()) {
             final var recordQueryPlan = toBeInsertedPlans.pop();
@@ -112,10 +140,21 @@ public class PropertiesMap {
         return planPropertiesMap.get(recordQueryPlan);
     }
 
+    /**
+     * Method to add a new {@link RecordQueryPlan} to this properties map. The plan is added to a queue that is
+     * consumed upon read to lazily compute the properties of the plan passed in.
+     * @param recordQueryPlan new record query plan to be added
+     */
     public void add(@Nonnull final RecordQueryPlan recordQueryPlan) {
         toBeInsertedPlans.add(recordQueryPlan);
     }
 
+    /**
+     * Method to add a new {@link RecordQueryPlan} to this properties map using precomputed properties. That is
+     * useful when the caller retrieved the plan from some other reference.
+     * @param recordQueryPlan new record query plan to be added
+     * @param propertiesForPlanMap a map containing all managed properties for the {@link RecordQueryPlan} passed in
+     */
     public void add(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final Map<PlanProperty<?>, ?> propertiesForPlanMap) {
         Verify.verify(!planPropertiesMap.containsKey(recordQueryPlan));
         planPropertiesMap.put(recordQueryPlan, propertiesForPlanMap);
@@ -135,6 +174,14 @@ public class PropertiesMap {
         attributeGroupedPlansMap.clear();
     }
 
+    /**
+     * Returns a map from {@link RecordQueryPlan} to a computed specific property value for a {@link PlanProperty}
+     * passed in.
+     * @param <P> the type parameter of the {@link  PlanProperty}
+     * @param planProperty the property the caller is interested in
+     * @return a new map that holds a key/value for each plan that is currently being managed by this property map
+     *         to its {@link PlanProperty}'s value
+     */
     @Nonnull
     public <P> Map<RecordQueryPlan, P> getPlannerAttributeForAllPlans(@Nonnull final PlanProperty<P> planProperty) {
         update();

@@ -165,7 +165,7 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull CascadesRuleCall call) {
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final RelationalExpression expression = bindings.get(root);
         final List<? extends Quantifier> quantifiers = bindings.getAll(quantifierMatcher);

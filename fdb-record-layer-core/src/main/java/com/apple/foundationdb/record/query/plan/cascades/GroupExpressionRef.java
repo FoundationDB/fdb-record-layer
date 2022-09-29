@@ -117,6 +117,11 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         pruneWith(newValue);
     }
 
+    /**
+     * Method that replaces the current members of this reference with a new value. This is called by the planner
+     * to prune the variations of a reference down to exactly one new member.
+     * @param newValue new value to replace existing members
+     */
     public void pruneWith(@Nonnull T newValue) {
         final Map<PlanProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {

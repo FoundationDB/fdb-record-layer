@@ -97,7 +97,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
                 } else {
                     final var orderingKeyParts =
-                            Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                            Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                     .stream()
                                     .map(orderingValue -> KeyPart.of(orderingValue, false))
                                     .collect(ImmutableList.toImmutableList());
@@ -142,7 +142,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     
                     // create a mutable set of required ordering values
                     final var requiredOrderingValues =
-                            new LinkedHashSet<>(Values.orderingValuesFromType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
+                            new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
 
                     final var resultOrderingKeyPartBuilder = ImmutableList.<KeyPart>builder();
                     boolean isPushedAndRequiredCompatible = true;

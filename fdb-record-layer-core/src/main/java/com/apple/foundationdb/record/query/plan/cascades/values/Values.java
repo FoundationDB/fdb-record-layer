@@ -64,10 +64,25 @@ public class Values {
         return resultBuilder.build();
     }
 
+    /**
+     * Method to construct a set of {@link Value} that can be used to express orderings based on the type of a flowed
+     * object.
+     * <br>
+     * For instance, a {@link QuantifiedObjectValue} of some alias flows records of the shape
+     * {@code ((a as a, b as b) as x, c as y)} where {@code a}, {@code b}, and {@code c} are of primitive types. This
+     * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
+     * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
+     * <br>
+     * Note that the returned values are simplified according to the default simplification rule set.
+     * @param type the type used to construct accessors for
+     * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a set of {@link Value}s consisting of the accessors to primitive elements of the given type.
+     */
     @Nonnull
-    public static Set<Value> orderingValuesFromType(@Nonnull final Type type,
-                                                    @Nonnull final Supplier<Value> baseValueSupplier,
-                                                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public static Set<Value> primitiveAccessorsForType(@Nonnull final Type type,
+                                                       @Nonnull final Supplier<Value> baseValueSupplier,
+                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
             return ImmutableSet.of(baseValueSupplier.get());
         }
@@ -77,7 +92,7 @@ public class Values {
         final var fields = recordType.getFields();
 
         for (final var field : fields) {
-            orderingValuesFromType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
+            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
                     .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
                     .forEach(orderingValuesBuilder::add);
         }

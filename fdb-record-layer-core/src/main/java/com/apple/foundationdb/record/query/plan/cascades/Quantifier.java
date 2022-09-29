@@ -70,7 +70,7 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public abstract class Quantifier implements Correlated<Quantifier> {
     /**
-     * A (fake alias) for the referencing the "current" record.
+     * A (fake alias) that references the "current" record.
      */
     @Nonnull
     public static final CorrelationIdentifier CURRENT = CorrelationIdentifier.uniqueID(Quantifier.class);

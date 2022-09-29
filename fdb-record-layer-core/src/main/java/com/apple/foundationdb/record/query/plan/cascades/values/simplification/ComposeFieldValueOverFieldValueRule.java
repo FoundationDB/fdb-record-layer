@@ -1,5 +1,5 @@
 /*
- * ComposeFieldValueOverRecordConstructorRule.java
+ * ComposeFieldValueOverFieldValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that composes a field access and an underlying field access to a concatenated field access.
+ * <br>
+ * {@code (_.a).b} or more precisely {@code FieldValue(FieldValue(_, "a"), "b")} is transformed to {@code _.a.b} or
+ * {@code FieldValue(_, ["a", "b"])}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

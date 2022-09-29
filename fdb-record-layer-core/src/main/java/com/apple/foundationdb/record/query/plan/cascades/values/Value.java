@@ -99,7 +99,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      * Iterates over the entire expression tree collecting a set of all dynamically-generated types.
      * A {@link Type} could be generated dynamically by a {@link Value} that e.g. encapsulates children {@link Type}s
      * into a single structured type such as a {@link Type.Record}.
-     *
+     * <br>
      * For more information, check implementations of {@link CreatesDynamicTypesValue} interface.
      *
      * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
@@ -414,6 +414,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @API(API.Status.EXPERIMENTAL)
     interface NondeterministicValue extends Value {}
 
+    /**
+     * Method to simplify this value using a rule set passed in.
+     * @param ruleSet a rule set
+     * @param aliasMap and alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a new (simplified) value
+     */
     @Nonnull
     default Value simplify(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
                            @Nonnull final AliasMap aliasMap,
@@ -421,12 +428,32 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return Simplification.simplify(this, aliasMap, constantAliases, ruleSet);
     }
 
+    /**
+     * Method to simplify this value using the default simplification rule set.
+     * @param aliasMap and alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a new (simplified) value
+     */
     @Nonnull
     default Value simplify(@Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.ofSimplificationRules());
     }
 
+    /**
+     * Method to pull up a list of values through this value. The logic employed by this method heavily
+     * relies on value simplification techniques. The goal of pulling up a value {@code v} through some other value
+     * (this value) is to express {@code v} as if applied on top of this value. For instance, if this method is called
+     * for some value {@code _.x} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.a}.
+     * This method supports to pull up as list of values together, as pulling up many values at once is more efficient
+     * than to separately pulling up the individual elements of the list.
+     * @param toBePulledUpValues a list of {@link Value}s to be pulled up through {@code this}
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param upperBaseAlias an alias to be used as <em>current</em> alias
+     * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
+     *         resulting values of the pull-up logic
+     */
     @Nonnull
     default Map<Value, Value> pullUp(@Nonnull final List<Value> toBePulledUpValues,
                                      @Nonnull final AliasMap aliasMap,
@@ -464,6 +491,21 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return resultsMap;
     }
 
+    /**
+     * Method to push down a list of values through this value. The logic employed by this method heavily
+     * relies on value simplification techniques. The goal of pushing down a value {@code v} through some other value
+     * (this value) is to express {@code v} in terms of aliases used by {@code this}. For instance, if this method is
+     * called for some value {@code _.a} on {@code this} value {@code (_.x as a, _.y as b)}, the result is {@code _.x}.
+     * This method supports to push down as list of values together, as pushing down many values at once is more efficient
+     * than to separately pushing down the individual elements of the list.
+     * @param toBePushedDownValues a list of {@link Value}s to be pushed down through {@code this}
+     * @param simplificationRuleSet a rule set to be used for simplification while pushing down values
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param upperBaseAlias an alias to be treated as <em>current</em> alias
+     * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
+     *         resulting values of the pull-up logic
+     */
     @Nonnull
     default List<Value> pushDown(@Nonnull final List<Value> toBePushedDownValues,
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
@@ -483,6 +525,21 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Method to simplify the current value using the specific rule set for orderings. When values pertaining to
+     * orderings are simplified we often can simplify more aggressively knowing that this value is only used to
+     * express ordering parts.
+     * <br>
+     * For instance, a value representing {@code ((_.a, (_.b, _.c)) as x, d).x} can be
+     * simplified to {@code (_.a, (_.b, _.c))} with regular default simplification rules, but it can further be
+     * simplified to {@code (_.a, _.b, _.c)} as the additional level of nesting is not important for orderings.
+     * The record constructor {@code (_.a, _.b, _.c)} is then deconstructed a list consisting of the values
+     * {@code [_.a, _.b, _.c]} is returned.
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a list of values that is the deconstructed simplified representation of this value using
+     *         ordering simplification rules
+     */
     @Nonnull
     default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var simplifiedOrderingValue =

@@ -41,7 +41,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that matches a {@link FieldValue} (with the argument values).
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

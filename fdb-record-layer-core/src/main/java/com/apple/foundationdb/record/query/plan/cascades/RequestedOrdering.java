@@ -116,6 +116,39 @@ public class RequestedOrdering {
         return Objects.hash(getOrderingKeyParts(), getDistinctness());
     }
 
+    /**
+     * Method to push this requested ordering through the value that is passed in. The method delegates the actual
+     * process of pushing the constituent parts of this requested ordering to {@link Value}
+     * (which are also {@link Value}s). The rule set for simplifications of this requested ordering that is used is
+     * created by specific ordering simplification rule sets.
+     * <br>
+     * Examples:
+     * <br>
+     * This example highlights that references get translated by the push down logic:
+     * <pre>
+     *     {@code
+     *     this: requested ordering [_.a, _.b.i]
+     *     value: (x as a, (y as i, z as j) as b, w + v as c)
+     *     result: requested ordering [_.x, _y]
+     *     }
+     * </pre>
+     * <br>
+     * This example highlights that certain arithmetic operations (involving constants in a limited fashion) can
+     * be ignored and therefore can be removed by the push down logic:
+     * <pre>
+     *     {@code
+     *     this: requested ordering [_.a, _.b]
+     *     value: ((x + 3) as a, (2 * y) as b)
+     *     result: requested ordering [_.x, _.y]
+     *     }
+     * </pre>
+     * @param value the value this requested value should be pushed down through
+     * @param lowerBaseAlias the alias that the new values should be referring to
+     * @param aliasMap an {@link AliasMap} of equalities
+     * @param constantAliases a set of aliases that can be considered constant for the purpose of this push down
+     * @return a new requested ordering whose constituent values are expressed in terms of quantifiers prior to the
+     *         computation of the {@link Value} passed in.
+     */
     @Nonnull
     public RequestedOrdering pushDown(@Nonnull Value value,
                                       @Nonnull CorrelationIdentifier lowerBaseAlias,

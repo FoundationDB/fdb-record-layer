@@ -359,7 +359,7 @@ class ValueSimplificationTest {
         final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
         final var type = someRecordType();
 
-        final var orderingValues = Values.orderingValuesFromType(type, () -> someCurrentValue, ImmutableSet.of());
+        final var orderingValues = Values.primitiveAccessorsForType(type, () -> someCurrentValue, ImmutableSet.of());
 
         final var expectedResult =
                 ImmutableSet.of(
