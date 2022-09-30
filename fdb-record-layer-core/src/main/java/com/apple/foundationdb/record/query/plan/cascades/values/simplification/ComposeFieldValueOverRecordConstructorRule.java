@@ -90,7 +90,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
     private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final Field field) {
         for (final var column : recordConstructorValue.getColumns()) {
             if (field.getFieldIndex() == column.getField().getFieldIndex()) {
-                Verify.verify(field.getFieldNameOptional() == column.getField().getFieldNameOptional());
+                Verify.verify(field.getFieldNameOptional().equals(column.getField().getFieldNameOptional()));
                 return column;
             }
         }
