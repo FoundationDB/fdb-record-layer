@@ -219,7 +219,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     /*
-     * partialMatchMap: childrenQun -> alreadyExistingMatchingQun
+     * partialMatchMap: childrenQun -to- alreadyExistingMatchingQun
      * GroupBy: we MUST have a partialMatchMap contains an element, i.e. the select has matched at least something.
      *
      * PartialMatch: holds on to references candidate -to- query graph
