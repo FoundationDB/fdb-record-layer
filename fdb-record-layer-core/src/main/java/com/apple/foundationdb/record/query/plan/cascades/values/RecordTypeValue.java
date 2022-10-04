@@ -117,6 +117,11 @@ public class RecordTypeValue implements QuantifiedValue {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
+        return toString();
+    }
+
+    @Override
+    public String toString() {
         return "recordType(" + alias + ")";
     }
 }
