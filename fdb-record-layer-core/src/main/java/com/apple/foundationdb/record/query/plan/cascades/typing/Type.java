@@ -660,20 +660,27 @@ public interface Type extends Narrowable<Type> {
         }
 
         @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
+        public boolean equals(final Object obj) {
+            if (obj == null) {
                 return false;
             }
-            final Enum anEnum = (Enum)o;
-            return isNullable == anEnum.isNullable && Objects.equals(enumValues, anEnum.enumValues) && Objects.equals(name, anEnum.name);
+
+            if (this == obj) {
+                return true;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Enum)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable()
+                    && Objects.equals(enumValues, otherType.enumValues);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(isNullable, enumValues, name);
+            return Objects.hash(isNullable, enumValues);
         }
 
         @Override
