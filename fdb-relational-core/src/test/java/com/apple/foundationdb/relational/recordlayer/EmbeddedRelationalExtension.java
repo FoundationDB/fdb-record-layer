@@ -28,7 +28,10 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -41,11 +44,18 @@ import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
     private final Supplier<KeySpace> keySpaceSupplier;
+    private final Supplier<RecordLayerConstantActionFactory.Builder> ddlFactoryBuilder;
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
 
     public EmbeddedRelationalExtension() {
         this.keySpaceSupplier = this::createNewKeySpace;
+        this.ddlFactoryBuilder = RecordLayerConstantActionFactory::defaultFactory;
+    }
+
+    public EmbeddedRelationalExtension(Supplier<RecordLayerConstantActionFactory.Builder> ddlFactory) {
+        this.keySpaceSupplier = this::createNewKeySpace;
+        this.ddlFactoryBuilder = ddlFactory;
     }
 
     @Override
@@ -77,7 +87,22 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final KeySpace keySpace = keySpaceSupplier.get();
-        engine = RecordLayerEngine.makeEngine(rlCfg, Collections.singletonList(database), keySpace, InMemorySchemaTemplateCatalog::new, storeTimer);
+        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
+        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+        RecordLayerConstantActionFactory ddlFactory = ddlFactoryBuilder.get()
+                .setBaseKeySpace(keySpace)
+                .setRlConfig(rlCfg)
+                .setStoreCatalog(schemaCatalog)
+                .setTemplateCatalog(templateCatalog)
+                .build();
+        engine = RecordLayerEngine.makeEngine(
+                rlCfg,
+                Collections.singletonList(database),
+                keySpace,
+                schemaCatalog,
+                templateCatalog,
+                storeTimer,
+                ddlFactory);
         engine.registerDriver(); //register the engine driver
     }
 

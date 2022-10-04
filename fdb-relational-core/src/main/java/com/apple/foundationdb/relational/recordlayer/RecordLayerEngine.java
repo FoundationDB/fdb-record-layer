@@ -30,12 +30,12 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import com.codahale.metrics.MetricRegistry;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -46,24 +46,15 @@ public final class RecordLayerEngine {
     public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
                                                     @Nonnull List<FDBDatabase> databases,
                                                     @Nonnull KeySpace baseKeySpace,
-                                                    @Nonnull Supplier<SchemaTemplateCatalog> templateCatalogSupplier) throws RelationalException {
-        return makeEngine(cfg, databases, baseKeySpace, templateCatalogSupplier, null);
-    }
-
-    public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
-                                                    @Nonnull List<FDBDatabase> databases,
-                                                    @Nonnull KeySpace baseKeySpace,
-                                                    @Nonnull Supplier<SchemaTemplateCatalog> templateCatalogSupplier,
-                                                    @Nullable MetricRegistry metricsEngine) throws RelationalException {
+                                                    @Nonnull RecordLayerStoreCatalogImpl schemaCatalog,
+                                                    @Nonnull SchemaTemplateCatalog templateCatalog,
+                                                    @Nullable MetricRegistry metricsEngine,
+                                                    @Nonnull RecordLayerConstantActionFactory ddlFactory) throws RelationalException {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 
-        SchemaTemplateCatalog templateCatalog = templateCatalogSupplier.get();
-        //TODO(bfines) we need to move StoreCatalog to a per-cluster thing
-        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(baseKeySpace);
-
         List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, templateCatalog)).collect(Collectors.toList());
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, templateCatalog, ddlFactory)).collect(Collectors.toList());
         try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction(Options.NONE)) {
             schemaCatalog.initialize(txn);
             txn.commit();

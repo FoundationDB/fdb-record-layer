@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -148,11 +149,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     public void deleteRange(Map<String, Object> prefix) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         List<QueryComponent> queryFields = prefix.entrySet().stream().map(entry -> Query.field(entry.getKey()).equalsValue(entry.getValue())).collect(Collectors.toList());
+        if (loadRecordType(Options.NONE).primaryKeyHasRecordTypePrefix()) {
+            queryFields.add(new RecordTypeKeyComparison(tableName));
+        }
         QueryComponent query;
         switch (queryFields.size()) {
             case 0:
-                query = null;
-                break;
+                throw new RelationalException("Delete range with empty key range is only supported on tables with RecordTypeKeys", ErrorCode.INVALID_PARAMETER);
             case 1:
                 query = queryFields.get(0);
                 break;
@@ -161,7 +164,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 break;
         }
         try {
-            store.deleteRecordsWhere(tableName, query);
+            store.deleteRecordsWhere(query);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

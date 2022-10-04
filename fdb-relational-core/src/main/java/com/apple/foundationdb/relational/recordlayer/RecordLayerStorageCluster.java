@@ -53,18 +53,21 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final FdbConnection fdb;
     private final KeySpace keySpace;
     private final SchemaTemplateCatalog schemaTemplateCatalog;
+    private final RecordLayerConstantActionFactory ddlFactory;
 
     public RecordLayerStorageCluster(FdbConnection connection,
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
-                                     SchemaTemplateCatalog schemaTemplateCatalog) {
+                                     SchemaTemplateCatalog schemaTemplateCatalog,
+                                     RecordLayerConstantActionFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;
         this.keySpace = keySpace;
         this.catalog = storeCatalog;
         this.schemaTemplateCatalog = schemaTemplateCatalog;
         this.rlConfiguration = rlConfig;
+        this.ddlFactory = ddlFactory;
     }
 
     private Map<String, String> parseConnectionQueryString(@Nullable String queryStr) {
@@ -118,20 +121,13 @@ public class RecordLayerStorageCluster implements StorageCluster {
         }
         KeySpacePath ksPath = KeySpaceUtils.uriToPath(url, keySpace);
 
-        final var constantActionFactory = new RecordLayerConstantActionFactory.Builder()
-                .setRlConfig(rlConfiguration)
-                .setBaseKeySpace(keySpace)
-                .setTemplateCatalog(schemaTemplateCatalog)
-                .setStoreCatalog(catalog)
-                .build();
-
         final var ddlQueryFactory = new RecordLayerCatalogQueryFactory(catalog, schemaTemplateCatalog);
 
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,
                 rlConfiguration,
                 ksPath,
-                constantActionFactory,
+                ddlFactory,
                 ddlQueryFactory,
                 presetSchema,
                 connOptions);

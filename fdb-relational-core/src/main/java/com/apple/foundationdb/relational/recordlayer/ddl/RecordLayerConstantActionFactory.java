@@ -88,10 +88,10 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     }
 
     public static class Builder {
-        private StoreCatalog storeCatalog;
-        private SchemaTemplateCatalog templateCatalog;
-        private RecordLayerConfig rlConfig;
-        private KeySpace baseKeySpace;
+        protected StoreCatalog storeCatalog;
+        protected SchemaTemplateCatalog templateCatalog;
+        protected RecordLayerConfig rlConfig;
+        protected KeySpace baseKeySpace;
 
         public Builder setStoreCatalog(StoreCatalog storeCatalog) {
             this.storeCatalog = storeCatalog;
@@ -116,5 +116,9 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
         public RecordLayerConstantActionFactory build() {
             return new RecordLayerConstantActionFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace);
         }
+    }
+
+    public static Builder defaultFactory() {
+        return new Builder();
     }
 }

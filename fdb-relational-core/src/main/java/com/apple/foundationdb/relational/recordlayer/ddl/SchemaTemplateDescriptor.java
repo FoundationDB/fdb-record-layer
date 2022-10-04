@@ -104,7 +104,7 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
                     new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
             RecordMetaDataBuilder rmd = RecordMetaData.newBuilder().setRecords(fd);
             int typeKey = 0;
-            for (TableInfo table : tables) {
+            for (TableInfo table : getTables()) {
                 final KeyExpression keyExpression = table.getPrimaryKey();
                 final RecordTypeBuilder recordType = rmd.getRecordType(table.getTableName());
                 recordType.setRecordTypeKey(typeKey++);
@@ -184,5 +184,4 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
             throw ExceptionUtil.toRelationalException(e);
         }
     }
-
 }

@@ -1,5 +1,5 @@
 /*
- * DeleteRangeTest.java
+ * DeleteRangeNoTypeKeyTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
+import com.apple.foundationdb.relational.utils.NoTypeKeyDdlFactory;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
@@ -43,16 +44,16 @@ import java.util.List;
 /**
  * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
  */
-public class DeleteRangeTest {
+public class DeleteRangeNoTypeKeyTest {
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
 
     @RegisterExtension
     @Order(0)
-    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension(NoTypeKeyDdlFactory::newBuilder);
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoTypeKeyTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)
@@ -83,13 +84,11 @@ public class DeleteRangeTest {
     }
 
     @Test
-    void deleteNoKey() throws Exception {
+    void deleteNoKeyFailsBecauseNoRecordTypeKeys() throws Exception {
         KeySet toDelete = new KeySet();
-        statement.executeDeleteRange("T1", toDelete, Options.NONE);
-
-        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t1")) {
-            ResultSetAssert.assertThat(resultSet).isEmpty();
-        }
+        RelationalAssertions.assertThrows(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER)
+                .hasMessageContaining("Delete range with empty key range is only supported on tables with RecordTypeKeys");
     }
 
     @Test

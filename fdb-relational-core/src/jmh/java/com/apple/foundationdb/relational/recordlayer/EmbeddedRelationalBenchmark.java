@@ -32,12 +32,14 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
@@ -109,7 +111,21 @@ public abstract class EmbeddedRelationalBenchmark {
                 txn.commit();
             }
             catalog = rlCatalog;
-            engine = RecordLayerEngine.makeEngine(rlConfig, Collections.singletonList(fdbDb), keySpace, InMemorySchemaTemplateCatalog::new);
+            SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+            RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
+            RecordLayerConstantActionFactory ddlFactory = new RecordLayerConstantActionFactory.Builder()
+                    .setRlConfig(rlConfig)
+                    .setBaseKeySpace(keySpace)
+                    .setTemplateCatalog(templateCatalog)
+                    .setStoreCatalog(schemaCatalog).build();
+            engine = RecordLayerEngine.makeEngine(
+                    rlConfig,
+                    Collections.singletonList(fdbDb),
+                    keySpace,
+                    schemaCatalog,
+                    templateCatalog,
+                    null,
+                    ddlFactory);
             engine.registerDriver();
 
             createSchemaTemplate();
