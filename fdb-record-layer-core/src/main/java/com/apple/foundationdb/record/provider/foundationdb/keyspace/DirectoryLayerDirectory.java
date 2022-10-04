@@ -281,7 +281,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     @Nonnull
     private CompletableFuture<String> doReverseLookup(@Nonnull FDBRecordContext context, Long dir) {
         return scopeGenerator.apply(context)
-                .thenCompose(resolver -> resolver.reverseLookup(context.getTimer(), dir));
+                .thenCompose(resolver -> resolver.reverseLookup(context, dir));
     }
 
     @Nonnull
