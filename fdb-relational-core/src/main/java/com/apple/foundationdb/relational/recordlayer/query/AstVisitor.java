@@ -59,6 +59,7 @@ import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -110,6 +111,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
 
+    /*
+    whether the schema contains Non-nullable array.
+    If it is false, we'll wrap array field in all indexes. If it is true, we won't wrap any array field in any indexes.
+    It is a temporary work-around. We should wrap nullable array field in indexes. It'll be removed after this work is done.
+    */
+    private boolean containsNonNullableArray;
+
     /**
      * Creates a new instance of {@link AstVisitor}.
      *
@@ -130,6 +138,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.typingContext = TypingContext.create();
+        this.containsNonNullableArray = false;
     }
 
     @Override
@@ -1149,7 +1158,19 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 ctx.columnType().getText() :
                 ParserUtils.safeCastLiteral(visit(ctx.columnType().customType), String.class);
         final String columnName = ParserUtils.safeCastLiteral(visit(ctx.colName), String.class);
-        return new TypingContext.FieldDefinition(columnName, ParserUtils.toProtoType(fieldType), fieldType, ctx.ARRAY() != null);
+        boolean isNullable = true;
+        if (ctx.columnConstraint() != null) {
+            isNullable = (boolean) visit(ctx.columnConstraint());
+            if (!isNullable) {
+                containsNonNullableArray = true;
+            }
+        }
+        return new TypingContext.FieldDefinition(columnName, ParserUtils.toProtoType(fieldType), fieldType, ctx.ARRAY() != null, isNullable);
+    }
+
+    @Override
+    public Boolean visitNullColumnConstraint(RelationalParser.NullColumnConstraintContext ctx) {
+        return ctx.nullNotnull().NOT() == null;
     }
 
     @Override
@@ -1177,7 +1198,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             allFields.addAll(includeExpressions);
             rootExpression = Key.Expressions.keyWithValue(Key.Expressions.concat(allFields), fieldExpressions.size());
         }
-        typingContext.addIndex(tableName, RecordMetaDataProto.Index.newBuilder().setRootExpression(rootExpression.toKeyExpression())
+        typingContext.addIndex(tableName, RecordMetaDataProto.Index.newBuilder().setRootExpression(NullableArrayUtils.wrapArray(rootExpression.toKeyExpression(), typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(tableName), containsNonNullableArray))
                 .setName(indexName).setType("value").build(), Stream.concat(fieldNames.stream(), includeNames.stream()).collect(Collectors.toList()));
         return null;
     }
@@ -1188,7 +1209,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final RelationalExpression viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
         final var result = PlanUtils.getMaterializedViewKeyDefinition(viewPlan);
         final KeyExpression indexExpression = result.getRight();
-        typingContext.addIndex(result.getLeft(), RecordMetaDataProto.Index.newBuilder().setRootExpression(indexExpression.toKeyExpression())
+        typingContext.addIndex(result.getLeft(), RecordMetaDataProto.Index.newBuilder().setRootExpression(NullableArrayUtils.wrapArray(indexExpression.toKeyExpression(), typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(result.getLeft()), containsNonNullableArray))
                 .setName(indexName).setType("value").build(), List.of());
         return null;
     }

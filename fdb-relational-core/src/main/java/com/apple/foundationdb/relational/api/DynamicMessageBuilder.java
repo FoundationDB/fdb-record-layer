@@ -58,6 +58,8 @@ public interface DynamicMessageBuilder {
 
     DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws RelationalException;
 
+    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value, boolean isNullableArray) throws RelationalException;
+
     DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value) throws RelationalException;
 
     DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> value) throws RelationalException;

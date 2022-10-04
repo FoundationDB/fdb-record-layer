@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -127,11 +128,22 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     }
 
     @Override
-    public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values) throws RelationalException {
-        for (Object value : values) {
-            addRepeatedField(fieldName, value);
+    public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values, boolean isNullableArray) throws RelationalException {
+        if (isNullableArray) {
+            DynamicMessageBuilder builder = getNestedMessageBuilder(fieldName);
+            builder.addRepeatedFields(NullableArrayUtils.getRepeatedFieldName(), values, false);
+            setField(fieldName, builder.build());
+        } else {
+            for (Object value : values) {
+                addRepeatedField(fieldName, value);
+            }
         }
         return this;
+    }
+
+    @Override
+    public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values) throws RelationalException {
+        return addRepeatedFields(fieldName, values, true);
     }
 
     @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing

@@ -39,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -56,6 +57,12 @@ public class StructDataTypeTest {
                     " CREATE STRUCT struct_3 (c bytes, d boolean) " +
                     " CREATE TABLE at (a_name string, st2 struct_3 ARRAY, PRIMARY KEY(a_name))";
 
+    /*
+    message at {
+      string a_name = 1;
+      repeated struct_3 st2 = 2;
+    }
+     */
     @RegisterExtension
     @Order(0)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, StructDataTypeTest.class, TABLE_STRUCTURE);
@@ -92,14 +99,14 @@ public class StructDataTypeTest {
         statement.executeInsert("NT", m);
 
         final DynamicMessageBuilder atBuilder = statement.getDataBuilder("AT");
-        final DynamicMessageBuilder st2Builder = atBuilder.getNestedMessageBuilder("ST2");
+        final DynamicMessageBuilder st2Builder = statement.getDataBuilder("STRUCT_3");
+        System.out.println("st2Builder:" + st2Builder.getDescriptor().toProto());
         m = atBuilder.setField("A_NAME", "a_test_rec")
-                .addRepeatedField("ST2", st2Builder.setField("C", "Hello".getBytes(StandardCharsets.UTF_8))
+                .addRepeatedFields("ST2", List.of(st2Builder.setField("C", "Hello".getBytes(StandardCharsets.UTF_8))
                         .setField("D", true)
-                        .build())
-                .addRepeatedField("ST2", st2Builder.setField("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
+                        .build(), st2Builder.setField("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
                         .setField("D", false)
-                        .build())
+                        .build()))
                 .build();
 
         statement.executeInsert("AT", m);

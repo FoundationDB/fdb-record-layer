@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFacto
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -120,9 +121,8 @@ public class IndexAsSelectTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M) SQ"
-        ;
-        indexIs(stmt, field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)));
+                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M) SQ";
+        indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))));
     }
 
     @Test
@@ -131,7 +131,7 @@ public class IndexAsSelectTest {
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p)) " +
                 "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ";
-        indexIs(stmt, concat(field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)), field("P")));
+        indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")));
     }
 
     @Test
@@ -140,7 +140,7 @@ public class IndexAsSelectTest {
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ";
-        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))));
+        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))));
     }
 
     @Test
@@ -150,7 +150,7 @@ public class IndexAsSelectTest {
                 "CREATE STRUCT B(a A array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ";
-        indexIs(stmt, field("B", KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))));
+        indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))));
     }
 
     @Test
@@ -162,8 +162,8 @@ public class IndexAsSelectTest {
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ1, (select M.z from t.b AS Y, (select z from Y.c) M) SQ2";
         indexIs(stmt,
-                concat(field("B", KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))),
-                        field("B", KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))));
+                concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
+                        field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))));
     }
 
     @Test
@@ -175,10 +175,10 @@ public class IndexAsSelectTest {
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ";
         indexIs(stmt,
-                field("B", KeyExpression.FanType.FanOut).nest(
-                        concat(field("A", KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)),
-                                field("C", KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))
-                ));
+                field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(
+                        concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))),
+                                field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))
+                        ))));
     }
 
     @Test

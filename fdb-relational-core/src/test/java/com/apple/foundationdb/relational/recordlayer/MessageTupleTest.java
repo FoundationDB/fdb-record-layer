@@ -41,8 +41,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MessageTupleTest {
-    Message record = restaurantMessageBuilder().build();
+    Message record = restaurantMessageBuilder(true).build();
     MessageTuple tuple = new MessageTuple(record);
+    Message recordWithNonNullableArray = restaurantMessageBuilder(false).build();
+    MessageTuple tupleWithNonNullableArray = new MessageTuple(recordWithNonNullableArray);
 
     MessageTupleTest() throws Exception {
     }
@@ -50,20 +52,21 @@ class MessageTupleTest {
     @Test
     void getNumFields() {
         assertThat(tuple.getNumFields()).isEqualTo(7);
+        assertThat(tupleWithNonNullableArray.getNumFields()).isEqualTo(7);
     }
 
     @Test
-    void getObject() throws InvalidColumnReferenceException {
+    void getObjectNullableArray() throws InvalidColumnReferenceException {
         // position 0: int64 rest_no, is null if unset
         assertThat(tuple.getObject(0)).isEqualTo(null);
         // position 1: string name, is null if unset
         assertThat(tuple.getObject(1)).isEqualTo(null);
         // position 2: Location location, is null if unset
         assertThat(tuple.getObject(2)).isEqualTo(null);
-        // position 3-5 are repeated fields, is empty list if unset
-        assertThat(tuple.getObject(3)).isEqualTo(Collections.emptyList());
-        assertThat(tuple.getObject(4)).isEqualTo(Collections.emptyList());
-        assertThat(tuple.getObject(5)).isEqualTo(Collections.emptyList());
+        // position 3-5 are nullable arrays, is null if unset
+        assertThat(tuple.getObject(3)).isEqualTo(null);
+        assertThat(tuple.getObject(4)).isEqualTo(null);
+        assertThat(tuple.getObject(5)).isEqualTo(null);
 
         RelationalAssertions.assertThrows(
                 () -> tuple.getObject(-1))
@@ -74,11 +77,34 @@ class MessageTupleTest {
     }
 
     @Test
-    void parseMessage() {
-        Assertions.assertEquals(record, tuple.parseMessage());
+    void getObjectNonNullableArray() throws InvalidColumnReferenceException {
+        // position 0: int64 rest_no, is null if unset
+        assertThat(tupleWithNonNullableArray.getObject(0)).isEqualTo(null);
+        // position 1: string name, is null if unset
+        assertThat(tupleWithNonNullableArray.getObject(1)).isEqualTo(null);
+        // position 2: Location location, is null if unset
+        assertThat(tupleWithNonNullableArray.getObject(2)).isEqualTo(null);
+        // position 3-4 are non-nullable arrays, is empty list if unset
+        assertThat(tupleWithNonNullableArray.getObject(3)).isEqualTo(Collections.emptyList());
+        assertThat(tupleWithNonNullableArray.getObject(4)).isEqualTo(Collections.emptyList());
+        // position 5 is nullable array, is null if unset
+        assertThat(tupleWithNonNullableArray.getObject(5)).isEqualTo(null);
+
+        RelationalAssertions.assertThrows(
+                () -> tupleWithNonNullableArray.getObject(-1))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
+        RelationalAssertions.assertThrows(
+                () -> tupleWithNonNullableArray.getObject(10))
+                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
-    private DynamicMessage.Builder restaurantMessageBuilder() throws Exception {
+    @Test
+    void parseMessage() {
+        Assertions.assertEquals(record, tuple.parseMessage());
+        Assertions.assertEquals(recordWithNonNullableArray, tupleWithNonNullableArray.parseMessage());
+    }
+
+    private DynamicMessage.Builder restaurantMessageBuilder(boolean nullableArray) throws Exception {
         List<TypingContext.FieldDefinition> locationColumns = List.of(
                 new TypingContext.FieldDefinition("ADDRESS", Type.TypeCode.STRING, null, false),
                 new TypingContext.FieldDefinition("LATITUDE", Type.TypeCode.STRING, null, false),
@@ -102,8 +128,8 @@ class MessageTupleTest {
                 new TypingContext.FieldDefinition("REST_NO", Type.TypeCode.LONG, null, false),
                 new TypingContext.FieldDefinition("NAME", Type.TypeCode.STRING, null, false),
                 new TypingContext.FieldDefinition("LOCATION", Type.TypeCode.RECORD, "LOCATION", false),
-                new TypingContext.FieldDefinition("REVIEWS", Type.TypeCode.RECORD, "RESTAURANT_REVIEW", true),
-                new TypingContext.FieldDefinition("TAGS", Type.TypeCode.RECORD, "RESTAURANT_TAG", true),
+                new TypingContext.FieldDefinition("REVIEWS", Type.TypeCode.RECORD, "RESTAURANT_REVIEW", true, nullableArray),
+                new TypingContext.FieldDefinition("TAGS", Type.TypeCode.RECORD, "RESTAURANT_TAG", true, nullableArray),
                 new TypingContext.FieldDefinition("CUSTOMER", Type.TypeCode.STRING, null, true),
                 new TypingContext.FieldDefinition("ENCODED_BYTES", Type.TypeCode.BYTES, null, false)
         );

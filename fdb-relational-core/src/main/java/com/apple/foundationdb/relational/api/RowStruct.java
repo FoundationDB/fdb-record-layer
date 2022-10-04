@@ -26,13 +26,16 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
@@ -196,23 +199,40 @@ public abstract class RowStruct implements RelationalStruct {
         }
         if (obj instanceof RelationalArray) {
             return (RelationalArray) obj;
-        }
-        if (!(obj instanceof Collection)) {
-            //TODO(bfines) probably not the correct error here, but whatever
+        } else if (obj instanceof Collection) {
+            Collection<?> coll = (Collection<?>) obj;
+            final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
+            Collection<Row> rows = coll.stream().map(t -> {
+                if (t instanceof Row) {
+                    return (Row) t;
+                } else if (t instanceof Message) {
+                    return new MessageTuple((Message) t);
+                }
+                return new ArrayRow(new Object[]{t});
+            })
+                    .collect(Collectors.toList());
+            return new RowArray(rows, arrayMetaData);
+        } else if (obj instanceof Message) {
+            Message message = (Message) obj;
+            final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
+            // verify message is a wrapped array
+            if (!NullableArrayUtils.isWrappedArrayDescriptor(message.getDescriptorForType())) {
+                throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            }
+            Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
+            Row[] rows = new Row[message.getRepeatedFieldCount(fieldDescriptor)];
+            for (int i = 0; i < message.getRepeatedFieldCount(fieldDescriptor); i++) {
+                Object o = message.getRepeatedField(fieldDescriptor, i);
+                if (o instanceof Message) {
+                    rows[i] = new MessageTuple((Message) o);
+                } else {
+                    rows[i] = new ArrayRow(o);
+                }
+            }
+            return new RowArray(Arrays.asList(rows), arrayMetaData);
+        } else {
             throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
-        Collection<?> coll = (Collection<?>) obj;
-        final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
-        Collection<Row> rows = coll.stream().map(t -> {
-            if (t instanceof Row) {
-                return (Row) t;
-            } else if (t instanceof Message) {
-                return new MessageTuple((Message) t);
-            }
-            return new ArrayRow(new Object[]{t});
-        })
-                .collect(Collectors.toList());
-        return new RowArray(rows, arrayMetaData);
     }
 
     @Override

@@ -101,19 +101,21 @@ public class Generators {
             if (!allowArrays) {
                 throw new RelationalException("Cannot nest arrays within arrays!", ErrorCode.INVALID_PARAMETER);
             }
+            DynamicMessageBuilder wrappedArrayBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
             final List<?> array = arrayList(value);
             for (Object arrayValue : array) {
-                setField(key, arrayValue, (arrayKey, arrVal) -> {
+                setField("values", arrayValue, (fieldIndicator, fieldValue) -> {
                     try {
-                        if (key instanceof Integer) {
-                            dataBuilder.addRepeatedField((int) key, arrVal);
+                        if (fieldIndicator instanceof Integer) {
+                            wrappedArrayBuilder.addRepeatedField((int) fieldIndicator, fieldValue);
                         } else {
-                            dataBuilder.addRepeatedField(string(key, "field descriptor"), arrVal);
+                            wrappedArrayBuilder.addRepeatedField(string(fieldIndicator, "field descriptor"), fieldValue);
                         }
                     } catch (RelationalException e) {
                         throw e.toUncheckedWrappedException();
                     }
-                }, dataBuilder, false);
+                }, wrappedArrayBuilder, false);
+                typeConsumer.accept(key, wrappedArrayBuilder.build());
             }
             return;
         } else if (isMap(value)) {

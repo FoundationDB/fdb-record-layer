@@ -56,6 +56,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,6 +74,19 @@ public class StandardQueryTests {
                     " CREATE STRUCT RestaurantTag (tag string, weight int64)" +
                     " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
+                    " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
+                    " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
+                    " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
+                    " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
+
+    private static final String schemaTemplateWithNonNullableArrays =
+            "CREATE STRUCT Location (address string, latitude string, longitude string)" +
+                    " CREATE STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
+                    " CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array NOT NULL)" +
+                    " CREATE STRUCT RestaurantTag (tag string, weight int64)" +
+                    " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
+                    " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
                     " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
@@ -112,8 +126,32 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord)
-                            .hasNoNextRow();
+                            .hasRow(insertedRecord);
+                    // explicitly test when nullable array is set to empty list, the RowArray object holds an empty iterable
+                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
+                    // explicitly test unset Nullable array is NULL
+                    Assertions.assertNull(resultSet.getArray("TAGS"));
+                    Assertions.assertNull(resultSet.getArray("CUSTOMER"));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void simpleSelectWithNonNullableArrays() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                var insertedRecord = insertRestaurantComplexRecord(statement, true);
+                Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(insertedRecord);
+                    // explicitly test when a Non-nullable array is unset, the RowArray object holds an empty iterable
+                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
+                    Assertions.assertEquals("[]", resultSet.getArray("TAGS").toString());
+                    Assertions.assertEquals("[]", resultSet.getArray("CUSTOMER").toString());
+                    Assertions.assertFalse(resultSet.next());
                 }
             }
         }
@@ -534,7 +572,7 @@ public class StandardQueryTests {
                         .setField("C", statement.getDataBuilder("C")
                                 .setField("D", statement.getDataBuilder("D")
                                         .setField("E", statement.getDataBuilder("E")
-                                                .addRepeatedField("F", 128L)
+                                                .addRepeatedFields("F", List.of(128L))
                                                 .build())
                                         .build())
                                 .build())
@@ -543,7 +581,7 @@ public class StandardQueryTests {
                                         .setField("C", statement.getDataBuilder("C")
                                                 .setField("D", statement.getDataBuilder("D")
                                                         .setField("E", statement.getDataBuilder("E")
-                                                                .addRepeatedField("F", 128L)
+                                                                .addRepeatedFields("F", List.of(128L))
                                                                 .build())
                                                         .build())
                                                 .build())
@@ -625,9 +663,23 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), false);
+                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())), false);
+                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())), false);
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l43, l44);
+                }
+            }
+        }
+    }
+
+    @Test
+    void existsPredicateWorksWithNonNullableArray() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), true);
+                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())), true);
+                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())), true);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(l43, l44);
                 }
@@ -646,7 +698,7 @@ public class StandardQueryTests {
                                         Pair.of(401L, "meh"))),
                                 Triple.of(2L, 5L, List.of(
                                         Pair.of(402L, "awesome"),
-                                        Pair.of(401L, "wow")))));
+                                        Pair.of(401L, "wow")))), false);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42);
                 }
@@ -668,16 +720,15 @@ public class StandardQueryTests {
                                 .setField("PHONE_NUMBER", 12345)
                                 .setField("ADDRESS", "6 Part Road")
                                 .build())
-                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("MESSAGES")
                                 .setField("TEXT", "Hello there!")
                                 .setField("TIMESTAMP", 10000)
                                 .setField("SENT", true)
-                                .build())
-                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .build(), statement.getDataBuilder("MESSAGES")
                                 .setField("TEXT", "Hi Scott!")
                                 .setField("TIMESTAMP", 20000)
                                 .setField("SENT", false)
-                                .build())
+                                .build()))
                         .build();
                 int cnt = statement.executeInsert("CONVERSATIONS", row1);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
@@ -689,16 +740,15 @@ public class StandardQueryTests {
                                 .setField("PHONE_NUMBER", 9876543)
                                 .setField("ADDRESS", "10 Chancery Lane")
                                 .build())
-                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("MESSAGES")
                                 .setField("TEXT", "Hello there")
                                 .setField("TIMESTAMP", 30000)
                                 .setField("SENT", true)
-                                .build())
-                        .addRepeatedField("MESSAGES", statement.getDataBuilder("MESSAGES")
+                                .build(), statement.getDataBuilder("MESSAGES")
                                 .setField("TEXT", "What a nice weather today!")
                                 .setField("TIMESTAMP", 40000)
                                 .setField("SENT", true)
-                                .build())
+                                .build()))
                         .build();
                 cnt = statement.executeInsert("CONVERSATIONS", row2);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
@@ -788,15 +838,19 @@ public class StandardQueryTests {
         return insertRestaurantComplexRecord(s, 10L);
     }
 
+    private Message insertRestaurantComplexRecord(RelationalStatement s, boolean containsNonNullableArray) throws RelationalException {
+        return insertRestaurantComplexRecord(s, 10L, "testName", List.of(), containsNonNullableArray);
+    }
+
     private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws RelationalException {
         return insertRestaurantComplexRecord(s, recordNumber, "testName");
     }
 
     private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws RelationalException {
-        return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of());
+        return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of(), false);
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews, boolean containsNonNullableArray) throws RelationalException {
         final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
                 .setField("REST_NO", recordNumber)
                 .setField("NAME", recordName)
@@ -805,20 +859,36 @@ public class StandardQueryTests {
                         .setField("LATITUDE", 1)
                         .setField("LONGITUDE", 1)
                         .build());
-
-        for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-            recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
-                    .setField("REVIEWER", review.getLeft())
-                    .setField("RATING", review.getMiddle())
-                    .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
-                        try {
-                            return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                        } catch (RelationalException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }).collect(Collectors.toList()))
-                    .build()
-            );
+        if (containsNonNullableArray) {
+            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
+                recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
+                        .setField("REVIEWER", review.getLeft())
+                        .setField("RATING", review.getMiddle())
+                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
+                            try {
+                                return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
+                            } catch (RelationalException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }).collect(Collectors.toList()), false)
+                        .build());
+            }
+        } else {
+            List<Message> reviewList = new LinkedList<>();
+            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
+                reviewList.add(s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
+                        .setField("REVIEWER", review.getLeft())
+                        .setField("RATING", review.getMiddle())
+                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
+                            try {
+                                return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
+                            } catch (RelationalException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }).collect(Collectors.toList()))
+                        .build());
+            }
+            recBuilder2.addRepeatedFields("REVIEWS", reviewList);
         }
 
         final Message rec = recBuilder2.build();

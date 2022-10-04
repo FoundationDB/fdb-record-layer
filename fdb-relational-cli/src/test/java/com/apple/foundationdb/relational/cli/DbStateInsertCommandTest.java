@@ -85,8 +85,8 @@ public class DbStateInsertCommandTest {
          */
         factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
-        final String cmd =  "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no));" ;
+        final String cmd = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no));";
         Object o = factory.getQueryCommand(cmd).call();
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");
         Assertions.assertEquals(0, (Integer) o, "Did not return the correct modification count");
@@ -119,7 +119,7 @@ public class DbStateInsertCommandTest {
          */
         factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
-        final String cmd =  "CREATE SCHEMA TEMPLATE test_template " +
+        final String cmd = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no));";
         Object o = factory.getQueryCommand(cmd).call();
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");

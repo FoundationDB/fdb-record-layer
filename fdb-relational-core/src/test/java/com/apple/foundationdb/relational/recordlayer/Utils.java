@@ -41,10 +41,10 @@ public final class Utils {
     static volatile AtomicLong sequencer = new AtomicLong();
 
     static Iterable<Message> generateRestaurantRecords(int count, RelationalStatement statement) {
-        return generateList(count, () -> Utils.generateRestaurantRecord(statement));
+        return generateList(count, () -> Utils.generateRestaurantRecordWrapped(statement));
     }
 
-    static Message generateRestaurantRecord(RelationalStatement statement) {
+    static Message generateRestaurantRecordWrapped(RelationalStatement statement) {
         int numReviews = r.nextInt(5) + 1;
         int numTags = r.nextInt(5) + 1;
         int numCustomers = r.nextInt(5) + 1;
@@ -54,8 +54,8 @@ public final class Utils {
                     .setField("REST_NO", sequencer.incrementAndGet())
                     .setField("NAME", "restName" + r.nextInt())
                     .setField("LOCATION", generateLocation(statement))
-                    .addRepeatedFields("REVIEWS", generateReviews(statement, numReviews))
-                    .addRepeatedFields("TAGS", generateTags(statement, numTags))
+                    .addRepeatedFields("REVIEWS", generateList(numReviews, () -> generateReview(statement)))
+                    .addRepeatedFields("TAGS", generateList(numTags, () -> generateTag(statement)))
                     .addRepeatedFields("CUSTOMER", generateList(numCustomers, () -> "cust" + r.nextInt()))
                     .build();
         } catch (RelationalException e) {
@@ -86,10 +86,6 @@ public final class Utils {
         }
     }
 
-    private static Iterable<Message> generateReviews(RelationalStatement statement, int numReviewers) {
-        return generateList(numReviewers, () -> generateReview(statement));
-    }
-
     private static Message generateTag(RelationalStatement statement) {
         try {
             return statement.getDataBuilder("RESTAURANT_TAG")
@@ -99,10 +95,6 @@ public final class Utils {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
-    }
-
-    private static Iterable<Message> generateTags(RelationalStatement statement, int numTags) {
-        return generateList(numTags, () -> generateTag(statement));
     }
 
     private static <T> Iterable<T> generateList(int count, Supplier<T> supplier) {

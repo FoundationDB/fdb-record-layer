@@ -20,15 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -43,7 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -216,12 +213,29 @@ public class InsertTest {
     }
 
     @Test
+    void canNotAddNullElementToArray() throws SQLException, RelationalException {
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            List<String> customers = new ArrayList<>();
+            customers.add("A");
+            customers.add(null);
+            try (RelationalStatement s = conn.createStatement()) {
+                Assertions.assertThrows(NullPointerException.class, () -> s.getDataBuilder("RESTAURANT")
+                        .setField("REST_NO", 0)
+                        .addRepeatedFields("CUSTOMER", customers)
+                        .build());
+            }
+        }
+    }
+
+    @Test
     void replaceOnInsert() throws SQLException, RelationalException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
-                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "before").addRepeatedField("CUSTOMER", "cust1").build();
+                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "before").addRepeatedFields("CUSTOMER", List.of("cust1")).build();
                 s.executeInsert("RESTAURANT", record);
                 record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "after").build();
                 s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());
@@ -229,7 +243,6 @@ public class InsertTest {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow()
                             .hasColumn("NAME", "after")
-                            .hasColumn("CUSTOMER", new RowArray(List.of(), new RelationalStructMetaData(FieldDescription.primitive("CUSTOMER", Types.VARCHAR, true))))
                             .hasNoNextRow();
                 }
             }

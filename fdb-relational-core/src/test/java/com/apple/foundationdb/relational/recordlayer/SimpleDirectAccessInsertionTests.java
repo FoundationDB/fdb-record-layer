@@ -40,6 +40,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * Simple unit tests around direct-access insertion tests.
@@ -113,14 +114,14 @@ public class SimpleDirectAccessInsertionTests {
                         .setField("LOCATION", s.getDataBuilder("LOCATION")
                                 .setField("ADDRESS", "12345 Easy Street")
                                 .build())
-                        .addRepeatedField("TAGS", s.getDataBuilder("RESTAURANT_TAG")
+                        .addRepeatedFields("TAGS", List.of(s.getDataBuilder("RESTAURANT_TAG")
                                 .setField("TAG", "title-123")
                                 .setField("WEIGHT", 1L)
-                                .build())
-                        .addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANT_REVIEW")
+                                .build()))
+                        .addRepeatedFields("REVIEWS", List.of(s.getDataBuilder("RESTAURANT_REVIEW")
                                 .setField("REVIEWER", 1L)
                                 .setField("RATING", 1L)
-                                .build())
+                                .build()))
                         .build();
 
                 //insert the review

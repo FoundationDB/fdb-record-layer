@@ -57,6 +57,10 @@ public class ArrayAssert extends AbstractAssert<ArrayAssert, Array> {
     }
 
     public ArrayAssert isEqualTo(Array expected) {
+        if (expected == null) {
+            Assertions.assertThat(actual).isNull();
+            return this;
+        }
         try {
             ResultSet rs = actual.getResultSet();
             Assertions.assertThat(rs).isInstanceOf(RelationalResultSet.class);

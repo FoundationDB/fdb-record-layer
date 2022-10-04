@@ -134,11 +134,15 @@ structOrTableDefinition
     ;
 
 columnDefinition
-    : colName=uid columnType ARRAY?
+    : colName=uid columnType ARRAY? columnConstraint?
     ;
 
 columnType
     : BOOLEAN | INT32 | INT64 | DOUBLE | STRING | BYTES| customType=uid;
+
+columnConstraint
+    : nullNotnull                                                   #nullColumnConstraint
+    ;
 
 primaryKeyDefinition
     : PRIMARY KEY '(' uid (COMMA uid)* ')'
@@ -1437,6 +1441,10 @@ simpleId
     ;
 
 //    Literals
+
+nullNotnull
+    : NOT? NULL_LITERAL
+    ;
 
 // done
 decimalLiteral

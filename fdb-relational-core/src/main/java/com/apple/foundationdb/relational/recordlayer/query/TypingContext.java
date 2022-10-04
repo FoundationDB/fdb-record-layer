@@ -259,24 +259,31 @@ public final class TypingContext {
 
         final boolean isRepeated;
 
+        final boolean isNullable;
+
         public FieldDefinition(@Nonnull final String name, @Nonnull final Type.TypeCode pbType, @Nullable final String typeName, boolean isRepeated) {
+            this(name, pbType, typeName, isRepeated, true);
+        }
+
+        public FieldDefinition(@Nonnull final String name, @Nonnull final Type.TypeCode pbType, @Nullable final String typeName, boolean isRepeated, boolean isNullable) {
             this.name = name;
             this.pbType = pbType;
             this.typeName = typeName;
             this.isRepeated = isRepeated;
+            this.isNullable = isNullable;
         }
 
         @Nonnull
         public Type.Record.Field toField(@Nonnull final TypeRepository.Builder typeRepository, int index) {
             Assert.thatUnchecked(index >= 0);
             if (pbType.isPrimitive()) {
-                final Type type = Type.primitiveType(pbType, false);
-                return Type.Record.Field.of(isRepeated ? new Type.Array(type) : type, Optional.of(name), Optional.of(index));
+                final Type type = Type.primitiveType(pbType, true);
+                return Type.Record.Field.of(isRepeated ? new Type.Array(isNullable, type) : type, Optional.of(name), Optional.of(index));
             } else {
                 Assert.notNullUnchecked(typeName);
                 Assert.thatUnchecked(typeRepository.getTypeByName(typeName).isPresent(), String.format("could not find type %s of record %s", typeName, name));
                 final Type type = typeRepository.getTypeByName(typeName).get();
-                return Type.Record.Field.of(isRepeated ? new Type.Array(type) : type, Optional.of(name), Optional.of(index));
+                return Type.Record.Field.of(isRepeated ? new Type.Array(isNullable, type) : type, Optional.of(name), Optional.of(index));
             }
         }
 
