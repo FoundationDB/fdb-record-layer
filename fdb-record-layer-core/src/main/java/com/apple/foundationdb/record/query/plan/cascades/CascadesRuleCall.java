@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolv
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -51,7 +52,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Nonnull
     private final GroupExpressionRef<RelationalExpression> root;
     @Nonnull
-    private final AliasResolver aliasResolver;
+    private final ExpressionRefTraversal traversal;
     @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
@@ -66,12 +67,12 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     public CascadesRuleCall(@Nonnull PlanContext context,
                             @Nonnull CascadesRule<?> rule,
                             @Nonnull GroupExpressionRef<RelationalExpression> root,
-                            @Nonnull AliasResolver aliasResolver,
+                            @Nonnull ExpressionRefTraversal traversal,
                             @Nonnull PlannerBindings bindings) {
         this.context = context;
         this.rule = rule;
         this.root = root;
-        this.aliasResolver = aliasResolver;
+        this.traversal = traversal;
         this.bindings = bindings;
         this.newExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
@@ -88,8 +89,13 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     }
 
     @Nonnull
-    public AliasResolver getAliasResolver() {
-        return aliasResolver;
+    public ExpressionRefTraversal getTraversal() {
+        return traversal;
+    }
+
+    @Nonnull
+    public AliasResolver newAliasResolver() {
+        return new AliasResolver(traversal);
     }
 
     @Override
@@ -134,12 +140,49 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
                 if (root.insertFrom(member, groupExpressionRef)) {
                     newExpressions.add(member);
-                    aliasResolver.addExpression(expressionReference, member);
+                    traversal.addExpression(expressionReference, member);
                 }
             }
         } else {
             throw new RecordCoreArgumentException("found a non-group reference in an expression used by the Cascades planner");
         }
+    }
+
+    @Nonnull
+    public ExpressionRef<? extends RelationalExpression> ref(@Nonnull final RelationalExpression expression) {
+        if (expression.getQuantifiers().isEmpty()) {
+            return GroupExpressionRef.of(expression);
+        }
+
+        final var referencePathsList =
+                expression.getQuantifiers()
+                        .stream()
+                        .map(Quantifier::getRangesOver)
+                        .map(traversal::getParentRefPaths)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, ExpressionRef<? extends RelationalExpression>>();
+        referencePathsList.stream()
+                .flatMap(Collection::stream)
+                .forEach(referencePath -> expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference()));
+
+        final var referencingExpressions =
+                referencePathsList.stream()
+                        .map(referencePaths -> referencePaths.stream().map(ExpressionRefTraversal.ReferencePath::getExpression).collect(LinkedIdentitySet.toLinkedIdentitySet()))
+                        .collect(ImmutableList.toImmutableList());
+
+        final var referencingExpressionsIterator = referencingExpressions.iterator();
+        final var commonReferencingExpressions = new LinkedIdentitySet<>(referencingExpressionsIterator.next());
+        while (referencingExpressionsIterator.hasNext()) {
+            commonReferencingExpressions.retainAll(referencingExpressionsIterator.next());
+        }
+
+        for (final var commonReferencingExpression : commonReferencingExpressions) {
+            if (GroupExpressionRef.containsInMember(commonReferencingExpression, expression)) {
+                return Verify.verifyNotNull(expressionToReferenceMap.get(commonReferencingExpression));
+            }
+        }
+        return GroupExpressionRef.of(expression);
     }
 
     /**

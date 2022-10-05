@@ -55,7 +55,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.choose;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.choose;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;

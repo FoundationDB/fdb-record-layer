@@ -268,33 +268,44 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return false;
     }
 
+    public static boolean containsInMember(@Nonnull final RelationalExpression expression,
+                                           @Nonnull final RelationalExpression otherExpression) {
+        final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
+        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
+
+        return containsInMember(expression, otherExpression, identityMap);
+    }
+
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static boolean containsInMember(@Nonnull final RelationalExpression member,
-                                            @Nonnull final RelationalExpression otherMember,
+                                            @Nonnull final RelationalExpression otherExpression,
                                             @Nonnull final AliasMap equivalenceMap) {
-        if (member == otherMember) {
+        if (member == otherExpression) {
             return true;
         }
-        if (member.getClass() != otherMember.getClass()) {
+        if (member.getClass() != otherExpression.getClass()) {
             return false;
         }
 
         final List<? extends Quantifier> quantifiers = member.getQuantifiers();
-        final List<? extends Quantifier> otherQuantifiers = otherMember.getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
         if (member.getQuantifiers().size() != otherQuantifiers.size()) {
             return false;
         }
 
-        if (member.hashCodeWithoutChildren() != otherMember.hashCodeWithoutChildren()) {
+        if (member.hashCodeWithoutChildren() != otherExpression.hashCodeWithoutChildren()) {
             return false;
         }
 
         // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
-        Verify.verify(member.canCorrelate() == otherMember.canCorrelate());
+        Verify.verify(member.canCorrelate() == otherExpression.canCorrelate());
 
         // Bind all unbound correlated aliases in this member and otherMember that refer to the same
         // quantifier by alias.
-        final AliasMap identitiesMap = member.bindIdentities(otherMember, equivalenceMap);
+        final AliasMap identitiesMap = member.bindIdentities(otherExpression, equivalenceMap);
         final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
 
         final Iterable<AliasMap> aliasMapIterable;
@@ -309,7 +320,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                     Quantifiers.findMatches(
                             combinedEquivalenceMap,
                             member.getQuantifiers(),
-                            otherMember.getQuantifiers(),
+                            otherExpression.getQuantifiers(),
                             ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
                                 final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
                                 final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
@@ -333,7 +344,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         // if there is more than one match we only need one such match that also satisfies the equality condition between
         // member and otherMember (no children considered).
         return StreamSupport.stream(aliasMapIterable.spliterator(), false)
-                .anyMatch(aliasMap -> member.equalsWithoutChildren(otherMember, aliasMap));
+                .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
     @Nonnull

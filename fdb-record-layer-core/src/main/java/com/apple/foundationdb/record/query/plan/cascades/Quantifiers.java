@@ -555,13 +555,8 @@ public class Quantifiers {
         @Nonnull
         private final ExpressionRefTraversal traversal;
 
-        private AliasResolver(@Nonnull final ExpressionRefTraversal traversal) {
+        public AliasResolver(@Nonnull final ExpressionRefTraversal traversal) {
             this.traversal = traversal;
-        }
-
-        public void addExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
-                                  @Nonnull final RelationalExpression expression) {
-            traversal.addExpression(reference, expression);
         }
 
         public Set<Quantifier> resolveCorrelationAlias(@Nonnull RelationalExpression expression,
