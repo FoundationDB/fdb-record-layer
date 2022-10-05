@@ -159,15 +159,43 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     @SuppressWarnings("deprecation")
     private void loadProtoExceptRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
+            JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
+            syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
+        }
+
         for (RecordMetaDataProto.Index indexProto : metaDataProto.getIndexesList()) {
             List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
+            List<SyntheticRecordTypeBuilder<?>> syntheticRecordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
             for (String recordTypeName : indexProto.getRecordTypeList()) {
-                recordTypeBuilders.add(getRecordType(recordTypeName));
+                final RecordTypeBuilder recordTypeBuilder = recordTypes.get(recordTypeName);
+                if (recordTypeBuilder != null) {
+                    recordTypeBuilders.add(getRecordType(recordTypeName));
+                } else {
+                    final SyntheticRecordTypeBuilder<?> syntheticRecordTypeBuilder = syntheticRecordTypes.get(recordTypeName);
+                    if (syntheticRecordTypeBuilder != null) {
+                        syntheticRecordTypeBuilders.add(syntheticRecordTypeBuilder);
+                    } else {
+                        throwUnknownRecordType(recordTypeName, false);
+                    }
+                }
             }
-            try {
-                addMultiTypeIndex(recordTypeBuilders, new Index(indexProto));
-            } catch (KeyExpression.DeserializationException e) {
-                throw new MetaDataProtoDeserializationException(e);
+            if (!syntheticRecordTypeBuilders.isEmpty()) {
+                try {
+                    Index index = new Index(indexProto);
+                    addIndexCommon(index);
+                    for (SyntheticRecordTypeBuilder<?> syntheticRecordTypeBuilder : syntheticRecordTypeBuilders) {
+                        syntheticRecordTypeBuilder.getIndexes().add(index);
+                    }
+                } catch (KeyExpression.DeserializationException e) {
+                    throw new MetaDataProtoDeserializationException(e);
+                }
+            } else {
+                try {
+                    addMultiTypeIndex(recordTypeBuilders, new Index(indexProto));
+                } catch (KeyExpression.DeserializationException e) {
+                    throw new MetaDataProtoDeserializationException(e);
+                }
             }
         }
         for (RecordMetaDataProto.RecordType typeProto : metaDataProto.getRecordTypesList()) {
@@ -204,10 +232,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         if (metaDataProto.hasVersion()) {
             version = metaDataProto.getVersion();
-        }
-        for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
-            JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
-            syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
         }
     }
 
@@ -918,10 +942,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public RecordTypeBuilder getRecordType(@Nonnull String name) {
         RecordTypeBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throwUnknownRecordType(name, false);
         }
         return recordType;
     }
+
+    private void throwUnknownRecordType(final @Nonnull String name, boolean isSynthetic) {
+        throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
+    }
+
 
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
@@ -929,7 +958,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(@Nonnull String name) {
         SyntheticRecordTypeBuilder<?> recordType = syntheticRecordTypes.get(name);
         if (recordType == null) {
-            throw new MetaDataException("Unknown synthetic record type " + name);
+            throwUnknownRecordType(name, true);
         }
         return recordType;
     }
@@ -985,7 +1014,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throwUnknownRecordType(name, false);
         }
         return recordType;
     }
@@ -1388,7 +1417,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 throw new MetaDataException("Could not build synthesized file descriptor", ex);
             }
             for (SyntheticRecordTypeBuilder<?> recordTypeBuilder : syntheticRecordTypes.values()) {
-                builtSyntheticRecordTypes.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData, fileDescriptor));
+                final SyntheticRecordType<?> syntheticType = recordTypeBuilder.build(metaData, fileDescriptor);
+                builtSyntheticRecordTypes.put(recordTypeBuilder.getName(), syntheticType);
             }
         }
         if (validate) {

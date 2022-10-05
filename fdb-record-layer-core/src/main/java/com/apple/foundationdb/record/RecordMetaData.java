@@ -628,6 +628,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 typeBuilder.setExplicitKey(LiteralKeyExpression.toProtoValue(recordType.getExplicitRecordTypeKey()));
             }
         }
+        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            if (syntheticRecordType instanceof JoinedRecordType) {
+                builder.addJoinedRecordTypes(((JoinedRecordType)syntheticRecordType).toProto());
+            }
+            for (Index syntheticIndex : syntheticRecordType.getIndexes()) {
+                indexBuilders.get(syntheticIndex.getName()).addRecordType(syntheticRecordType.getName());
+            }
+        }
+
         indexBuilders.values().forEach(builder::addIndexes);
 
         // Add in the former indexes.
@@ -645,12 +654,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
         if (recordCountKey != null) {
             builder.setRecordCountKey(recordCountKey.toKeyExpression());
-        }
-
-        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
-            if (syntheticRecordType instanceof JoinedRecordType) {
-                builder.addJoinedRecordTypes(((JoinedRecordType)syntheticRecordType).toProto());
-            }
         }
 
         return builder.build();
