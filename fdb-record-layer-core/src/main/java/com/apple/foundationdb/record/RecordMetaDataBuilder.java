@@ -942,13 +942,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public RecordTypeBuilder getRecordType(@Nonnull String name) {
         RecordTypeBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
-            throwUnknownRecordType(name,false);
+            throwUnknownRecordType(name, false);
         }
         return recordType;
     }
 
     private void throwUnknownRecordType(final @Nonnull String name, boolean isSynthetic) {
-        throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "Record Type" + name);
+        throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
     }
 
 
@@ -958,7 +958,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(@Nonnull String name) {
         SyntheticRecordTypeBuilder<?> recordType = syntheticRecordTypes.get(name);
         if (recordType == null) {
-            throwUnknownRecordType(name,true);
+            throwUnknownRecordType(name, true);
         }
         return recordType;
     }
@@ -1014,7 +1014,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throwUnknownRecordType(name,false);
+            throwUnknownRecordType(name, false);
         }
         return recordType;
     }
