@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -58,6 +59,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -70,6 +72,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -788,5 +791,54 @@ public class RecordMetaDataBuilderTest {
                         .setSubspaceKeyCounter(5)
                         .build()));
         assertEquals("Error converting from protobuf", e.getMessage());
+    }
+
+    @Test
+    void canSerializeAndDeserializeSyntheticRecordTypes() {
+        RecordMetaDataBuilder rmd = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        rmd.setSplitLongRecords(true);
+        final RecordTypeBuilder simpleBuilder = rmd.getRecordType("MySimpleRecord");
+        final RecordTypeBuilder otherBuilder = rmd.getRecordType("MyOtherRecord");
+
+        JoinedRecordTypeBuilder joined = rmd.addJoinedRecordType("SimpleOtherJoin");
+        joined.addConstituent(simpleBuilder);
+        joined.addConstituent(otherBuilder);
+        joined.addJoin("MySimpleRecord", "num_value_2", "MyOtherRecord", "rec_no");
+
+        Index idx = new Index("joinIndex",
+                Key.Expressions.concat(
+                        field("MySimpleRecord").nest(Key.Expressions.concatenateFields("num_value_2", "num_value_unique")),
+                        field("MyOtherRecord").nest(Key.Expressions.concat(
+                                field("rec_no"),
+                                field("num_value_2")
+                        ))
+                ),
+                IndexTypes.VALUE,
+                Map.of());
+        rmd.addIndex("SimpleOtherJoin", idx);
+        final RecordMetaData recordMetaData = rmd.build();
+
+        final RecordMetaDataProto.MetaData metaDataProto = recordMetaData.toProto();
+
+        Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[] {
+                RecordMetaDataProto.getDescriptor(),
+                RecordMetaDataOptionsProto.getDescriptor()
+        };
+
+        RecordMetaData deserializedMetaData = RecordMetaData.newBuilder()
+                .addDependencies(dependencies)
+                .setRecords(metaDataProto)
+                .build();
+
+        assertEquals(recordMetaData.getRecordTypes().size(), deserializedMetaData.getRecordTypes().size(), "Incorrect record type count");
+        assertIterableEquals(recordMetaData.getRecordTypes().keySet(), deserializedMetaData.getRecordTypes().keySet(), "Incorrect record type names");
+        assertEquals(recordMetaData.getSyntheticRecordTypes().size(), deserializedMetaData.getSyntheticRecordTypes().size(), "Incorrect synthetic record type count");
+        assertIterableEquals(recordMetaData.getSyntheticRecordTypes().keySet(), deserializedMetaData.getSyntheticRecordTypes().keySet(), "Incorrect synthetic record type names");
+        assertEquals(recordMetaData.getAllIndexes().size(), deserializedMetaData.getAllIndexes().size(), "Incorrect index count");
+        for (Index expectedIndex : recordMetaData.getAllIndexes()) {
+            final Index actualIndex = deserializedMetaData.getIndex(expectedIndex.getName());
+            assertNotNull(actualIndex, "Missing index " + expectedIndex);
+            assertEquals(expectedIndex.getRootExpression(), actualIndex.getRootExpression(), "Incorrect index root expression");
+        }
     }
 }
