@@ -365,7 +365,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
     private ResolvedKeySpacePath assertResolvesFromKey(FDBRecordContext context, Tuple t, KeySpace keySpace, List<Pair<String, Object>> dirPath) {
         ResolvedKeySpacePath resolved = keySpace.resolveFromKey(context, t);
         List<ResolvedKeySpacePath> flattened = keySpace.resolveFromKey(context, t).flatten();
-        assertEquals(resolved.size(), resolved.size());
+        assertEquals(dirPath.size(), flattened.size());
 
         for (int i = 0; i < dirPath.size(); i++) {
             ResolvedKeySpacePath resolvedElem = flattened.get(i);
