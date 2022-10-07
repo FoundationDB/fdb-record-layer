@@ -90,6 +90,18 @@ public interface Debugger {
     }
 
     /**
+     * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
+     * @param runnable to invoke that may throw an exception
+     */
+    static void sanityCheck(@Nonnull final Runnable runnable) {
+        withDebugger(debugger -> {
+            if (!debugger.isSane()) {
+                runnable.run();
+            }
+        });
+    }
+
+    /**
      * Apply the {@link Function} on the currently set debugger. Do not do anything if there is no debugger set.
      * @param function function to apply
      * @param <T> the type {@code function} produces
@@ -142,6 +154,8 @@ public interface Debugger {
 
     @Nullable
     String nameForObject(@Nonnull Object object);
+
+    boolean isSane();
 
     void onEvent(Event event);
 

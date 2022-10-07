@@ -187,6 +187,13 @@ public class RequestedOrdering {
         return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS);
     }
 
+    @Nonnull
+    public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
+                                                   final boolean isReverse,
+                                                   @Nonnull final Distinctness distinctness) {
+        return new RequestedOrdering(values.stream().map(value -> KeyPart.of(value, isReverse)).collect(ImmutableList.toImmutableList()), distinctness);
+    }
+
     /**
      * Whether the ordered records are distinct.
      */

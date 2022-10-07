@@ -42,7 +42,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -527,16 +526,17 @@ public class TopologicalSort {
         }
     }
 
+    @Nonnull
     public static <T> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
                                                                @Nonnull final List<T> targetPermutation,
-                                                               @Nonnull final BiPredicate<T, T> satisfiabilityPredicate) {
-        return satisfyingPermutations(partialOrder, targetPermutation, Function.identity(), satisfiabilityPredicate);
+                                                               @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
+        return satisfyingPermutations(partialOrder, targetPermutation, Function.identity(), satisfiabilityFunction);
     }
 
     public static <T, P> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
                                                                   @Nonnull final List<P> targetPermutation,
                                                                   @Nonnull final Function<T, P> domainMapper,
-                                                                  @Nonnull final BiPredicate<T, P> satisfiabilityPredicate) {
+                                                                  @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
         if (partialOrder.size() == 0) {
             return ImmutableList.of();
         }
@@ -575,18 +575,13 @@ public class TopologicalSort {
             protected List<T> computeNext() {
                 while (enumeratingIterator.hasNext()) {
                     final List<T> ordered = enumeratingIterator.next();
-                    int i;
-                    for (i = 0; i < targetPermutation.size(); i++) {
-                        if (!satisfiabilityPredicate.test(ordered.get(i), targetPermutation.get(i))) {
-                            break;
-                        }
-                    }
+                    final int index = satisfiabilityFunction.apply(ordered);
 
-                    if (i == targetPermutation.size()) {
+                    if (index == targetPermutation.size()) {
                         return ordered;
                     } else {
                         // we can skip all permutations where the i-th value is bound the way it currently is
-                        enumeratingIterator.skip(i);
+                        enumeratingIterator.skip(index);
                     }
                 }
                 return endOfData();
@@ -622,6 +617,18 @@ public class TopologicalSort {
                                                                           @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return topologicalOrderPermutations(set, () -> complexIterable(set, PartialOrder.fromFunctionalDependencies(set, dependsOnFn)));
     }
+
+    /**
+     * Create an {@link EnumeratingIterable} based on a partially-ordered set.
+     * @param set the partially-ordered set to create the iterable over
+     * @param <T> type
+     * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
+     *         the partially-ordered set handed in
+     */
+    public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final PartialOrder<T> set) {
+        return topologicalOrderPermutations(set.getSet(), () -> complexIterable(set));
+    }
+
 
     /**
      * Create an {@link EnumeratingIterable} based on a set and a function describing
@@ -662,7 +669,11 @@ public class TopologicalSort {
         return complexIterableSupplier.get();
     }
 
-    private static <T> EnumeratingIterable<T> complexIterable(final Set<T> set, final ImmutableSetMultimap<T, T> dependsOnMap) {
+    private static <T> EnumeratingIterable<T> complexIterable(@Nonnull final Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
+        return complexIterable(PartialOrder.of(set, dependsOnMap));
+    }
+
+    private static <T> EnumeratingIterable<T> complexIterable(@Nonnull final PartialOrder<T> partiallyOrderedSet) {
         //
         // We can use two implementations to deal with the complex case. If there are quite a few dependencies,
         // we should use Kahn's algorithm, as finding a topological ordering is linear and there hopefully are not too
@@ -672,14 +683,16 @@ public class TopologicalSort {
         // Kahn's algorithm inefficient as it creates more objects (churn) than the backtracking algorithm.
         // We just use a naive way of making the decision for now.
         //
+        final var set = partiallyOrderedSet.getSet();
+        final var dependsOnMap = partiallyOrderedSet.getDependencyMap();
 
         // try Kahn's algorithm
         if ((double)dependsOnMap.size() / (double) set.size() > 0.5d) {
-            return new KahnIterable<>(PartialOrder.of(set, dependsOnMap.inverse()));
+            return new KahnIterable<>(partiallyOrderedSet.dualOrder());
         }
 
         // use backtracking
-        return new BacktrackIterable<>(PartialOrder.of(set, dependsOnMap));
+        return new BacktrackIterable<>(partiallyOrderedSet);
     }
 
     @Nullable

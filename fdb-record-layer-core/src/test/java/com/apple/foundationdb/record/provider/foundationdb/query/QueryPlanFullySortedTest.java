@@ -116,7 +116,8 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .setSort(Key.Expressions.concatenateFields("num_value_3_indexed", "rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isStrictlySorted());
+        final var plan = planner.plan(query);
+        assertTrue(plan.isStrictlySorted());
     }
 
     @DualPlannerTest

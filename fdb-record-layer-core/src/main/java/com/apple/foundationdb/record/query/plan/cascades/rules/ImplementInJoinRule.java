@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -162,15 +164,14 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                      @Nonnull final Set<CorrelationIdentifier> explodeAliases,
                                                                      @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
-                                                                     @Nonnull final Ordering providedInnerOrdering,
+                                                                     @Nonnull final Ordering innerOrdering,
                                                                      @Nonnull final RequestedOrdering requestedOrdering) {
         final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
 
         final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
         final var sourcesBuilder = ImmutableList.<InSource>builder();
-        final var resultOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
-        final var innerOrderingKeyParts = providedInnerOrdering.getOrderingKeyParts();
-        final var innerEqualityBoundKeyMap = providedInnerOrdering.getEqualityBoundKeyMap();
+        final var outerOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        final var innerEqualityBoundKeyMap = innerOrdering.getEqualityBoundKeyMap();
         final var resultOrderingEqualityBoundKeyMap  =
                 HashMultimap.create(innerEqualityBoundKeyMap);
 
@@ -252,7 +253,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             sourcesBuilder.add(inSource);
 
             resultOrderingEqualityBoundKeyMap.removeAll(requestedOrderingKeyPart.getValue());
-            resultOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
+            outerOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
         }
 
         if (availableExplodeAliases.isEmpty()) {
@@ -260,9 +261,20 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // All available explode aliases have been depleted. Create an ordering and check against the requested
             // ordering.
             //
-            resultOrderingKeyPartsBuilder.addAll(innerOrderingKeyParts);
-            final var resultOrdering = new Ordering(resultOrderingEqualityBoundKeyMap, resultOrderingKeyPartsBuilder.build(), providedInnerOrdering.isDistinct());
-            return Ordering.satisfiesRequestedOrdering(resultOrdering, requestedOrdering)
+            final var outerOrderingKeyParts = outerOrderingKeyPartsBuilder.build();
+            final var outerOrderingKeyValues = outerOrderingKeyParts.stream().map(KeyPart::getValue).collect(ImmutableSet.toImmutableSet());
+            final var outerOrderingSet =
+                    PartialOrder.<KeyPart>builder()
+                            .addListWithDependencies(outerOrderingKeyParts)
+                            .build();
+            final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
+
+            final var filteredInnerOrderingSet =
+                    innerOrdering.getOrderingSet()
+                            .filterIndependentElements(keyPart -> !outerOrderingKeyValues.contains(keyPart.getValue()));
+            final var filteredInnerOrdering = new Ordering(resultOrderingEqualityBoundKeyMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+            final var resultOrdering = Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultOrderingEqualityBoundKeyMap);
+            return resultOrdering.satisfies(requestedOrdering)
                    ? sourcesBuilder.build()
                    : ImmutableList.of();
         } else {

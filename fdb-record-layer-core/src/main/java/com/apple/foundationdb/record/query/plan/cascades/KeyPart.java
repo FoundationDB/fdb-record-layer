@@ -81,7 +81,7 @@ public class KeyPart {
 
     @Override
     public String toString() {
-        return "(" + getValue() + ", " + isReverse() + ')';
+        return getValue() + (isReverse() ? "↓" : "↑") ;
     }
 
     @Nonnull

@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -49,7 +48,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.PropertiesMap.allAttributesExcept;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -175,41 +173,14 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     if (merge.isEmpty()) {
                         merge.add(Pair.of(orderings.get(0), orderings.get(0)));
                     } else {
-                        //
-                        //TODO We currently are unable to incrementally compute a merged order as the operation is
-                        //  not associative in all cases. The reason for that is that orderings are not represented
-                        //  as PartialOrder<KeyPart> but as List<KeyPart>. While we do the reasoning for all
-                        //  ordering-related logic in PartialOrder space, we transform back to a list which proves
-                        //  to be lossy in some cases causing associativity to not hold).
-                        //  https://github.com/FoundationDB/fdb-record-layer/issues/1618
-                        
-                        //TODO
-                        //  final var lastMerged = merge.size() - 1;
-                        //  final Ordering mergedOrdering =
-                        //      OrderingVisitor.deriveForUnionFromOrderings(ImmutableList.of(merge.get(lastMerged).getKey(), orderings.get(merge.size())),
-                        //          RequestedOrdering.preserve(),
-                        //          Ordering::intersectEqualityBoundKeys);
-                        //
-                        final var currentOrderings = ImmutableList.<Ordering>builder()
-                                .addAll(merge.stream().map(Pair::getValue).collect(ImmutableList.toImmutableList()))
-                                .add(orderings.get(merge.size()))
-                                .build();
+                        final var lastMerged = merge.size() - 1;
                         final var mergedOrdering =
-                                OrderingProperty.OrderingVisitor.deriveForUnionFromOrderings(currentOrderings,
-                                        RequestedOrdering.preserve(),
-                                        Ordering::intersectEqualityBoundKeys);
-
-                        final var equalityBoundKeys = mergedOrdering.getEqualityBoundKeys();
-                        final var orderingKeyParts = mergedOrdering.getOrderingKeyParts();
-
-                        final var orderingKeyValues =
-                                orderingKeyParts
-                                        .stream()
-                                        .map(KeyPart::getValue)
-                                        .collect(ImmutableList.toImmutableList());
+                                Ordering.mergeOrderings(ImmutableList.of(merge.get(lastMerged).getKey(),
+                                        orderings.get(merge.size())),
+                                        Ordering::intersectEqualityBoundKeys, true);
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
+                        if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, mergedOrdering)) {
                             // this is a good merged ordering so far
                             merge.add(Pair.of(mergedOrdering, orderings.get(merge.size())));
                         } else {
@@ -221,32 +192,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 }
 
                 if (merge.size() == orderings.size()) {
-                    final var ordering =
-                            OrderingProperty.OrderingVisitor.deriveForUnionFromOrderings(orderings, requestedOrdering, Ordering::intersectEqualityBoundKeys);
-                    if (ordering.isEmpty()) {
-                        //
-                        // Push interesting orders down the appropriate quantifiers.
-                        //
-                        continue;
-                    }
-
-                    final var equalityBoundKeys = ordering.getEqualityBoundKeys();
-                    final var orderingKeyParts = ordering.getOrderingKeyParts();
-
-                    final var orderingKeyValues =
-                            orderingKeyParts
-                                    .stream()
-                                    .map(KeyPart::getValue)
-                                    .collect(ImmutableList.toImmutableList());
-
-                    // make sure the common primary key parts are either bound through equality or they are part of the ordering
-                    if (!isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, orderingKeyValues, equalityBoundKeys)) {
-                        continue;
-                    }
-
-                    //
-                    // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
-                    //
+                    final var mergedOrdering = merge.get(merge.size() - 1).getKey();
 
                     //
                     // create new quantifiers
@@ -258,7 +204,15 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                             .map(Quantifier::physical)
                             .collect(ImmutableList.toImmutableList());
 
-                    call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, orderingKeyValues, true)));
+                    final var enumeratedSatisfyingComparisonKeyValues =
+                            mergedOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+
+                    for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
+                        //
+                        // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
+                        //
+                        call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true)));
+                    }
                 }
             }
         }
@@ -270,22 +224,20 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                        @Nonnull final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
         for (final var providedOrdering : providedOrderings) {
-            if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
-                final var innerRequestedOrdering =
-                        new RequestedOrdering(providedOrdering.getOrderingKeyParts(),
-                                providedOrdering.isDistinct()
-                                ? RequestedOrdering.Distinctness.DISTINCT
-                                : RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
-                call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, ImmutableSet.of(innerRequestedOrdering));
-            }
+            final var requestedOrderings = providedOrdering.deriveRequestedOrderings(requestedOrdering);
+            call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, requestedOrderings);
         }
     }
 
     private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyParts,
-                                                       @Nonnull final List<Value> orderingKeys,
-                                                       @Nonnull final Set<Value> equalityBoundKeys) {
-        for (final var commonPrimaryKeyPart : primaryKeyParts) {
-            if (!equalityBoundKeys.contains(commonPrimaryKeyPart) && !orderingKeys.contains(commonPrimaryKeyPart)) {
+                                                       @Nonnull final Ordering ordering) {
+        final var orderingKeys =
+                ordering.getOrderingSet().getSet()
+                        .stream()
+                        .map(KeyPart::getValue)
+                        .collect(ImmutableSet.toImmutableSet());
+        for (final var primaryKeyPart : primaryKeyParts) {
+            if (!orderingKeys.contains(primaryKeyPart)) {
                 return false;
             }
         }

@@ -455,14 +455,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      *         resulting values of the pull-up logic
      */
     @Nonnull
-    default Map<Value, Value> pullUp(@Nonnull final List<Value> toBePulledUpValues,
+    default Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
                                      @Nonnull final AliasMap aliasMap,
                                      @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                      @Nonnull final CorrelationIdentifier upperBaseAlias) {
         //
         // Construct an alias map for equivalences.
         //
-        final var correlatedTos = toBePulledUpValues.stream()
+        final var correlatedTos = Streams.stream(toBePulledUpValues)
                 .map(value -> getCorrelatedTo())
                 .collect(ImmutableList.toImmutableList());
 
@@ -507,12 +507,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      *         resulting values of the pull-up logic
      */
     @Nonnull
-    default List<Value> pushDown(@Nonnull final List<Value> toBePushedDownValues,
+    default List<Value> pushDown(@Nonnull final Iterable<? extends Value> toBePushedDownValues,
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
                                  @Nonnull final AliasMap aliasMap,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                  @Nonnull final CorrelationIdentifier upperBaseAlias) {
-        return toBePushedDownValues.stream()
+        return Streams.stream(toBePushedDownValues)
                 .map(toBePulledUpValue ->
                         toBePulledUpValue.replaceLeavesMaybe(value -> {
                             if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
