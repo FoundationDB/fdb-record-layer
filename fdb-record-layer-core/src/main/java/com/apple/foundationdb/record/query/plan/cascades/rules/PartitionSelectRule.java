@@ -75,6 +75,9 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                 .stream()
                 .map(Quantifier::getAlias)
                 .collect(ImmutableSet.toImmutableSet());
+        if (leftAliases.isEmpty()) {
+            return;
+        }
 
         final var rightAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         for (final var quantifier : selectExpression.getQuantifiers()) {
@@ -119,14 +122,14 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         // In order to avoid a costly calls to translateCorrelations(), we prefer deep-right dags.
         // Reject every constellation that would force us to rebase the outer side.
         //
-        final var innerCorrelatedTo =
+        final var innerCorrelatedToOuter =
                 innerAliases.stream()
                         .flatMap(innerAlias -> Sets.intersection(outerAliases, fullCorrelationOrder.get(innerAlias)).stream())
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var resultCorrelatedTo = Sets.intersection(outerAliases, selectExpression.getCorrelatedTo());
+        final var resultCorrelatedToOuter = Sets.intersection(outerAliases, selectExpression.getResultValue().getCorrelatedTo());
 
-        final var outerCorrelationSourceAliases = Sets.union(innerCorrelatedTo, resultCorrelatedTo);
+        final var outerCorrelationSourceAliases = Sets.union(innerCorrelatedToOuter, resultCorrelatedToOuter);
         if (outerCorrelationSourceAliases.size() > 1) {
             return false;
         }
@@ -174,31 +177,29 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         outerGraphExpansionBuilder.addAllPredicates(outerPredicates);
         outerGraphExpansionBuilder.addAllPredicates(otherPredicates);
         final CorrelationIdentifier outerAlias;
+        final SelectExpression outerSelectExpression;
         if (outerCorrelationSourceAliases.isEmpty()) {
             outerGraphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
             outerAlias = Quantifier.uniqueID();
+            outerSelectExpression = outerGraphExpansionBuilder.build().buildSelect();
         } else {
             outerAlias = Iterables.getOnlyElement(outerCorrelationSourceAliases);
-            outerGraphExpansionBuilder.addResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(outerAlias)).getFlowedObjectValue());
+            outerSelectExpression = outerGraphExpansionBuilder.build().buildSelectWithResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(outerAlias)).getFlowedObjectValue());
         }
         
-        final var outerSelectExpression = outerGraphExpansionBuilder.build().buildSelect();
-
         final var innerGraphExpansionBuilder = GraphExpansion.builder();
         innerGraphExpansionBuilder.addAllQuantifiers(innerAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
         innerGraphExpansionBuilder.addAllPredicates(innerPredicates);
         innerGraphExpansionBuilder.addAllPredicates(joinPredicates);
-        innerGraphExpansionBuilder.addResultValue(selectExpression.getResultValue());
-        final var innerSelectExpression = outerGraphExpansionBuilder.build().buildSelect();
+        final var innerSelectExpression = innerGraphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
 
         final var resultGraphExpansion = GraphExpansion.builder();
         resultGraphExpansion.addQuantifier(Quantifier.forEachBuilder().withAlias(outerAlias).build(call.ref(outerSelectExpression)));
         final var innerQuantifier = Quantifier.forEach(call.ref(innerSelectExpression));
         resultGraphExpansion.addQuantifier(innerQuantifier);
-        resultGraphExpansion.addResultValue(innerQuantifier.getFlowedObjectValue());
-        final var partitionedSelectExpression = resultGraphExpansion.build().buildSelect();
+        final var partitionedSelectExpression = resultGraphExpansion.build().buildSelectWithResultValue(innerQuantifier.getFlowedObjectValue());
         call.yield(GroupExpressionRef.of(partitionedSelectExpression));
 
-        return joinPredicates.isEmpty();
+        return joinPredicates.isEmpty() && resultCorrelatedToOuter.isEmpty();
     }
 }

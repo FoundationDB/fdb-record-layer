@@ -104,6 +104,7 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
         return combinations(downstream, collection -> 0, Collection::size);
     }
 
+    @SuppressWarnings("unchecked")
     static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream,
                                                  @Nonnull final Function<Collection<E>, Integer> startInclusiveFunction,
                                                  @Nonnull final Function<Collection<E>, Integer> endExclusiveFunction) {

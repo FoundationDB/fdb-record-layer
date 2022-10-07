@@ -135,6 +135,10 @@ public class GraphExpansion {
         return GraphExpansion.ofOthers(ofQuantifier(quantifier), this);
     }
 
+    public boolean isTrivialSelect() {
+        return quantifiers.size() == 1 && predicates.isEmpty() && resultColumns.isEmpty();
+    }
+
     @Nonnull
     public Builder toBuilder() {
         final var builder = builder();
