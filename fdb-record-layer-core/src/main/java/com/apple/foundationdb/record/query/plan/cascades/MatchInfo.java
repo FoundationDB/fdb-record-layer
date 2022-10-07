@@ -68,7 +68,7 @@ public class MatchInfo {
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
     @Nonnull
-    private final List<BoundKeyPart> orderingKeyParts;
+    private final List<MatchedOrderingPart> matchedOrderingParts;
 
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
@@ -76,7 +76,7 @@ public class MatchInfo {
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
-                      @Nonnull final List<BoundKeyPart> orderingKeyParts,
+                      @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
@@ -92,7 +92,7 @@ public class MatchInfo {
             return targetBuilder.build();
         });
 
-        this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
+        this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
         this.remainingComputationValueOptional = remainingComputationValueOptional;
     }
 
@@ -154,8 +154,8 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<BoundKeyPart> getOrderingKeyParts() {
-        return orderingKeyParts;
+    public List<MatchedOrderingPart> getMatchedOrderingParts() {
+        return matchedOrderingParts;
     }
 
     @Nonnull
@@ -164,20 +164,20 @@ public class MatchInfo {
     }
 
     @Nullable
-    public QueryPredicate getCandidatePredicateForBoundKeyPart(final BoundKeyPart boundKeyPart) {
-        if (boundKeyPart.getQueryPredicate() == null) {
-            Verify.verify(boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
+    public QueryPredicate getCandidatePredicateForMatchedOrderingPart(final MatchedOrderingPart matchedOrderingPart) {
+        if (matchedOrderingPart.getQueryPredicate() == null) {
+            Verify.verify(matchedOrderingPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
             return null;
         }
 
         return getAccumulatedPredicateMap()
-                .getMappingOptional(boundKeyPart.getQueryPredicate())
+                .getMappingOptional(matchedOrderingPart.getQueryPredicate())
                 .map(PredicateMultiMap.PredicateMapping::getCandidatePredicate)
                 .orElseThrow(() -> new IllegalStateException("mapping must be present"));
     }
 
-    public Optional<CorrelationIdentifier> getParameterAliasForBoundKeyPart(final BoundKeyPart boundKeyPart) {
-        @Nullable final var candidatePredicate = getCandidatePredicateForBoundKeyPart(boundKeyPart);
+    public Optional<CorrelationIdentifier> getParameterAliasForMatchedOrderingPart(final MatchedOrderingPart matchedOrderingPart) {
+        @Nullable final var candidatePredicate = getCandidatePredicateForMatchedOrderingPart(matchedOrderingPart);
         if (candidatePredicate == null) {
             return Optional.empty();
         }
@@ -193,7 +193,7 @@ public class MatchInfo {
      * Derive if a scan is reverse by looking at all the bound key parts in this match info. The planner structures
      * are laid out in a way that they could theoretically support a scan direction by key part. In reality, we only
      * support a direction for a scan. Consequently, we only allow that either none or all of the key parts indicate
-     * {@link KeyPart#isReverse()}.
+     * {@link OrderingPart#isReverse()}.
      * @return {@code Optional.of(false)} if all bound key parts indicate a forward ordering,
      *         {@code Optional.of(true)} if all bound key parts indicate a reverse ordering,
      *         {@code Optional.empty()} otherwise. The caller should deal with that result accordingly.
@@ -202,26 +202,26 @@ public class MatchInfo {
     @Nonnull
     public Optional<Boolean> deriveReverseScanOrder() {
         var numReverse  = 0;
-        for (var boundKeyPart : orderingKeyParts) {
-            if (boundKeyPart.isReverse()) {
+        for (var orderingPart : matchedOrderingParts) {
+            if (orderingPart.isReverse()) {
                 numReverse ++;
             }
         }
 
         if (numReverse == 0) {
             return Optional.of(false); // forward
-        } else if (numReverse == orderingKeyParts.size()) {
+        } else if (numReverse == matchedOrderingParts.size()) {
             return Optional.of(true); // reverse
         } else {
             return Optional.empty();
         }
     }
 
-    public MatchInfo withOrderingInfo(@Nonnull final List<BoundKeyPart> boundKeyParts) {
+    public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
-                boundKeyParts,
+                matchedOrderingParts,
                 remainingComputationValueOptional);
     }
 
@@ -247,13 +247,13 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
         
-        final List<BoundKeyPart> orderingKeyParts;
+        final List<MatchedOrderingPart> orderingParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
-            orderingKeyParts = partialMatch.getMatchInfo().getOrderingKeyParts();
+            orderingParts = partialMatch.getMatchInfo().getMatchedOrderingParts();
         } else {
-            orderingKeyParts = ImmutableList.of();
+            orderingParts = ImmutableList.of();
         }
 
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
@@ -274,7 +274,7 @@ public class MatchInfo {
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        orderingKeyParts,
+                        orderingParts,
                         remainingComputationValueOptional));
     }
 

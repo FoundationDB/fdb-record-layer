@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -92,7 +92,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
-    private final Supplier<PartialOrder<CorrelationIdentifier>> correlationOrderSupplier;
+    private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -209,12 +209,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
+    public PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         return correlationOrderSupplier.get();
     }
 
     @Nonnull
-    private PartialOrder<CorrelationIdentifier> computeCorrelationOrder() {
+    private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
     

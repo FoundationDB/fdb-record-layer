@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -285,7 +285,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         Verify.verify(groupingValueType instanceof Type.Record);
 
         return new RequestedOrdering(
-                ImmutableList.of(KeyPart.of(groupingValue)),
+                ImmutableList.of(OrderingPart.of(groupingValue)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 }

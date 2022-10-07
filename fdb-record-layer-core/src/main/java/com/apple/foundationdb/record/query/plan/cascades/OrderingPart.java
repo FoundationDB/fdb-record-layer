@@ -1,5 +1,5 @@
 /*
- * BoundKeyPart.java
+ * OrderingPart.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 /**
  * A value that is used to express ordered-ness.
  */
-public class KeyPart {
+public class OrderingPart {
     @Nonnull
     private final Value value;
 
@@ -42,7 +42,7 @@ public class KeyPart {
 
     private final Supplier<Integer> hashCodeSupplier;
 
-    protected KeyPart(@Nonnull final Value value, final boolean isReverse) {
+    protected OrderingPart(@Nonnull final Value value, final boolean isReverse) {
         this.value = checkValue(value);
         this.isReverse = isReverse;
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
@@ -62,10 +62,10 @@ public class KeyPart {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof KeyPart)) {
+        if (!(o instanceof OrderingPart)) {
             return false;
         }
-        final var keyPart = (KeyPart)o;
+        final var keyPart = (OrderingPart)o;
         return getValue().equals(keyPart.getValue()) &&
                isReverse() == keyPart.isReverse();
     }
@@ -85,19 +85,19 @@ public class KeyPart {
     }
 
     @Nonnull
-    public static List<KeyPart> prefix(@Nonnull final List<? extends KeyPart> keyParts, final int endExclusive) {
+    public static List<OrderingPart> prefix(@Nonnull final List<? extends OrderingPart> keyParts, final int endExclusive) {
         return ImmutableList.copyOf(keyParts.subList(0, endExclusive));
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final Value orderByValue) {
-        return KeyPart.of(orderByValue, false);
+    public static OrderingPart of(@Nonnull final Value orderByValue) {
+        return OrderingPart.of(orderByValue, false);
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final Value orderByValue,
-                             final boolean isReverse) {
-        return new KeyPart(orderByValue, isReverse);
+    public static OrderingPart of(@Nonnull final Value orderByValue,
+                                  final boolean isReverse) {
+        return new OrderingPart(orderByValue, isReverse);
     }
 
     @Nonnull

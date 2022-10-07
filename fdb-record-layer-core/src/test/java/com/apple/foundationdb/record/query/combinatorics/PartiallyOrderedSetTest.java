@@ -1,5 +1,5 @@
 /*
- * PartialOrderTest.java
+ * PartiallyOrderedSetTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,9 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link PartialOrder}.
+ * Tests for {@link PartiallyOrderedSet}.
  */
-class PartialOrderTest {
+class PartiallyOrderedSetTest {
     @Test
     void testEligibleSetsImpossibleDependencies() {
         final CorrelationIdentifier a = CorrelationIdentifier.of("a");
@@ -45,7 +45,7 @@ class PartialOrderTest {
                 ImmutableMap.of(b, ImmutableSet.of(a), c, ImmutableSet.of(b), a, ImmutableSet.of(c));
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         id -> dependencies.getOrDefault(id, ImmutableSet.of()));
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -62,7 +62,7 @@ class PartialOrderTest {
                 ImmutableMap.of(b, ImmutableSet.of(a), c, ImmutableSet.of(b));
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         id -> dependencies.getOrDefault(id, ImmutableSet.of()));
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -84,7 +84,7 @@ class PartialOrderTest {
         final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies = ImmutableMap.of();
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         id -> dependencies.getOrDefault(id, ImmutableSet.of()));
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -103,7 +103,7 @@ class PartialOrderTest {
                 ImmutableMap.of(c, ImmutableSet.of(a));
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         id -> dependencies.getOrDefault(id, ImmutableSet.of()));
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -125,7 +125,7 @@ class PartialOrderTest {
                 ImmutableMap.of(b, ImmutableSet.of(a), c, ImmutableSet.of(a), d, ImmutableSet.of(b, c));
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c, d),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
                         id -> dependencies.getOrDefault(id, ImmutableSet.of()));
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -141,7 +141,7 @@ class PartialOrderTest {
     @Test
     void testEligibleSetsEmpty() {
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(),
+                PartiallyOrderedSet.of(ImmutableSet.of(),
                         id -> ImmutableSet.of());
 
         var eligibleSet = partialOrder.eligibleSet();
@@ -153,7 +153,7 @@ class PartialOrderTest {
         final CorrelationIdentifier a = CorrelationIdentifier.of("a");
 
         final var partialOrder =
-                PartialOrder.of(ImmutableSet.of(a),
+                PartiallyOrderedSet.of(ImmutableSet.of(a),
                         id -> ImmutableSet.of());
         var eligibleSet = partialOrder.eligibleSet();
         assertEquals(ImmutableSet.of(a), eligibleSet.eligibleElements());

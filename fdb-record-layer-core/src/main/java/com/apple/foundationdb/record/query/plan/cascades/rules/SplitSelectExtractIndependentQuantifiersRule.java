@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -114,7 +114,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
                         .map(Quantifier::getAlias)
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var aliasesPartialOrderBuilder = PartialOrder.<CorrelationIdentifier>builder();
+        final var aliasesPartialOrderBuilder = PartiallyOrderedSet.<CorrelationIdentifier>builder();
 
         for (final var quantifier: selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();

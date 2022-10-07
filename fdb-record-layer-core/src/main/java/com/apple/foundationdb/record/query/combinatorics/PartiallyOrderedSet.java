@@ -1,5 +1,5 @@
 /*
- * PartialOrder.java
+ * PartiallyOrderedSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -64,20 +64,20 @@ import java.util.stream.Collectors;
  *
  * @param <T> the type of elements
  */
-public class PartialOrder<T> {
+public class PartiallyOrderedSet<T> {
     @Nonnull
     private final ImmutableSet<T> set;
     @Nonnull
     private final ImmutableSetMultimap<T, T> dependencyMap;
     @Nonnull
-    private final Supplier<PartialOrder<T>> dualSupplier;
+    private final Supplier<PartiallyOrderedSet<T>> dualSupplier;
     @Nonnull
     private final Supplier<ImmutableSetMultimap<T, T>> transitiveClosureSupplier;
 
-    private PartialOrder(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    private PartiallyOrderedSet(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
         this.set = ImmutableSet.copyOf(set);
         this.dependencyMap = ImmutableSetMultimap.copyOf(dependencyMap);
-        this.dualSupplier = Suppliers.memoize(() -> PartialOrder.of(set, this.dependencyMap.inverse()));
+        this.dualSupplier = Suppliers.memoize(() -> PartiallyOrderedSet.of(set, this.dependencyMap.inverse()));
         this.transitiveClosureSupplier = Suppliers.memoize(() -> TransitiveClosure.transitiveClosure(set, this.dependencyMap));
     }
 
@@ -105,7 +105,7 @@ public class PartialOrder<T> {
     }
 
     @Nonnull
-    public PartialOrder<T> dualOrder() {
+    public PartiallyOrderedSet<T> dualOrder() {
         return dualSupplier.get();
     }
 
@@ -119,10 +119,10 @@ public class PartialOrder<T> {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof PartialOrder)) {
+        if (!(o instanceof PartiallyOrderedSet)) {
             return false;
         }
-        final PartialOrder<?> that = (PartialOrder<?>)o;
+        final PartiallyOrderedSet<?> that = (PartiallyOrderedSet<?>)o;
         return getSet().equals(that.getSet()) && getTransitiveClosure().equals(that.getTransitiveClosure());
     }
 
@@ -140,7 +140,7 @@ public class PartialOrder<T> {
     }
 
     @Nonnull
-    public <R> PartialOrder<R> mapEach(@Nonnull final Function<T, R> mapFunction) {
+    public <R> PartiallyOrderedSet<R> mapEach(@Nonnull final Function<T, R> mapFunction) {
         final var resultMapBuilder = ImmutableBiMap.<T, R>builder();
         for (final var element : getSet()) {
             resultMapBuilder.put(element, mapFunction.apply(element));
@@ -156,11 +156,11 @@ public class PartialOrder<T> {
             resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
         }
 
-        return PartialOrder.of(elementsToMappedElementsMap.values(), resultDependencyMapBuilder.build());
+        return PartiallyOrderedSet.of(elementsToMappedElementsMap.values(), resultDependencyMapBuilder.build());
     }
 
     @Nonnull
-    public <R> PartialOrder<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
         final var elements = getSet();
         final var elementsToMappedElementsMap = mapFunction.apply(elements);
 
@@ -181,27 +181,27 @@ public class PartialOrder<T> {
             }
         }
 
-        return PartialOrder.of(mappedElements, resultDependencyMapBuilder.build());
+        return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
     }
 
     /**
      * Method that computes a new partially-ordered set that does not have any independent elements, i.e. elements
      * that do not use exert dependencies and that are not dependent upon any other items.
      * @param retainIfPredicate a predicate that can decide whether an independent element is removed or retained
-     * @return a new {@link PartialOrder}
+     * @return a new {@link PartiallyOrderedSet}
      */
     @Nonnull
-    public PartialOrder<T> filterIndependentElements(@Nonnull final Predicate<T> retainIfPredicate) {
-        final var filteredOrderingKeyParts =
+    public PartiallyOrderedSet<T> filterIndependentElements(@Nonnull final Predicate<T> retainIfPredicate) {
+        final var filteredSet =
                 set.stream()
                         .filter(element -> dependencyMap.containsKey(element) || dependencyMap.containsValue(element) || retainIfPredicate.test(element))
                         .collect(ImmutableSet.toImmutableSet());
-        return PartialOrder.of(filteredOrderingKeyParts, getDependencyMap());
+        return PartiallyOrderedSet.of(filteredSet, getDependencyMap());
     }
 
     @Nonnull
-    public static <T> PartialOrder<T> empty() {
-        return new PartialOrder<>(ImmutableSet.of(), ImmutableSetMultimap.of());
+    public static <T> PartiallyOrderedSet<T> empty() {
+        return new PartiallyOrderedSet<>(ImmutableSet.of(), ImmutableSetMultimap.of());
     }
 
     /**
@@ -223,7 +223,7 @@ public class PartialOrder<T> {
      */
     public static class EligibleSet<T> {
         @Nonnull
-        private final PartialOrder<T> partialOrder;
+        private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
         @Nonnull
         private final Map<T, Integer> inDegreeMap;
@@ -231,15 +231,15 @@ public class PartialOrder<T> {
         @Nonnull
         private final Supplier<Set<T>> eligibleElementsSupplier;
 
-        private EligibleSet(@Nonnull final PartialOrder<T> partialOrder) {
-            this.partialOrder = partialOrder;
-            this.inDegreeMap = computeInDegreeMap(partialOrder);
+        private EligibleSet(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            this.partiallyOrderedSet = partiallyOrderedSet;
+            this.inDegreeMap = computeInDegreeMap(partiallyOrderedSet);
             this.eligibleElementsSupplier = Suppliers.memoize(this::computeEligibleElements);
         }
 
         @Nonnull
-        public PartialOrder<T> getPartialOrder() {
-            return partialOrder;
+        public PartiallyOrderedSet<T> getPartialOrder() {
+            return partiallyOrderedSet;
         }
 
         public boolean isEmpty() {
@@ -264,7 +264,7 @@ public class PartialOrder<T> {
         public EligibleSet<T> removeEligibleElements(@Nonnull final Set<T> toBeRemovedEligibleElements) {
             Preconditions.checkArgument(eligibleElements().containsAll(toBeRemovedEligibleElements));
 
-            final var set = partialOrder.getSet();
+            final var set = partiallyOrderedSet.getSet();
             final var newSetBuilder = ImmutableSet.<T>builder();
             for (var element : set) {
                 if (!toBeRemovedEligibleElements.contains(element)) {
@@ -272,7 +272,7 @@ public class PartialOrder<T> {
                 }
             }
 
-            final var dependencies = partialOrder.getDependencyMap();
+            final var dependencies = partiallyOrderedSet.getDependencyMap();
             final var newDependencies = ImmutableSetMultimap.<T, T>builder();
             for (final var entry : dependencies.entries()) {
                 Verify.verify(!toBeRemovedEligibleElements.contains(entry.getKey())); // no dependency pointing to the entry
@@ -282,16 +282,16 @@ public class PartialOrder<T> {
             }
 
             // create a new eligible set
-            return new EligibleSet<>(PartialOrder.of(newSetBuilder.build(), newDependencies.build()));
+            return new EligibleSet<>(PartiallyOrderedSet.of(newSetBuilder.build(), newDependencies.build()));
         }
 
         @Nonnull
         @SuppressWarnings("java:S3398")
-        private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartialOrder<T> partialOrder) {
-            final HashMap<T, Integer> result = Maps.newLinkedHashMapWithExpectedSize(partialOrder.size());
-            partialOrder.getSet().forEach(element -> result.put(element, 0));
+        private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            final HashMap<T, Integer> result = Maps.newLinkedHashMapWithExpectedSize(partiallyOrderedSet.size());
+            partiallyOrderedSet.getSet().forEach(element -> result.put(element, 0));
 
-            for (final Map.Entry<T, T> entry : partialOrder.getDependencyMap().entries()) {
+            for (final Map.Entry<T, T> entry : partiallyOrderedSet.getDependencyMap().entries()) {
                 result.compute(entry.getKey(), (t, v) -> Objects.requireNonNull(v) + 1);
             }
             return result;
@@ -339,31 +339,31 @@ public class PartialOrder<T> {
         return builder.build();
     }
 
-    public static <T> PartialOrder<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        return new PartialOrder<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
+    public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+        return new PartiallyOrderedSet<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
     }
 
     @Nonnull
-    public static <T> PartialOrder<T> of(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return of(set, fromFunctionalDependencies(set, dependsOnFn));
     }
 
     @Nonnull
-    public static <T> PartialOrder<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    public static <T> PartiallyOrderedSet<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
         return ofInverted(set, dependencyMap::get);
     }
 
     @Nonnull
-    public static <T> PartialOrder<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    public static <T> PartiallyOrderedSet<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return of(set, invertFromFunctionalDependencies(set, dependsOnFn));
     }
 
-    public static <T> PartialOrder.Builder<T> builder() {
+    public static <T> PartiallyOrderedSet.Builder<T> builder() {
         return new Builder<>();
     }
 
     /**
-     * Builder for {@code PartialOrder}.
+     * Builder for {@code PartiallyOrderedSet}.
      * @param <T> the type of elements
      */
     public static class Builder<T> {
@@ -410,8 +410,8 @@ public class PartialOrder<T> {
             return this;
         }
 
-        public PartialOrder<T> build() {
-            return PartialOrder.of(setBuilder.build(), dependencyMapBuilder.build());
+        public PartiallyOrderedSet<T> build() {
+            return PartiallyOrderedSet.of(setBuilder.build(), dependencyMapBuilder.build());
         }
     }
 }

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -36,15 +36,16 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.cascades.OrderingPart.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class OrderingTest {
     @Test
     void testOrdering() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -63,9 +64,9 @@ class OrderingTest {
 
     @Test
     void testOrdering2() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -85,105 +86,105 @@ class OrderingTest {
 
     @Test
     void testMergeKeys() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
 
         final var leftPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(b, a));
 
         final var rightPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, a));
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
         assertEquals(
                 // note there is no b -> c here
-                PartialOrder.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, a)),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, a)),
                 mergedPartialOrder);
     }
 
     @Test
     void testMergeKeys2() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
 
         final var leftPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
 
         final var rightPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
         assertEquals(
-                PartialOrder.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b)),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b)),
                 mergedPartialOrder);
     }
 
     @Test
     void testMergeKeys3() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
 
         final var leftPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
 
         final var rightPartialOrder =
-                PartialOrder.of(ImmutableSet.of(a, b, c),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(a, b, b, c));
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
-        assertEquals(PartialOrder.empty(), mergedPartialOrder);
+        assertEquals(PartiallyOrderedSet.empty(), mergedPartialOrder);
     }
 
     @Test
     void testMergePartialOrdersNAry() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
-        final var d = KeyPart.of(field("d"));
-        final var e = KeyPart.of(field("e"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
+        final var d = of(field("d"));
+        final var e = of(field("e"));
 
         final var one =
-                PartialOrder.of(ImmutableSet.of(a, b, c, d),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
                         ImmutableSetMultimap.of(c, b, b, a));
 
         final var two =
-                PartialOrder.of(ImmutableSet.of(a, b, c, d),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
                         ImmutableSetMultimap.of(c, b, b, a));
 
         final var three =
-                PartialOrder.of(ImmutableSet.of(a, b, c, d),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
                         ImmutableSetMultimap.of(c, a, b, a));
 
         final var four =
-                PartialOrder.of(ImmutableSet.of(a, b, c, d, e),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e),
                         ImmutableSetMultimap.of(c, a, b, a));
 
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(ImmutableList.of(one, two, three, four));
 
         assertEquals(
-                PartialOrder.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b)),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b)),
                 mergedPartialOrder);
     }
 
     @Test
     void testCommonOrdering() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
-        final var d = KeyPart.of(field("d"));
-        final var e = KeyPart.of(field("e"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
+        final var d = of(field("d"));
+        final var e = of(field("e"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -222,10 +223,10 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering2() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
-        final var x = KeyPart.of(field("x"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
+        final var x = of(field("x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -253,10 +254,10 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering3() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
-        final var x = KeyPart.of(field("x"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
+        final var x = of(field("x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -284,10 +285,10 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering4() {
-        final var a = KeyPart.of(field("a"));
-        final var b = KeyPart.of(field("b"));
-        final var c = KeyPart.of(field("c"));
-        final var x = KeyPart.of(field("x"));
+        final var a = of(field("a"));
+        final var b = of(field("b"));
+        final var c = of(field("c"));
+        final var x = of(field("x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),

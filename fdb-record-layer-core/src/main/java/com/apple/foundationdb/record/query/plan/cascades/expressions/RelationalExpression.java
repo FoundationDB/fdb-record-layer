@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -245,13 +245,13 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     /**
-     * Method to compute the correlation order as a {@link com.apple.foundationdb.record.query.combinatorics.PartialOrder}.
+     * Method to compute the correlation order as a {@link PartiallyOrderedSet}.
      * @return a partial order representing the transitive closure of all dependencies between quantifiers in this
      *         expression.
      */
     @Nonnull
-    default PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
-        return PartialOrder.empty();
+    default PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
+        return PartiallyOrderedSet.empty();
     }
 
     boolean equalsWithoutChildren(@Nonnull RelationalExpression other,
