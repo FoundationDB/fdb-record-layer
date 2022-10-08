@@ -164,8 +164,8 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            final var filteredEqualityBoundKeyMap =
-                    Multimaps.filterEntries(providedOrdering.getEqualityBoundKeyMap(),
+            final var filteredEqualityBoundValueMap =
+                    Multimaps.filterEntries(providedOrdering.getEqualityBoundValueMap(),
                             expressionComparisonEntry -> {
                                 final var comparison = expressionComparisonEntry.getValue();
                                 if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
@@ -176,11 +176,11 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                                        !explodeAliases.containsAll(parameterComparison.getCorrelatedTo());
                             });
             final var inUnionOrdering =
-                    Ordering.ofUnnormalized(filteredEqualityBoundKeyMap, providedOrdering.getOrderingSet(), providedOrdering.isDistinct());
+                    Ordering.ofUnnormalized(filteredEqualityBoundValueMap, providedOrdering.getOrderingSet(), providedOrdering.isDistinct());
 
             for (final var requestedOrdering : requestedOrderings) {
                 final var equalityBoundValuesBuilder = ImmutableSet.<Value>builder();
-                for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
+                for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundValueMap().entries()) {
                     final var comparison = expressionComparisonEntry.getValue();
                     if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
                         final var parameterComparison = (Comparisons.ParameterComparison)comparison;

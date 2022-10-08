@@ -223,16 +223,16 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
-                                                   @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                   boolean isReverse) {
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                 @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                 boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
 
         for (final var parameterId : sortParameterIds) {
@@ -273,13 +273,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 @Nullable final var rankQueryPredicate = parameterBindingPredicateMap.get(rankAlias);
 
                 builder.add(
-                        BoundKeyPart.of(normalizedValue,
+                        MatchedOrderingPart.of(normalizedValue,
                                 rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
                                 rankQueryPredicate,
                                 isReverse));
             } else {
                 builder.add(
-                        BoundKeyPart.of(normalizedValue,
+                        MatchedOrderingPart.of(normalizedValue,
                                 comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                                 queryPredicate,
                                 isReverse));
@@ -292,7 +292,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
         final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
@@ -311,13 +311,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                             getBaseType());
 
             if (i == scoreOrdinal) {
-                equalityBoundKeyMapBuilder.put(normalizedValue, new Comparisons.OpaqueEqualityComparison());
+                equalityBoundValueMapBuilder.put(normalizedValue, new Comparisons.OpaqueEqualityComparison());
             } else {
-                equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
+                equalityBoundValueMapBuilder.put(normalizedValue, comparison);
             }
         }
 
-        final var result = ImmutableList.<KeyPart>builder();
+        final var result = ImmutableList.<OrderingPart>builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -335,10 +335,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(KeyPart.of(normalizedValue, isReverse));
+            result.add(OrderingPart.of(normalizedValue, isReverse));
         }
 
-        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
+        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
     }
 
     @Nonnull

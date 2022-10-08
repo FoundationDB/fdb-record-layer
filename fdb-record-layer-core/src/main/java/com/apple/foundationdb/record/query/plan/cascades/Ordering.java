@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
@@ -95,48 +95,48 @@ public class Ordering {
      * if the predicate is just redundant (where {@code $p} is bound to {@code 5} when the query is executed).
      */
     @Nonnull
-    private final SetMultimap<Value, Comparison> equalityBoundKeyMap;
+    private final SetMultimap<Value, Comparison> equalityBoundValueMap;
 
     /**
-     * A list of {@link KeyPart}s where none of the contained expressions is equality-bound. This list
+     * A list of {@link OrderingPart}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
      */
     @Nonnull
-    private final PartialOrder<KeyPart> orderingSet;
+    private final PartiallyOrderedSet<OrderingPart> orderingSet;
 
     private final boolean isDistinct;
 
-    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                    @Nonnull final List<KeyPart> orderingKeyParts,
+    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                    @Nonnull final List<OrderingPart> orderingParts,
                     final boolean isDistinct) {
-        this(equalityBoundKeyMap, computePartialOrder(equalityBoundKeyMap, orderingKeyParts), isDistinct);
+        this(equalityBoundValueMap, computePartialOrder(equalityBoundValueMap, orderingParts), isDistinct);
     }
 
-    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                    @Nonnull final PartialOrder<KeyPart> orderingSet,
+    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                    @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet,
                     final boolean isDistinct) {
         Debugger.sanityCheck(() -> {
-            final var normalizedOrderingSet = normalizeOrderingSet(equalityBoundKeyMap, orderingSet);
+            final var normalizedOrderingSet = normalizeOrderingSet(equalityBoundValueMap, orderingSet);
             Verify.verify(orderingSet.equals(normalizedOrderingSet));
         });
 
         this.orderingSet = orderingSet;
-        this.equalityBoundKeyMap = ImmutableSetMultimap.copyOf(equalityBoundKeyMap);
+        this.equalityBoundValueMap = ImmutableSetMultimap.copyOf(equalityBoundValueMap);
         this.isDistinct = isDistinct;
     }
 
     @Nonnull
-    public SetMultimap<Value, Comparison> getEqualityBoundKeyMap() {
-        return equalityBoundKeyMap;
+    public SetMultimap<Value, Comparison> getEqualityBoundValueMap() {
+        return equalityBoundValueMap;
     }
 
     @Nonnull
-    public Set<Value> getEqualityBoundKeys() {
-        return equalityBoundKeyMap.keySet();
+    public Set<Value> getEqualityBoundValues() {
+        return equalityBoundValueMap.keySet();
     }
 
     @Nonnull
-    public PartialOrder<KeyPart> getOrderingSet() {
+    public PartiallyOrderedSet<OrderingPart> getOrderingSet() {
         return orderingSet;
     }
     
@@ -145,7 +145,7 @@ public class Ordering {
     }
 
     public boolean isEmpty() {
-        return equalityBoundKeyMap.isEmpty() && orderingSet.isEmpty();
+        return equalityBoundValueMap.isEmpty() && orderingSet.isEmpty();
     }
 
     @Override
@@ -157,14 +157,14 @@ public class Ordering {
             return false;
         }
         final var ordering = (Ordering)o;
-        return getEqualityBoundKeys().equals(ordering.getEqualityBoundKeys()) &&
+        return getEqualityBoundValues().equals(ordering.getEqualityBoundValues()) &&
                getOrderingSet().equals(ordering.getOrderingSet()) &&
                isDistinct() == ordering.isDistinct();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getEqualityBoundKeys(), getOrderingSet(), isDistinct());
+        return Objects.hash(getEqualityBoundValues(), getOrderingSet(), isDistinct());
     }
 
     @Override
@@ -178,7 +178,7 @@ public class Ordering {
             return ImmutableSet.of();
         }
 
-        return Ordering.enumerateSatisfyingOrderingComparisonKeyValues(getOrderingSet(), getEqualityBoundKeys(), requestedOrdering.getOrderingKeyParts());
+        return Ordering.enumerateSatisfyingOrderingComparisonKeyValues(getOrderingSet(), getEqualityBoundValues(), requestedOrdering.getOrderingParts());
     }
 
     @Nonnull
@@ -198,31 +198,31 @@ public class Ordering {
     }
 
     @Nonnull
-    public Iterable<List<KeyPart>> enumerateSatisfyingOrderings(@Nonnull RequestedOrdering requestedOrdering) {
+    public Iterable<List<OrderingPart>> enumerateSatisfyingOrderings(@Nonnull RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
-        final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
+        final var requestedOrderingParts = requestedOrdering.getOrderingParts();
         return TopologicalSort.satisfyingPermutations(
                 getOrderingSet(),
-                requestedOrderingKeyParts,
+                requestedOrderingParts,
                 Function.identity(),
-                permutation -> requestedOrderingKeyParts.size());
+                permutation -> requestedOrderingParts.size());
     }
 
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
-        final var normalizedRequestedOrderingKeyParts = requestedGroupingValues.stream()
-                .filter(requestedOrderingKeyPart -> !equalityBoundKeyMap.containsKey(requestedOrderingKeyPart))
-                .collect(ImmutableSet.toImmutableSet());
+        final var normalizedRequestedOrderingValues =
+                requestedGroupingValues.stream()
+                        .filter(requestedOrderingValue -> !equalityBoundValueMap.containsKey(requestedOrderingValue))
+                        .collect(ImmutableSet.toImmutableSet());
 
-        final var filteredPartialOrder = orderingSet.filterIndependentElements(keyPart -> !equalityBoundKeyMap.containsKey(keyPart.getValue()));
-
-        final var permutations = TopologicalSort.topologicalOrderPermutations(filteredPartialOrder);
+        final var filteredOrderingSet = orderingSet.filterIndependentElements(keyPart -> !equalityBoundValueMap.containsKey(keyPart.getValue()));
+        final var permutations = TopologicalSort.topologicalOrderPermutations(filteredOrderingSet);
 
         for (final var permutation : permutations) {
-            final var containsAll = permutation.subList(0, normalizedRequestedOrderingKeyParts.size())
+            final var containsAll = permutation.subList(0, normalizedRequestedOrderingValues.size())
                     .stream()
-                    .allMatch(keyPart -> normalizedRequestedOrderingKeyParts.contains(keyPart.getValue()));
+                    .allMatch(keyPart -> normalizedRequestedOrderingValues.contains(keyPart.getValue()));
 
             if (containsAll) {
                 return true;
@@ -236,29 +236,29 @@ public class Ordering {
         //
         // Need to pull every participating value of this ordering through the value.
         //
-        final var pulledUpOrderingKeyParts =
+        final var pulledUpOrderingParts =
                 getOrderingSet()
-                        .mapAll(orderingKeyParts -> {
+                        .mapAll(orderingParts -> {
                             final var orderingKeyValues =
-                                    Streams.stream(orderingKeyParts)
-                                            .map(KeyPart::getValue)
+                                    Streams.stream(orderingParts)
+                                            .map(OrderingPart::getValue)
                                             .collect(ImmutableList.toImmutableList());
                             final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
-                            final var resultMapBuilder = ImmutableBiMap.<KeyPart, KeyPart>builder();
-                            for (final KeyPart orderingKeyPart : orderingKeyParts) {
-                                final var pulledUpOrderingKeyValue = pulledUpValuesMap.get(orderingKeyPart.getValue());
-                                if (pulledUpOrderingKeyValue != null) {
-                                    resultMapBuilder.put(orderingKeyPart, KeyPart.of(pulledUpOrderingKeyValue, orderingKeyPart.isReverse()));
+                            final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
+                            for (final OrderingPart orderingPart : orderingParts) {
+                                final var pulledUpOrderingValue = pulledUpValuesMap.get(orderingPart.getValue());
+                                if (pulledUpOrderingValue != null) {
+                                    resultMapBuilder.put(orderingPart, OrderingPart.of(pulledUpOrderingValue, orderingPart.isReverse()));
                                 }
                             }
                             return resultMapBuilder.build();
                         });
 
         final var pulledUpEqualityBoundMap =
-                translateEqualityBoundKeyMap(equalityBoundKeyMap,
+                translateEqualityBoundValueMap(equalityBoundValueMap,
                         toBePulledValues -> value.pullUp(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT));
 
-        return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingKeyParts, false);
+        return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingParts, false);
     }
 
     @Nonnull
@@ -266,30 +266,29 @@ public class Ordering {
         //
         // Need to push every participating value of this ordering through the value.
         //
-        final var pushedDownOrderingKeyParts =
+        final var pushedDownOrderingParts =
                 getOrderingSet()
-                        .mapAll(orderingKeyParts -> {
-                            final var orderingKeyValues =
-                                    Streams.stream(orderingKeyParts)
-                                            .map(KeyPart::getValue)
+                        .mapAll(orderingParts -> {
+                            final var orderingValues =
+                                    Streams.stream(orderingParts)
+                                            .map(OrderingPart::getValue)
                                             .collect(ImmutableList.toImmutableList());
-                            final var pushedDownOrderingKeyValues = value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
-                            final var resultMapBuilder = ImmutableBiMap.<KeyPart, KeyPart>builder();
-                            final var orderingKeyPartsIterator = orderingKeyParts.iterator();
-                            final var pushedDownOrderingKeyValuesIterator = pushedDownOrderingKeyValues.iterator();
-                            while (orderingKeyPartsIterator.hasNext() && pushedDownOrderingKeyValuesIterator.hasNext()) {
-                                final var orderingKeyPart = orderingKeyPartsIterator.next();
-                                final var pushedDownOrderingKeyValue = pushedDownOrderingKeyValuesIterator.next();
-                                resultMapBuilder.put(orderingKeyPart, KeyPart.of(pushedDownOrderingKeyValue, orderingKeyPart.isReverse()));
+                            final var pushedDownOrderingValues = value.pushDown(orderingValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+                            final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
+                            final var orderingPartsIterator = orderingParts.iterator();
+                            final var pushedDownOrderingValuesIterator = pushedDownOrderingValues.iterator();
+                            while (orderingPartsIterator.hasNext() && pushedDownOrderingValuesIterator.hasNext()) {
+                                final var orderingPart = orderingPartsIterator.next();
+                                final var pushedDownOrderingValue = pushedDownOrderingValuesIterator.next();
+                                resultMapBuilder.put(orderingPart, OrderingPart.of(pushedDownOrderingValue, orderingPart.isReverse()));
                             }
-                            Verify.verify(!orderingKeyPartsIterator.hasNext() && !pushedDownOrderingKeyValuesIterator.hasNext());
+                            Verify.verify(!orderingPartsIterator.hasNext() && !pushedDownOrderingValuesIterator.hasNext());
 
                             return resultMapBuilder.build();
                         });
 
-        //final var pushedDownOrderingKeyParts = pushedDownOrderingKeyPartsBuilder.build();
         final var pushedDownEqualityBoundMap =
-                translateEqualityBoundKeyMap(equalityBoundKeyMap,
+                translateEqualityBoundValueMap(equalityBoundValueMap,
                         toBePushedValues -> {
                             final var pushedDownValues = value.pushDown(toBePushedValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
                             final var resultMap = new LinkedIdentityMap<Value, Value>();
@@ -301,57 +300,57 @@ public class Ordering {
                             return resultMap;
                         });
 
-        return new Ordering(pushedDownEqualityBoundMap, pushedDownOrderingKeyParts, isDistinct());
+        return new Ordering(pushedDownEqualityBoundMap, pushedDownOrderingParts, isDistinct());
     }
 
     @Nonnull
-    public Ordering withAdditionalDependencies(@Nonnull final PartialOrder<KeyPart> otherOrderingSet) {
+    public Ordering withAdditionalDependencies(@Nonnull final PartiallyOrderedSet<OrderingPart> otherOrderingSet) {
         Debugger.sanityCheck(() -> Verify.verify(getOrderingSet().getSet().containsAll(otherOrderingSet.getSet())));
 
         final var otherDependencyMap = otherOrderingSet.getDependencyMap();
         final var resultDependencyMap =
-                ImmutableSetMultimap.<KeyPart, KeyPart>builder()
+                ImmutableSetMultimap.<OrderingPart, OrderingPart>builder()
                         .putAll(orderingSet.getDependencyMap())
                         .putAll(otherDependencyMap)
                         .build();
-        final var resultOrderingSet = PartialOrder.of(orderingSet.getSet(), resultDependencyMap);
+        final var resultOrderingSet = PartiallyOrderedSet.of(orderingSet.getSet(), resultDependencyMap);
 
-        return new Ordering(equalityBoundKeyMap, resultOrderingSet, isDistinct);
+        return new Ordering(equalityBoundValueMap, resultOrderingSet, isDistinct);
     }
 
     @Nonnull
-    private static SetMultimap<Value, Comparison> translateEqualityBoundKeyMap(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                                                                               @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
-        final var pulledEqualityBoundMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+    private static SetMultimap<Value, Comparison> translateEqualityBoundValueMap(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                                                                                 @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
+        final var pulledEqualityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
 
-        for (final var entry : equalityBoundKeyMap.entries()) {
-            final var entryKeyValue = entry.getKey();
+        for (final var entry : equalityBoundValueMap.entries()) {
+            final var entryValue = entry.getKey();
             final var comparison = entry.getValue();
             if (comparison instanceof Comparisons.ValueComparison) {
                 final var valueComparison = (Comparisons.ValueComparison)comparison;
                 final var valueForValueComparison = valueComparison.getComparandValue();
-                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryKeyValue, valueForValueComparison));
-                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryKeyValue);
+                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryValue, valueForValueComparison));
+                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryValue);
                 final var pulledComparisonValue = pulledEqualityBindingValuesMap.get(valueForValueComparison);
                 if (pulledEqualityBindingValue == null || pulledComparisonValue == null) {
                     continue;
                 }
-                pulledEqualityBoundMapBuilder.put(pulledEqualityBindingValue, new Comparisons.ValueComparison(valueComparison.getType(), pulledComparisonValue));
+                pulledEqualityBoundValueMapBuilder.put(pulledEqualityBindingValue, new Comparisons.ValueComparison(valueComparison.getType(), pulledComparisonValue));
             } else {
-                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryKeyValue));
-                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryKeyValue);
+                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryValue));
+                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryValue);
                 if (pulledEqualityBindingValue == null) {
                     continue;
                 }
-                pulledEqualityBoundMapBuilder.put(pulledEqualityBindingValue, comparison);
+                pulledEqualityBoundValueMapBuilder.put(pulledEqualityBindingValue, comparison);
             }
         }
 
-        return pulledEqualityBoundMapBuilder.build();
+        return pulledEqualityBoundValueMapBuilder.build();
     }
 
     /**
-     * Method to compute the {@link PartialOrder} representing this {@link Ordering}.
+     * Method to compute the {@link PartiallyOrderedSet} representing this {@link Ordering}.
      *
      * An ordering expresses the order of e.g. fields {@code a, b, x} and additionally declares some fields, e.g. {@code c}
      * to be equal-bound to a value (e.g. {@code 5}). That means that {@code c} can freely move in the order declaration of
@@ -367,32 +366,32 @@ public class Ordering {
      * Based on these two independent orderings we can construct new orderings that are also correct:
      * {@code a, b, x, y}, {@code a, x, b, y}, or {@code x, y, a, b}, among others.
      *
-     * In order to properly capture this multitude of orderings, we can use partial orders (see {@link PartialOrder})
+     * In order to properly capture this multitude of orderings, we can use partial orders (see {@link PartiallyOrderedSet})
      * to define the ordering (unfortunate name clash). For our example, we can write
      *
      * <pre>
      * {@code
-     * PartialOrder([a, b, x, y], [a < b, x < y])
+     * PartiallyOrderedSet([a, b, x, y], [a < b, x < y])
      * }
      * </pre>
      *
      * and mean all topologically correct permutations of {@code a, b, x, y}.
      *
-     * @param equalityBoundKeyMap a set multimap of equality-bound keys
-     * @param orderingKeyParts a list of ordering {@link KeyPart}s
-     * @return a {@link PartialOrder} for this ordering
+     * @param equalityBoundValueMap a set multimap of equality-bound keys
+     * @param orderingParts a list of ordering {@link OrderingPart}s
+     * @return a {@link PartiallyOrderedSet} for this ordering
      */
     @Nonnull
-    private static PartialOrder<KeyPart> computePartialOrder(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                                                             @Nonnull final List<KeyPart> orderingKeyParts) {
-        final var filteredOrderingKeyParts =
-                orderingKeyParts.stream()
-                        .filter(orderingKeyPart -> !equalityBoundKeyMap.containsKey(orderingKeyPart.getValue()))
+    private static PartiallyOrderedSet<OrderingPart> computePartialOrder(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                                                                         @Nonnull final List<OrderingPart> orderingParts) {
+        final var filteredOrderingParts =
+                orderingParts.stream()
+                        .filter(orderingPart -> !equalityBoundValueMap.containsKey(orderingPart.getValue()))
                         .collect(ImmutableList.toImmutableList());
 
-        return PartialOrder.<KeyPart>builder()
-                .addListWithDependencies(filteredOrderingKeyParts)
-                .addAll(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
+        return PartiallyOrderedSet.<OrderingPart>builder()
+                .addListWithDependencies(filteredOrderingParts)
+                .addAll(equalityBoundValueMap.keySet().stream().map(OrderingPart::of).collect(ImmutableSet.toImmutableSet()))
                 .build();
     }
 
@@ -401,53 +400,53 @@ public class Ordering {
      * dependencies from or to a particular element contained in the set if that element is also equality-bound. If an
      * element is equality-bound, that is, it is constant for all practical purposes, it is in also independent with
      * respect to all other elements in the set.
-     * @param equalityBoundKeyMap a multimap relating values and equality comparisons
+     * @param equalityBoundValueMap a multimap relating values and equality comparisons
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
      * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
      */
     @Nonnull
-    private static PartialOrder<KeyPart> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                                                              @Nonnull final PartialOrder<KeyPart> orderingSet) {
+    private static PartiallyOrderedSet<OrderingPart> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                                                                          @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet) {
         final var transitiveClosure = orderingSet.getTransitiveClosure();
-        final var normalizedDependencyMapBuilder = ImmutableSetMultimap.<KeyPart, KeyPart>builder();
+        final var normalizedDependencyMapBuilder = ImmutableSetMultimap.<OrderingPart, OrderingPart>builder();
 
         for (final var dependency : transitiveClosure.entries()) {
-            if (!equalityBoundKeyMap.containsKey(dependency.getKey().getValue()) && !equalityBoundKeyMap.containsKey(dependency.getValue().getValue())) {
+            if (!equalityBoundValueMap.containsKey(dependency.getKey().getValue()) && !equalityBoundValueMap.containsKey(dependency.getValue().getValue())) {
                 normalizedDependencyMapBuilder.put(dependency);
             }
         }
-        return PartialOrder.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
+        return PartiallyOrderedSet.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
     }
 
     @Nonnull
-    public static Set<Set<Value>> enumerateSatisfyingOrderingComparisonKeyValues(@Nonnull final PartialOrder<KeyPart> partialOrder,
+    public static Set<Set<Value>> enumerateSatisfyingOrderingComparisonKeyValues(@Nonnull final PartiallyOrderedSet<OrderingPart> partiallyOrderedSet,
                                                                                  @Nonnull final Set<Value> equalityBoundKeyValues,
-                                                                                 @Nonnull final List<KeyPart> requestedOrderingKeyParts) {
-        final var normalizedRequestedOrderingKeyParts = requestedOrderingKeyParts.stream()
-                .filter(requestedOrderingKeyPart -> !equalityBoundKeyValues.contains(requestedOrderingKeyPart.getValue()))
+                                                                                 @Nonnull final List<OrderingPart> requestedOrderingParts) {
+        final var normalizedRequestedOrderingParts = requestedOrderingParts.stream()
+                .filter(requestedOrderingPart -> !equalityBoundKeyValues.contains(requestedOrderingPart.getValue()))
                 .collect(ImmutableList.toImmutableList());
 
-        final var filteredPartialOrder = partialOrder.filterIndependentElements(keyPart -> !equalityBoundKeyValues.contains(keyPart.getValue()));
+        final var filteredOrderingSet = partiallyOrderedSet.filterIndependentElements(keyPart -> !equalityBoundKeyValues.contains(keyPart.getValue()));
 
-        final var satisfyingOrderingKeyParts =
+        final var satisfyingOrderingParts =
                 TopologicalSort.satisfyingPermutations(
-                        filteredPartialOrder,
-                        normalizedRequestedOrderingKeyParts,
+                        filteredOrderingSet,
+                        normalizedRequestedOrderingParts,
                         Function.identity(),
-                        permutation -> normalizedRequestedOrderingKeyParts.size());
+                        permutation -> normalizedRequestedOrderingParts.size());
 
-        return Streams.stream(satisfyingOrderingKeyParts)
+        return Streams.stream(satisfyingOrderingParts)
                 .map(enumeratedOrdering ->
                         enumeratedOrdering.stream()
-                                .map(KeyPart::getValue)
+                                .map(OrderingPart::getValue)
                                 .collect(ImmutableSet.toImmutableSet()))
                 .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static <K> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull final PartialOrder<K> left,
-                                                                   @Nonnull final PartialOrder<K> right) {
+    public static <K> PartiallyOrderedSet<K> mergePartialOrderOfOrderings(@Nonnull final PartiallyOrderedSet<K> left,
+                                                                          @Nonnull final PartiallyOrderedSet<K> right) {
         final var leftDependencies = left.getDependencyMap();
         final var rightDependencies = right.getDependencyMap();
 
@@ -483,12 +482,12 @@ public class Ordering {
             lastElements = intersectedElements;
         }
 
-        return PartialOrder.of(elementBuilder.build(), dependencyBuilder.build());
+        return PartiallyOrderedSet.of(elementBuilder.build(), dependencyBuilder.build());
     }
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static <K> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartialOrder<K>> partialOrders) {
+    public static <K> PartiallyOrderedSet<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartiallyOrderedSet<K>> partialOrders) {
         return StreamSupport.stream(partialOrders.spliterator(), false)
                 .reduce(Ordering::mergePartialOrderOfOrderings)
                 .orElseThrow(() -> new IllegalStateException("must have a partial order"));
@@ -597,7 +596,7 @@ public class Ordering {
      * @param leftOrdering an {@link Ordering}
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
      * @param combineFn a combine function to combine two maps of equality-bound keys (and their bindings)
-     * @return a list of {@link KeyPart}s
+     * @return a list of {@link OrderingPart}s
      */
     @Nonnull
     public static Ordering concatOrderings(@Nonnull final Ordering leftOrdering,
@@ -612,13 +611,13 @@ public class Ordering {
                         Sets.intersection(leftOrderingSet.getSet(), rightOrderingSet.getSet()).isEmpty()));
 
         final var orderingElements =
-                ImmutableSet.<KeyPart>builder()
+                ImmutableSet.<OrderingPart>builder()
                         .addAll(leftOrderingSet.getSet())
                         .addAll(rightOrderingSet.getSet())
                         .build();
 
         final var dependencyMapBuilder =
-                ImmutableSetMultimap.<KeyPart, KeyPart>builder()
+                ImmutableSetMultimap.<OrderingPart, OrderingPart>builder()
                         .putAll(leftOrderingSet.getDependencyMap())
                         .putAll(rightOrderingSet.getDependencyMap());
 
@@ -639,10 +638,10 @@ public class Ordering {
             }
         }
 
-        final var concatenatedOrderingSet = PartialOrder.of(orderingElements, dependencyMapBuilder.build());
+        final var concatenatedOrderingSet = PartiallyOrderedSet.of(orderingElements, dependencyMapBuilder.build());
 
-        final var combinedEqualityBoundKeyMap = combineFn.apply(leftOrdering.getEqualityBoundKeyMap(), rightOrdering.getEqualityBoundKeyMap());
-        return Ordering.ofUnnormalized(combinedEqualityBoundKeyMap, concatenatedOrderingSet, rightOrdering.isDistinct());
+        final var combinedEqualityBoundValueMap = combineFn.apply(leftOrdering.getEqualityBoundValueMap(), rightOrdering.getEqualityBoundValueMap());
+        return Ordering.ofUnnormalized(combinedEqualityBoundValueMap, concatenatedOrderingSet, rightOrdering.isDistinct());
     }
 
     /**
@@ -659,16 +658,16 @@ public class Ordering {
         final Iterator<Ordering> orderingsIterator = orderings.iterator();
 
         final var commonOrderingInfo = orderingsIterator.next();
-        var commonEqualityBoundKeyMap = commonOrderingInfo.getEqualityBoundKeyMap();
+        var commonEqualityBoundValueMap = commonOrderingInfo.getEqualityBoundValueMap();
 
         while (orderingsIterator.hasNext()) {
             final var currentOrdering = orderingsIterator.next();
 
-            final var currentEqualityBoundKeyMap = currentOrdering.getEqualityBoundKeyMap();
-            commonEqualityBoundKeyMap = combineFn.apply(commonEqualityBoundKeyMap, currentEqualityBoundKeyMap);
+            final var currentEqualityBoundValueMap = currentOrdering.getEqualityBoundValueMap();
+            commonEqualityBoundValueMap = combineFn.apply(commonEqualityBoundValueMap, currentEqualityBoundValueMap);
         }
 
-        return commonEqualityBoundKeyMap;
+        return commonEqualityBoundValueMap;
     }
 
     /**
@@ -726,9 +725,9 @@ public class Ordering {
     }
 
     @Nonnull
-    public static Ordering ofUnnormalized(@Nonnull final SetMultimap<Value, Comparison> equalityBoundKeyMap,
-                                          @Nonnull final PartialOrder<KeyPart> orderingSet,
+    public static Ordering ofUnnormalized(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
+                                          @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet,
                                           final boolean isDistinct) {
-        return new Ordering(equalityBoundKeyMap, normalizeOrderingSet(equalityBoundKeyMap, orderingSet), isDistinct);
+        return new Ordering(equalityBoundValueMap, normalizeOrderingSet(equalityBoundValueMap, orderingSet), isDistinct);
     }
 }

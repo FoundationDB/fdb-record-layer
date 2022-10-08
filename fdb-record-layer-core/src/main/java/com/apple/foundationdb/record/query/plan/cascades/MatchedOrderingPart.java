@@ -1,5 +1,5 @@
 /*
- * BoundKeyPart.java
+ * MatchedOrderingPart.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,11 +29,11 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * A key expression that can be bound by a comparison during graph matching.
+ * An {@link OrderingPart} that is bound by a comparison during graph matching.
  */
-public class BoundKeyPart {
+public class MatchedOrderingPart {
     @Nonnull
-    private final KeyPart keyPart;
+    private final OrderingPart orderingPart;
 
     @Nonnull
     private final ComparisonRange.Type comparisonRangeType;
@@ -47,30 +47,30 @@ public class BoundKeyPart {
      * @param comparisonRangeType type of comparison
      * @param queryPredicate reference to {@link QueryPredicate} on query side
      */
-    private BoundKeyPart(@Nonnull final Value orderByValue,
-                         @Nonnull final ComparisonRange.Type comparisonRangeType,
-                         @Nullable final QueryPredicate queryPredicate,
-                         final boolean isReverse) {
+    private MatchedOrderingPart(@Nonnull final Value orderByValue,
+                                @Nonnull final ComparisonRange.Type comparisonRangeType,
+                                @Nullable final QueryPredicate queryPredicate,
+                                final boolean isReverse) {
         Preconditions.checkArgument((queryPredicate == null && comparisonRangeType == ComparisonRange.Type.EMPTY) ||
                                     (queryPredicate != null && comparisonRangeType != ComparisonRange.Type.EMPTY));
 
-        this.keyPart = KeyPart.of(orderByValue, isReverse);
+        this.orderingPart = OrderingPart.of(orderByValue, isReverse);
         this.comparisonRangeType = comparisonRangeType;
         this.queryPredicate = queryPredicate;
     }
 
     @Nonnull
-    public KeyPart getKeyPart() {
-        return keyPart;
+    public OrderingPart getOrderingPart() {
+        return orderingPart;
     }
 
     @Nonnull
     public Value getValue() {
-        return keyPart.getValue();
+        return orderingPart.getValue();
     }
 
     public boolean isReverse() {
-        return keyPart.isReverse();
+        return orderingPart.isReverse();
     }
 
     @Nullable
@@ -88,24 +88,24 @@ public class BoundKeyPart {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof BoundKeyPart)) {
+        if (!(o instanceof MatchedOrderingPart)) {
             return false;
         }
-        final BoundKeyPart that = (BoundKeyPart)o;
-        return getKeyPart().equals(that.getKeyPart()) &&
+        final MatchedOrderingPart that = (MatchedOrderingPart)o;
+        return getOrderingPart().equals(that.getOrderingPart()) &&
                Objects.equals(getQueryPredicate(), that.getQueryPredicate());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getKeyPart().hashCode(), getQueryPredicate());
+        return Objects.hash(getOrderingPart().hashCode(), getQueryPredicate());
     }
 
     @Nonnull
-    public static BoundKeyPart of(@Nonnull final Value orderByValue,
-                                  @Nonnull final ComparisonRange.Type comparisonRangeType,
-                                  @Nullable final QueryPredicate queryPredicate,
-                                  final boolean isReverse) {
-        return new BoundKeyPart(orderByValue, comparisonRangeType, queryPredicate, isReverse);
+    public static MatchedOrderingPart of(@Nonnull final Value orderByValue,
+                                         @Nonnull final ComparisonRange.Type comparisonRangeType,
+                                         @Nullable final QueryPredicate queryPredicate,
+                                         final boolean isReverse) {
+        return new MatchedOrderingPart(orderByValue, comparisonRangeType, queryPredicate, isReverse);
     }
 }

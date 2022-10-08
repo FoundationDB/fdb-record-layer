@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -229,15 +229,15 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
         }
     }
 
-    private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyParts,
+    private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyValues,
                                                        @Nonnull final Ordering ordering) {
-        final var orderingKeys =
+        final var orderingValues =
                 ordering.getOrderingSet().getSet()
                         .stream()
-                        .map(KeyPart::getValue)
+                        .map(OrderingPart::getValue)
                         .collect(ImmutableSet.toImmutableSet());
-        for (final var primaryKeyPart : primaryKeyParts) {
-            if (!orderingKeys.contains(primaryKeyPart)) {
+        for (final var primaryKeyValue : primaryKeyValues) {
+            if (!orderingValues.contains(primaryKeyValue)) {
                 return false;
             }
         }

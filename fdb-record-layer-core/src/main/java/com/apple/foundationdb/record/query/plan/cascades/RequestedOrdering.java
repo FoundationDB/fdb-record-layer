@@ -54,12 +54,12 @@ public class RequestedOrdering {
      * defines the actual order of records.
      */
     @Nonnull
-    private final List<KeyPart> orderingKeyParts;
+    private final List<OrderingPart> orderingParts;
 
     private final Distinctness distinctness;
 
-    public RequestedOrdering(@Nonnull final List<KeyPart> orderingKeyParts, final Distinctness distinctness) {
-        this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
+    public RequestedOrdering(@Nonnull final List<OrderingPart> orderingParts, final Distinctness distinctness) {
+        this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
     }
 
@@ -77,16 +77,16 @@ public class RequestedOrdering {
      * @return {@code true} if the ordering needs to be preserved
      */
     public boolean isPreserve() {
-        return orderingKeyParts.isEmpty();
+        return orderingParts.isEmpty();
     }
 
     @Nonnull
-    public List<KeyPart> getOrderingKeyParts() {
-        return orderingKeyParts;
+    public List<OrderingPart> getOrderingParts() {
+        return orderingParts;
     }
 
     public int size() {
-        return orderingKeyParts.size();
+        return orderingParts.size();
     }
 
     @Nonnull
@@ -95,7 +95,7 @@ public class RequestedOrdering {
             return preserve();
         }
 
-        return new RequestedOrdering(getOrderingKeyParts().subList(prefixSize, size()), getDistinctness());
+        return new RequestedOrdering(getOrderingParts().subList(prefixSize, size()), getDistinctness());
     }
 
     @Override
@@ -107,13 +107,13 @@ public class RequestedOrdering {
             return false;
         }
         final RequestedOrdering ordering = (RequestedOrdering)o;
-        return getOrderingKeyParts().equals(ordering.getOrderingKeyParts()) &&
+        return getOrderingParts().equals(ordering.getOrderingParts()) &&
                getDistinctness() == ordering.getDistinctness();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingKeyParts(), getDistinctness());
+        return Objects.hash(getOrderingParts(), getDistinctness());
     }
 
     /**
@@ -158,24 +158,24 @@ public class RequestedOrdering {
         // Need to push every participating value of this requested ordering through the value.
         //
         final var orderingKeyValues =
-                orderingKeyParts
+                orderingParts
                         .stream()
-                        .map(KeyPart::getValue)
+                        .map(OrderingPart::getValue)
                         .collect(ImmutableList.toImmutableList());
 
-        final var pushedDownOrderingKeyValues =
+        final var pushedDownOrderingValues =
                 value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
 
         final var translationMap = AliasMap.of(lowerBaseAlias, Quantifier.CURRENT);
 
-        final var pushedDownOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
-        for (int i = 0; i < orderingKeyParts.size(); i++) {
-            final var orderingKeyPart = orderingKeyParts.get(i);
-            final var orderingKeyValue = Objects.requireNonNull(pushedDownOrderingKeyValues.get(i));
-            final var rebasedOrderingKeyValue = orderingKeyValue.rebase(translationMap);
-            pushedDownOrderingKeyPartsBuilder.add(KeyPart.of(rebasedOrderingKeyValue, orderingKeyPart.isReverse()));
+        final var pushedDownOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
+        for (int i = 0; i < orderingParts.size(); i++) {
+            final var orderingPart = orderingParts.get(i);
+            final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
+            final var rebasedOrderingValue = orderingValue.rebase(translationMap);
+            pushedDownOrderingPartsBuilder.add(OrderingPart.of(rebasedOrderingValue, orderingPart.isReverse()));
         }
-        return new RequestedOrdering(pushedDownOrderingKeyPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
+        return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
     }
 
     /**
@@ -191,7 +191,7 @@ public class RequestedOrdering {
     public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
                                                    final boolean isReverse,
                                                    @Nonnull final Distinctness distinctness) {
-        return new RequestedOrdering(values.stream().map(value -> KeyPart.of(value, isReverse)).collect(ImmutableList.toImmutableList()), distinctness);
+        return new RequestedOrdering(values.stream().map(value -> OrderingPart.of(value, isReverse)).collect(ImmutableList.toImmutableList()), distinctness);
     }
 
     /**

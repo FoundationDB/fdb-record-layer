@@ -107,27 +107,27 @@ public class TopologicalSort {
      */
     private static class BacktrackIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
-        private final PartialOrder<T> partialOrder;
+        private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
-        private BacktrackIterable(@Nonnull final PartialOrder<T> partialOrder) {
-            this.partialOrder = partialOrder;
+        private BacktrackIterable(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            this.partiallyOrderedSet = partiallyOrderedSet;
         }
 
         @Nonnull
-        protected PartialOrder<T> getPartialOrder() {
-            return partialOrder;
+        protected PartiallyOrderedSet<T> getPartialOrder() {
+            return partiallyOrderedSet;
         }
 
         @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
-            return new BacktrackIterator<>(partialOrder);
+            return new BacktrackIterator<>(partiallyOrderedSet);
         }
     }
 
     private static class BacktrackIterator<T> extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
         @Nonnull
-        private final PartialOrder<T> partialOrder;
+        private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
         // state
         @Nonnull
@@ -135,12 +135,12 @@ public class TopologicalSort {
         @Nonnull
         private final List<PeekingIterator<T>> state;
 
-        private BacktrackIterator(@Nonnull final PartialOrder<T> partialOrder) {
-            Verify.verify(partialOrder.size() > 1);
-            this.partialOrder = partialOrder;
-            this.bound = Sets.newHashSetWithExpectedSize(partialOrder.size());
-            this.state = Lists.newArrayListWithCapacity(partialOrder.size());
-            for (int i = 0; i < partialOrder.size(); i ++ ) {
+        private BacktrackIterator(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            Verify.verify(partiallyOrderedSet.size() > 1);
+            this.partiallyOrderedSet = partiallyOrderedSet;
+            this.bound = Sets.newHashSetWithExpectedSize(partiallyOrderedSet.size());
+            this.state = Lists.newArrayListWithCapacity(partiallyOrderedSet.size());
+            for (int i = 0; i < partiallyOrderedSet.size(); i ++ ) {
                 this.state.add(null);
             }
         }
@@ -211,7 +211,7 @@ public class TopologicalSort {
                 if (currentLevel == -1) {
                     return endOfData();
                 }
-            } while (bound.size() < partialOrder.size()); // as long as we still have to find a binding
+            } while (bound.size() < partiallyOrderedSet.size()); // as long as we still have to find a binding
 
             return state.stream()
                     .map(PeekingIterator::peek)
@@ -220,13 +220,13 @@ public class TopologicalSort {
 
         @Nonnull
         protected Iterator<T> domain(final int t) {
-            return partialOrder.getSet().iterator();
+            return partiallyOrderedSet.getSet().iterator();
         }
 
         @SuppressWarnings({"squid:S135", "PMD.AvoidBranchingStatementAsLastInLoop"})
         private boolean searchLevel(final PeekingIterator<T> currentIterator) {
-            final var set = partialOrder.getSet();
-            final var dependsOnMap = partialOrder.getDependencyMap();
+            final var set = partiallyOrderedSet.getSet();
+            final var dependsOnMap = partiallyOrderedSet.getDependencyMap();
             while (currentIterator.hasNext()) {
                 final T next = currentIterator.peek();
 
@@ -256,7 +256,7 @@ public class TopologicalSort {
 
         private void unbind(final int level) {
             // reset all the following ones
-            for (int i = level; i < partialOrder.size(); i ++ ) {
+            for (int i = level; i < partiallyOrderedSet.size(); i ++ ) {
                 // either iterator is on a valid item or iterator is null
                 if (state.get(i) != null) {
                     bound.remove(state.get(i).peek());
@@ -272,7 +272,7 @@ public class TopologicalSort {
          */
         @Override
         public void skip(final int level) {
-            if (level >= partialOrder.size()) {
+            if (level >= partiallyOrderedSet.size()) {
                 throw new IndexOutOfBoundsException();
             }
 
@@ -281,7 +281,7 @@ public class TopologicalSort {
             }
 
             // reset all the following ones
-            for (int i = level + 1; i < partialOrder.size(); i ++ ) {
+            for (int i = level + 1; i < partiallyOrderedSet.size(); i ++ ) {
                 // either iterator is on a valid item or iterator is null
                 if (state.get(i) != null) {
                     bound.remove(state.get(i).peek());
@@ -300,28 +300,28 @@ public class TopologicalSort {
      */
     private static class KahnIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
-        private final PartialOrder<T> partialOrder;
+        private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
-        private KahnIterable(@Nonnull final PartialOrder<T> partialOrder) {
-            Verify.verify(partialOrder.size() > 1);
-            this.partialOrder = partialOrder;
+        private KahnIterable(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            Verify.verify(partiallyOrderedSet.size() > 1);
+            this.partiallyOrderedSet = partiallyOrderedSet;
         }
 
         @Nonnull
-        public PartialOrder<T> getPartialOrder() {
-            return partialOrder;
+        public PartiallyOrderedSet<T> getPartialOrder() {
+            return partiallyOrderedSet;
         }
 
         @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
-            return new KahnIterator<>(partialOrder);
+            return new KahnIterator<>(partiallyOrderedSet);
         }
     }
 
     private static class KahnIterator<T> extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
         @Nonnull
-        private final PartialOrder<T> partialOrder;
+        private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
         // state
         private final Set<T> bound;
@@ -329,11 +329,11 @@ public class TopologicalSort {
         private final List<Set<T>> eligibleElementSets;
         private final List<PeekingIterator<T>> iterators;
 
-        private KahnIterator(@Nonnull final PartialOrder<T> partialOrder) {
-            this.partialOrder = partialOrder;
-            this.bound = Sets.newHashSetWithExpectedSize(partialOrder.size());
-            this.inDegreeMap = computeInDegreeMap(partialOrder);
-            this.eligibleElementSets = Lists.newArrayListWithCapacity(partialOrder.size());
+        private KahnIterator(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            this.partiallyOrderedSet = partiallyOrderedSet;
+            this.bound = Sets.newHashSetWithExpectedSize(partiallyOrderedSet.size());
+            this.inDegreeMap = computeInDegreeMap(partiallyOrderedSet);
+            this.eligibleElementSets = Lists.newArrayListWithCapacity(partiallyOrderedSet.size());
             // add the set of immediately satisfiable sets
             this.eligibleElementSets
                     .add(this.inDegreeMap
@@ -342,11 +342,11 @@ public class TopologicalSort {
                             .filter(entry -> entry.getValue() == 0)
                             .map(Map.Entry::getKey)
                             .collect(ImmutableSet.toImmutableSet()));
-            for (int i = 1; i < partialOrder.size(); i ++ ) {
+            for (int i = 1; i < partiallyOrderedSet.size(); i ++ ) {
                 this.eligibleElementSets.add(null);
             }
-            this.iterators = Lists.newArrayListWithCapacity(partialOrder.size());
-            for (int i = 0; i < partialOrder.size(); i ++ ) {
+            this.iterators = Lists.newArrayListWithCapacity(partiallyOrderedSet.size());
+            for (int i = 0; i < partiallyOrderedSet.size(); i ++ ) {
                 this.iterators.add(null);
             }
         }
@@ -417,7 +417,7 @@ public class TopologicalSort {
                 if (currentLevel == -1) {
                     return endOfData();
                 }
-            } while (bound.size() < partialOrder.size()); // as long as we still have to find a binding
+            } while (bound.size() < partiallyOrderedSet.size()); // as long as we still have to find a binding
 
             return iterators.stream()
                     .map(PeekingIterator::peek)
@@ -426,7 +426,7 @@ public class TopologicalSort {
 
         @SuppressWarnings({"squid:S135", "UnstableApiUsage", "PMD.AvoidBranchingStatementAsLastInLoop"})
         private boolean nextOnLevel(final PeekingIterator<T> currentIterator) {
-            final var usedByMap = partialOrder.getDependencyMap();
+            final var usedByMap = partiallyOrderedSet.getDependencyMap();
             while (currentIterator.hasNext()) {
                 final T next = currentIterator.peek();
 
@@ -449,7 +449,7 @@ public class TopologicalSort {
                     }
                 }
 
-                if (bound.size() < partialOrder.size()) {
+                if (bound.size() < partiallyOrderedSet.size()) {
                     newlyEligibleElementsBuilder
                             .addAll(eligibleElementSets.get(bound.size() - 1))
                             .build();
@@ -467,7 +467,7 @@ public class TopologicalSort {
 
         private void unbindTail(final int level) {
             // reset all the following ones
-            for (int i = level; i < partialOrder.size(); i ++ ) {
+            for (int i = level; i < partiallyOrderedSet.size(); i ++ ) {
                 // either iterator is on a valid item or iterator is null
                 if (iterators.get(i) != null) {
                     unbindAt(i);
@@ -480,7 +480,7 @@ public class TopologicalSort {
         private void unbindAt(final int level) {
             final T toUnbind = iterators.get(level).peek();
             bound.remove(toUnbind);
-            final Set<T> targets = partialOrder.getDependencyMap().get(toUnbind);
+            final Set<T> targets = partiallyOrderedSet.getDependencyMap().get(toUnbind);
             for (final T target : targets) {
                 final int newInDegree = inDegreeMap.compute(target, (k, v) -> Objects.requireNonNull(v) + 1);
                 Verify.verify(newInDegree > 0);
@@ -493,7 +493,7 @@ public class TopologicalSort {
          */
         @Override
         public void skip(final int level) {
-            if (level >= partialOrder.size()) {
+            if (level >= partiallyOrderedSet.size()) {
                 throw new IndexOutOfBoundsException();
             }
 
@@ -502,7 +502,7 @@ public class TopologicalSort {
             }
 
             // reset all the following ones
-            for (int i = level + 1; i < partialOrder.size(); i ++ ) {
+            for (int i = level + 1; i < partiallyOrderedSet.size(); i ++ ) {
                 // either iterator is on a valid item or iterator is null
                 if (iterators.get(i) != null) {
                     unbindAt(i);
@@ -515,11 +515,11 @@ public class TopologicalSort {
 
         @Nonnull
         @SuppressWarnings("java:S3398")
-        private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartialOrder<T> partialOrder) {
-            final HashMap<T, Integer> result = Maps.newHashMapWithExpectedSize(partialOrder.size());
-            partialOrder.getSet().forEach(element -> result.put(element, 0));
+        private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+            final HashMap<T, Integer> result = Maps.newHashMapWithExpectedSize(partiallyOrderedSet.size());
+            partiallyOrderedSet.getSet().forEach(element -> result.put(element, 0));
 
-            for (final Map.Entry<T, T> entry : partialOrder.getDependencyMap().entries()) {
+            for (final Map.Entry<T, T> entry : partiallyOrderedSet.getDependencyMap().entries()) {
                 result.compute(entry.getValue(), (t, v) -> Objects.requireNonNull(v) + 1);
             }
             return result;
@@ -527,32 +527,32 @@ public class TopologicalSort {
     }
 
     @Nonnull
-    public static <T> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
+    public static <T> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet,
                                                                @Nonnull final List<T> targetPermutation,
                                                                @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
-        return satisfyingPermutations(partialOrder, targetPermutation, Function.identity(), satisfiabilityFunction);
+        return satisfyingPermutations(partiallyOrderedSet, targetPermutation, Function.identity(), satisfiabilityFunction);
     }
 
-    public static <T, P> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
+    public static <T, P> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet,
                                                                   @Nonnull final List<P> targetPermutation,
                                                                   @Nonnull final Function<T, P> domainMapper,
                                                                   @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
-        if (partialOrder.size() == 0) {
+        if (partiallyOrderedSet.size() == 0) {
             return ImmutableList.of();
         }
         
-        if (partialOrder.size() < targetPermutation.size()) {
+        if (partiallyOrderedSet.size() < targetPermutation.size()) {
             return ImmutableList.of();
         }
 
         final var domainMap =
-                partialOrder.getSet()
+                partiallyOrderedSet.getSet()
                         .stream()
                         .collect(ImmutableSetMultimap.toImmutableSetMultimap(domainMapper, Function.identity()));
 
         final EnumeratingIterator<T> enumeratingIterator;
-        if (partialOrder.size() > 1) {
-            enumeratingIterator = new BacktrackIterator<>(partialOrder) {
+        if (partiallyOrderedSet.size() > 1) {
+            enumeratingIterator = new BacktrackIterator<>(partiallyOrderedSet) {
                 @Nonnull
                 @Override
                 protected Iterator<T> domain(final int t) {
@@ -566,8 +566,8 @@ public class TopologicalSort {
                 }
             };
         } else {
-            Verify.verify(partialOrder.size() == 1);
-            enumeratingIterator = EnumeratingIterable.singleIterable(Iterables.getOnlyElement(partialOrder.getSet())).iterator();
+            Verify.verify(partiallyOrderedSet.size() == 1);
+            enumeratingIterator = EnumeratingIterable.singleIterable(Iterables.getOnlyElement(partiallyOrderedSet.getSet())).iterator();
         }
 
         return () -> new AbstractIterator<>() {
@@ -615,7 +615,7 @@ public class TopologicalSort {
      */
     public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
                                                                           @Nonnull final Function<T, Set<T>> dependsOnFn) {
-        return topologicalOrderPermutations(set, () -> complexIterable(set, PartialOrder.fromFunctionalDependencies(set, dependsOnFn)));
+        return topologicalOrderPermutations(set, () -> complexIterable(set, PartiallyOrderedSet.fromFunctionalDependencies(set, dependsOnFn)));
     }
 
     /**
@@ -625,7 +625,7 @@ public class TopologicalSort {
      * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
      *         the partially-ordered set handed in
      */
-    public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final PartialOrder<T> set) {
+    public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final PartiallyOrderedSet<T> set) {
         return topologicalOrderPermutations(set.getSet(), () -> complexIterable(set));
     }
 
@@ -670,10 +670,10 @@ public class TopologicalSort {
     }
 
     private static <T> EnumeratingIterable<T> complexIterable(@Nonnull final Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
-        return complexIterable(PartialOrder.of(set, dependsOnMap));
+        return complexIterable(PartiallyOrderedSet.of(set, dependsOnMap));
     }
 
-    private static <T> EnumeratingIterable<T> complexIterable(@Nonnull final PartialOrder<T> partiallyOrderedSet) {
+    private static <T> EnumeratingIterable<T> complexIterable(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
         //
         // We can use two implementations to deal with the complex case. If there are quite a few dependencies,
         // we should use Kahn's algorithm, as finding a topological ordering is linear and there hopefully are not too
@@ -719,19 +719,19 @@ public class TopologicalSort {
      */
     public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return anyTopologicalOrderPermutation(set,
-                () -> new KahnIterable<>(PartialOrder.ofInverted(set, dependsOnFn)));
+                () -> new KahnIterable<>(PartiallyOrderedSet.ofInverted(set, dependsOnFn)));
     }
 
     /**
      * Create a correct topological ordering based on a partial order describing the dependency relationships between
      * the items in the given set.
-     * @param partialOrder the partial order to create the iterable over
+     * @param partiallyOrderedSet the partial order to create the iterable over
      * @param <T> type
      * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
      */
-    public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final PartialOrder<T> partialOrder) {
-        return anyTopologicalOrderPermutation(partialOrder.getSet(),
-                () -> new KahnIterable<>(PartialOrder.of(partialOrder.getSet(), partialOrder.getDependencyMap().inverse())));
+    public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+        return anyTopologicalOrderPermutation(partiallyOrderedSet.getSet(),
+                () -> new KahnIterable<>(PartiallyOrderedSet.of(partiallyOrderedSet.getSet(), partiallyOrderedSet.getDependencyMap().inverse())));
     }
 
     /**
@@ -745,7 +745,7 @@ public class TopologicalSort {
      */
     public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
         return anyTopologicalOrderPermutation(set,
-                () -> new KahnIterable<>(PartialOrder.of(set, dependsOnMap.inverse())));
+                () -> new KahnIterable<>(PartiallyOrderedSet.of(set, dependsOnMap.inverse())));
     }
 
     /**

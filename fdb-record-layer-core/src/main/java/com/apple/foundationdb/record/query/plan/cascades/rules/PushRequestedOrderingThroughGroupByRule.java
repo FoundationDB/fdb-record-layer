@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -96,13 +96,13 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                 if (groupingValue == null || groupingValue.isConstant()) {
                     toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
                 } else {
-                    final var orderingKeyParts =
+                    final var orderingParts =
                             Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                     .stream()
-                                    .map(orderingValue -> KeyPart.of(orderingValue, false))
+                                    .map(orderingValue -> OrderingPart.of(orderingValue, false))
                                     .collect(ImmutableList.toImmutableList());
 
-                    toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingKeyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                    toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
                 }
             } else {
                 //
@@ -144,11 +144,11 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     final var requiredOrderingValues =
                             new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
 
-                    final var resultOrderingKeyPartBuilder = ImmutableList.<KeyPart>builder();
+                    final var resultOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
                     boolean isPushedAndRequiredCompatible = true;
-                    for (final var pushedRequestedOrderingKeyPart : pushedRequestedOrdering.getOrderingKeyParts()) {
-                        if (requiredOrderingValues.remove(pushedRequestedOrderingKeyPart.getValue())) {
-                            resultOrderingKeyPartBuilder.add(pushedRequestedOrderingKeyPart);
+                    for (final var pushedRequestedOrderingPart : pushedRequestedOrdering.getOrderingParts()) {
+                        if (requiredOrderingValues.remove(pushedRequestedOrderingPart.getValue())) {
+                            resultOrderingPartsBuilder.add(pushedRequestedOrderingPart);
                         } else {
                             isPushedAndRequiredCompatible = false;
                             break;
@@ -160,9 +160,9 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             // add the remaining key parts from the required set
                             requiredOrderingValues
                                     .stream()
-                                    .map(value -> KeyPart.of(value, false))
-                                    .forEach(resultOrderingKeyPartBuilder::add);
-                            toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(resultOrderingKeyPartBuilder.build(), pushedRequestedOrdering.getDistinctness()));
+                                    .map(value -> OrderingPart.of(value, false))
+                                    .forEach(resultOrderingPartsBuilder::add);
+                            toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(resultOrderingPartsBuilder.build(), pushedRequestedOrdering.getDistinctness()));
                         }
                     }
                 }

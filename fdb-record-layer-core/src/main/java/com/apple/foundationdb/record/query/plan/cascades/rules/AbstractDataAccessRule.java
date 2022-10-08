@@ -22,15 +22,15 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
-import com.apple.foundationdb.record.query.plan.cascades.BoundKeyPart;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.KeyPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
@@ -316,32 +316,32 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     }
 
                     final var matchInfo = partialMatch.getMatchInfo();
-                    final var orderingKeyParts = matchInfo.getOrderingKeyParts();
+                    final var orderingParts = matchInfo.getMatchedOrderingParts();
                     final var equalityBoundKeys =
-                            orderingKeyParts
+                            orderingParts
                                     .stream()
-                                    .filter(boundKeyPart -> boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                    .map(BoundKeyPart::getValue)
+                                    .filter(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
+                                    .map(MatchedOrderingPart::getValue)
                                     .collect(ImmutableSet.toImmutableSet());
 
-                    final var boundKeyPartIterator = orderingKeyParts.iterator();
-                    for (final var requestedOrderingKeyPart : requestedOrdering.getOrderingKeyParts()) {
-                        final var requestedOrderingKey = requestedOrderingKeyPart.getValue();
+                    final var orderingPartIterator = orderingParts.iterator();
+                    for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+                        final var requestedOrderingValue = requestedOrderingPart.getValue();
 
-                        if (equalityBoundKeys.contains(requestedOrderingKey)) {
+                        if (equalityBoundKeys.contains(requestedOrderingValue)) {
                             continue;
                         }
 
                         // if we are here, we must now find a non-equality-bound expression
                         var found = false;
-                        while (boundKeyPartIterator.hasNext()) {
-                            final var boundKeyPart = boundKeyPartIterator.next();
-                            if (boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY) {
+                        while (orderingPartIterator.hasNext()) {
+                            final var orderingPart = orderingPartIterator.next();
+                            if (orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY) {
                                 continue;
                             }
 
-                            final var boundKey = boundKeyPart.getValue();
-                            if (requestedOrderingKey.equals(boundKey)) {
+                            final var orderingValue = orderingPart.getValue();
+                            if (requestedOrderingValue.equals(orderingValue)) {
                                 found = true;
                                 break;
                             } else {
@@ -445,16 +445,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .stream()
                 .map(PartialMatchWithCompensation::getPartialMatch)
                 .map(PartialMatch::getMatchInfo)
-                .map(MatchInfo::getOrderingKeyParts)
+                .map(MatchInfo::getMatchedOrderingParts)
                 .collect(ImmutableList.toImmutableList());
 
         final var equalityBoundKeyValues =
                 partitionOrderings
                         .stream()
-                        .flatMap(orderingKeyParts ->
-                                orderingKeyParts.stream()
+                        .flatMap(orderingParts ->
+                                orderingParts.stream()
                                         .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                        .map(BoundKeyPart::getValue))
+                                        .map(MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
         final var orderingPartialOrder = intersectionOrderingPartialOrder(partitionOrderings);
@@ -463,7 +463,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var comparisonKeyValuesIterable =
                     Ordering.enumerateSatisfyingOrderingComparisonKeyValues(orderingPartialOrder,
                             equalityBoundKeyValues,
-                            requestedOrdering.getOrderingKeyParts());
+                            requestedOrdering.getOrderingParts());
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
                 if (!isCompatibleComparisonKey(comparisonKeyValues,
                         commonPrimaryKeyValues,
@@ -501,31 +501,31 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * Private helper method that computes the ordering of the intersection using matches and the common primary key
      * of the data source.
      * @param partitionOrderings partition we would like to intersect
-     * @return a {@link PartialOrder}  of {@link KeyPart}s representing a common intersection ordering.
+     * @return a {@link PartiallyOrderedSet}  of {@link OrderingPart}s representing a common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static PartialOrder<KeyPart> intersectionOrderingPartialOrder(@Nonnull final List<List<BoundKeyPart>> partitionOrderings) {
+    private static PartiallyOrderedSet<OrderingPart> intersectionOrderingPartialOrder(@Nonnull final List<List<MatchedOrderingPart>> partitionOrderings) {
 
         final var orderingPartialOrders =
                 partitionOrderings.stream()
-                        .map(boundKeyParts -> {
-                            final var boundKeyPartsPartitions =
-                                    boundKeyParts.stream()
-                                            .collect(Collectors.partitioningBy(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY));
+                        .map(matchedOrderingParts -> {
+                            final var orderingPartsPartitions =
+                                    matchedOrderingParts.stream()
+                                            .collect(Collectors.partitioningBy(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY));
 
-                            final var equalityBoundKeyParts = boundKeyPartsPartitions.get(true).stream()
-                                    .map(BoundKeyPart::getKeyPart)
+                            final var equalityBoundOrderingParts = orderingPartsPartitions.get(true).stream()
+                                    .map(MatchedOrderingPart::getOrderingPart)
                                     .collect(ImmutableSet.toImmutableSet());
-                            final var orderingKeyParts =
-                                    boundKeyPartsPartitions.get(false)
+                            final var orderingParts =
+                                    orderingPartsPartitions.get(false)
                                             .stream()
-                                            .map(BoundKeyPart::getKeyPart)
+                                            .map(MatchedOrderingPart::getOrderingPart)
                                             .collect(ImmutableList.toImmutableList());
 
-                            return PartialOrder.<KeyPart>builder()
-                                    .addListWithDependencies(orderingKeyParts)
-                                    .addAll(equalityBoundKeyParts)
+                            return PartiallyOrderedSet.<OrderingPart>builder()
+                                    .addListWithDependencies(orderingParts)
+                                    .addAll(equalityBoundOrderingParts)
                                     .build();
                         })
                         .collect(ImmutableList.toImmutableList());

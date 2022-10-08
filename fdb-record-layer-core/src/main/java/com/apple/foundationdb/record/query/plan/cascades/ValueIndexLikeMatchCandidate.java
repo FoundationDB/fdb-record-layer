@@ -38,8 +38,8 @@ import java.util.Objects;
  */
 public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
-     This synthesizes a list of {@link BoundKeyPart}s from the partial match and the ordering information
-     * passed in. Using a list of parameter ids, each {@link BoundKeyPart} links together the
+     This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
+     * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the
      * (1) normalized key expression that originally produced the key (from index, or common primary key)
      * (2) a comparison range for this parameter which is contained in the already existent partial match
      * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
@@ -53,16 +53,16 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
      */
     @Nonnull
     @Override
-    default List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
-                                                    @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                    boolean isReverse) {
+    default List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                  boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
 
         for (final var parameterId : sortParameterIds) {
@@ -97,7 +97,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
 
             builder.add(
-                    BoundKeyPart.of(value,
+                    MatchedOrderingPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
                             isReverse));
@@ -111,7 +111,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
     default Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
                                                         final boolean isReverse,
                                                         final boolean isDistinct) {
-        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
@@ -126,10 +126,10 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var normalizedValue =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
-            equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
+            equalityBoundValueMapBuilder.put(normalizedValue, comparison);
         }
 
-        final var result = ImmutableList.<KeyPart>builder();
+        final var result = ImmutableList.<OrderingPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -147,9 +147,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
                             getBaseType());
 
-            result.add(KeyPart.of(normalizedValue, isReverse));
+            result.add(OrderingPart.of(normalizedValue, isReverse));
         }
 
-        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
+        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
     }
 }

@@ -91,7 +91,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         final var sortValuesSet = ImmutableSet.copyOf(sortValues);
 
         final var ordering = innerPlanPartition.getAttributeValue(ORDERING);
-        final Set<Value> equalityBoundKeys = ordering.getEqualityBoundKeys();
+        final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
         for (final var sortValue : sortValues) {

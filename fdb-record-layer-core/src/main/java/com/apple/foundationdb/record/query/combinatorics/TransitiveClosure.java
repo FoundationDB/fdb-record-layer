@@ -56,23 +56,23 @@ public class TransitiveClosure {
      * @return the transitive closure
      */
     public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final SetMultimap<T, T> dependsOnMap) {
-        return transitiveClosure(PartialOrder.of(set, dependsOnMap));
+        return transitiveClosure(PartiallyOrderedSet.of(set, dependsOnMap));
     }
 
 
     /**
      * Compute the transitive closure of the depends-on map that is passed in.
-     * @param partialOrder partial order to compute the transitive closure for
+     * @param partiallyOrderedSet partial order to compute the transitive closure for
      * @param <T> type
      * @return the transitive closure of the partial order handed in
      */
-    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull PartialOrder<T> partialOrder) {
-        final var set = partialOrder.getSet();
-        final var dependsOnMap = partialOrder.getDependencyMap();
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull PartiallyOrderedSet<T> partiallyOrderedSet) {
+        final var set = partiallyOrderedSet.getSet();
+        final var dependsOnMap = partiallyOrderedSet.getDependencyMap();
         final ImmutableSetMultimap<T, T> usedByMap = dependsOnMap.inverse();
         final Map<T, Integer> inDegreeMap = computeInDegreeMap(set, usedByMap);
-        final Set<T> processed = Sets.newHashSetWithExpectedSize(partialOrder.size());
-        final Deque<T> deque = new ArrayDeque<>(partialOrder.size());
+        final Set<T> processed = Sets.newHashSetWithExpectedSize(partiallyOrderedSet.size());
+        final Deque<T> deque = new ArrayDeque<>(partiallyOrderedSet.size());
         for (final T current : set) {
             if (inDegreeMap.get(current) == 0) {
                 deque.add(current);
@@ -103,7 +103,7 @@ public class TransitiveClosure {
             }
         }
 
-        Preconditions.checkArgument(processed.size() == partialOrder.size(), "circular dependency");
+        Preconditions.checkArgument(processed.size() == partiallyOrderedSet.size(), "circular dependency");
 
         return ImmutableSetMultimap.copyOf(resultMap);
     }

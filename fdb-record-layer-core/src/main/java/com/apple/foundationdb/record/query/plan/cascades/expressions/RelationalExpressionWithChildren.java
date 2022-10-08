@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -86,16 +86,16 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
 
     @Nonnull
     @Override
-    default PartialOrder<CorrelationIdentifier> getCorrelationOrder() {
+    default PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         if (canCorrelate()) {
             final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
-            return PartialOrder.of(
+            return PartiallyOrderedSet.of(
                     getQuantifiers().stream()
                             .map(Quantifier::getAlias)
                             .collect(ImmutableSet.toImmutableSet()),
                     alias -> Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getCorrelatedTo());
         } else {
-            return PartialOrder.empty();
+            return PartiallyOrderedSet.empty();
         }
     }
 
