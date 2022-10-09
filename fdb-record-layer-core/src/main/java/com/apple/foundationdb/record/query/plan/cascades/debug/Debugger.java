@@ -215,7 +215,9 @@ public interface Debugger {
         MATCH_PRE,
         YIELD,
         FAILURE,
-        COUNT
+        COUNT,
+        NEW,
+        REUSED
     }
 
     /**

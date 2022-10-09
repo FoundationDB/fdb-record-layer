@@ -181,6 +181,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
         }
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
+
         if (!containsInMemo) {
             insertUnchecked(newValue, precomputedPropertiesMap);
             return true;

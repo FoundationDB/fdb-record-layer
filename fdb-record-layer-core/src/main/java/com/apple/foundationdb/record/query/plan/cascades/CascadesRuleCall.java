@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.google.common.base.Verify;
@@ -179,9 +180,11 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
 
         for (final var commonReferencingExpression : commonReferencingExpressions) {
             if (GroupExpressionRef.containsInMember(commonReferencingExpression, expression)) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED)));
                 return Verify.verifyNotNull(expressionToReferenceMap.get(commonReferencingExpression));
             }
         }
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
         return GroupExpressionRef.of(expression);
     }
 
