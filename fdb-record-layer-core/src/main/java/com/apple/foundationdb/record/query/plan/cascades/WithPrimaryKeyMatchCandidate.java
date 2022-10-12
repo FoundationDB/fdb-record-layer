@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Interface to represent a candidate that uses a primary key to identify a record.
@@ -35,16 +32,6 @@ import java.util.Set;
 public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     @Nonnull
     Optional<List<Value>> getPrimaryKeyValuesMaybe();
-
-    @Nonnull
-    List<RecordType> getQueriedRecordTypes();
-
-    @Nonnull
-    default Set<String> getQueriedRecordTypeNames() {
-        return getQueriedRecordTypes().stream()
-                .map(RecordType::getName)
-                .collect(ImmutableSet.toImmutableSet());
-    }
 
     @Nonnull
     static Optional<List<Value>> commonPrimaryKeyValuesMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {

@@ -237,6 +237,16 @@ public interface MatchCandidate {
     }
 
     @Nonnull
+    List<RecordType> getQueriedRecordTypes();
+
+    @Nonnull
+    default Set<String> getQueriedRecordTypeNames() {
+        return getQueriedRecordTypes().stream()
+                .map(RecordType::getName)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
     static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {

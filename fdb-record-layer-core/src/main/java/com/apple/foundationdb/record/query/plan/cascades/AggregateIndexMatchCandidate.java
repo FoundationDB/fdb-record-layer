@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -35,15 +36,16 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,15 +56,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Case class that represents a grouping index with an aggregate function(s).
+ * Case class that represents a grouping index with aggregate function(s).
  */
-public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate {
+public class AggregateIndexMatchCandidate implements MatchCandidate {
 
     // The backing index metadata structure.
     @Nonnull
     private final Index index;
 
-    // The QGM representation of the match candidate.
+    // The expression representation of the match candidate.
     @Nonnull
     private final ExpressionRefTraversal traversal;
 
@@ -78,32 +80,35 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
     private final Type baseType;
 
     @Nonnull
-    private final CorrelationIdentifier baseAlias;
-
-    private final int groupingCount;
-
-    @Nonnull
     private final Value groupByResultValue;
 
     @Nonnull
     private final Value selectHavingResultValue;
 
+    /**
+     * Creates a new instance of {@link AggregateIndexMatchCandidate}.
+     *
+     * @param index The underlying index.
+     * @param traversal The expression representation of the match candidate.
+     * @param sargableAndOrderAliases A list of sargable and order aliases.
+     * @param recordTypes The underlying base record types.
+     * @param baseType The base type.
+     * @param groupByResultValue The group by expression result value.
+     * @param selectHavingResultValue The select-having expression result value.
+     */
     public AggregateIndexMatchCandidate(@Nonnull final Index index,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases,
-                                        @Nonnull final Collection<RecordType> recordTypes, // PB
-                                        @Nonnull final Type baseType,               // type system
-                                        @Nonnull final CorrelationIdentifier baseAlias,
-                                        final int groupingCount,
+                                        @Nonnull final Collection<RecordType> recordTypes,
+                                        @Nonnull final Type baseType,
                                         @Nonnull final Value groupByResultValue,
                                         @Nonnull final Value selectHavingResultValue) {
+        Preconditions.checkArgument(!recordTypes.isEmpty());
         this.index = index;
         this.traversal = traversal;
         this.sargableAndOrderAliases = sargableAndOrderAliases;
-        this.recordTypes =  ImmutableList.copyOf(recordTypes);
+        this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.baseType = baseType;
-        this.baseAlias = baseAlias;
-        this.groupingCount = groupingCount;
         this.groupByResultValue = groupByResultValue;
         this.selectHavingResultValue = selectHavingResultValue;
     }
@@ -140,7 +145,7 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Override
     public boolean createsDuplicates() {
-        return false;
+        return index.getRootExpression().createsDuplicates();
     }
 
     @Nonnull
@@ -247,12 +252,72 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
+
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
-        return fetchCoveringIndexScan(comparisonRanges, reverseScanOrder, planContext, partialMatch, baseRecordType).orElseThrow(() -> new RecordCoreException("aggregate index can only create a covering index scan plan"));
+
+        // reset indexes of all fields, such that we can normalize them
+        final var type = reset(groupByResultValue.getResultType());
+        final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(type).build().newMessageBuilder(type);
+        final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
+
+        final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
+        final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
+                null,
+                new IndexScanComparisons(IndexScanType.BY_GROUP, toScanComparisons(comparisonRanges)),
+                planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                reverseScanOrder,
+                false,
+                partialMatch.getMatchCandidate(),
+                baseRecordType);
+
+        return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
+                recordTypes.get(0).getName(),
+                AvailableFields.NO_FIELDS, // not used except for old planner properties
+                indexEntryConverter,
+                messageDescriptor,
+                groupByResultValue);
     }
 
     @Nonnull
-    Type reset(@Nonnull final Type type) {
+    @Override
+    public List<RecordType> getQueriedRecordTypes() {
+        return recordTypes;
+    }
+
+    @Nonnull
+    private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
+        final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
+        final var groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
+        Verify.verify(selectHavingFields.size() >= groupingCount);
+
+        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
+        // groupingCount                : n+1
+        // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
+
+        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);
+        for (int i = 0; i < groupingCount; i++) {
+            final Value keyValue = selectHavingFields.get(i);
+            if (keyValue instanceof FieldValue) {
+                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
+                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+            }
+        }
+        for (int i = groupingCount; i < selectHavingFields.size(); i++) {
+            final Value keyValue = selectHavingFields.get(i);
+            if (keyValue instanceof FieldValue) {
+                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i - groupingCount);
+                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+            }
+        }
+
+        if (!builder.isValid()) {
+            throw new RecordCoreException(String.format("could not generate a covering index scan operator for '%s'; Invalid mapping between index entries to partial record", index.getName()));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    private static Type reset(@Nonnull final Type type) {
         if (type instanceof Type.Record) {
             return Type.Record.fromFields(((Type.Record)type).getFields().stream().map(f -> Type.Record.Field.of(
                             reset(f.getFieldType()),
@@ -262,135 +327,31 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
         return type;
     }
 
-    @Nonnull
-    private Optional<RelationalExpression> fetchCoveringIndexScan(@Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                  final boolean isReverse,
-                                                                  final PlanContext planContext,
-                                                                  final PartialMatch partialMatch,
-                                                                  @Nonnull Type.Record baseRecordType) {
-        if (getQueriedRecordTypes().size() > 1) {
-            return Optional.empty();
-        }
-
-        final var type = reset(groupByResultValue.getResultType());
-        // reset indexes of all fields, such that we can normalize them
-
-
-        final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(type).build().newMessageBuilder(type);
-
-        final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
-
-        Verify.verify(selectHavingFields.size() >= groupingCount);
-
-        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
-        // groupingCount                : n+1
-        // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
-
-        final var messageDescriptor = messageBuilder.getDescriptorForType();
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);
-        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseRecordType);
-        for (int i = 0; i < groupingCount; i++) {
-            final Value keyValue = selectHavingFields.get(i);
-            if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
-                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
-                    return Optional.empty();
-                }
-            }
-        }
-        for (int i = groupingCount; i < selectHavingFields.size(); i++) {
-            final Value keyValue = selectHavingFields.get(i);
-            if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i - groupingCount);
-                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
-                    return Optional.empty();
-                }
-            }
-        }
-
-        if (!builder.isValid()) {
-            return Optional.empty();
-        }
-
-        final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
-                null,
-                new IndexScanComparisons(IndexScanType.BY_GROUP, toScanComparisons(comparisonRanges)),
-                planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                isReverse,
-                false,
-                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
-                baseRecordType);
-
-        final RecordQueryAggregateIndexPlan coveringIndexPlan = new RecordQueryAggregateIndexPlan(aggregateIndexScan,
-                recordTypes.get(0).getName(),
-                AvailableFields.NO_FIELDS, // not used except for old planner properties
-                builder.build(),
-                messageDescriptor,
-                groupByResultValue);
-
-        //return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType));
-        return Optional.of(coveringIndexPlan);
-    }
-
-    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                            @Nonnull FieldValue fieldValue,
-                                            @Nonnull AvailableFields.FieldData fieldData) {
+    private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                         @Nonnull FieldValue fieldValue,
+                                         @Nonnull AvailableFields.FieldData fieldData) {
         final var simplifiedFieldValue = (FieldValue)fieldValue.simplify(AliasMap.emptyMap(), ImmutableSet.of());
         for (final Type.Record.Field field : simplifiedFieldValue.getFieldPrefix()) {
-            if (field.getFieldNameOptional().isEmpty()) {
-                return false;
-            }
+            Verify.verify(field.getFieldNameOptional().isPresent());
             builder = builder.getFieldBuilder(field.getFieldName());
         }
 
         // TODO not sure what to do with the null standing requirement
 
         final Type.Record.Field field = simplifiedFieldValue.getLastField();
-        if (field.getFieldNameOptional().isEmpty()) {
-            return false;
-        }
+        Verify.verify(field.getFieldNameOptional().isPresent());
         final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
         }
-        return true;
     }
 
     @Nonnull
     private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        ScanComparisons.Builder builder = new ScanComparisons.Builder();
+        final ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
-    }
-
-    @Nonnull
-    @Override
-    public Index getIndex() {
-        return index;
-    }
-
-    @Nonnull
-    @Override
-    public Optional<Value> pushValueThroughFetch(@Nonnull final Value value, @Nonnull final CorrelationIdentifier sourceAlias, @Nonnull final CorrelationIdentifier targetAlias) {
-        return Optional.empty();
-    }
-
-    @Nonnull
-    @Override
-    public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
-        return Optional.empty();
-    }
-
-    @Nonnull
-    public Value getResultValue() {
-        return groupByResultValue;
-    }
-
-    @Nonnull
-    @Override
-    public List<RecordType> getQueriedRecordTypes() {
-        return recordTypes;
     }
 }

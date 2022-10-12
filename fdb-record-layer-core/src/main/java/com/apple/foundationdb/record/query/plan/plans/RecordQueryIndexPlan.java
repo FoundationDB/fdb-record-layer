@@ -58,8 +58,8 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -132,7 +132,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
-    private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
+    private final Optional<? extends MatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Type resultType;
 
@@ -156,7 +156,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nonnull final IndexFetchMethod indexFetchMethod,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final ScanWithFetchMatchCandidate matchCandidate,
+                                @Nonnull final MatchCandidate matchCandidate,
                                 @Nonnull final Type.Record resultType) {
         this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
     }
@@ -167,7 +167,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nonnull final IndexFetchMethod indexFetchMethod,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
@@ -389,7 +389,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateMaybe() {
+    public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 

@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -231,15 +230,6 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord, partialRecordDescriptor, maybeNewResult);
         }
         return this;
-    }
-
-    @Nonnull
-    public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                                 @Nonnull CorrelationIdentifier sourceAlias,
-                                                 @Nonnull CorrelationIdentifier targetAlias) {
-        return indexPlan.getMatchCandidateMaybe()
-                .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
-                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, sourceAlias, targetAlias));
     }
 
     @Override

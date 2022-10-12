@@ -142,8 +142,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 placeHolderAliases,
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
-                baseQuantifier.getAlias(),
-                ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount(),
                 groupByQun.getRangesOver().get().getResultValue(),
                 selectHaving.getResultValue());
     }
