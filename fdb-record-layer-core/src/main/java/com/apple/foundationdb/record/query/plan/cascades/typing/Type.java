@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -1209,6 +1210,27 @@ public interface Type extends Narrowable<Type> {
              */
             public static Field unnamedOf(@Nonnull final Type fieldType) {
                 return new Field(fieldType, Optional.empty(), Optional.empty());
+            }
+
+            /**
+             * Constructs a new field that has an auto-generated name and no protobuf field index.
+             *
+             * @param fieldType The field {@link Type}.
+             * @return a new field with auto-generated name and no protobuf index.
+             */
+            public static Field ofAutoNamed(@Nonnull final Type fieldType) {
+                final var name = toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId());
+                return Field.of(fieldType, Optional.of(name));
+            }
+
+            private static String toProtoBufCompliantName(@Nonnull final String input) {
+                Verify.verify(input.length() > 0);
+                final var modified = input.replace("-", "_");
+                final char c = input.charAt(0);
+                if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+                    return modified;
+                }
+                return "gen_" + modified;
             }
         }
     }

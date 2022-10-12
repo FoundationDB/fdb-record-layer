@@ -62,12 +62,15 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final Index index;
 
+    // The QGM representation of the match candidate.
     @Nonnull
     private final ExpressionRefTraversal traversal;
 
+    // list of aliases pertaining ordering information.
     @Nonnull
     private final List<CorrelationIdentifier> sargableAndOrderAliases;
 
+    // list of base indexed record types.
     @Nonnull
     private final List<RecordType> recordTypes;
 
@@ -91,7 +94,7 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull final Collection<RecordType> recordTypes, // PB
                                         @Nonnull final Type baseType,               // type system
                                         @Nonnull final CorrelationIdentifier baseAlias,
-                                        @Nonnull final int groupingCount,
+                                        final int groupingCount,
                                         @Nonnull final Value groupByResultValue,
                                         @Nonnull final Value selectHavingResultValue) {
         this.index = index;
@@ -103,7 +106,6 @@ public class AggregateIndexMatchCandidate implements ScanWithFetchMatchCandidate
         this.groupingCount = groupingCount;
         this.groupByResultValue = groupByResultValue;
         this.selectHavingResultValue = selectHavingResultValue;
-
     }
 
     @Nonnull

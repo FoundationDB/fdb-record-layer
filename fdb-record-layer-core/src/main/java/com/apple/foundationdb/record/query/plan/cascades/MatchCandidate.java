@@ -296,7 +296,7 @@ public interface MatchCandidate {
                     queriedRecordTypeNames,
                     queriedRecordTypes,
                     isReverse,
-                    commonPrimaryKeyForIndex,
+                    null,
                     new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
                     .ifPresent(resultBuilder::add);
         }
