@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -58,11 +56,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
- * A query plan that reconstructs records from the entries in a covering index.
+ * A query plan that reconstructs records from the entries in an aggregate index.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate {
@@ -73,8 +69,6 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     private final String recordTypeName;
     @Nonnull
-    private final AvailableFields availableFields;
-    @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
 
     @Nonnull
@@ -83,14 +77,22 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     private final Value resultValue;
 
+    /**
+     * Creates an instance of {@link RecordQueryAggregateIndexPlan}.
+     *
+     * @param indexPlan The underlying index.
+     * @param recordTypeName The name of the base record, used for debugging.
+     * @param indexEntryToPartialRecordConverter A converter from index entry to record.
+     * @param partialRecordDescriptor The descriptor of the resulting record.
+     * @param resultValue The result value.
+     */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryPlanWithIndex indexPlan,
                                          @Nonnull final String recordTypeName,
-                                         @Nonnull final AvailableFields availableFields,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
                                          @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
                                          @Nonnull final Value resultValue) {
+
         this.indexPlan = indexPlan;
-        this.availableFields = availableFields;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
         this.partialRecordDescriptor = partialRecordDescriptor;
@@ -99,30 +101,20 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Nonnull
     @Override
+    @SuppressWarnings("unchecked")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var iterator = indexPlan.executeEntries(store, context, continuation, executeProperties);
-        final var ll = iterator.asStream().collect(Collectors.toList());
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntry -> {
                     final RecordMetaData metaData = store.getRecordMetaData();
                     final RecordType recordType = metaData.getRecordType(recordTypeName);
                     final Index index = metaData.getIndex(getIndexName());
-                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(partialRecordDescriptor, indexEntry), false);
+                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(partialRecordDescriptor, indexEntry), false);
                 })
                 .map(QueryResult::fromQueriedRecord);
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    @API(API.Status.INTERNAL)
-    public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
-        final IndexScanType scanType = getScanType();
-        boolean hasPrimaryKey = !scanType.equals(IndexScanType.BY_GROUP);
-        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, hasPrimaryKey);
     }
 
     @Nonnull
@@ -178,7 +170,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public RecordQueryAggregateIndexPlan strictlySorted() {
-        return new RecordQueryAggregateIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(), recordTypeName, availableFields, toRecord, partialRecordDescriptor, resultValue);
+        return new RecordQueryAggregateIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
     }
 
     @Nonnull
@@ -190,7 +182,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
-        return availableFields;
+        return AvailableFields.NO_FIELDS;
     }
 
     @Override
@@ -207,7 +199,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public String toString() {
-        return "Covering(" + indexPlan + " -> " + toRecord + ")";
+        return "AggregateIndexScan(" + indexPlan + " -> " + toRecord + ")";
     }
 
     @Nonnull
@@ -227,7 +219,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final var maybeNewResult = resultValue.translateCorrelations(translationMap);
         if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
             // this is incorrect, the copiers also has to be "translated" somehow, I think we have to regenerate it w.r.t. the new result value.
-            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord, partialRecordDescriptor, maybeNewResult);
+            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, partialRecordDescriptor, maybeNewResult);
         }
         return this;
     }
@@ -245,7 +237,8 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final RecordQueryAggregateIndexPlan other = (RecordQueryAggregateIndexPlan) otherExpression;
         return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
                recordTypeName.equals(other.recordTypeName) &&
-               toRecord.equals(other.toRecord);
+               toRecord.equals(other.toRecord) &&
+               resultValue.equalsWithoutChildren(other.resultValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

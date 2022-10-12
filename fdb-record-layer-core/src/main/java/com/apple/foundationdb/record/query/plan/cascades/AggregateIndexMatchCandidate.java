@@ -272,7 +272,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
 
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
-                AvailableFields.NO_FIELDS, // not used except for old planner properties
                 indexEntryConverter,
                 messageDescriptor,
                 groupByResultValue);
