@@ -227,7 +227,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(0L, recordStore.evaluateAggregateFunction(allTypes, total, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join().getLong(0));
             assertEquals(0L, recordStore.evaluateAggregateFunction(allTypes, subtotal, Key.Evaluated.scalar(1), IsolationLevel.SNAPSHOT).join().getLong(0));
 
-            for (int i = 0; i < 20; i++) {
+            for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
                 recBuilder.setRecNo(i);
                 recBuilder.setNumValue3Indexed(i % 5);
@@ -235,43 +235,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-
-        /*
-        0 -> 0
-        1 -> 1
-        2 -> 2
-        3 -> 3
-        4 -> 4
-        5 -> 0
-        6 -> 1
-        7 -> 2
-        8 -> 3
-        9 -> 4
-        10 -> 0
-        11 -> 1
-        12 -> 2
-        13 -> 3
-        14 -> 4
-        15 -> 0
-        16 -> 1
-        17 -> 2
-        18 -> 3
-        19 -> 4
-
-
-        0 --> (0 + 5 + 10 + 15)
-        1 --> (1 + 6 + 11 + 16)
-        2 --> (2 + 7 + 12 + 17)
-        3 --> (3 + 8 + 13 + 18)
-        5 --> (4 + 9 + 14 + 19)
-
-         */
         
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            //assertEquals((99 * 100) / 2, recordStore.evaluateAggregateFunction(allTypes, total, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join().getLong(0));
-            assertEquals(34, recordStore.evaluateAggregateFunction(allTypes, subtotal, Key.Evaluated.scalar(1), IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals((99 * 100) / 2, recordStore.evaluateAggregateFunction(allTypes, total, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals((99 * 100) / (2 * 5) - 20, recordStore.evaluateAggregateFunction(allTypes, subtotal, Key.Evaluated.scalar(1), IsolationLevel.SNAPSHOT).join().getLong(0));
             commit(context);
         }
 

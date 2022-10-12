@@ -29,7 +29,6 @@ import "record_metadata_options.proto";
 message OuterRecord {
     message InnerRecord {
         optional int64 rec_no = 1 [(field).primary_key = true];
-        optional int64 other_field = 2;
     }
     optional int64 rec_no = 1 [(field).primary_key = true];
     optional InnerRecord inner = 2;

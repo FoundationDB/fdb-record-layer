@@ -260,6 +260,7 @@ public class Index {
 
     /**
      * Returns the type of the index.
+     *
      * @return the type of the index.
      * @see IndexTypes
      */

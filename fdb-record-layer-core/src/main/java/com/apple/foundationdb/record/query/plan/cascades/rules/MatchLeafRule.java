@@ -90,13 +90,11 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
                         final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember);
                         // yield any match to the planner
                         boundMatchInfos.forEach(boundMatchInfo ->
-                        {
-                            call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
-                                            matchCandidate,
-                                            expression,
-                                            leafRef,
-                                            boundMatchInfo.getMatchResult());
-                        });
+                                call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
+                                        matchCandidate,
+                                        expression,
+                                        leafRef,
+                                        boundMatchInfo.getMatchResult()));
                     }
                 }
             }

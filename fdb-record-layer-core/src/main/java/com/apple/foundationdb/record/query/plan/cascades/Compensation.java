@@ -181,8 +181,6 @@ public interface Compensation {
         }
     };
 
-    // this is the entry point sort of.
-
     RelationalExpression apply(@Nonnull RelationalExpression relationalExpression);
 
     /**
@@ -263,16 +261,11 @@ public interface Compensation {
      * @param otherCompensation other compensation to intersect this compensation with
      * @return the new compensation representing the intersection of both compensations
      */
-
-    // if one doesn't require me, the other doesn't!
-
     @Nonnull
     default Compensation intersect(@Nonnull Compensation otherCompensation) {
         if (!isNeeded() || !otherCompensation.isNeeded()) {
             return noCompensation();
         }
-
-        // order of application doesn't matter.
 
         return new Compensation() {
             @Nonnull
@@ -499,11 +492,6 @@ public interface Compensation {
          */
         @Nonnull
         @Override
-
-        // how should be fit the group by compensation here.
-        // maybe it should go here, and simplify the logic s.t. we don't need subclasses.
-
-
         default Compensation intersect(@Nonnull Compensation otherCompensation) {
             if (!(otherCompensation instanceof WithSelectCompensation)) {
                 return otherCompensation.intersect(this);
@@ -695,18 +683,6 @@ public interface Compensation {
          * @return a new relational expression that corrects the result of {@code reference} by applying an additional
          *         filter
          */
-
-        // the relationalExpression is actually a query plan, but not necessarily.
-        // it is something that represents the scan.
-
-        // when someone creates a compensation, it gives all the info needed to apply it on a SCAN!!
-        // compensations are algebraic objects.
-        // 1.  create compensation for a match -> here is a scan -> apply it!!
-        //      we have a bigger plan.
-
-        // 2. supplies the logic for things that require index-anding.
-        //     (read intersection)
-
         @Override
         public RelationalExpression apply(@Nonnull RelationalExpression relationalExpression) {
             // apply the child as needed

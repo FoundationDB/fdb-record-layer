@@ -48,9 +48,6 @@ import java.util.stream.Collectors;
  * This class represents the result of matching one expression against a candidate.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-
-
-// That's the DIFF, compensation is the applier.
 public class MatchInfo {
     /**
      * Parameter bindings for this match.
@@ -58,40 +55,23 @@ public class MatchInfo {
     @Nonnull
     private final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap;
 
-    // from subsumedBy.
-
     @Nonnull
     private final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap;
-
-    // same info, optimised and cached.
 
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
-    // assumes, two selects, will always be empty for two different expressions.
-
     @Nonnull
     private final PredicateMap predicateMap;
-
-    // this and all children predicates.
 
     @Nonnull
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
-    // [WARNING: THIS WILL CHANGE]: what will my query be ordered by if I use these
-
     @Nonnull
     private final List<MatchedOrderingPart> matchedOrderingParts;
 
-    // assumes, two selects, that's when we have a result value in the query (not QOV).
-    // a,b <--> b,a is reversed, maybe use this to flip them around.
-
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
-
-
-    // maybe add an optional, here is a set of my grouping columns that is mapped to a set of another grouping columns.
-    // coarser -> use streaming aggregate.
 
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,

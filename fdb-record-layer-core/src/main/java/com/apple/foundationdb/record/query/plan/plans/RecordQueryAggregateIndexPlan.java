@@ -218,7 +218,6 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
         final var maybeNewResult = resultValue.translateCorrelations(translationMap);
         if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
-            // this is incorrect, the copiers also has to be "translated" somehow, I think we have to regenerate it w.r.t. the new result value.
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, partialRecordDescriptor, maybeNewResult);
         }
         return this;
