@@ -62,18 +62,25 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         @Nonnull
         private final JoinConstituent left;
         @Nonnull
-        private final KeyExpression leftExpression;
+        private final KeyExpression leftSourceExpression;
+        @Nonnull
+        private final KeyExpression leftValueExpression;
         @Nonnull
         private final JoinConstituent right;
         @Nonnull
-        private final KeyExpression rightExpression;
+        private final KeyExpression rightSourceExpression;
 
-        protected Join(@Nonnull JoinConstituent left, @Nonnull KeyExpression leftExpression,
-                       @Nonnull JoinConstituent right, @Nonnull KeyExpression rightExpression) {
+        @Nonnull
+        private final KeyExpression rightValueExpression;
+
+        protected Join(@Nonnull JoinConstituent left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
+                       @Nonnull JoinConstituent right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
             this.left = left;
-            this.leftExpression = leftExpression;
+            this.leftSourceExpression = leftSourceExpression;
+            this.leftValueExpression = leftValueExpression;
             this.right = right;
-            this.rightExpression = rightExpression;
+            this.rightSourceExpression = rightSourceExpression;
+            this.rightValueExpression = rightValueExpression;
         }
 
         @Nonnull
@@ -82,8 +89,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         }
 
         @Nonnull
-        public KeyExpression getLeftExpression() {
-            return leftExpression;
+        public KeyExpression getLeftSourceExpression() {
+            return leftSourceExpression;
+        }
+
+        @Nonnull
+        public KeyExpression getLeftValueExpression() {
+            return leftValueExpression;
         }
 
         @Nonnull
@@ -92,8 +104,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         }
 
         @Nonnull
-        public KeyExpression getRightExpression() {
-            return rightExpression;
+        public KeyExpression getRightSourceExpression() {
+            return rightSourceExpression;
+        }
+
+        @Nonnull
+        public KeyExpression getRightValueExpression() {
+            return rightValueExpression;
         }
     }
 
@@ -127,9 +144,11 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         for (JoinedRecordType.Join join : getJoins()) {
             typeBuilder.addJoinsBuilder()
                     .setLeft(join.getLeft().getName())
-                    .setLeftExpression(join.getLeftExpression().toKeyExpression())
+                    .setLeftSourceExpression(join.getLeftSourceExpression().toKeyExpression())
+                    .setLeftValueExpression(join.getLeftValueExpression().toKeyExpression())
                     .setRight(join.getRight().getName())
-                    .setRightExpression(join.getRightExpression().toKeyExpression());
+                    .setRightSourceExpression(join.getRightSourceExpression().toKeyExpression())
+                    .setRightValueExpression(join.getRightValueExpression().toKeyExpression());
         }
         return typeBuilder.build();
     }

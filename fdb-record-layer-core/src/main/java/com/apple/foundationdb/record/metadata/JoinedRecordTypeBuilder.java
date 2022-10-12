@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.Descriptors;
@@ -73,17 +74,24 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         @Nonnull
         private final String left;
         @Nonnull
-        private final KeyExpression leftExpression;
+        private final KeyExpression leftSourceExpression;
+        @Nonnull
+        private final KeyExpression leftValueExpression;
         @Nonnull
         private final String right;
         @Nonnull
-        private final KeyExpression rightExpression;
+        private final KeyExpression rightSourceExpression;
+        @Nonnull
+        private final KeyExpression rightValueExpression;
 
-        public Join(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
+        public Join(@Nonnull String left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
+                    @Nonnull String right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
             this.left = left;
-            this.leftExpression = leftExpression;
+            this.leftSourceExpression = leftSourceExpression;
+            this.leftValueExpression = leftValueExpression;
             this.right = right;
-            this.rightExpression = rightExpression;
+            this.rightSourceExpression = rightSourceExpression;
+            this.rightValueExpression = rightValueExpression;
         }
 
         @Nonnull
@@ -92,8 +100,13 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         }
 
         @Nonnull
-        public KeyExpression getLeftExpression() {
-            return leftExpression;
+        public KeyExpression getLeftSourceExpression() {
+            return leftSourceExpression;
+        }
+
+        @Nonnull
+        public KeyExpression getLeftValueExpression() {
+            return leftValueExpression;
         }
 
         @Nonnull
@@ -102,13 +115,18 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         }
 
         @Nonnull
-        public KeyExpression getRightExpression() {
-            return rightExpression;
+        public KeyExpression getRightSourceExpression() {
+            return rightSourceExpression;
+        }
+
+        @Nonnull
+        public KeyExpression getRightValueExpression() {
+            return rightValueExpression;
         }
 
         @Nonnull
         protected JoinedRecordType.Join build(@Nonnull Map<String, JoinedRecordType.JoinConstituent> constituentsByName) {
-            return new JoinedRecordType.Join(constituentsByName.get(left), leftExpression, constituentsByName.get(right), rightExpression);
+            return new JoinedRecordType.Join(constituentsByName.get(left), leftSourceExpression, leftValueExpression, constituentsByName.get(right), rightSourceExpression, rightValueExpression);
         }
     }
 
@@ -122,7 +140,8 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             addConstituent(joinConstituent.getName(), metaDataBuilder.getRecordType(joinConstituent.getRecordType()), joinConstituent.getOuterJoined());
         }
         for (RecordMetaDataProto.JoinedRecordType.Join join : typeProto.getJoinsList()) {
-            addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftExpression()), join.getRight(), KeyExpression.fromProto(join.getRightExpression()));
+            addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftSourceExpression()), KeyExpression.fromProto(join.getLeftValueExpression()),
+                    join.getRight(), KeyExpression.fromProto(join.getRightSourceExpression()), KeyExpression.fromProto(join.getRightValueExpression()));
         }
     }
 
@@ -167,7 +186,20 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
                     .addLogInfo("left", leftExpression, "right", rightExpression);
         }
-        Join join = new Join(left, leftExpression, right, rightExpression);
+        Join join = new Join(left, leftExpression, leftExpression, right, rightExpression, rightExpression);
+        joins.add(join);
+        return join;
+    }
+
+    @Nonnull
+    public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
+                        @Nonnull String right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
+        if (leftSourceExpression.getColumnSize() != rightSourceExpression.getColumnSize()) {
+            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
+                    .addLogInfo("left", leftSourceExpression, "right", rightSourceExpression);
+        }
+        //TODO(bfines) validate column sizes for the value expressions also
+        Join join = new Join(left, leftSourceExpression, leftValueExpression, right, rightSourceExpression, rightValueExpression);
         joins.add(join);
         return join;
     }
@@ -182,7 +214,9 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      */
     @Nonnull
     public Join addJoin(@Nonnull String left, @Nonnull String leftField, @Nonnull String right, @Nonnull String rightField) {
-        Join join = new Join(left, Key.Expressions.field(leftField), right, Key.Expressions.field(rightField));
+        final FieldKeyExpression leftFieldExpression = Key.Expressions.field(leftField);
+        final FieldKeyExpression rightFieldExpression = Key.Expressions.field(rightField);
+        Join join = new Join(left, leftFieldExpression, leftFieldExpression, right, rightFieldExpression, rightFieldExpression);
         joins.add(join);
         return join;
     }

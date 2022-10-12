@@ -185,10 +185,10 @@ class JoinedRecordPlanner {
             if (pendingJoins.contains(pendingJoin)) {
                 final KeyExpression expression;
                 if (pendingJoin.pendingLeft == pendingType) {
-                    expression = pendingJoin.join.getLeftExpression();
+                    expression = pendingJoin.join.getLeftValueExpression();
                     pendingJoin.leftBound = true;
                 } else if (pendingJoin.pendingRight == pendingType) {
-                    expression = pendingJoin.join.getRightExpression();
+                    expression = pendingJoin.join.getRightValueExpression();
                     pendingJoin.rightBound = true;
                 } else {
                     throw notFoundEitherSide();
@@ -212,10 +212,10 @@ class JoinedRecordPlanner {
             final KeyExpression expression;
             if (pendingJoin.pendingLeft == pendingType) {
                 bound = pendingJoin.rightBound;
-                expression = pendingJoin.join.getLeftExpression();
+                expression = pendingJoin.join.getLeftSourceExpression();
             } else if (pendingJoin.pendingRight == pendingType) {
                 bound = pendingJoin.leftBound;
-                expression = pendingJoin.join.getRightExpression();
+                expression = pendingJoin.join.getRightSourceExpression();
             } else {
                 throw notFoundEitherSide();
             }
