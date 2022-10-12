@@ -299,7 +299,7 @@ public interface MatchCandidate {
                     .ifPresent(resultBuilder::add);
         }
 
-        if (AggregateIndexExpansionVisitor.isAggregateIndex(type)) {
+        if (AggregateIndexExpansionVisitor.isAggregateIndex(type, index.getRootExpression())) {
             expandIndexMatchCandidate(index,
                     availableRecordTypeNames,
                     availableRecordTypes,

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -262,7 +263,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return mapBuilder.build();
     }
 
-    public static boolean isAggregateIndex(@Nonnull final String indexType) {
+    public static boolean isAggregateIndex(@Nonnull final String indexType, final KeyExpression rootExpression) {
+        // todo: we currently can not handle COUNT(*) aggregate indexes.
+        if (!(rootExpression instanceof GroupingKeyExpression)) {
+            return false;
+        }
+        final var groupingKeyExpression = (GroupingKeyExpression)rootExpression;
+        if (groupingKeyExpression.getWholeKey() instanceof EmptyKeyExpression) {
+            return false; // the case for COUNT(*)
+        }
         return allowedIndexTypes.get().contains(indexType);
     }
 }
