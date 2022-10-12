@@ -169,10 +169,10 @@ public class ArithmeticValue implements Value {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
-        SemanticException.check(type0.isPrimitive(), "only primitive types allowed in arithmetic operation");
+        SemanticException.check(type0.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
         final Typed arg1 = arguments.get(1);
         final Type type1 = arg1.getResultType();
-        SemanticException.check(type1.isPrimitive(), "only primitive types allowed in arithmetic operation");
+        SemanticException.check(type1.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
         final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());

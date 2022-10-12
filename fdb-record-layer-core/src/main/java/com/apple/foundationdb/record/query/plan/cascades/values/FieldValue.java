@@ -176,13 +176,13 @@ public class FieldValue implements ValueWithChild {
         var currentType = inputType;
         for (final var accessor : accessors) {
             final var fieldName = accessor.getFieldName();
-            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD,
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
                     String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinalFieldNumber() : fieldName));
             final var recordType = (Type.Record)currentType;
             final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
             final Field field;
             if (fieldName != null) {
-                SemanticException.check(fieldNameFieldMap.containsKey(fieldName), "record does not contain specified field");
+                SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
                 field = fieldNameFieldMap.get(fieldName);
             } else {
                 // field is not accessed by field but by ordinal number

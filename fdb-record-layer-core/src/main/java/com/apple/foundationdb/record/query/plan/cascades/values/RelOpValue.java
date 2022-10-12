@@ -255,7 +255,7 @@ public class RelOpValue implements BooleanValue {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
-        SemanticException.check(res0.isPrimitive(), "only primitives can be compared with (non)-equalities");
+        SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
             final UnaryPhysicalOperator physicalOperator =
                     getUnaryOperatorMap().get(Pair.of(comparisonType, res0.getTypeCode()));
@@ -273,7 +273,7 @@ public class RelOpValue implements BooleanValue {
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            SemanticException.check(res1.isPrimitive(), "only primitives can be compared with (non)-equalities");
+            SemanticException.check(res1.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
                     getBinaryOperatorMap().get(Triple.of(comparisonType, res0.getTypeCode(), res1.getTypeCode()));

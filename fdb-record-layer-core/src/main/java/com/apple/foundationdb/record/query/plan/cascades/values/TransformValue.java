@@ -28,9 +28,11 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.FieldPath;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -39,22 +41,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * A {@link Value} that encapsulates its children {@link Value}s into a single {@link Value} of a
- * {@link Type.Record} type.
+ * A {@link Value} that performs a templates set of transformations on an input value. This transformation can be
+ * utilized to implement e.g. SQL update functionality.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransformValue implements Value {
@@ -62,29 +63,71 @@ public class TransformValue implements Value {
 
     @Nonnull
     private final Value inValue;
+
+    /**
+     * All given field paths in lexicographical order.
+     */
     @Nonnull
     private final List<FieldPath> orderedFieldPaths;
+
+    /**
+     * The map of transformations as given by the caller.
+     */
     @Nonnull
     private final Map<FieldPath, Value> transformMap;
+
+    /**
+     * A trie of transformations synthesized from the transform map passed in to the constructor by the caller.
+     */
     @Nonnull
     private final TrieNode transformTrie;
+
+    /**
+     * A supplier that computes the official children of this value lazily on demand. The children are composed of
+     * the {@code inValue} followed by all right-hand {@link Value}s in the order defined by {@link #orderedFieldPaths}.
+     */
     @Nonnull
     private final Supplier<List<? extends Value>> childrenSupplier;
     @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
-    public TransformValue(@Nonnull final Value inValue, @Nonnull Map<FieldPath, Value> transformMap) {
+    /**
+     * Constructor.
+     * Example:
+     * <pre>
+     * {@code
+     *    new TransformValue(inValue,
+     *                       ImmutableMap.of(path1, new LiteralValue<>("1"),
+     *                                       path2, new LiteralValue<>(2),
+     *                                       path3, new LiteralValue<>(3)));
+     * }
+     * </pre>
+     * transforms (when the value's {@link #eval(FDBRecordStoreBase, EvaluationContext)} is invoked) an input object
+     * (result of evaluation of {@code inValue}), according to the transform map, i.e. the data underneath {@code path1}
+     * is transformed to the value {@code "1"}, the data underneath {@code path2} is transformed to the value {@code 2},
+     * and the data underneath {@code path2} is transformed to the value {@code 3}.
+     * @param inValue an input value to transform
+     * @param transformMap a map of field paths to values.
+     */
+    public TransformValue(@Nonnull final Value inValue, @Nonnull final Map<FieldPath, Value> transformMap) {
         Preconditions.checkArgument(inValue.getResultType() instanceof Type.Record);
         this.inValue = inValue;
-        // this brings together all paths that share the same prefixes
-        this.orderedFieldPaths = transformMap.keySet()
-                .stream()
-                .sorted(FieldPath.comparator())
-                .collect(ImmutableList.toImmutableList());
-        this.transformMap = ImmutableMap.copyOf(transformMap);
+        this.orderedFieldPaths = checkAndPrepareOrderedFieldPaths(transformMap);
+        this.transformMap = checkAndPrepareTransformMap(transformMap);
         this.transformTrie = computeTrieForFieldPaths(this.orderedFieldPaths, this.transformMap);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+    }
+
+    @Nonnull
+    public Map<FieldPath, Value> getTransformMap() {
+        return transformMap;
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    public TrieNode getTransformTrie() {
+        return transformTrie;
     }
 
     @Nonnull
@@ -94,7 +137,7 @@ public class TransformValue implements Value {
     }
 
     @Nonnull
-    public List<? extends Value> computeChildren() {
+    private List<? extends Value> computeChildren() {
         final var childrenBuilder = ImmutableList.<Value>builder();
         childrenBuilder.add(inValue);
         transformMap.values() // this is deterministically ordered by contract in ImmutableMap.
@@ -105,6 +148,7 @@ public class TransformValue implements Value {
     @Nonnull
     @Override
     public Type.Record getResultType() {
+        // result type is equal to in type
         return (Type.Record)inValue.getResultType();
     }
 
@@ -113,29 +157,57 @@ public class TransformValue implements Value {
     @SuppressWarnings("unchecked")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var inRecord = (M)Preconditions.checkNotNull(inValue.eval(store, context));
-        final var descriptorForType = inRecord.getDescriptorForType();
-        final var resultMessageBuilder = DynamicMessage.newBuilder(descriptorForType);
-        final var fields = Objects.requireNonNull(getResultType().getFields());
-
-        return evalWithPrefix(store, context, inRecord, orderedFieldPaths.iterator(), 0);
+        return evalSubtree(store, context, transformTrie, inRecord.getDescriptorForType(), inRecord);
     }
 
     @Nullable
-    public <M extends Message> Object evalWithPrefix(@Nonnull final FDBRecordStoreBase<M> store,
-                                                     @Nonnull final EvaluationContext context,
-                                                     @Nonnull final M subRecord,
-                                                     @Nonnull final Iterator<FieldPath> fieldPathIterator,
-                                                     @Nonnull final int depth) {
-        final var descriptorForType = subRecord.getDescriptorForType();
-        final var resultMessageBuilder = DynamicMessage.newBuilder(descriptorForType);
-        
+    @SuppressWarnings("unchecked")
+    public <M extends Message> Object evalSubtree(@Nonnull final FDBRecordStoreBase<M> store,
+                                                  @Nonnull final EvaluationContext context,
+                                                  @Nonnull final TrieNode trieNode,
+                                                  @Nullable final Descriptors.Descriptor descriptor,
+                                                  @Nullable final Object current) {
+        final var value = trieNode.getValue();
+        if (value != null) {
+            return value.eval(store, context);
+        } else {
+            Verify.verifyNotNull(descriptor);
+            final var fieldIndexToFieldMap = Verify.verifyNotNull(trieNode.getFieldIndexToFieldMap());
+            final var childrenMap = Verify.verifyNotNull(trieNode.getChildrenMap());
+            final var subRecord = (M)current;
 
-        return null;
-    }
-
-    @Nonnull
-    private DynamicMessage.Builder newMessageBuilderForType(@Nonnull TypeRepository typeRepository) {
-        return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
+            final var fieldDescriptors = descriptor.getFields();
+            final var resultMessageBuilder = DynamicMessage.newBuilder(descriptor);
+            for (final var fieldDescriptor : fieldDescriptors) {
+                final var field = fieldIndexToFieldMap.get(fieldDescriptor.getNumber());
+                if (field != null) {
+                    final var fieldTrieNode = Verify.verifyNotNull(childrenMap.get(field));
+                    var fieldResult = evalSubtree(store,
+                            context,
+                            fieldTrieNode,
+                            fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? fieldDescriptor.getMessageType() : null,
+                            subRecord == null ? null : subRecord.getField(fieldDescriptor));
+                    final var fieldType = field.getFieldType();
+                    if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
+                        final var wrappedDescriptor = fieldDescriptor.getMessageType();
+                        final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
+                        if (fieldResult != null) {
+                            wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), fieldResult);
+                        }
+                        fieldResult = wrapperBuilder.build();
+                    }
+                    if (fieldResult != null) {
+                        resultMessageBuilder.setField(fieldDescriptor, fieldResult);
+                    }
+                } else {
+                    if (subRecord != null && subRecord.hasField(fieldDescriptor)) {
+                        final var fieldResult = subRecord.getField(fieldDescriptor);
+                        resultMessageBuilder.setField(fieldDescriptor, fieldResult);
+                    }
+                }
+            }
+            return resultMessageBuilder.build();
+        }
     }
 
     @Override
@@ -183,10 +255,48 @@ public class TransformValue implements Value {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
+    private static Map<FieldPath, Value> checkAndPrepareTransformMap(@Nonnull final Map<FieldPath, Value> transformMap) {
+        for (final var entry : transformMap.entrySet()) {
+            // TODO check this using the type, not just the type code! For that to work we need isAssignableTo() checking
+            //      in the type system, so we can account for e.g. differences in nullabilities between the types.
+            SemanticException.check(entry.getKey()
+                    .getLastField()
+                    .getFieldType().getTypeCode().equals(entry.getValue().getResultType().getTypeCode()), SemanticException.ErrorCode.ASSIGNMENT_WRONG_TYPE);
+        }
+        return ImmutableMap.copyOf(transformMap);
+    }
+
+    @Nonnull
+    private static List<FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldPath, Value> transformMap) {
+        // this brings together all paths that share the same prefixes
+        final var orderedFieldPaths =
+                transformMap.keySet()
+                        .stream()
+                        .sorted(FieldPath.comparator())
+                        .collect(ImmutableList.toImmutableList());
+
+        FieldPath currentFieldPath = null;
+        for (final var fieldPath : orderedFieldPaths) {
+            SemanticException.check(currentFieldPath == null || !currentFieldPath.isPrefixOf(fieldPath), SemanticException.ErrorCode.UPDATE_TRANSFORM_AMBIGUOUS);
+            currentFieldPath = fieldPath;
+        }
+        return orderedFieldPaths;
+    }
+
+    /**
+     * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
+     * instantiation time (planning time). It serves to transform the input value in one pass.
+     * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
+     * @param transformMap a map of transformations
+     * @return a {@link TrieNode}
+     */
+    @Nonnull
     private static TrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldPath> orderedFieldPaths, @Nonnull final Map<FieldPath, Value> transformMap) {
         return computeTrieForFieldPaths(new FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
+    @Nonnull
     private static TrieNode computeTrieForFieldPaths(@Nonnull final FieldPath prefix,
                                                      @Nonnull final Map<FieldPath, Value> transformMap,
                                                      @Nonnull final PeekingIterator<FieldPath> orderedFieldPathIterator) {
@@ -194,14 +304,14 @@ public class TransformValue implements Value {
             orderedFieldPathIterator.next();
             return new TrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
         }
-        final var childrenMapBuilder = ImmutableMap.<Integer, TrieNode>builder();
+        final var childrenMapBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
         while (orderedFieldPathIterator.hasNext()) {
             final var fieldPath = orderedFieldPathIterator.peek();
-            if (prefix != null && !prefix.isPrefixOf(fieldPath)) {
+            if (!prefix.isPrefixOf(fieldPath)) {
                 break;
             }
 
-            final var prefixFields = prefix == null ? ImmutableList.<Type.Record.Field>of() : prefix.getFields();
+            final var prefixFields = prefix.getFields();
             final var currentField = fieldPath.getFields().get(prefixFields.size());
             final var nestedPrefix = new FieldPath(ImmutableList.<Type.Record.Field>builder()
                     .addAll(prefixFields)
@@ -209,7 +319,7 @@ public class TransformValue implements Value {
                     .build());
 
             final var currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator);
-            childrenMapBuilder.put(currentField.getFieldIndex(), currentTrie);
+            childrenMapBuilder.put(currentField, currentTrie);
         }
 
         return new TrieNode(null, childrenMapBuilder.build());
@@ -239,15 +349,21 @@ public class TransformValue implements Value {
         return new TransformValue(newInValue, newTransformMapBuilder.build());
     }
 
-    private static class TrieNode {
+    /**
+     * Bare-bone implementation of a trie data structure.
+     */
+    public static class TrieNode {
         @Nullable
         private final Value value;
         @Nullable
-        private final Map<Integer, TrieNode> childrenMap;
+        private final Map<Type.Record.Field, TrieNode> childrenMap;
+        @Nullable
+        private final Map<Integer, Type.Record.Field> fieldIndexToFieldMap;
 
-        public TrieNode(@Nullable final Value value, @Nullable final Map<Integer, TrieNode> childrenMap) {
+        public TrieNode(@Nullable final Value value, @Nullable final Map<Type.Record.Field, TrieNode> childrenMap) {
             this.value = value;
             this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
+            this.fieldIndexToFieldMap = childrenMap == null ? null : computeFieldIndexToFieldMap(this.childrenMap);
         }
 
         @Nullable
@@ -256,8 +372,22 @@ public class TransformValue implements Value {
         }
 
         @Nullable
-        public Map<Integer, TrieNode> getChildrenMap() {
+        public Map<Type.Record.Field, TrieNode> getChildrenMap() {
             return childrenMap;
+        }
+
+        @Nullable
+        public Map<Integer, Type.Record.Field> getFieldIndexToFieldMap() {
+            return fieldIndexToFieldMap;
+        }
+
+        @Nonnull
+        private static Map<Integer, Type.Record.Field> computeFieldIndexToFieldMap(@Nonnull final Map<Type.Record.Field, TrieNode> childrenMap) {
+            final var resultBuilder = ImmutableMap.<Integer, Type.Record.Field>builder();
+            for (final var entry : childrenMap.entrySet()) {
+                resultBuilder.put(entry.getKey().getFieldIndex(), entry.getKey());
+            }
+            return resultBuilder.build();
         }
     }
 }
