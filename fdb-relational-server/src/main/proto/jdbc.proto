@@ -1,0 +1,106 @@
+/*
+ * jdbc.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+// Put the generated classes into grpc subpackage so I can exclude
+// these classes from checkstyle and spotbug checks.
+option java_package = "com.apple.foundationdb.relational.grpc.jdbc.v1";
+option java_outer_classname = "RelationalJDBCService";
+
+package grpc.relational.jdbc.v1;
+
+service JDBCService {
+  rpc executeStatement(StatementRequest) returns (StatementResponse) {}
+  rpc getMetaData(MetaDataRequest) returns (MetaDataResponse) {}
+}
+
+message StatementRequest {
+  string sql = 1;
+}
+
+// FYI: RS from Spanner https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/result_set.proto
+message StatementResponse {}
+message MetaDataRequest {}
+message MetaDataResponse {
+  int32	attribute_no_nulls = 1;
+  int32 attribute_nullable = 2;
+  int32 attribute_nullable_unknown = 3;
+      // From https://docs.oracle.com/en/java/javase/12/docs/api/java.sql/java/sql/DatabaseMetaData.html
+      // static int	bestRowNotPseudo
+      // static int	bestRowPseudo
+      // static int	bestRowSession
+      // static int	bestRowTemporary
+      // static int	bestRowTransaction
+      // static int	bestRowUnknown
+      // static int	columnNoNulls
+      // static int	columnNullable
+      // static int	columnNullableUnknown
+      // static int	functionColumnIn
+      // static int	functionColumnInOut
+      // static int	functionColumnOut
+      // static int	functionColumnResult
+      // static int	functionColumnUnknown
+      // static int	functionNoNulls
+      // static int	functionNoTable
+      // static int	functionNullable
+      // static int	functionNullableUnknown
+      // static int	functionResultUnknown
+      // static int	functionReturn
+      // static int	functionReturnsTable
+      // static int	importedKeyCascade
+      // static int	importedKeyInitiallyDeferred
+      // static int	importedKeyInitiallyImmediate
+      // static int	importedKeyNoAction
+      // static int	importedKeyNotDeferrable
+      // static int	importedKeyRestrict
+      // static int	importedKeySetDefault
+      // static int	importedKeySetNull
+      // static int	procedureColumnIn
+      // static int	procedureColumnInOut
+      // static int	procedureColumnOut
+      // static int	procedureColumnResult
+      // static int	procedureColumnReturn
+      // static int	procedureColumnUnknown
+      // static int	procedureNoNulls
+      // static int	procedureNoResult
+      // static int	procedureNullable
+      // static int	procedureNullableUnknown
+      // static int	procedureResultUnknown
+      // static int	procedureReturnsResult
+      // static int	sqlStateSQL
+      // static int	sqlStateSQL99
+      // static int	sqlStateXOpen
+      // static short	tableIndexClustered
+      // static short	tableIndexHashed
+      // static short	tableIndexOther
+      // static short	tableIndexStatistic
+      // static int	typeNoNulls
+      // static int	typeNullable
+      // static int	typeNullableUnknown
+      // static int	typePredBasic
+      // static int	typePredChar
+      // static int	typePredNone
+      // static int	typeSearchable
+      // static int	versionColumnNotPseudo
+      // static int	versionColumnPseudo
+      // static int	versionColumnUnknown
+}
