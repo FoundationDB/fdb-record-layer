@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -112,6 +113,16 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+            final var indexPlan = aggregateIndexPlan.getIndexPlan();
+            if (indexPlan instanceof RecordQueryIndexPlan) {
+                return visitIndexPlan((RecordQueryIndexPlan)indexPlan);
+            }
+            return Optional.empty();
         }
 
         @Nonnull

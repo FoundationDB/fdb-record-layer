@@ -64,6 +64,13 @@ public class NodeInfo {
             NodeIcon.DATA_ACCESS_OPERATOR,
             "Covering Index Scan",
             "A covering index scan operator uses a secondary index to quickly find records in a given search range without looking up the base records.");
+
+    public static final NodeInfo AGGREGATE_INDEX_SCAN_OPERATOR = new NodeInfo(
+            "AggregateIndexScanOperator",
+            NodeIcon.DATA_ACCESS_OPERATOR,
+            "Aggregate Index Scan",
+            "An aggregate index scan operator uses a secondary index to quickly find records in a given search range without looking up the base records.");
+
     public static final NodeInfo COVERING_SPATIAL_INDEX_SCAN_OPERATOR = new NodeInfo(
             "CoveringSpatialIndexScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -167,6 +168,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+            return visit(aggregateIndexPlan.getIndexPlan());
         }
 
         @Nonnull

@@ -107,7 +107,7 @@ public class MessageValue {
     }
 
     /**
-     * Get the value of the field with the given field name on the given message.
+     * Get the value of the field with the given field number on the given message.
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
      * @param message a message or builder to extract the field from

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -42,6 +43,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -102,7 +104,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var groupByKeyExpr = ((GroupingKeyExpression)index.getRootExpression());
-        final var groupingAndGroupedCols = getGroupingAndGroupedColumns(groupByKeyExpr, baseQuantifier);
+        final var groupingAndGroupedCols = getGroupingAndGroupedColumns(groupByKeyExpr, baseQuantifier, baseQuantifier.getFlowedObjectType());
         final var groupingColsFieldName = CorrelationIdentifier.uniqueID();
 
         // 1. create a SELECT-WHERE expression.
@@ -112,14 +114,28 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var groupByQun = constructGroupBy(baseQuantifier, groupingColsFieldName, groupingAndGroupedCols, selectWhereQun);
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingQun = constructSelectHavingWithSort(isReverse, groupByQun);
+        final var selectHavingAndPlaceholderAliases = constructSelectHavingWithSort(groupByQun);
+        final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
+        final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
-        final var traversal = ExpressionRefTraversal.withRoot(selectHavingQun);
-        return new AggregateIndexMatchCandidate(index, traversal, List.of() /*sargable aliases*/, recordTypes, baseQuantifier.getFlowedObjectType());
+        final var maybeWithSort = placeHolderAliases.isEmpty()
+                ? GroupExpressionRef.of(selectHaving) // single group, sort by constant
+                : GroupExpressionRef.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
+
+        final var traversal = ExpressionRefTraversal.withRoot(maybeWithSort);
+        return new AggregateIndexMatchCandidate(index,
+                traversal,
+                placeHolderAliases /*sargable aliases*/,
+                recordTypes,
+                baseQuantifier.getFlowedObjectType(),
+                baseQuantifier.getAlias(),
+                ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount(),
+                groupByQun.getRangesOver().get().getResultValue(),
+                selectHaving.getResultValue());
     }
 
     @Nonnull
-    private Quantifier constructSelectWhere(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final CorrelationIdentifier groupByFieldName, final List<Column<? extends Value>> groupingKeyNames) {
+    private Quantifier constructSelectWhere(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final CorrelationIdentifier groupByFieldName, final List<? extends Value> groupingKeyNames) {
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // 1. start with the base quantifier.
@@ -133,7 +149,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var selectWhereGraphExpansion = pop(groupingKeyExpression.getWholeKey().expand(push(state)));
 
         // 2.1. add an RCV column representing the grouping columns as the first result set column
-        final var groupingValue = RecordConstructorValue.ofUnnamed(groupingKeyNames.subList(0, groupingKeyExpression.getGroupingCount()).stream().map(Column::getValue).collect(Collectors.toList()));
+        final var groupingValue = RecordConstructorValue.ofColumns(groupingKeyNames.subList(0, groupingKeyExpression.getGroupingCount()).stream().map(v -> Column.of(((FieldValue)v).getLastField(), v)).collect(Collectors.toList()));
 
         // 2.2. flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
@@ -152,16 +168,17 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
     @Nonnull
     private Quantifier constructGroupBy(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                        @Nonnull final CorrelationIdentifier groupByFieldName, @Nonnull final List<Column<? extends Value>> groupingKeyNames,
+                                        @Nonnull final CorrelationIdentifier groupByFieldName, @Nonnull final List<? extends Value> groupingKeyNames,
                                         @Nonnull final Quantifier selectWhereQun) {
         final var groupedValue = groupingKeyNames.subList(groupingKeyExpression.getGroupingCount(), groupingKeyNames.size());
         Verify.verify(groupedValue.size() == 1);
-        final var aggregateValue = groupedValue.stream().map(gv -> {
+        final int[] cnt = {0};
+        final var aggregateValue = RecordConstructorValue.ofColumns(groupedValue.stream().map(gv -> {
             final var prefixedFieldName = Lists.newArrayList(baseQuantifier.getAlias().getId());
-            prefixedFieldName.addAll(((FieldValue)gv.getValue()).getFieldPathNames());
+            prefixedFieldName.addAll(((FieldValue)gv).getFieldPathNames());
             final var groupedFieldReference = FieldValue.ofFieldNames(selectWhereQun.getFlowedObjectValue(), prefixedFieldName);
             return (AggregateValue)functionMap.get(index.getType()).encapsulate(TypeRepository.newBuilder(), List.of(groupedFieldReference));
-        }).collect(Collectors.toList()).get(0);
+        }).map(av -> Column.of(Type.Record.Field.of(av.getResultType(), Optional.of(index.getType() + "_agg_" + cnt[0]++)), av)).collect(Collectors.toList()));
         final var groupingColsValue = FieldValue.ofFieldName(selectWhereQun.getFlowedObjectValue(), groupByFieldName.getId());
 
         if (groupingColsValue.getResultType() instanceof Type.Record && ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
@@ -172,39 +189,36 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private GroupExpressionRef<?> constructSelectHavingWithSort(final boolean isReverse, @Nonnull final Quantifier groupByQun) {
+    private Pair<SelectExpression, List<CorrelationIdentifier>> constructSelectHavingWithSort(@Nonnull final Quantifier groupByQun) {
         // the grouping value in GroupByExpression comes first if set.
         @Nullable final var groupingValueReference =
                 (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
                 ? null
                 : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
-        final var aggregateValueReference = FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1);
+        final var aggregateValueReference = FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
 
+        final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);
         if (groupingValueReference != null) {
             Values.deconstructRecord(groupingValueReference).forEach(v -> {
+                final var field = (FieldValue)v;
                 final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueComparisonRangePredicate.Placeholder.class));
+                placeholderAliases.add(placeholder.getAlias());
                 selectHavingGraphExpansionBuilder
-                        .addResultValue(v)
+                        .addResultColumn(Column.of(field.getLastField(), field))
                         .addPlaceholder(placeholder)
                         .addPredicate(placeholder);
             });
         }
-        selectHavingGraphExpansionBuilder.addResultValue(aggregateValueReference); // we should also add the aggregate reference as a placeholder.
-        final var selectHavingGraphExpansion = selectHavingGraphExpansionBuilder.build();
-
-        if (groupingValueReference != null) {
-            return GroupExpressionRef.of(new MatchableSortExpression(selectHavingGraphExpansion.getPlaceholderAliases(), isReverse, selectHavingGraphExpansion.buildSelect()));
-        } else {
-            // single group, sorting by constant
-            return GroupExpressionRef.of(selectHavingGraphExpansion.buildSelect());
-        }
+        selectHavingGraphExpansionBuilder.addResultColumn(Column.of(aggregateValueReference.getLastField(), aggregateValueReference)); // we should also add the aggregate reference as a placeholder.
+        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
     }
 
     @Nonnull
-    private List<Column<? extends Value>> getGroupingAndGroupedColumns(@Nonnull final GroupingKeyExpression groupingKeysExpression,
-                                                                       @Nonnull final Quantifier.ForEach innerBaseQuantifier) {
+    private List<? extends Value> getGroupingAndGroupedColumns(@Nonnull final GroupingKeyExpression groupingKeysExpression,
+                                                                       @Nonnull final Quantifier.ForEach innerBaseQuantifier,
+                                                                       @Nonnull final Type type) {
         final var wholeKeyExpression = groupingKeysExpression.getWholeKey();
 
         final List<Value> groupingAndArgumentValues = new ArrayList<>();
@@ -216,8 +230,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                         -1,
                         0);
 
-        final var partitioningAndArgumentExpansion = pop(wholeKeyExpression.expand(push(initialState)));
-        return partitioningAndArgumentExpansion.getResultColumns();
+        return Value.fromKeyExpressions(groupingKeysExpression.normalizeKeyForPositions(), innerBaseQuantifier.getAlias(), type);
     }
 
     public static boolean isAggregateIndex(@Nonnull final String indexType) {

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -106,6 +107,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
+            return true;
         }
 
         @Nonnull

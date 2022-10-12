@@ -91,7 +91,6 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
                         // yield any match to the planner
                         boundMatchInfos.forEach(boundMatchInfo ->
                         {
-                            System.out.printf("Hello There");
                             call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
                                             matchCandidate,
                                             expression,

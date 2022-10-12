@@ -275,7 +275,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var partialMatchesWithCompensation =
                 matches
                         .stream()
-                        .filter(partialMatch -> partialMatch.getMatchCandidate() instanceof WithPrimaryKeyMatchCandidate)
+                        //.filter(partialMatch -> partialMatch.getMatchCandidate() instanceof WithPrimaryKeyMatchCandidate)
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
                         .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
                         .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())
