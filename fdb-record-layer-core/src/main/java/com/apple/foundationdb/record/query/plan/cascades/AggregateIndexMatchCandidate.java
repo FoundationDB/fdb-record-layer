@@ -150,16 +150,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public List<BoundKeyPart> computeBoundKeyParts(@Nonnull MatchInfo matchInfo,
-                                            @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                            boolean isReverse) {
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<BoundKeyPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
 
         for (final var parameterId : sortParameterIds) {
@@ -194,7 +192,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
                             baseType);
 
             builder.add(
-                    BoundKeyPart.of(value,
+                    MatchedOrderingPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
                             isReverse));
@@ -206,8 +204,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        // TODO: refactor
-        final var equalityBoundKeyMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
@@ -219,11 +216,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
                 continue;
             }
 
-            final var normalizedValue = new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT, baseType);
-            equalityBoundKeyMapBuilder.put(normalizedValue, comparison);
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            baseType);
+            equalityBoundValueMapBuilder.put(normalizedValue, comparison);
         }
 
-        final var result = ImmutableList.<KeyPart>builder();
+        final var result = ImmutableList.<OrderingPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -237,12 +236,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            final var normalizedValue = new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT, baseType);
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                            baseType);
 
-            result.add(KeyPart.of(normalizedValue, isReverse));
+            result.add(OrderingPart.of(normalizedValue, isReverse));
         }
 
-        return new Ordering(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct);
+        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
     }
 
     @Nonnull

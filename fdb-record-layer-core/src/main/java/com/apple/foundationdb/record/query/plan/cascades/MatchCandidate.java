@@ -157,7 +157,7 @@ public interface MatchCandidate {
 
     /**
      * Compute a list of {@link MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
-     * {@link QueryPredicate}s.
+     * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s.
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the parameter IDs which the query should be ordered by
      * @param isReverse reversed-ness of the order
