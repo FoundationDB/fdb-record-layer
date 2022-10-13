@@ -1,0 +1,33 @@
+syntax = "proto2";
+package com.apple.foundationdb.record.testmail;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestMailProto";
+
+message StringStringMapEntry{
+    required string key = 1;
+    required string value = 2;
+}
+
+message TextSearch {
+  optional int64 ___recordID = 1;
+  repeated StringStringMapEntry header = 2;
+  optional string headerBlob = 3;
+  optional string searchBody = 4;
+  //TODO(bfines) this shouldn't be a string, but it's set that way so that we can hack around our text search limitations
+  optional string mBoxRef = 5;
+  optional int64 msgStateUid = 6;
+  //bunch of other fields in the type, but we don't need them to test
+}
+
+message MessageState {
+  optional int64 uid = 1;
+  optional int64 mBoxRef = 2;
+  optional int64 textSearchRef = 3;
+  //there's a bunch of other fields, but these should be the only ones we need
+}
+
+message RecordTypeUnion {
+  optional TextSearch _TextSearch = 1;
+  optional MessageState _MsgState = 2;
+}
