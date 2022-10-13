@@ -93,7 +93,7 @@ public class ValueMatchers {
                         downstreamValue);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
                 typedWithDownstream(FieldValue.class,
-                        Extractor.of(FieldValue::getFieldPath, name -> "fieldPath(" + name + ")"),
+                        Extractor.of(FieldValue::getFields, name -> "fieldPath(" + name + ")"),
                         downstreamFieldPath);
 
         return typedWithDownstream(FieldValue.class,

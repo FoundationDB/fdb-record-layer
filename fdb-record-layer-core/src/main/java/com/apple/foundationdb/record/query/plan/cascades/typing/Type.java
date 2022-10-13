@@ -1070,7 +1070,7 @@ public interface Type extends Narrowable<Type> {
          * Represents a field type in a {@link Record} type.
          */
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        public static class Field {
+        public static class Field implements Comparable<Field> {
             /**
              * The field {@link Type}.
              */
@@ -1176,6 +1176,12 @@ public interface Type extends Narrowable<Type> {
             @Override
             public int hashCode() {
                 return hashFunctionSupplier.get();
+            }
+
+            @Override
+            public int compareTo(final Field o) {
+                Verify.verifyNotNull(o);
+                return Integer.compare(getFieldIndex(), o.getFieldIndex());
             }
 
             /**

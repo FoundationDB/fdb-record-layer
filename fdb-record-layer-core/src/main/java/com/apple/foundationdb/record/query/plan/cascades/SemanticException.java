@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Semantic exceptions that could occur e.g. to illegal type conversions, ... etc.
@@ -30,17 +31,75 @@ import javax.annotation.Nonnull;
 public class SemanticException extends RecordCoreException {
     private static final long serialVersionUID = 101714053557545076L;
 
-    public SemanticException(final String message) {
-        super(message);
+    /**
+     * Semantic error codes.
+     */
+    public enum ErrorCode {
+        UNKNOWN(-1, "unknown reason"),
+
+        // generic
+        ASSIGNMENT_WRONG_TYPE(1, "A value cannot be assigned to a variable because the type of the value does not match the type of the variable and cannot be cast to the type of the variable."),
+        FIELD_ACCESS_INPUT_NON_RECORD_TYPE(3, "A field is accessed on an input that is not of a record type."),
+        RECORD_DOES_NOT_CONTAIN_FIELD(2, "A non-existing field is accessed in a record."),
+        COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE(3, "The comparand to a comparison expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),
+        ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE(3, "The argument to an arithmetic operator expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),
+
+        // insert, update, deletes
+        UPDATE_TRANSFORM_AMBIGUOUS(1000, "The transformations used in an UPDATE statement are ambiguous.");
+
+        final int numericCode;
+        final String message;
+
+        ErrorCode(final int numericCode, final String message) {
+            this.numericCode = numericCode;
+            this.message = message;
+        }
+
+        public int getNumericCode() {
+            return numericCode;
+        }
+
+        public String getMessage() {
+            return message;
+        }
     }
 
-    public SemanticException(final String message, final Throwable cause) {
-        super(message, cause);
+    @Nonnull
+    private final ErrorCode errorCode;
+    @Nullable
+    private final String additionalErrorMessage;
+
+    private SemanticException(@Nonnull final ErrorCode errorCode, @Nullable final String additionalErrorMessage) {
+        super(errorCode.getMessage() + (additionalErrorMessage == null ? "" : " " + additionalErrorMessage));
+        this.errorCode = errorCode;
+        this.additionalErrorMessage = additionalErrorMessage;
     }
 
-    public static void check(final boolean condition, @Nonnull final String message) {
+    public SemanticException(@Nonnull final ErrorCode errorCode, @Nullable final String additionalErrorMessage, final Throwable cause) {
+        super(errorCode.getMessage() + (additionalErrorMessage == null ? "" : " " + additionalErrorMessage), cause);
+        this.errorCode = errorCode;
+        this.additionalErrorMessage = additionalErrorMessage;
+    }
+
+    @Nonnull
+    public ErrorCode getErrorCode() {
+        return errorCode;
+    }
+
+    @Nullable
+    public String getAdditionalErrorMessage() {
+        return additionalErrorMessage;
+    }
+
+    public static void check(final boolean condition, @Nonnull final ErrorCode message) {
         if (!condition) {
-            throw new SemanticException(message);
+            throw new SemanticException(message, null);
+        }
+    }
+
+    public static void check(final boolean condition, @Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
+        if (!condition) {
+            throw new SemanticException(message, additionalErrorMessage);
         }
     }
 }
