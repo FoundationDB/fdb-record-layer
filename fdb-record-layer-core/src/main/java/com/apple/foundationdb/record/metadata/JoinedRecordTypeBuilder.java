@@ -221,16 +221,29 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
     /**
      * Add a new equi-join between the specified left and right sides.
      *
+     * The way joins are constructed is that they first take the index expression from their side (e.g. the left
+     * hand side of the join takes leftIndexExpression), and then it finds what the equivalent expression on the
+     * opposite side in order to match. The join expressions are the representations of that opposition, so the
+     * leftJoinExpression is what is used to match <em>rightIndexExpression</em>. and {@code rightJoinExpression}
+     * is used to match {@code leftJoinExpression}.
+     *
+     * For example, Consider the join condition {@code left.a == right.b}, where {@code left.a} is a String and {@code right.b}
+     * is an int. In this case, {@code leftIndexExpression = left.nest(a)} and {@code rightIndexExpression = right.nest(b)},
+     * but if we compared them directly the join would not match correctly (because strings aren't comparable with ints). To
+     * Account for this, we make {@code leftJoinExpression = left.nest(function(toInt(a))} and
+     * {@code rightJoinExpression = right.nest(function(toString(b))}. Then, when inserting the LHS table, we are
+     * matching {@code left.nest(function(toInt(a)) == right.nest(b)}. When inserting the RHS of the join, we are
+     * matching {@code left.nest(a) == right.nest(function(toString(b))}. This will correctly match the join
+     * and allow the index to proceed.
+     *
      * @param left the name of the type on the LHS of the join.
-     * @param leftIndexExpression the KeyExpression to use when constructing indexes. The entries in this KeyExpression
-     * must line up correctly with how the join index will store records on disk.
+     * @param leftIndexExpression the KeyExpression to use when constructing indexes.
      * @param leftJoinExpression the KeyExpression to use when applying the join condition on incoming records from the
      * left-hand-side. This
      * expression isn't stored, it's just used for join comparisons (For example, when applying a join condition where
      * the join is between two projections).
      * @param right the name of the type on the right hand side of the join.
-     * @param rightIndexExpression The KeyExpression to use when constructing indexes. The entries in this KeyExpression
-     * must line up correctly with how the join index will store RHS records on disk.
+     * @param rightIndexExpression The KeyExpression to use when constructing indexes.
      * @param rightJoinExpression the KeyExpression to use when applying the join conditions on incoming records from
      * the right-hand-side.
      * This expression isn't stored, it's just used for join operations (For example, when applying a join condition
