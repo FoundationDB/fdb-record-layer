@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
@@ -54,38 +55,23 @@ import java.util.stream.Stream;
 @SuppressWarnings("java:S1452")
 public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> {
     @Nonnull
-    private final Multimap<Class<?>, AbstractValueRule<R, C, ? extends Value>> ruleIndex =
-            MultimapBuilder.hashKeys().arrayListValues().build();
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false positive
+    private final Multimap<Class<?>, AbstractValueRule<R, C, ? extends Value>> ruleIndex;
     @Nonnull
-    private final List<AbstractValueRule<R, C, ? extends Value>> alwaysRules = new ArrayList<>();
+    private final List<AbstractValueRule<R, C, ? extends Value>> alwaysRules;
 
     @Nonnull
-    private final SetMultimap<AbstractValueRule<R, C, ? extends Value>, AbstractValueRule<R, C, ? extends Value>> dependsOn =
-            MultimapBuilder.SetMultimapBuilder.hashKeys().hashSetValues().build();
+    private final SetMultimap<AbstractValueRule<R, C, ? extends Value>, AbstractValueRule<R, C, ? extends Value>> dependsOn;
 
     @Nonnull
-    private final LoadingCache<Class<? extends Value>, List<AbstractValueRule<R, C, ? extends Value>>> rulesCache =
-            CacheBuilder.newBuilder()
-                    .maximumSize(100)
-                    .build(new CacheLoader<>() {
-                        @Nonnull
-                        @Override
-                        @SuppressWarnings("UnstableApiUsage")
-                        public List<AbstractValueRule<R, C, ? extends Value>> load(@Nonnull final Class<? extends Value> key) {
-                            final var applicableRules =
-                                    ImmutableSet.<AbstractValueRule<R, C, ? extends Value>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
-                                            .addAll(ruleIndex.get(key))
-                                            .addAll(alwaysRules)
-                                            .build();
-                            if (applicableRules.isEmpty()) {
-                                return ImmutableList.of();
-                            }
-                            return TopologicalSort.anyTopologicalOrderPermutation(PartiallyOrderedSet.of(applicableRules, dependsOn)).orElseThrow(() -> new RecordCoreException("circular dependency among simplification rules"));
-                        }
-                    });
+    private final LoadingCache<Class<? extends Value>, List<AbstractValueRule<R, C, ? extends Value>>> rulesCache;
 
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected AbstractValueRuleSet(@Nonnull final Set<? extends AbstractValueRule<R, C, ? extends Value>> rules,
-                                   @Nonnull final SetMultimap<? extends AbstractValueRule<R, C, ? extends Value>, ? extends AbstractValueRule<R, C, ? extends Value>> dependsOn) {
+                                   @Nonnull final SetMultimap<? extends AbstractValueRule<R, C, ? extends Value>, ? extends AbstractValueRule<R, C, ? extends Value>> dependencies) {
+        this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();
+        this.alwaysRules = new ArrayList<>();
+        this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
         for (final var rule : rules) {
             Optional<Class<?>> root = rule.getRootOperator();
             if (root.isPresent()) {
@@ -95,7 +81,26 @@ public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> {
             }
         }
 
-        this.dependsOn.putAll(dependsOn);
+        this.dependsOn.putAll(dependencies);
+
+        this.rulesCache = CacheBuilder.newBuilder()
+                .maximumSize(100)
+                .build(new CacheLoader<>() {
+                    @Nonnull
+                    @Override
+                    @SuppressWarnings("UnstableApiUsage")
+                    public List<AbstractValueRule<R, C, ? extends Value>> load(@Nonnull final Class<? extends Value> key) {
+                        final var applicableRules =
+                                ImmutableSet.<AbstractValueRule<R, C, ? extends Value>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
+                                        .addAll(ruleIndex.get(key))
+                                        .addAll(alwaysRules)
+                                        .build();
+                        if (applicableRules.isEmpty()) {
+                            return ImmutableList.of();
+                        }
+                        return TopologicalSort.anyTopologicalOrderPermutation(PartiallyOrderedSet.of(applicableRules, dependsOn)).orElseThrow(() -> new RecordCoreException("circular dependency among simplification rules"));
+                    }
+                });
     }
 
     @Nonnull

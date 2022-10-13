@@ -23,12 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -56,27 +56,27 @@ public class TranslationMap {
 
     @Nonnull
     public CorrelationIdentifier getTargetAlias(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return Objects.requireNonNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
+        return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
     }
 
     @Nonnull
     public CorrelationIdentifier getTargetAliasOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
                                                          @Nonnull final CorrelationIdentifier defaultTargetAlias) {
         if (aliasToTargetMap.containsKey(sourceAlias)) {
-            return Objects.requireNonNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
+            return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
         }
         return defaultTargetAlias;
     }
 
     @Nonnull
     public TranslationFunction getTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return Objects.requireNonNull(aliasToTargetMap.get(sourceAlias)).getTranslationFunction();
+        return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTranslationFunction();
     }
 
     @Nonnull
     public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
                                           @Nonnull final LeafValue leafValue) {
-        final var translationTarget = Objects.requireNonNull(aliasToTargetMap.get(sourceAlias));
+        final var translationTarget = Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias));
         return translationTarget.getTranslationFunction().apply(sourceAlias, translationTarget.getTargetAlias(), leafValue);
     }
 

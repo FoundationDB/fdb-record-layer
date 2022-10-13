@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -146,7 +147,7 @@ public class TypeRepository {
      */
     @Nullable
     public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
-        final String msgTypeName = typeToNameMap.get(type);
+        final String msgTypeName = Preconditions.checkNotNull(typeToNameMap.get(type));
         Objects.requireNonNull(msgTypeName);
         return newMessageBuilder(msgTypeName);
     }
@@ -158,7 +159,7 @@ public class TypeRepository {
      */
     @Nonnull
     public String getProtoTypeName(@Nonnull final Type type) {
-        final String typeName = typeToNameMap.get(type);
+        final String typeName = Preconditions.checkNotNull(typeToNameMap.get(type));
         return Objects.requireNonNull(typeName);
     }
 

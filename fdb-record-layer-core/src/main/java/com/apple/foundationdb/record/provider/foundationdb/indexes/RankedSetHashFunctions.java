@@ -40,7 +40,8 @@ public class RankedSetHashFunctions {
     public static final String RANDOM = "RANDOM";
     public static final String MURMUR3 = "MURMUR3";
 
-    private static final RankedSet.HashFunction MURMUR3_HASH_FUNCTION = new GuavaHashFunction(Hashing.murmur3_32());
+    @SuppressWarnings("UnstableApiUsage")
+    private static final RankedSet.HashFunction MURMUR3_HASH_FUNCTION = new GuavaHashFunction(Hashing.murmur3_32_fixed());
 
     private static final BiMap<String, RankedSet.HashFunction> extent = ImmutableBiMap.<String, RankedSet.HashFunction>builder()
             .put(JDK, RankedSet.JDK_ARRAY_HASH)
