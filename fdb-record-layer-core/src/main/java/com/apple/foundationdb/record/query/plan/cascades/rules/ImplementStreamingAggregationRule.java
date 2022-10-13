@@ -73,6 +73,8 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var groupingValue = groupByExpression.getGroupingValue();
         final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
 
+        // TODO: isConstant is not implemented correctly.
+        // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
         final var requiredOrderingKeyValues =
                 currentGroupingValue == null || currentGroupingValue.isConstant()
                 ? null
