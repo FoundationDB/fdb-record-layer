@@ -62,25 +62,25 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         @Nonnull
         private final JoinConstituent left;
         @Nonnull
-        private final KeyExpression leftSourceExpression;
+        private final KeyExpression leftIndexExpression;
         @Nonnull
-        private final KeyExpression leftValueExpression;
+        private final KeyExpression leftJoinExpression;
         @Nonnull
         private final JoinConstituent right;
         @Nonnull
-        private final KeyExpression rightSourceExpression;
+        private final KeyExpression rightIndexExpression;
 
         @Nonnull
-        private final KeyExpression rightValueExpression;
+        private final KeyExpression rightJoinExpression;
 
-        protected Join(@Nonnull JoinConstituent left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
-                       @Nonnull JoinConstituent right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
+        protected Join(@Nonnull JoinConstituent left, @Nonnull KeyExpression leftIndexExpression, @Nonnull KeyExpression leftJoinExpression,
+                       @Nonnull JoinConstituent right, @Nonnull KeyExpression rightIndexExpression, @Nonnull KeyExpression rightJoinExpression) {
             this.left = left;
-            this.leftSourceExpression = leftSourceExpression;
-            this.leftValueExpression = leftValueExpression;
+            this.leftIndexExpression = leftIndexExpression;
+            this.leftJoinExpression = leftJoinExpression;
             this.right = right;
-            this.rightSourceExpression = rightSourceExpression;
-            this.rightValueExpression = rightValueExpression;
+            this.rightIndexExpression = rightIndexExpression;
+            this.rightJoinExpression = rightJoinExpression;
         }
 
         @Nonnull
@@ -89,13 +89,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         }
 
         @Nonnull
-        public KeyExpression getLeftSourceExpression() {
-            return leftSourceExpression;
+        public KeyExpression getLeftIndexExpression() {
+            return leftIndexExpression;
         }
 
         @Nonnull
-        public KeyExpression getLeftValueExpression() {
-            return leftValueExpression;
+        public KeyExpression getLeftJoinExpression() {
+            return leftJoinExpression;
         }
 
         @Nonnull
@@ -104,13 +104,13 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         }
 
         @Nonnull
-        public KeyExpression getRightSourceExpression() {
-            return rightSourceExpression;
+        public KeyExpression getRightIndexExpression() {
+            return rightIndexExpression;
         }
 
         @Nonnull
-        public KeyExpression getRightValueExpression() {
-            return rightValueExpression;
+        public KeyExpression getRightJoinExpression() {
+            return rightJoinExpression;
         }
     }
 
@@ -144,11 +144,11 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         for (JoinedRecordType.Join join : getJoins()) {
             typeBuilder.addJoinsBuilder()
                     .setLeft(join.getLeft().getName())
-                    .setLeftSourceExpression(join.getLeftSourceExpression().toKeyExpression())
-                    .setLeftValueExpression(join.getLeftValueExpression().toKeyExpression())
+                    .setLeftExpression(join.getLeftIndexExpression().toKeyExpression())
+                    .setLeftJoinExpression(join.getLeftJoinExpression().toKeyExpression())
                     .setRight(join.getRight().getName())
-                    .setRightSourceExpression(join.getRightSourceExpression().toKeyExpression())
-                    .setRightValueExpression(join.getRightValueExpression().toKeyExpression());
+                    .setRightExpression(join.getRightIndexExpression().toKeyExpression())
+                    .setRightJoinExpression(join.getRightJoinExpression().toKeyExpression());
         }
         return typeBuilder.build();
     }

@@ -74,24 +74,46 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         @Nonnull
         private final String left;
         @Nonnull
-        private final KeyExpression leftSourceExpression;
+        private final KeyExpression leftIndexExpression;
         @Nonnull
-        private final KeyExpression leftValueExpression;
+        private final KeyExpression leftJoinExpression;
         @Nonnull
         private final String right;
         @Nonnull
-        private final KeyExpression rightSourceExpression;
+        private final KeyExpression rightIndexExpression;
         @Nonnull
-        private final KeyExpression rightValueExpression;
+        private final KeyExpression rightJoinExpression;
 
-        public Join(@Nonnull String left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
-                    @Nonnull String right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
+        /**
+         * Create a new join from left to right.
+         *
+         * @param left the name of the type on the LHS of the join.
+         * @param leftIndexExpression the KeyExpression to use when constructing indexes. The entries in this
+         * KeyExpression
+         * must line up correctly with how the join index will store records on disk.
+         * @param leftJoinExpression the KeyExpression to use when applying the join condition on incoming records from
+         * the left-hand-side. This
+         * expression isn't stored, it's just used for join comparisons (For example, when applying a join condition
+         * where
+         * the join is between two projections).
+         * @param right the name of the type on the right hand side of the join.
+         * @param rightIndexExpression The KeyExpression to use when constructing indexes. The entries in this
+         * KeyExpression
+         * must line up correctly with how the join index will store RHS records on disk.
+         * @param rightJoinExpression the KeyExpression to use when applying the join conditions on incoming records
+         * from the right-hand-side.
+         * This expression isn't stored, it's just used for join operations (For example, when applying a join condition
+         * where
+         * the join is between two projections).
+         */
+        public Join(@Nonnull String left, @Nonnull KeyExpression leftIndexExpression, @Nonnull KeyExpression leftJoinExpression,
+                    @Nonnull String right, @Nonnull KeyExpression rightIndexExpression, @Nonnull KeyExpression rightJoinExpression) {
             this.left = left;
-            this.leftSourceExpression = leftSourceExpression;
-            this.leftValueExpression = leftValueExpression;
+            this.leftIndexExpression = leftIndexExpression;
+            this.leftJoinExpression = leftJoinExpression;
             this.right = right;
-            this.rightSourceExpression = rightSourceExpression;
-            this.rightValueExpression = rightValueExpression;
+            this.rightIndexExpression = rightIndexExpression;
+            this.rightJoinExpression = rightJoinExpression;
         }
 
         @Nonnull
@@ -100,13 +122,13 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         }
 
         @Nonnull
-        public KeyExpression getLeftSourceExpression() {
-            return leftSourceExpression;
+        public KeyExpression getLeftIndexExpression() {
+            return leftIndexExpression;
         }
 
         @Nonnull
-        public KeyExpression getLeftValueExpression() {
-            return leftValueExpression;
+        public KeyExpression getLeftJoinExpression() {
+            return leftJoinExpression;
         }
 
         @Nonnull
@@ -115,18 +137,18 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         }
 
         @Nonnull
-        public KeyExpression getRightSourceExpression() {
-            return rightSourceExpression;
+        public KeyExpression getRightIndexExpression() {
+            return rightIndexExpression;
         }
 
         @Nonnull
-        public KeyExpression getRightValueExpression() {
-            return rightValueExpression;
+        public KeyExpression getRightJoinExpression() {
+            return rightJoinExpression;
         }
 
         @Nonnull
         protected JoinedRecordType.Join build(@Nonnull Map<String, JoinedRecordType.JoinConstituent> constituentsByName) {
-            return new JoinedRecordType.Join(constituentsByName.get(left), leftSourceExpression, leftValueExpression, constituentsByName.get(right), rightSourceExpression, rightValueExpression);
+            return new JoinedRecordType.Join(constituentsByName.get(left), leftIndexExpression, leftJoinExpression, constituentsByName.get(right), rightIndexExpression, rightJoinExpression);
         }
     }
 
@@ -140,8 +162,8 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             addConstituent(joinConstituent.getName(), metaDataBuilder.getRecordType(joinConstituent.getRecordType()), joinConstituent.getOuterJoined());
         }
         for (RecordMetaDataProto.JoinedRecordType.Join join : typeProto.getJoinsList()) {
-            addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftSourceExpression()), KeyExpression.fromProto(join.getLeftValueExpression()),
-                    join.getRight(), KeyExpression.fromProto(join.getRightSourceExpression()), KeyExpression.fromProto(join.getRightValueExpression()));
+            addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftExpression()), KeyExpression.fromProto(join.getLeftJoinExpression()),
+                    join.getRight(), KeyExpression.fromProto(join.getRightExpression()), KeyExpression.fromProto(join.getRightJoinExpression()));
         }
     }
 
@@ -153,9 +175,11 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
 
     /**
      * Add a new constituent by name.
+     *
      * @param name the correlation name for the new constituent
      * @param recordType the record type for the new constituent
      * @param isOuterJoined whether constituent is outer-joined in joins in which it participates
+     *
      * @return the newly added constituent
      */
     @Nonnull
@@ -165,6 +189,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
 
     /**
      * Get the list of joins for this joined record type.
+     *
      * @return the list of joins
      */
     @Nonnull
@@ -174,10 +199,12 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
 
     /**
      * Add a new join.
+     *
      * @param left the correlation name of the left constituent
      * @param leftExpression an expression to evaluate against the left constituent
      * @param right the correlation name of the right constituent
      * @param rightExpression an expression to evaluate against the right constituent
+     *
      * @return the newly added join
      */
     @Nonnull
@@ -191,25 +218,47 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         return join;
     }
 
+    /**
+     * Add a new equi-join between the specified left and right sides.
+     *
+     * @param left the name of the type on the LHS of the join.
+     * @param leftIndexExpression the KeyExpression to use when constructing indexes. The entries in this KeyExpression
+     * must line up correctly with how the join index will store records on disk.
+     * @param leftJoinExpression the KeyExpression to use when applying the join condition on incoming records from the
+     * left-hand-side. This
+     * expression isn't stored, it's just used for join comparisons (For example, when applying a join condition where
+     * the join is between two projections).
+     * @param right the name of the type on the right hand side of the join.
+     * @param rightIndexExpression The KeyExpression to use when constructing indexes. The entries in this KeyExpression
+     * must line up correctly with how the join index will store RHS records on disk.
+     * @param rightJoinExpression the KeyExpression to use when applying the join conditions on incoming records from
+     * the right-hand-side.
+     * This expression isn't stored, it's just used for join operations (For example, when applying a join condition
+     * where
+     * the join is between two projections).
+     * @return a representation of the join.
+     */
     @Nonnull
-    public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftSourceExpression, @Nonnull KeyExpression leftValueExpression,
-                        @Nonnull String right, @Nonnull KeyExpression rightSourceExpression, @Nonnull KeyExpression rightValueExpression) {
-        if (leftSourceExpression.getColumnSize() != rightSourceExpression.getColumnSize()) {
+    public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftIndexExpression, @Nonnull KeyExpression leftJoinExpression,
+                        @Nonnull String right, @Nonnull KeyExpression rightIndexExpression, @Nonnull KeyExpression rightJoinExpression) {
+        if (leftIndexExpression.getColumnSize() != rightIndexExpression.getColumnSize()) {
             throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
-                    .addLogInfo("left", leftSourceExpression, "right", rightSourceExpression);
+                    .addLogInfo("left", leftIndexExpression, "right", rightIndexExpression);
         }
         //TODO(bfines) validate column sizes for the value expressions also
-        Join join = new Join(left, leftSourceExpression, leftValueExpression, right, rightSourceExpression, rightValueExpression);
+        Join join = new Join(left, leftIndexExpression, leftJoinExpression, right, rightIndexExpression, rightJoinExpression);
         joins.add(join);
         return join;
     }
 
     /**
      * Add a new join.
+     *
      * @param left the correlation name of the left constituent
      * @param leftField a field to evaluate in the left constituent
      * @param right the correlation name of the right constituent
      * @param rightField a field to evaluate in the right constituent
+     *
      * @return the newly added join
      */
     @Nonnull

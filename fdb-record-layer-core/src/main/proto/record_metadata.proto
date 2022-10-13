@@ -195,11 +195,11 @@ message JoinedRecordType {
 
   message Join {
     optional string left = 1;
-    optional KeyExpression left_source_expression = 2;
-    optional KeyExpression left_value_expression = 3;
-    optional string right = 4;
-    optional KeyExpression right_source_expression = 5;
-    optional KeyExpression right_value_expression = 6;
+    optional KeyExpression left_expression = 2;
+    optional string right = 3;
+    optional KeyExpression right_expression = 4;
+    optional KeyExpression left_join_expression = 5;
+    optional KeyExpression right_join_expression = 6;
   }
 
   repeated JoinConstituent join_constituents = 10;
