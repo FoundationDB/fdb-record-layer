@@ -234,8 +234,9 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      * is an int. In this case, {@code leftIndexExpression = left.nest(a)} and
      * {@code rightIndexExpression = right.nest(b)},
      * but if we compared them directly the join would not match correctly (because strings aren't comparable with
-     * ints). To
-     * Account for this, we make {@code leftJoinExpression = left.nest(function(toInt(a))} and
+     * ints).
+     *
+     * To Account for this, we make {@code leftJoinExpression = left.nest(function(toInt(a))} and
      * {@code rightJoinExpression = right.nest(function(toString(b))}. Then, when inserting the LHS table, we are
      * matching {@code left.nest(function(toInt(a)) == right.nest(b)}. When inserting the RHS of the join, we are
      * matching {@code left.nest(a) == right.nest(function(toString(b))}. This will correctly match the join
