@@ -254,9 +254,13 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
     @Nonnull
     public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftIndexExpression, @Nonnull KeyExpression leftJoinExpression,
                         @Nonnull String right, @Nonnull KeyExpression rightIndexExpression, @Nonnull KeyExpression rightJoinExpression) {
-        if (leftIndexExpression.getColumnSize() != rightIndexExpression.getColumnSize()) {
+        if (leftIndexExpression.getColumnSize() != rightJoinExpression.getColumnSize()) {
             throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
-                    .addLogInfo("left", leftIndexExpression, "right", rightIndexExpression);
+                    .addLogInfo("left", leftIndexExpression, "right", rightJoinExpression);
+        }
+        if (leftJoinExpression.getColumnSize() != rightIndexExpression.getColumnSize()) {
+            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
+                    .addLogInfo("left", leftJoinExpression, "right", rightIndexExpression);
         }
         //TODO(bfines) validate column sizes for the value expressions also
         Join join = new Join(left, leftIndexExpression, leftJoinExpression, right, rightIndexExpression, rightJoinExpression);
