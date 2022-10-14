@@ -213,8 +213,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
     @Nonnull
     public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
         if (leftExpression.getColumnSize() != rightExpression.getColumnSize()) {
-            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
-                    .addLogInfo("left", leftExpression, "right", rightExpression);
+            throwJoinSizeMismatch(leftExpression, rightExpression);
         }
         Join join = new Join(left, leftExpression, leftExpression, right, rightExpression, rightExpression);
         joins.add(join);
@@ -223,16 +222,19 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
 
     /**
      * Add a new equi-join between the specified left and right sides.
-     *
+     * <p>
      * The way joins are constructed is that they first take the index expression from their side (e.g. the left
      * hand side of the join takes leftIndexExpression), and then it finds what the equivalent expression on the
      * opposite side in order to match. The join expressions are the representations of that opposition, so the
      * leftJoinExpression is what is used to match <em>rightIndexExpression</em>. and {@code rightJoinExpression}
      * is used to match {@code leftJoinExpression}.
-     *
-     * For example, Consider the join condition {@code left.a == right.b}, where {@code left.a} is a String and {@code right.b}
-     * is an int. In this case, {@code leftIndexExpression = left.nest(a)} and {@code rightIndexExpression = right.nest(b)},
-     * but if we compared them directly the join would not match correctly (because strings aren't comparable with ints). To
+     * <p>
+     * For example, Consider the join condition {@code left.a == right.b}, where {@code left.a} is a String and
+     * {@code right.b}
+     * is an int. In this case, {@code leftIndexExpression = left.nest(a)} and
+     * {@code rightIndexExpression = right.nest(b)},
+     * but if we compared them directly the join would not match correctly (because strings aren't comparable with
+     * ints). To
      * Account for this, we make {@code leftJoinExpression = left.nest(function(toInt(a))} and
      * {@code rightJoinExpression = right.nest(function(toString(b))}. Then, when inserting the LHS table, we are
      * matching {@code left.nest(function(toInt(a)) == right.nest(b)}. When inserting the RHS of the join, we are
@@ -252,24 +254,23 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      * This expression isn't stored, it's just used for join operations (For example, when applying a join condition
      * where
      * the join is between two projections).
+     *
      * @return a representation of the join.
      */
     @Nonnull
     public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftIndexExpression, @Nonnull KeyExpression leftJoinExpression,
                         @Nonnull String right, @Nonnull KeyExpression rightIndexExpression, @Nonnull KeyExpression rightJoinExpression) {
         if (leftIndexExpression.getColumnSize() != rightJoinExpression.getColumnSize()) {
-            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
-                    .addLogInfo("left", leftIndexExpression, "right", rightJoinExpression);
+            throwJoinSizeMismatch(leftIndexExpression, rightJoinExpression);
         }
         if (leftJoinExpression.getColumnSize() != rightIndexExpression.getColumnSize()) {
-            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
-                    .addLogInfo("left", leftJoinExpression, "right", rightIndexExpression);
+            throwJoinSizeMismatch(leftJoinExpression, rightIndexExpression);
         }
-        //TODO(bfines) validate column sizes for the value expressions also
         Join join = new Join(left, leftIndexExpression, leftJoinExpression, right, rightIndexExpression, rightJoinExpression);
         joins.add(join);
         return join;
     }
+
 
     /**
      * Add a new join.
@@ -304,6 +305,11 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
                 .map(join -> join.build(constituentsByName))
                 .collect(Collectors.toList());
         return new JoinedRecordType(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, builtConstituents, builtJoins);
+    }
+
+    private void throwJoinSizeMismatch(final @Nonnull KeyExpression leftIndexExpression, final @Nonnull KeyExpression rightJoinExpression) {
+        throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
+                .addLogInfo("left", leftIndexExpression, "right", rightJoinExpression);
     }
 
 }

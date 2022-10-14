@@ -748,7 +748,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void joinOnNestedKeysWithDifferentTypes() throws Exception {
+    void joinOnNestedKeysWithDifferentTypes() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
 
@@ -797,7 +797,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void joinOnMultipleNestedKeys() throws Exception {
+    void joinOnMultipleNestedKeys() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
 
