@@ -20,11 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
@@ -34,13 +39,18 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.HashUtils;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -261,9 +271,143 @@ class JoinedRecordPlanner {
                 default:
                     throw new RecordCoreException("unsupported fan type in join key expression: " + expression);
             }
+        } else if (expression instanceof InvertibleFunctionKeyExpression) {
+            final InvertibleFunctionKeyExpression function = (InvertibleFunctionKeyExpression)expression;
+            final Comparisons.Comparison inverted = invertFunctionComparison(function, comparison);
+            return buildCondition(function.getArguments(), inverted);
         } else {
             throw new RecordCoreException("unsupported join key expression: " + expression);
         }
     }
 
+    @Nonnull
+    private static Comparisons.Comparison invertFunctionComparison(@Nonnull InvertibleFunctionKeyExpression function, @Nonnull Comparisons.Comparison comparison) {
+        // Limit function comparisons (for now) to unary functions
+        if (function.getColumnSize() != 1) {
+            throw new RecordCoreException("invertible functions in joins must return a single element");
+        }
+        if (function.getMinArguments() != 1 || function.getMaxArguments() != 1) {
+            throw new RecordCoreException("invertible functions in joins must operate on a single element");
+        }
+        if (!(comparison instanceof Comparisons.ComparisonWithParameter)) {
+            throw new RecordCoreException("can only invert function on comparison with parameter");
+        }
+        return new InvertFunctionComparisonWithParameter(function, (Comparisons.ComparisonWithParameter) comparison);
+    }
+
+    private static class InvertFunctionComparisonWithParameter implements Comparisons.ComparisonWithParameter {
+        @Nonnull
+        private final InvertibleFunctionKeyExpression function;
+        @Nonnull
+        private final Comparisons.ComparisonWithParameter underlyingComparison;
+
+        private InvertFunctionComparisonWithParameter(@Nonnull InvertibleFunctionKeyExpression function,
+                                                      @Nonnull Comparisons.ComparisonWithParameter underlyingComparison) {
+            this.function = function;
+            this.underlyingComparison = underlyingComparison;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return PlanHashable.planHash(hashKind, function, underlyingComparison);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, function, underlyingComparison);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final InvertFunctionComparisonWithParameter that = (InvertFunctionComparisonWithParameter)o;
+            return Objects.equals(function, that.function) && Objects.equals(underlyingComparison, that.underlyingComparison);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(function, underlyingComparison);
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            Object comparand = getComparand(store, context);
+            return Comparisons.evalComparison(getType(), value, comparand);
+        }
+
+        @Override
+        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+            underlyingComparison.validate(descriptor, fannedOut);
+        }
+
+        @Nonnull
+        @Override
+        public Comparisons.Type getType() {
+            return function.isInjective() ? underlyingComparison.getType() : Comparisons.Type.IN;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
+            Object underlyingComparandValue = underlyingComparison.getComparand(store, context);
+            if (underlyingComparandValue instanceof List<?>) {
+                List<?> underlyingList = (List<?>) underlyingComparandValue;
+                List<Object> finalValues = new ArrayList<>(underlyingList.size());
+                for (Object obj : underlyingList) {
+                    Key.Evaluated evaluated = Key.Evaluated.scalar(obj);
+                    List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
+                    inverse.stream()
+                            .filter(eval -> eval.size() == 1)
+                            .forEach(eval -> finalValues.add(eval.getObject(0)));
+                }
+                return finalValues;
+            } else {
+                Key.Evaluated evaluated = Key.Evaluated.scalar(underlyingComparandValue);
+                List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
+                if (getType() == Comparisons.Type.IN) {
+                    return inverse.stream()
+                            .filter(eval -> eval.size() == 1)
+                            .map(eval -> eval.getObject(0))
+                            .collect(Collectors.toList());
+                } else {
+                    Key.Evaluated preImage = inverse.get(0);
+                    if (preImage.size() != 1) {
+                        throw new RecordCoreException("unable to get singleton pre-image for function");
+                    }
+                    return preImage.getObject(0);
+                }
+            }
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return function.getName() + "^-1(" + underlyingComparison.typelessString() + ")";
+        }
+
+        @Nonnull
+        @Override
+        public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+            Comparisons.Comparison translated = underlyingComparison.translateCorrelations(translationMap);
+            if (translated == underlyingComparison) {
+                return this;
+            } else if (translated instanceof Comparisons.ComparisonWithParameter) {
+                return new InvertFunctionComparisonWithParameter(function, (Comparisons.ComparisonWithParameter) translated);
+            } else {
+                throw new RecordCoreException("can only translate correlations if underlying is still with parameter");
+            }
+        }
+
+        @Nonnull
+        @Override
+        public String getParameter() {
+            return underlyingComparison.getParameter();
+        }
+    }
 }
