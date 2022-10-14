@@ -28,6 +28,7 @@ atlassian-ide-plugin.xml
 # don't include these .idea files, since they store user-specific data
 .idea/workspace.xml
 .idea/tasks.xml
+.idea/compiler.xml
 .idea/dictionaries/*
 .idea/sonarlint*.xml
 .idea/sonarlint/**
@@ -71,3 +72,4 @@ fdb-environment.properties
 
 # Docker local support
 run/
+
