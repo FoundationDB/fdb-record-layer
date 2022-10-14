@@ -283,7 +283,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         // check that aggregate value is the same.
         final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
-        if (aggregateValue.equalsWithoutChildren(otherAggregateValue, aliasMap)) {
+        if (aggregateValue.semanticEquals(otherAggregateValue, aliasMap)) {
             // placeholder for information needed for later compensation.
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
                     .map(ImmutableList::of)

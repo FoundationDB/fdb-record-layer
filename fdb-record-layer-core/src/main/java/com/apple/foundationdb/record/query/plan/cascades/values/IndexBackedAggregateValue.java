@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -46,13 +47,14 @@ import java.util.Locale;
  * at runtime by a streaming aggregation operator.
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
+@API(API.Status.EXPERIMENTAL)
 public class IndexBackedAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, WithNamedPhysicalOperation {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Backed-Aggregate-Value");
 
     enum PhysicalOperator {
-        MAX_EVER,
-        MIN_EVER
+        MAX_EVER_LONG,
+        MIN_EVER_LONG
     }
 
     @Nonnull
@@ -81,6 +83,12 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     @Nonnull
     public String getOperatorName() {
         return operator.name();
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return child.getResultType();
     }
 
     @Nonnull
@@ -135,6 +143,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
+        // todo: adapt this once we support MIN_EVER_TUPLE and MAX_EVER_TUPLE.
         SemanticException.check(type0.isNumeric(), "only numeric types allowed in numeric aggregation operation");
         return new IndexBackedAggregateValue(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
     }
@@ -143,9 +152,9 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
      * The {@code min_ever} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class MinEverFn extends BuiltInFunction<AggregateValue> {
-        public MinEverFn() {
-            super(PhysicalOperator.MIN_EVER.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
+    public static class MinEverLongFn extends BuiltInFunction<AggregateValue> {
+        public MinEverLongFn() {
+            super(PhysicalOperator.MIN_EVER_LONG.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
         }
     }
 
@@ -153,9 +162,9 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
      * The {@code max_ever} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class MaxEverFn extends BuiltInFunction<AggregateValue> {
-        public MaxEverFn() {
-            super(PhysicalOperator.MIN_EVER.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
+    public static class MaxEverLongFn extends BuiltInFunction<AggregateValue> {
+        public MaxEverLongFn() {
+            super(PhysicalOperator.MAX_EVER_LONG.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
         }
     }
 }

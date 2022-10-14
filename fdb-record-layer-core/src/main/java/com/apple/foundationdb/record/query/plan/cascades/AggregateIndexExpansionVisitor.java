@@ -257,8 +257,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     private static Map<String, BuiltInFunction<? extends Value>> computeAggregateMap() {
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
-        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexBackedAggregateValue.MaxEverFn());
-        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexBackedAggregateValue.MinEverFn());
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexBackedAggregateValue.MaxEverLongFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexBackedAggregateValue.MinEverLongFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         return mapBuilder.build();

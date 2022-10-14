@@ -60,7 +60,7 @@ import static java.util.function.UnaryOperator.identity;
  * Aggregation over numeric values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NumericAggregationValue implements ValueWithChild, AggregateValue, WithNamedPhysicalOperation {
+public class NumericAggregationValue implements ValueWithChild, StreamableAggregateValue, WithNamedPhysicalOperation {
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
     @Nonnull

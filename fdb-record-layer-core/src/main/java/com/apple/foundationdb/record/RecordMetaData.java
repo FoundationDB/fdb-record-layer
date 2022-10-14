@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -674,6 +675,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordTypeStream
                 .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
                 .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        LinkedHashMap::new,
                         Collectors.reducing(null,
                                 (fieldDescriptor, fieldDescriptor2) -> {
                                     Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);

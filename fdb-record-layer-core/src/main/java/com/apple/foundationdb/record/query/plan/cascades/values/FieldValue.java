@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -56,10 +58,16 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     private final List<Field> fieldPath;
 
+    @Nonnull
+    private final Supplier<List<Field>> normalizedFieldsSupplier;
+
     private FieldValue(@Nonnull Value childValue, @Nonnull List<Field> fieldPath) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
         this.childValue = childValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
+        normalizedFieldsSupplier = Suppliers.memoize(() -> {
+            return normalizeForStructuralEquality(childValue.getResultType(), fieldPath);
+        });
     }
 
     @Nonnull
@@ -124,7 +132,7 @@ public class FieldValue implements ValueWithChild {
 
         final var that = (FieldValue)other;
         return childValue.semanticEquals(that.childValue, equivalenceMap) &&
-               fieldPath.equals(that.fieldPath);
+               normalizedFieldsSupplier.get().equals(that.normalizedFieldsSupplier.get());
     }
 
     @Override
@@ -202,6 +210,33 @@ public class FieldValue implements ValueWithChild {
             currentType = field.getFieldType();
         }
         return accessorPathBuilder.build();
+    }
+
+    @Nonnull
+    private static List<Field> normalizeForStructuralEquality(@Nonnull final Type inputType, @Nonnull final List<Field> fields) {
+        final var normalizedFields = ImmutableList.<Field>builder();
+        var currentType = inputType;
+        for (final var field : fields) {
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD,
+                    String.format("field '%s' can only be normalized on records", field.getFieldNameOptional().isEmpty() ? "#" + field.getFieldIndex() : field.getFieldName()));
+            final var recordType = (Type.Record)currentType;
+            if (field.getFieldIndexOptional().isPresent()) {
+                if (field.getFieldNameOptional().isEmpty()) {
+                    normalizedFields.add(field);
+                } else {
+                    normalizedFields.add(Field.of(field.getFieldType(), Optional.empty(), field.getFieldIndexOptional()));
+                }
+            } else {
+                SemanticException.check(field.getFieldNameOptional().isPresent(), "field does not have name or index");
+                final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
+                final var fieldName = field.getFieldName();
+                SemanticException.check(fieldNameFieldMap.containsKey(fieldName), "record does not contain specified field");
+                final var recordField = fieldNameFieldMap.get(field.getFieldName());
+                normalizedFields.add(Field.of(field.getFieldType(), Optional.empty(), recordField.getFieldIndexOptional()));
+            }
+            currentType = field.getFieldType();
+        }
+        return normalizedFields.build();
     }
 
     @Nonnull

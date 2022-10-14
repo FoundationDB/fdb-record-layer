@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
@@ -233,5 +234,20 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(GroupByExpression.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends RecordConstructorValue> downstreamAggregation,
+                                                                      @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return typedWithDownstream(GroupByExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(GroupByExpression.class,
+                        ImmutableList.of(
+                                typedWithDownstream(GroupByExpression.class,
+                                        Extractor.of(GroupByExpression::getAggregateValue, name -> "aggregation(" + name + ")"),
+                                        downstreamAggregation),
+                                typedWithDownstream(GroupByExpression.class,
+                                        Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                        downstreamQuantifiers))));
     }
 }
