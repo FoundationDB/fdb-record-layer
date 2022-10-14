@@ -162,8 +162,11 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             addConstituent(joinConstituent.getName(), metaDataBuilder.getRecordType(joinConstituent.getRecordType()), joinConstituent.getOuterJoined());
         }
         for (RecordMetaDataProto.JoinedRecordType.Join join : typeProto.getJoinsList()) {
-            addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftExpression()), KeyExpression.fromProto(join.getLeftJoinExpression()),
-                    join.getRight(), KeyExpression.fromProto(join.getRightExpression()), KeyExpression.fromProto(join.getRightJoinExpression()));
+            KeyExpression leftIndexExpression = KeyExpression.fromProto(join.getLeftExpression());
+            KeyExpression leftJoinExpression = join.hasLeftJoinExpression() ? KeyExpression.fromProto(join.getLeftJoinExpression()) : leftIndexExpression;
+            KeyExpression rightIndexExpression = KeyExpression.fromProto(join.getRightExpression());
+            KeyExpression rightJoinExpression = join.hasRightJoinExpression() ? KeyExpression.fromProto(join.getRightJoinExpression()) : rightIndexExpression;
+            addJoin(join.getLeft(), leftIndexExpression, leftJoinExpression, join.getRight(), rightIndexExpression, rightJoinExpression);
         }
     }
 
