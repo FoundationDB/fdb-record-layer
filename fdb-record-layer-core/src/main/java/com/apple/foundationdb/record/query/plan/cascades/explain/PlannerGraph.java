@@ -407,6 +407,47 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
+     * Node class for actual plan operators.
+     */
+    @SuppressWarnings("squid:S2160")
+    public static class ModificationOperatorNodeWithInfo extends OperatorNodeWithInfo {
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo) {
+            this(recordQueryPlan, nodeInfo, null);
+        }
+
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nullable final List<String> details) {
+            this(recordQueryPlan, nodeInfo, details, ImmutableMap.of());
+        }
+
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nullable final List<String> details,
+                                                @Nonnull final Map<String, Attribute> additionalAttributes) {
+            super(recordQueryPlan, nodeInfo, details, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public Map<String, Attribute> getAttributes() {
+            final Map<String, Attribute> attributes = super.getAttributes();
+            return ImmutableMap
+                    .<String, Attribute>builder()
+                    .putAll(attributes)
+                    .put("classifier", Attribute.gml("operator"))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "lightcoral";
+        }
+    }
+
+    /**
      * Node class for logical operators.
      */
     @SuppressWarnings("squid:S2160")
@@ -507,6 +548,35 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public RelationalExpression getExpression() {
             return expression;
+        }
+    }
+
+    /**
+     * Node class for logical operators that also have a {@link NodeInfo}.
+     */
+    public static class ModificationLogicalOperatorNode extends LogicalOperatorNodeWithInfo {
+        public ModificationLogicalOperatorNode(@Nullable final RelationalExpression expression,
+                                               final NodeInfo nodeInfo,
+                                               @Nullable final List<String> details,
+                                               final Map<String, Attribute> additionalAttributes) {
+            super(expression, nodeInfo, details, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public Map<String, Attribute> getAttributes() {
+            final Map<String, Attribute> attributes = super.getAttributes();
+            return ImmutableMap
+                    .<String, Attribute>builder()
+                    .putAll(attributes)
+                    .put("classifier", Attribute.gml("operator"))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "darkseagreen4";
         }
     }
 

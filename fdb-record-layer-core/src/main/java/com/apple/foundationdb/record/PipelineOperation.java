@@ -52,6 +52,8 @@ public class PipelineOperation {
     public static final PipelineOperation TEXT_INDEX_UPDATE = new PipelineOperation("TEXT_INDEX_UPDATE");
     @Nonnull
     public static final PipelineOperation SYNTHETIC_RECORD_JOIN = new PipelineOperation("SYNTHETIC_RECORD_JOIN");
+    @Nonnull
+    public static final PipelineOperation UPDATE = new PipelineOperation("UPDATE");
 
     private final String name;
 

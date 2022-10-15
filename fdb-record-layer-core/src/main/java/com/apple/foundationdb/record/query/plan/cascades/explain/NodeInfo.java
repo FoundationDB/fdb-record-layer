@@ -29,9 +29,9 @@ import java.util.Set;
 
 /**
  * Explanatory information about the Record Layer's plan operators and storage objects.
- *
- * Note that it is possible that users of the record layer may want to amend this set of infos. Therefore it is a
- * class with statics rather than a sealed enumeration.
+ * <br>
+ * Note that it is possible that users of the record layer may want to amend this set of info objects. Therefore, it is
+ * a class with statics rather than a sealed enumeration.
  */
 public class NodeInfo {
     public static final NodeInfo BASE_DATA = new NodeInfo(
@@ -99,6 +99,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Predicate Filter",
             "A predicate filter operator processes the input and returns only those records for which the predicate expression is true.");
+    public static final NodeInfo MODIFICATION_OPERATOR = new NodeInfo(
+            "ModificationOperator",
+            NodeIcon.DATA_ACCESS_OPERATOR,
+            "Modification",
+            "An operator that modifies (or mutates) the data in the database. This includes the insertion of new records into the database, the modification (update) of existing records, or the deletion of records.");
     public static final NodeInfo VALUE_COMPUTATION_OPERATOR = new NodeInfo(
             "ValueComputationOperator",
             NodeIcon.COMPUTATION_OPERATOR,
