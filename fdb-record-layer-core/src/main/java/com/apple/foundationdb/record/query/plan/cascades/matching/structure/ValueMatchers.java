@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregati
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -52,11 +53,13 @@ public class ValueMatchers {
         return typed(Value.class);
     }
 
+    @VisibleForTesting
     @Nonnull
     public static BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final String fieldPathAsString) {
         return fieldValueWithFieldNames(anyValue(), fieldPathAsString);
     }
 
+    @VisibleForTesting
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final String fieldPathAsString) {
@@ -67,6 +70,7 @@ public class ValueMatchers {
         return fieldValueWithFieldNames(downstreamValue, exactly(fieldPathMatchers));
     }
 
+    @VisibleForTesting
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final CollectionMatcher<String> downstreamFieldPath) {

@@ -47,13 +47,13 @@ public class IndexKeyValueToPartialRecord {
     @Nonnull
     private final List<Copier> copiers;
 
-    private IndexKeyValueToPartialRecord(@Nonnull List<Copier> copiers) {
+    private IndexKeyValueToPartialRecord(@Nonnull final List<Copier> copiers) {
         this.copiers = copiers;
     }
 
-    public Message toRecord(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull IndexEntry kv) {
+    public Message toRecord(@Nonnull final Descriptors.Descriptor recordDescriptor, @Nonnull final IndexEntry kv) {
         Message.Builder recordBuilder = DynamicMessage.newBuilder(recordDescriptor);
-        for (Copier copier : copiers) {
+        for (final Copier copier : copiers) {
             copier.copy(recordDescriptor, recordBuilder, kv);
         }
         return recordBuilder.build();
@@ -98,14 +98,14 @@ public class IndexKeyValueToPartialRecord {
 
     static class FieldCopier implements Copier {
         @Nonnull
-        private final String field;
+        private final FieldAccessor.Bound field;
         @Nonnull
         private final TupleSource source;
         private final int index;
         private Descriptors.FieldDescriptor fieldDescriptor;
         private Descriptors.Descriptor containingType;
 
-        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor, @Nonnull String field, @Nonnull TupleSource source, int index) {
+        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor, @Nonnull FieldAccessor.Bound field, @Nonnull TupleSource source, int index) {
             this.field = field;
             this.source = source;
             this.index = index;
@@ -123,7 +123,7 @@ public class IndexKeyValueToPartialRecord {
             }
             if (!containingType.equals(recordDescriptor)) {
                 containingType = recordDescriptor;
-                fieldDescriptor = recordDescriptor.findFieldByName(field);
+                fieldDescriptor = field.getField(recordDescriptor);
             }
             switch (fieldDescriptor.getType()) {
                 case INT32:
@@ -174,11 +174,11 @@ public class IndexKeyValueToPartialRecord {
     // DynamicMessage does not support that.
     static class MessageCopier implements Copier {
         @Nonnull
-        private final String field;
+        private final FieldAccessor.Bound field;
         @Nonnull
         private final IndexKeyValueToPartialRecord nested;
 
-        private MessageCopier(@Nonnull String field, @Nonnull IndexKeyValueToPartialRecord nested) {
+        private MessageCopier(@Nonnull FieldAccessor.Bound field, @Nonnull IndexKeyValueToPartialRecord nested) {
             this.field = field;
             this.nested = nested;
         }
@@ -186,7 +186,7 @@ public class IndexKeyValueToPartialRecord {
         @Override
         public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                          @Nonnull IndexEntry kv) {
-            final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
+            final Descriptors.FieldDescriptor fieldDescriptor = field.getField(recordDescriptor);
             switch (fieldDescriptor.getType()) {
                 case MESSAGE:
                     break;
@@ -225,42 +225,59 @@ public class IndexKeyValueToPartialRecord {
         }
     }
 
-    public static Builder newBuilder(@Nonnull RecordType recordType) {
-        return new Builder(recordType);
+    /**
+     * Creates a new {@link Builder}.
+     * @param recordType The record type.
+     * @return a new {@link Builder}.
+     * @deprecated this method is deprecated, for new usages use {@link Builder#newBuilderUsingFieldName(RecordType)}.
+     */
+    @Deprecated
+    public static Builder<String> newBuilder(@Nonnull RecordType recordType) {
+        return new Builder<>(recordType, FieldAccessor.byName());
     }
 
-    public static Builder newBuilder(@Nonnull Descriptors.Descriptor recordDescriptor) {
-        return new Builder(recordDescriptor);
+    public static Builder<String> newBuilderUsingFieldName(@Nonnull RecordType recordType) {
+        return new Builder<>(recordType, FieldAccessor.byName());
+    }
+
+    public static Builder<Integer> newBuilderUsingFieldIndex(@Nonnull RecordType recordType) {
+        return new Builder<>(recordType, FieldAccessor.byIndex());
     }
 
     /**
      * A builder for {@link IndexKeyValueToPartialRecord}.
      */
-    public static class Builder {
+    public static class Builder<T extends Comparable<T>> {
         @Nonnull
         private final Descriptors.Descriptor recordDescriptor;
         @Nonnull
-        private final Map<String, FieldCopier> fields;
+        private final Map<T, FieldCopier> fields;
         @Nonnull
-        private final Map<String, Builder> nestedBuilders;
-        private List<Copier> regularCopiers = new ArrayList<>();
+        private final Map<T, Builder<T>> nestedBuilders;
+        @Nonnull
+        private final List<Copier> regularCopiers = new ArrayList<>();
+        @Nonnull
+        private final FieldAccessor<T> fieldAccessor;
 
-        private Builder(@Nonnull RecordType recordType) {
-            this(recordType.getDescriptor());
+        private Builder(@Nonnull RecordType recordType,
+                        @Nonnull final FieldAccessor<T> fieldAccessor) {
+            this(recordType.getDescriptor(), fieldAccessor);
         }
 
-        private Builder(@Nonnull Descriptors.Descriptor recordDescriptor) {
+        private Builder(@Nonnull Descriptors.Descriptor recordDescriptor,
+                        @Nonnull final FieldAccessor<T> fieldAccessor) {
             this.recordDescriptor = recordDescriptor;
+            this.fieldAccessor = fieldAccessor;
             this.fields = new TreeMap<>();
             this.nestedBuilders = new TreeMap<>();
         }
         
-        public boolean hasField(@Nonnull String field) {
+        public boolean hasField(@Nonnull T field) {
             return fields.containsKey(field) || nestedBuilders.containsKey(field);
         }
 
-        public Builder addField(@Nonnull String field, @Nonnull TupleSource source, int index) {
-            final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
+        public Builder addField(@Nonnull T field, @Nonnull TupleSource source, int index) {
+            final Descriptors.FieldDescriptor fieldDescriptor = fieldAccessor.getField(field, recordDescriptor);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);
             }
@@ -268,7 +285,7 @@ public class IndexKeyValueToPartialRecord {
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(fieldDescriptor, field, source, index);
+            FieldCopier copier = new FieldCopier(fieldDescriptor, fieldAccessor.bind(field), source, index);
             FieldCopier prev = fields.put(field, copier);
             if (prev != null) {
                 throw new RecordCoreException("setting field more than once: " + field);
@@ -276,17 +293,17 @@ public class IndexKeyValueToPartialRecord {
             return this;
         }
 
-        public Builder getFieldBuilder(@Nonnull String field) {
-            Builder builder = nestedBuilders.get(field);
+        public Builder<T> getFieldBuilder(@Nonnull T field) {
+            Builder<T> builder = nestedBuilders.get(field);
             if (builder == null) {
-                final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
+                final Descriptors.FieldDescriptor fieldDescriptor = fieldAccessor.getField(field, recordDescriptor);
                 if (fieldDescriptor == null) {
                     throw new MetaDataException("field not found: " + field);
                 }
                 if (fieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
                     throw new RecordCoreException("not a nested message: " + field);
                 }
-                builder = new Builder(fieldDescriptor.getMessageType());
+                builder = new Builder<>(fieldDescriptor.getMessageType(), fieldAccessor);
                 nestedBuilders.put(field, builder);
             }
             return builder;
@@ -295,7 +312,8 @@ public class IndexKeyValueToPartialRecord {
         public void addRequiredMessageFields() {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() && fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                    nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType()));
+                    nestedBuilders.putIfAbsent(fieldAccessor.getFieldIdentifier(fieldDescriptor),
+                            new Builder<T>(fieldDescriptor.getMessageType(), fieldAccessor));
                 }
             }
         }
@@ -310,15 +328,15 @@ public class IndexKeyValueToPartialRecord {
         }
 
         public boolean isValid(boolean allowRepeated) {
-            for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
-                if (fieldDescriptor.isRequired() && !hasField(fieldDescriptor.getName())) {
+            for (final Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
+                if (fieldDescriptor.isRequired() && !hasField(fieldAccessor.getFieldIdentifier(fieldDescriptor))) {
                     return false;
                 }
-                if (!allowRepeated && fieldDescriptor.isRepeated() && hasField(fieldDescriptor.getName())) {
+                if (!allowRepeated && fieldDescriptor.isRepeated() && hasField(fieldAccessor.getFieldIdentifier(fieldDescriptor))) {
                     return false;
                 }
                 if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                    Builder builder = nestedBuilders.get(fieldDescriptor.getName());
+                    final Builder<T> builder = nestedBuilders.get(fieldAccessor.getFieldIdentifier(fieldDescriptor));
                     if (builder != null && !builder.isValid(allowRepeated)) {
                         return false;
                     }
@@ -332,12 +350,114 @@ public class IndexKeyValueToPartialRecord {
         }
         
         public IndexKeyValueToPartialRecord build() {
-            List<Copier> copiers = new ArrayList<>(fields.values());
-            for (Map.Entry<String, Builder> entry : nestedBuilders.entrySet()) {
-                copiers.add(new MessageCopier(entry.getKey(), entry.getValue().build()));
+            final List<Copier> copiers = new ArrayList<>(fields.values());
+            for (final Map.Entry<T, Builder<T>> entry : nestedBuilders.entrySet()) {
+                copiers.add(new MessageCopier(fieldAccessor.bind(entry.getKey()), entry.getValue().build()));
             }
             copiers.addAll(regularCopiers);
             return new IndexKeyValueToPartialRecord(copiers);
+        }
+    }
+
+    interface FieldAccessor<T extends Comparable<T>> {
+
+        interface Bound {
+
+            Descriptors.FieldDescriptor getField(@Nonnull Descriptors.Descriptor record);
+
+            abstract class BoundFieldAccessorImpl<T extends Comparable<T>> implements Bound {
+                final T modifier;
+
+                private BoundFieldAccessorImpl(final T modifier) {
+                    this.modifier = modifier;
+                }
+
+                @Override
+                public boolean equals(final Object o) {
+                    if (this == o) {
+                        return true;
+                    }
+                    if (o == null || getClass() != o.getClass()) {
+                        return false;
+                    }
+                    final var that = (BoundFieldAccessorImpl<?>)o;
+                    return modifier == that.modifier;
+                }
+
+                @Override
+                public int hashCode() {
+                    return Objects.hash(modifier);
+                }
+
+            }
+
+            static BoundFieldAccessorImpl<Integer> get(int modifier) {
+                return new BoundFieldAccessorImpl<>(modifier) {
+                    @Override
+                    public Descriptors.FieldDescriptor getField(@Nonnull final Descriptors.Descriptor record) {
+                        return record.findFieldByNumber(modifier);
+                    }
+                };
+            }
+
+            static BoundFieldAccessorImpl<String> get(@Nonnull final String modifier) {
+                return new BoundFieldAccessorImpl<>(modifier) {
+                    @Override
+                    public Descriptors.FieldDescriptor getField(@Nonnull final Descriptors.Descriptor record) {
+                        return record.findFieldByName(modifier);
+                    }
+                };
+            }
+
+        }
+        Descriptors.FieldDescriptor getField(@Nonnull final T modifier, @Nonnull Descriptors.Descriptor record);
+
+        T getFieldIdentifier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor);
+
+        Bound bind(@Nonnull final T modifier);
+
+        class ByIndex implements FieldAccessor<Integer> {
+            @Override
+            public Descriptors.FieldDescriptor getField(@Nonnull final Integer modifier, @Nonnull final Descriptors.Descriptor record) {
+                return record.findFieldByNumber(modifier);
+            }
+
+            @Override
+            public Integer getFieldIdentifier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+                return fieldDescriptor.getNumber();
+            }
+
+            @Override
+            public Bound bind(@Nonnull final Integer modifier) {
+                return Bound.get(modifier);
+            }
+        }
+
+        class ByName implements FieldAccessor<String> {
+            @Override
+            public Descriptors.FieldDescriptor getField(@Nonnull final String modifier, @Nonnull final Descriptors.Descriptor record) {
+                return record.findFieldByName(modifier);
+            }
+
+            @Override
+            public String getFieldIdentifier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+                return fieldDescriptor.getName();
+            }
+
+            @Override
+            public Bound bind(@Nonnull final String modifier) {
+                return Bound.get(modifier);
+            }
+        }
+
+        @Nonnull
+        static ByIndex byIndex() {
+            return new ByIndex();
+        }
+
+        @Nonnull
+        static ByName byName() {
+            return new ByName();
         }
     }
 }

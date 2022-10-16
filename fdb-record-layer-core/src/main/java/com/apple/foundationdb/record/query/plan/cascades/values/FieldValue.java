@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +45,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -68,24 +71,25 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
-    public List<Field> getFields() {
+    public List<FieldDelegate> getFields() {
         return fieldPath.getFields();
     }
 
+    @VisibleForTesting
     @Nonnull
     public List<String> getFieldPathNames() {
         return getFields().stream()
-                .map(Field::getFieldName)
+                .map(FieldDelegate::getFieldName)
                 .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
-    public List<Field> getFieldPrefix() {
+    public List<FieldDelegate> getFieldPrefix() {
         return fieldPath.getFieldPrefix();
     }
 
     @Nonnull
-    public Field getLastField() {
+    public FieldDelegate getLastField() {
         return fieldPath.getLastField();
     }
 
@@ -113,7 +117,7 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        final var fieldValue = MessageValue.getFieldValueForFields((Message)childResult, getFields());
+        final var fieldValue = MessageValue.getFieldValueForFields((Message)childResult, getFields().stream().map(FieldDelegate::getField).collect(Collectors.toList()));
         //
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
@@ -139,7 +143,8 @@ public class FieldValue implements ValueWithChild {
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getFields().stream().map(Field::getFieldName).collect(ImmutableList.toImmutableList()));
+        // todo: replace FieldName with FieldIndex
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getFields().stream().map(FieldDelegate::getFieldName).collect(ImmutableList.toImmutableList()));
     }
 
     @Override
@@ -192,7 +197,7 @@ public class FieldValue implements ValueWithChild {
             accessorPathBuilder.add(field);
             currentType = field.getFieldType();
         }
-        return new FieldPath(accessorPathBuilder.build());
+        return new FieldPath(accessorPathBuilder.build().stream().map(FieldDelegate::of).collect(Collectors.toList()));
     }
 
     @Nonnull
@@ -209,14 +214,18 @@ public class FieldValue implements ValueWithChild {
     }
 
     public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
-        return new FieldValue(childValue, new FieldPath(fields));
+        return new FieldValue(childValue, new FieldPath(fields.stream().map(FieldDelegate::of).collect(Collectors.toList())));
+    }
+
+    public static FieldValue ofFieldDelegates(@Nonnull Value childValue, @Nonnull final List<FieldDelegate> fieldDelegates) {
+        return new FieldValue(childValue, new FieldPath(fieldDelegates));
     }
 
     public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
         if (childValue instanceof FieldValue) {
             final var childFieldValue = (FieldValue)childValue;
-            return FieldValue.ofFields(childFieldValue.getChild(),
-                    ImmutableList.<Field>builder().addAll(childFieldValue.getFields()).addAll(fields).build());
+            return FieldValue.ofFieldDelegates(childFieldValue.getChild(),
+                    ImmutableList.<FieldDelegate>builder().addAll(childFieldValue.getFields()).addAll(fields.stream().map(FieldDelegate::of).collect(Collectors.toList())).build());
         }
         return FieldValue.ofFields(childValue, fields);
     }
@@ -274,17 +283,17 @@ public class FieldValue implements ValueWithChild {
         private static final FieldPath EMPTY = new FieldPath(ImmutableList.of());
 
         private static final Comparator<FieldPath> COMPARATOR =
-                Comparator.comparing(FieldPath::getFields, Comparators.lexicographical(Comparator.<Field>naturalOrder()));
+                Comparator.comparing(FieldPath::getFields, Comparators.lexicographical(Comparator.<FieldDelegate>naturalOrder()));
 
         @Nonnull
-        private final List<Field> fields;
+        private final List<FieldDelegate> fields;
 
-        public FieldPath(@Nonnull final List<Field> fields) {
-            this.fields = ImmutableList.copyOf(fields);
+        public FieldPath(@Nonnull final List<FieldDelegate> fieldDelegates) {
+            this.fields = ImmutableList.copyOf(fieldDelegates);
         }
 
         @Nonnull
-        public List<Field> getFields() {
+        public List<FieldDelegate> getFields() {
             return fields;
         }
 
@@ -309,31 +318,24 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         public String toString() {
             return fields.stream()
-                    .map(field -> {
-                        if (field.getFieldNameOptional().isPresent()) {
-                            return "." + field.getFieldName();
-                        } else if (field.getFieldIndexOptional().isPresent()) {
-                            return "#" + field.getFieldIndex();
-                        }
-                        return "(null)";
-                    })
+                    .map(FieldDelegate::toString)
                     .collect(Collectors.joining());
         }
 
         @Nonnull
-        public List<Field> getFieldPrefix() {
+        public List<FieldDelegate> getFieldPrefix() {
             return fields.subList(0, getFields().size() - 1);
         }
 
         @Nonnull
-        public Field getLastField() {
+        public FieldDelegate getLastField() {
             return fields.get(getFields().size() - 1);
         }
 
         public boolean isPrefixOf(@Nonnull final FieldPath otherFieldPath) {
             final var otherFields = otherFieldPath.getFields();
             for (int i = 0; i < fields.size(); i++) {
-                final Field otherField = otherFields.get(i);
+                final FieldDelegate otherField = otherFields.get(i);
                 if (!fields.get(i).equals(otherField)) {
                     return false;
                 }
@@ -349,6 +351,96 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         public static Comparator<FieldPath> comparator() {
             return COMPARATOR;
+        }
+    }
+
+    /**
+     * An accessor of a {@code Field} that aims to hide its implementation details.
+     */
+    @SuppressWarnings("UnstableApiUsage")
+    public static class FieldDelegate implements Comparable<FieldDelegate> {
+        @Nonnull
+        private final Field field;
+
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashFunction);
+
+        /**
+         * creates a new instance of {@code FieldDelegate}.
+         * @param field the underlying {@code Field}.
+         */
+        private FieldDelegate(@Nonnull final Field field) {
+            this.field = field;
+        }
+
+        public Optional<Integer> getFieldIndexOptional() {
+            return field.getFieldIndexOptional();
+        }
+
+        @Nonnull
+        public Type getFieldType() {
+            return field.getFieldType();
+        }
+
+        @Nonnull
+        Optional<String> getFieldNameOptional() {
+            return field.getFieldNameOptional();
+        }
+
+        @Nonnull
+        String getFieldName() {
+            return field.getFieldName();
+        }
+
+        @Nonnull
+        Field getField() {
+            return field;
+        }
+
+        private int computeHashFunction() {
+            return Objects.hash(getFieldType(), getFieldIndexOptional());
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof FieldDelegate)) {
+                return false;
+            }
+            final var field = (FieldDelegate)obj;
+            return getFieldType().equals(field.getFieldType()) &&
+                   getFieldIndexOptional().equals(field.getFieldIndexOptional());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashFunctionSupplier.get();
+        }
+
+        @Nonnull
+        public static FieldDelegate of(@Nonnull final Field field) {
+            return new FieldDelegate(field);
+        }
+
+        @Override
+        public int compareTo(final FieldDelegate other) {
+            Verify.verifyNotNull(other);
+            return field.compareTo(other.field);
+        }
+
+        @Override
+        public String toString() {
+            if (field.getFieldNameOptional().isPresent()) {
+                return "." + field.getFieldName();
+            } else if (field.getFieldIndexOptional().isPresent()) {
+                return "#" + field.getFieldIndex();
+            }
+            return "(null)";
         }
     }
 }
