@@ -365,31 +365,32 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
                                                               @Nonnull final EvaluationContext context,
                                                               @Nonnull final TrieNode trieNode,
-                                                              @Nullable final Descriptors.Descriptor descriptor,
+                                                              @Nullable Descriptors.Descriptor targetDescriptor,
                                                               @Nullable final Object current) {
         final var value = trieNode.getValue();
         if (value != null) {
             return value.eval(store, context);
         } else {
-            Verify.verifyNotNull(descriptor);
+            targetDescriptor = Verify.verifyNotNull(targetDescriptor);
             final var fieldIndexToFieldMap = Verify.verifyNotNull(trieNode.getFieldIndexToFieldMap());
             final var childrenMap = Verify.verifyNotNull(trieNode.getChildrenMap());
-            final var subRecord = (M)current;
+            final var subRecord = (M)Verify.verifyNotNull(current);
 
-            final var fieldDescriptors = descriptor.getFields();
-            final var resultMessageBuilder = DynamicMessage.newBuilder(descriptor);
-            for (final var fieldDescriptor : fieldDescriptors) {
-                final var field = fieldIndexToFieldMap.get(fieldDescriptor.getNumber());
+            final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
+            final var messageDescriptor = subRecord.getDescriptorForType();
+            for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
+                final var field = fieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
+                final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
                 if (field != null) {
                     final var fieldTrieNode = Verify.verifyNotNull(childrenMap.get(field));
                     var fieldResult = transformMessage(store,
                             context,
                             fieldTrieNode,
-                            fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? fieldDescriptor.getMessageType() : null,
-                            subRecord == null ? null : subRecord.getField(fieldDescriptor));
+                            targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
+                            subRecord.getField(messageFieldDescriptor));
                     final var fieldType = field.getFieldType();
                     if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
-                        final var wrappedDescriptor = fieldDescriptor.getMessageType();
+                        final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
                         final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
                         if (fieldResult != null) {
                             wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), fieldResult);
@@ -397,17 +398,54 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
                         fieldResult = wrapperBuilder.build();
                     }
                     if (fieldResult != null) {
-                        resultMessageBuilder.setField(fieldDescriptor, fieldResult);
+                        resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
                     }
                 } else {
-                    if (subRecord != null && subRecord.hasField(fieldDescriptor)) {
-                        final var fieldResult = subRecord.getField(fieldDescriptor);
-                        resultMessageBuilder.setField(fieldDescriptor, fieldResult);
+                    if (subRecord.hasField(messageFieldDescriptor)) {
+                        final var fieldResult = coerceField(targetFieldDescriptor, subRecord);
+                        resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
                     }
                 }
             }
             return resultMessageBuilder.build();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    public static <M extends Message> Object coerceField(@Nonnull final Descriptors.FieldDescriptor targetFieldDescriptor,
+                                                         @Nonnull final Object current) {
+        switch (targetFieldDescriptor.getJavaType()) {
+            case INT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case STRING:
+            case BYTE_STRING:
+            case ENUM:
+                return current;
+            case MESSAGE:
+                return coerceMessage(targetFieldDescriptor.getMessageType(), (M)current);
+            default:
+                throw new IllegalStateException("unsupported java type for record field");
+        }
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <M extends Message> Message coerceMessage(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                                            @Nonnull final M message) {
+        Verify.verifyNotNull(targetDescriptor);
+        final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
+        final var messageDescriptor = message.getDescriptorForType();
+        for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
+            final var targetFieldDescriptor = Verify.verifyNotNull(targetDescriptor.findFieldByName(messageFieldDescriptor.getName()));
+            if (message.hasField(messageFieldDescriptor)) {
+                resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldDescriptor, message.getField(messageFieldDescriptor)));
+            }
+        }
+        return resultMessageBuilder.build();
     }
 
     /**
