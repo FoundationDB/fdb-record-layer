@@ -99,8 +99,13 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final String OUTER_FIELD_NAME = "outer";
+
+    private static final int OUTER_FIELD_INDEX = 0;
+
     @Nonnull
     private static final String INNER_FIELD_NAME = "inner";
+
+    private static final int INNER_FIELD_INDEX = 1;
 
     public ImplementNestedLoopJoinRule() {
         // TODO figure out which constraints this rule should be sensitive to
@@ -301,8 +306,8 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final var joinedResultValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(outerValue.getResultType(), Optional.of(OUTER_FIELD_NAME)), outerValue),
-                                Column.of(Type.Record.Field.of(innerValue.getResultType(), Optional.of(INNER_FIELD_NAME)), innerValue)));
+                                Column.of(Type.Record.Field.of(outerValue.getResultType(), Optional.of(OUTER_FIELD_NAME), Optional.of(OUTER_FIELD_INDEX)), outerValue),
+                                Column.of(Type.Record.Field.of(innerValue.getResultType(), Optional.of(INNER_FIELD_NAME), Optional.of(INNER_FIELD_INDEX)), innerValue)));
 
         final var joinedAlias = Quantifier.uniqueID();
         final var joinedQuantifier =
@@ -317,9 +322,9 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final var translationMap =
                 TranslationMap.builder()
                         .when(outerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
-                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), OUTER_FIELD_NAME, leafValue))
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), OUTER_FIELD_INDEX, leafValue))
                         .when(innerAlias).then(joinedAlias, (sourceAlias, targetAlias, leafValue) ->
-                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), INNER_FIELD_NAME, leafValue))
+                                replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), INNER_FIELD_INDEX, leafValue))
                         .build();
 
 
@@ -345,9 +350,9 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
     @Nonnull
     private static Value replaceJoinedReference(@Nonnull final CorrelationIdentifier resultAlias,
                                                 @Nonnull final Type.Record joinedRecordType,
-                                                @Nonnull final String fieldName,
+                                                final int fieldIndex,
                                                 @Nonnull final LeafValue leafValue) {
-        final var fieldValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(resultAlias, joinedRecordType), fieldName);
+        final var fieldValue = FieldValue.ofFieldIndex(QuantifiedObjectValue.of(resultAlias, joinedRecordType), fieldIndex);
         return leafValue.replaceReferenceWithField(fieldValue);
     }
 

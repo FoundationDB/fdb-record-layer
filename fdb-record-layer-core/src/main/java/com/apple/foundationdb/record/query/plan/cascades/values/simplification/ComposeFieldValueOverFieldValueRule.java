@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -48,14 +47,14 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
     @Nonnull
     private static final BindingMatcher<Value> innerChildMatcher = anyValue();
     @Nonnull
-    private static final CollectionMatcher<Field> innerFieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<FieldValue.FieldDelegate> innerFieldPathMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> innerFieldValueMatcher =
             ValueMatchers.fieldValueWithFieldPath(innerChildMatcher, innerFieldPathMatcher);
 
     @Nonnull
-    private static final CollectionMatcher<Field> outerFieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<FieldValue.FieldDelegate> outerFieldPathMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
@@ -75,6 +74,6 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
         final var outerFieldPath = bindings.get(outerFieldPathMatcher);
         Verify.verify(!outerFieldPath.isEmpty());
 
-        call.yield(FieldValue.ofFields(innerChild, ImmutableList.<Field>builder().addAll(innerFieldPath).addAll(outerFieldPath).build()));
+        call.yield(FieldValue.ofFieldDelegates(innerChild, ImmutableList.<FieldValue.FieldDelegate>builder().addAll(innerFieldPath).addAll(outerFieldPath).build()));
     }
 }

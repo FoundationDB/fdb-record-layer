@@ -1736,7 +1736,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
 
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final IndexKeyValueToPartialRecord.Builder<String> builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final List<KeyExpression> keyFields = index.getRootExpression().normalizeKeyForPositions();
         final List<KeyExpression> valueFields = Collections.emptyList();
         for (KeyExpression resultField : query.getRequiredResults()) {
@@ -1756,7 +1756,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
-                                            @Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                            @Nonnull IndexKeyValueToPartialRecord.Builder<String> builder,
                                             @Nonnull List<KeyExpression> keyFields,
                                             @Nonnull List<KeyExpression> valueFields) {
         final IndexKeyValueToPartialRecord.TupleSource source;

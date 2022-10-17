@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -54,7 +53,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             recordConstructorValue(all(anyValue()));
 
     @Nonnull
-    private static final CollectionMatcher<Field> fieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<FieldValue.FieldDelegate> fieldPathMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
@@ -79,7 +78,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             // just return the child
             call.yield(column.getValue());
         } else {
-            call.yield(FieldValue.ofFields(column.getValue(),
+            call.yield(FieldValue.ofFieldDelegates(column.getValue(),
                     fieldPath.stream()
                             .skip(1L)
                             .collect(ImmutableList.toImmutableList())));
@@ -87,13 +86,12 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
     }
 
     @Nonnull
-    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final Field field) {
+    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final FieldValue.FieldDelegate field) {
         for (final var column : recordConstructorValue.getColumns()) {
             if (field.getFieldIndex() == column.getField().getFieldIndex()) {
-                Verify.verify(field.getFieldNameOptional().equals(column.getField().getFieldNameOptional()));
                 return column;
             }
         }
-        throw new RecordCoreException("should have found field by field name");
+        throw new RecordCoreException(String.format("could not find field with index #%d", field.getFieldIndex()));
     }
 }

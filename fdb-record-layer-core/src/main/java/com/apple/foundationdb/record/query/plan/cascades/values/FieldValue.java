@@ -200,9 +200,15 @@ public class FieldValue implements ValueWithChild {
         return new FieldPath(accessorPathBuilder.build().stream().map(FieldDelegate::of).collect(Collectors.toList()));
     }
 
+    @VisibleForTesting
     @Nonnull
     public static FieldValue ofFieldName(@Nonnull Value childValue, @Nonnull final String fieldName) {
         return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(fieldName, -1))));
+    }
+
+    @Nonnull
+    public static FieldValue ofFieldIndex(@Nonnull Value childValue, @Nonnull final int fieldIndex) {
+        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, fieldIndex))));
     }
 
     public static FieldValue ofFieldNames(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
@@ -211,10 +217,6 @@ public class FieldValue implements ValueWithChild {
 
     public static FieldValue ofAccessors(@Nonnull Value childValue, @Nonnull final List<Accessor> accessors) {
         return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), accessors));
-    }
-
-    public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
-        return new FieldValue(childValue, new FieldPath(fields.stream().map(FieldDelegate::of).collect(Collectors.toList())));
     }
 
     public static FieldValue ofFieldDelegates(@Nonnull Value childValue, @Nonnull final List<FieldDelegate> fieldDelegates) {

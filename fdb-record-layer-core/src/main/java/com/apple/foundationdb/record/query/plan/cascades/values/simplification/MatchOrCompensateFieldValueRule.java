@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, FieldValue> {
     @Nonnull
-    private static final CollectionMatcher<Type.Record.Field> fieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<FieldValue.FieldDelegate> fieldPathMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =

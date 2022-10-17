@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -90,7 +89,7 @@ public class ValueMatchers {
 
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                       @Nonnull final CollectionMatcher<Type.Record.Field> downstreamFieldPath) {
+                                                                                       @Nonnull final CollectionMatcher<FieldValue.FieldDelegate> downstreamFieldPath) {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
