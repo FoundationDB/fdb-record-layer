@@ -32,12 +32,16 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Enable incremental builds. Upgrade guava dependency to 31.1-jre. [(Issue #1868)](https://github.com/FoundationDB/fdb-record-layer/issues/1868)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.3.295.0
+
+* **Breaking change** Enable incremental builds. Upgrade guava dependency to 31.1-jre. [(Issue #1868)](https://github.com/FoundationDB/fdb-record-layer/issues/1868)
 
 ## 3.2
 
