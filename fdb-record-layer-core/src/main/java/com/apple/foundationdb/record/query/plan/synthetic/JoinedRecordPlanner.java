@@ -289,20 +289,17 @@ class JoinedRecordPlanner {
         if (function.getMinArguments() != 1 || function.getMaxArguments() != 1) {
             throw new RecordCoreException("invertible functions in joins must operate on a single element");
         }
-        if (!(comparison instanceof Comparisons.ComparisonWithParameter)) {
-            throw new RecordCoreException("can only invert function on comparison with parameter");
-        }
-        return new InvertFunctionComparisonWithParameter(function, (Comparisons.ComparisonWithParameter) comparison);
+        return new InvertFunctionComparisonWithParameter(function, comparison);
     }
 
-    private static class InvertFunctionComparisonWithParameter implements Comparisons.ComparisonWithParameter {
+    private static class InvertFunctionComparisonWithParameter implements Comparisons.Comparison {
         @Nonnull
         private final InvertibleFunctionKeyExpression function;
         @Nonnull
-        private final Comparisons.ComparisonWithParameter underlyingComparison;
+        private final Comparisons.Comparison underlyingComparison;
 
         private InvertFunctionComparisonWithParameter(@Nonnull InvertibleFunctionKeyExpression function,
-                                                      @Nonnull Comparisons.ComparisonWithParameter underlyingComparison) {
+                                                      @Nonnull Comparisons.Comparison underlyingComparison) {
             this.function = function;
             this.underlyingComparison = underlyingComparison;
         }
@@ -391,23 +388,20 @@ class JoinedRecordPlanner {
             return function.getName() + "^-1(" + underlyingComparison.typelessString() + ")";
         }
 
+        @Override
+        public String toString() {
+            return getType() + " " + typelessString();
+        }
+
         @Nonnull
         @Override
         public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             Comparisons.Comparison translated = underlyingComparison.translateCorrelations(translationMap);
             if (translated == underlyingComparison) {
                 return this;
-            } else if (translated instanceof Comparisons.ComparisonWithParameter) {
-                return new InvertFunctionComparisonWithParameter(function, (Comparisons.ComparisonWithParameter) translated);
             } else {
-                throw new RecordCoreException("can only translate correlations if underlying is still with parameter");
+                return new InvertFunctionComparisonWithParameter(function, translated);
             }
-        }
-
-        @Nonnull
-        @Override
-        public String getParameter() {
-            return underlyingComparison.getParameter();
         }
     }
 }

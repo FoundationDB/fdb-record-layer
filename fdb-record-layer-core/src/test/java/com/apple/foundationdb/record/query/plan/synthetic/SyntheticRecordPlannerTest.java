@@ -92,8 +92,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -1052,6 +1054,11 @@ public class SyntheticRecordPlannerTest {
         joined.addConstituent("cust", "CustomerWithHeader");
 
         joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
                 field("custRef").nest("string_value"),
                 "cust",
                 function("canonicalize", field("___header").nest("int_rec_id"))
@@ -1064,28 +1071,162 @@ public class SyntheticRecordPlannerTest {
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+            final Index joinIndex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
 
-            TestRecordsJoinIndexProto.CustomerWithHeader.Builder custBuilder = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder();
-            custBuilder.getHeaderBuilder().setZKey(1).setIntRecId(1L);
-            custBuilder.setName("Scott Fines");
-            custBuilder.setCity("Toronto");
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recStore.saveRecord(customer);
 
-            recStore.saveRecord(custBuilder.build());
+            TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
+                    .setOrderNo(10)
+                    .setQuantity(23)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
+                    .build();
+            recStore.saveRecord(order);
 
-            TestRecordsJoinIndexProto.OrderWithHeader.Builder orderBuilder = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder();
-            orderBuilder.getHeaderBuilder().setZKey(1).setRecId("23");
-            orderBuilder.setOrderNo(10).setQuantity(23);
-            orderBuilder.getCustRefBuilder().setStringValue("i:1");
+            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Scott", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
 
-            recStore.saveRecord(orderBuilder.build());
+            // Update the customer name
+            TestRecordsJoinIndexProto.CustomerWithHeader customerWithNewName = customer.toBuilder()
+                    .setName("Alec")
+                    .build();
+            recStore.saveRecord(customerWithNewName);
 
-            //now check that we can scan them back out again
-            Index joinIdex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
-            List<IndexEntry> entries = recStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            assertEquals(1, entries.size());
-            final IndexEntry indexEntry = entries.get(0);
-            assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
-            assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Update the order number
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNewNumber = order.toBuilder()
+                    .setOrderNo(42)
+                    .build();
+            recStore.saveRecord(orderWithNewNumber);
+
+            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Insert an order with no associated customer
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNoCustomer = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(2).setRecId("noCustomer"))
+                    .setOrderNo(1066)
+                    .setQuantity(9001)
+                    .build();
+            recStore.saveRecord(orderWithNoCustomer);
+
+            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Update no customer record with a string that cannot be decanonicalized
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNoncanonicalCustomer = orderWithNoCustomer.toBuilder()
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("dangling_ref"))
+                    .build();
+            recStore.saveRecord(orderWithNoncanonicalCustomer);
+
+            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+        }
+    }
+
+    @Test
+    void joinOnListOfKeysWithDifferentTypes() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("OrderCCJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+        joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
+                field("cc", KeyExpression.FanType.FanOut).nest("string_value"),
+                "cust",
+                function("canonicalize", field("___header").nest("int_rec_id"))
+        );
+
+        // Add an index on the cc field so that the join planner can use the index to resolve join pairs
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("OrderWithHeader"),
+                new Index("OrderWithHeader$cc", concat(field("___header").nest("z_key"), field("cc", KeyExpression.FanType.FanOut).nest("string_value"))));
+        // Add a join index listing all of the CC'd customer names for a given order number
+        metaDataBuilder.addIndex(joined, new Index("OrderCCNames",
+                concat(field("order").nest(field("___header").nest("z_key")), field("order").nest("order_no"), field("cust").nest("name"))));
+
+        List<TestRecordsJoinIndexProto.CustomerWithHeader> customers = IntStream.range(0, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setIntRecId(i).build())
+                        .setName(String.format("Customer %d", i))
+                        .build()
+                )
+                .collect(Collectors.toList());
+        List<TestRecordsJoinIndexProto.OrderWithHeader> orders = IntStream.range(0, customers.size())
+                .mapToObj(i -> TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setRecId(String.format("order_%d", i)))
+                        .setOrderNo(1000 + i)
+                        .setQuantity(100)
+                        .addAllCc(IntStream.range(0, i).mapToObj(refId -> TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue(String.format("i:%d", refId)).build()).collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+
+            for (int i = 0; i < customers.size(); i++) {
+                recStore.saveRecord(customers.get(i));
+                recStore.saveRecord(orders.get(orders.size() - i - 1));
+            }
+
+            final Index joinIndex = recStore.getRecordMetaData().getIndex("OrderCCNames");
+            for (TestRecordsJoinIndexProto.OrderWithHeader order : orders) {
+                final Set<String> ccIds = order.getCcList().stream()
+                        .map(TestRecordsJoinIndexProto.Ref::getStringValue)
+                        .collect(Collectors.toSet());
+                final List<String> customerNames = customers.stream()
+                        .filter(customer -> ccIds.contains(String.format("i:%d", customer.getHeader().getIntRecId())))
+                        .map(TestRecordsJoinIndexProto.CustomerWithHeader::getName)
+                        .collect(Collectors.toList());
+                try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(
+                        joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(order.getHeader().getZKey(), order.getOrderNo())), null, ScanProperties.FORWARD_SCAN)) {
+
+                    final List<String> foundNames = cursor
+                            .map(IndexEntry::getKey)
+                            .map(key -> key.getString(2))
+                            .asList()
+                            .get();
+
+                    assertEquals(customerNames, foundNames);
+                }
+            }
         }
     }
 
@@ -1131,6 +1272,67 @@ public class SyntheticRecordPlannerTest {
             final IndexEntry indexEntry = entries.get(0);
             assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
             assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+        }
+    }
+
+    @Test
+    void joinOnNonInjectiveFunction() throws Exception {
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("NumValue2Join");
+        joined.addConstituent("simple", "MySimpleRecord");
+        joined.addConstituent("other", "MyOtherRecord");
+
+        // Join where simple.num_value_2 = abs_value(other.num_value)
+        joined.addJoin(
+                "simple",
+                field("num_value_2"),
+                "other",
+                function("abs_value", field("num_value"))
+        );
+        metaDataBuilder.addIndex(joined, new Index("joinOnNumValue2", concat(field("simple").nest("str_value"), field("other").nest("num_value_3"))));
+
+        // Indexes used to compute the join
+        metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
+        metaDataBuilder.addIndex("MyOtherRecord", "num_value");
+
+        List<TestRecordsJoinIndexProto.MySimpleRecord> simpleRecords = IntStream.range(-10, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
+                        .setRecNo(i + 1000L)
+                        .setNumValue2(i)
+                        .setStrValue(String.format("Record %d", i))
+                        .build())
+                .collect(Collectors.toList());
+        List<TestRecordsJoinIndexProto.MyOtherRecord> otherRecords = IntStream.range(-10, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
+                        .setRecNo(i + 2000L)
+                        .setNumValue(i)
+                        .setNumValue3(i * 10)
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinOnNumValue2");
+            for (int i = 0; i < simpleRecords.size(); i++) {
+                recordStore.saveRecord(simpleRecords.get(i));
+                recordStore.saveRecord(otherRecords.get(otherRecords.size() - i - 1));
+            }
+
+            for (TestRecordsJoinIndexProto.MySimpleRecord simpleRecord : simpleRecords) {
+                List<Integer> matchingNumValue3s = otherRecords.stream()
+                        .filter(other -> simpleRecord.getNumValue2() == Math.abs(other.getNumValue()))
+                        .map(TestRecordsJoinIndexProto.MyOtherRecord::getNumValue3)
+                        .collect(Collectors.toList());
+
+                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+                        joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(simpleRecord.getStrValue())), null, ScanProperties.FORWARD_SCAN)) {
+                    List<Integer> foundNumValue3s = cursor.map(IndexEntry::getKey)
+                            .map(key -> key.getLong(1))
+                            .map(Long::intValue)
+                            .asList()
+                            .get();
+                    assertEquals(matchingNumValue3s, foundNumValue3s);
+                }
+            }
         }
     }
 
@@ -1243,7 +1445,8 @@ public class SyntheticRecordPlannerTest {
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Lists.newArrayList(
-                    new FunctionKeyExpression.BiFunctionBuilder("canonicalize", StringCanonicalizerFunction::new)
+                    new FunctionKeyExpression.BiFunctionBuilder("canonicalize", StringCanonicalizerFunction::new),
+                    new FunctionKeyExpression.BiFunctionBuilder("abs_value", AbsoluteValueFunctionKeyExpression::new)
             );
         }
     }
@@ -1265,12 +1468,12 @@ public class SyntheticRecordPlannerTest {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return super.basePlanHash(hashKind, BASE_HASH);
+            return super.basePlanHash(hashKind, BASE_HASH, arguments);
         }
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
+            return super.baseQueryHash(hashKind, BASE_HASH, arguments);
         }
 
         @Override
@@ -1299,6 +1502,74 @@ public class SyntheticRecordPlannerTest {
             } else {
                 return Collections.singletonList(result);
             }
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
+        }
+    }
+
+    public static class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Absoluste-Value-Function");
+
+        protected AbsoluteValueFunctionKeyExpression(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record, @Nullable final Message message, @Nonnull final Key.Evaluated arguments) {
+            if (arguments.getObject(0) == null) {
+                return Collections.singletonList(arguments);
+            }
+            long value = arguments.getLong(0);
+            return Collections.singletonList(Key.Evaluated.scalar(Math.abs(value)));
+        }
+
+        @Override
+        protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull final Key.Evaluated result) {
+            if (result.getObject(0) == null) {
+                return Collections.emptyList();
+            }
+            long value = result.getLong(0);
+            if (value < 0L) {
+                return Collections.emptyList();
+            } else if (value == 0L) {
+                return Collections.singletonList(Key.Evaluated.scalar(0L));
+            } else {
+                return List.of(Key.Evaluated.scalar(value), Key.Evaluated.scalar(-1L * value));
+            }
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH, arguments);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 1;
+        }
+
+        @Override
+        public boolean isInjective() {
+            return false;
         }
 
         @Override
