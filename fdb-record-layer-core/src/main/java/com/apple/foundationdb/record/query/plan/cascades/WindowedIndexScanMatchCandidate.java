@@ -376,7 +376,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         }
 
         final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final IndexKeyValueToPartialRecord.Builder<Integer> builder = IndexKeyValueToPartialRecord.newBuilderUsingFieldIndex(recordType);
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseRecordType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
@@ -445,25 +445,28 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return builder.build();
     }
 
-    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder<Integer> builder,
                                             @Nonnull FieldValue fieldValue,
                                             @Nonnull AvailableFields.FieldData fieldData) {
-        for (final Type.Record.Field field : fieldValue.getFieldPrefix()) {
-            if (field.getFieldNameOptional().isEmpty()) {
+
+        // TODO this method is duplicated in `ValueIndexScanMatchCandidate` and should be unified.
+
+        for (final FieldValue.FieldDelegate fieldDelegate : fieldValue.getFieldPrefix()) {
+            if (fieldDelegate.getFieldIndexOptional().isEmpty()) {
                 return false;
             }
-            builder = builder.getFieldBuilder(field.getFieldName());
+            builder = builder.getFieldBuilder(fieldDelegate.getFieldIndex());
         }
 
         // TODO not sure what to do with the null standing requirement
 
-        final Type.Record.Field field = fieldValue.getLastField();
-        if (field.getFieldNameOptional().isEmpty()) {
+        final FieldValue.FieldDelegate lastFieldDelegate = fieldValue.getLastField();
+        if (lastFieldDelegate.getFieldIndexOptional().isEmpty()) {
             return false;
         }
-        final String fieldName = field.getFieldName();
-        if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
+        final var fieldIndex = lastFieldDelegate.getFieldIndex();
+        if (!builder.hasField(fieldIndex)) {
+            builder.addField(fieldIndex, fieldData.getSource(), fieldData.getIndex());
         }
         return true;
     }

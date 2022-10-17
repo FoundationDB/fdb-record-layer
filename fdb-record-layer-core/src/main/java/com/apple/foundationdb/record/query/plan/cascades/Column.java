@@ -32,6 +32,9 @@ import java.util.Objects;
  * @param <V> type parameter for the {@link Value}
  */
 public class Column<V extends Value> {
+
+    // (yhatem) it is unclear whether we should this be replaced by {@code FieldDelegate}.
+    // it seems a {@code Field} is used as a named _alias_ of the {@code Column}'s underlying child.
     @Nonnull
     private final Field field;
     @Nonnull

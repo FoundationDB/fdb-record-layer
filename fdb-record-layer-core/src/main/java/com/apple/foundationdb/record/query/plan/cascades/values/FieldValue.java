@@ -221,13 +221,13 @@ public class FieldValue implements ValueWithChild {
         return new FieldValue(childValue, new FieldPath(fieldDelegates));
     }
 
-    public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
+    public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<FieldDelegate> fields) {
         if (childValue instanceof FieldValue) {
             final var childFieldValue = (FieldValue)childValue;
             return FieldValue.ofFieldDelegates(childFieldValue.getChild(),
-                    ImmutableList.<FieldDelegate>builder().addAll(childFieldValue.getFields()).addAll(fields.stream().map(FieldDelegate::of).collect(Collectors.toList())).build());
+                    ImmutableList.<FieldDelegate>builder().addAll(childFieldValue.getFields()).addAll(fields).build());
         }
-        return FieldValue.ofFields(childValue, fields);
+        return FieldValue.ofFieldDelegates(childValue, fields);
     }
 
     @Nonnull
@@ -236,8 +236,8 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
-    public static Optional<List<Field>> stripFieldPrefixMaybe(@Nonnull List<Field> fieldPath,
-                                                              @Nonnull List<Field> potentialPrefixPath) {
+    public static Optional<List<FieldDelegate>> stripFieldPrefixMaybe(@Nonnull List<FieldDelegate> fieldPath,
+                                                              @Nonnull List<FieldDelegate> potentialPrefixPath) {
         if (fieldPath.size() < potentialPrefixPath.size()) {
             return Optional.empty();
         }
@@ -373,8 +373,13 @@ public class FieldValue implements ValueWithChild {
             this.field = field;
         }
 
+        @Nonnull
         public Optional<Integer> getFieldIndexOptional() {
             return field.getFieldIndexOptional();
+        }
+
+        public Integer getFieldIndex() {
+            return field.getFieldIndex();
         }
 
         @Nonnull

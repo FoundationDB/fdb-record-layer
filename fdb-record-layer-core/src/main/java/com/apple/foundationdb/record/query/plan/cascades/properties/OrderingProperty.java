@@ -132,7 +132,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 final var fieldValue = (FieldValue)valuePredicate.getValue();
                                 if (fieldValue.getFields()
                                         .stream()
-                                        .anyMatch(field -> field.getFieldNameOptional().isEmpty())) {
+                                        .anyMatch(field -> field.getFieldIndexOptional().isEmpty())) {
                                     return Stream.of();
                                 }
 

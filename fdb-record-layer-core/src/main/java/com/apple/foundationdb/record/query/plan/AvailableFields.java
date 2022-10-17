@@ -76,12 +76,12 @@ public class AvailableFields {
     }
 
     @Nullable
-    public IndexKeyValueToPartialRecord.Builder buildIndexKeyValueToPartialRecord(@Nonnull RecordType recordType) {
+    public IndexKeyValueToPartialRecord.Builder<String> buildIndexKeyValueToPartialRecord(@Nonnull RecordType recordType) {
         if (fields == null) {
             return null;
         }
 
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final IndexKeyValueToPartialRecord.Builder<String> builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         for (Map.Entry<KeyExpression, FieldData> entry : fields.entrySet()) {
             if (!addCoveringField(entry.getKey(), entry.getValue(), builder)) {
                 return null;
@@ -143,7 +143,7 @@ public class AvailableFields {
         keyFields.addAll(primaryKeys);
 
         Map<KeyExpression, FieldData> fields = new HashMap<>();
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+        final IndexKeyValueToPartialRecord.Builder<String> builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         for (int i = 0; i < keyFields.size(); i++) {
             KeyExpression keyField = keyFields.get(i);
             FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
@@ -172,7 +172,7 @@ public class AvailableFields {
 
     public static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                            @Nonnull FieldData fieldData,
-                                           @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+                                           @Nonnull IndexKeyValueToPartialRecord.Builder<String> builder) {
         if (fieldData.source == IndexKeyValueToPartialRecord.TupleSource.OTHER) {
             return true;
         }

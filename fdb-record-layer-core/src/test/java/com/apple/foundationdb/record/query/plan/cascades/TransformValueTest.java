@@ -46,13 +46,13 @@ class TransformValueTest {
     void testTransformTrie() {
         final var recordType = someRecordType();
         var fields = recordType.getFields();
-        final var aField = fields.get(0);
+        final var aField = FieldValue.FieldDelegate.of(fields.get(0));
         fields = ((Type.Record)aField.getFieldType()).getFields();
-        final var aaField = fields.get(0);
-        final var abField = fields.get(1);
+        final var aaField = FieldValue.FieldDelegate.of(fields.get(0));
+        final var abField = FieldValue.FieldDelegate.of(fields.get(1));
         fields = ((Type.Record)aaField.getFieldType()).getFields();
-        final var aaaField = fields.get(0);
-        final var aabField = fields.get(1);
+        final var aaaField = FieldValue.FieldDelegate.of(fields.get(0));
+        final var aabField = FieldValue.FieldDelegate.of(fields.get(1));
         final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, recordType);
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));

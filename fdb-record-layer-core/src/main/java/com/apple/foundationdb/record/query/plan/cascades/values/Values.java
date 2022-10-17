@@ -92,7 +92,8 @@ public class Values {
         final var fields = recordType.getFields();
 
         for (final var field : fields) {
-            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
+            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(),
+                    ImmutableList.of(FieldValue.FieldDelegate.of(field))), constantAliases).stream()
                     .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
                     .forEach(orderingValuesBuilder::add);
         }

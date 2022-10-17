@@ -233,7 +233,7 @@ public class IndexKeyValueToPartialRecord {
      */
     @Deprecated
     public static Builder<String> newBuilder(@Nonnull RecordType recordType) {
-        return new Builder<>(recordType, FieldAccessor.byName());
+        return newBuilderUsingFieldName(recordType);
     }
 
     public static Builder<String> newBuilderUsingFieldName(@Nonnull RecordType recordType) {
@@ -246,6 +246,7 @@ public class IndexKeyValueToPartialRecord {
 
     /**
      * A builder for {@link IndexKeyValueToPartialRecord}.
+     * @param <T> The type of the field-accessing identifier, usually either a {@code String} or {@code Integer}.
      */
     public static class Builder<T extends Comparable<T>> {
         @Nonnull
@@ -276,7 +277,7 @@ public class IndexKeyValueToPartialRecord {
             return fields.containsKey(field) || nestedBuilders.containsKey(field);
         }
 
-        public Builder addField(@Nonnull T field, @Nonnull TupleSource source, int index) {
+        public Builder<T> addField(@Nonnull T field, @Nonnull TupleSource source, int index) {
             final Descriptors.FieldDescriptor fieldDescriptor = fieldAccessor.getField(field, recordDescriptor);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);
@@ -381,7 +382,7 @@ public class IndexKeyValueToPartialRecord {
                         return false;
                     }
                     final var that = (BoundFieldAccessorImpl<?>)o;
-                    return modifier == that.modifier;
+                    return modifier.equals(that.modifier);
                 }
 
                 @Override
@@ -410,11 +411,12 @@ public class IndexKeyValueToPartialRecord {
             }
 
         }
-        Descriptors.FieldDescriptor getField(@Nonnull final T modifier, @Nonnull Descriptors.Descriptor record);
 
-        T getFieldIdentifier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor);
+        Descriptors.FieldDescriptor getField(@Nonnull T modifier, @Nonnull Descriptors.Descriptor record);
 
-        Bound bind(@Nonnull final T modifier);
+        T getFieldIdentifier(@Nonnull Descriptors.FieldDescriptor fieldDescriptor);
+
+        Bound bind(@Nonnull T modifier);
 
         class ByIndex implements FieldAccessor<Integer> {
             @Override

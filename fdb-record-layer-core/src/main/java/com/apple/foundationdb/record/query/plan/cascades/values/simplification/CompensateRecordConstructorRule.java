@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MatchOrCompensateFieldValueRule.FieldValueCompensation;
@@ -84,7 +85,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
                                 final var argumentValue = childValueEntry.getKey();
                                 final var argumentValueCompensation = childValueEntry.getValue();
                                 newMatchedValuesMap.put(argumentValue,
-                                        new FieldValueCompensation(ImmutableList.of(column.getField()), argumentValueCompensation));
+                                        new FieldValueCompensation(ImmutableList.of(FieldValue.FieldDelegate.of(column.getField())), argumentValueCompensation));
                             }
                             return newMatchedValuesMap;
                         })

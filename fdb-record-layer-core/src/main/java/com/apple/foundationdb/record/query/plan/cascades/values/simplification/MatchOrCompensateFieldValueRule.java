@@ -108,22 +108,22 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
      */
     public static class FieldValueCompensation implements Function<Value, Value> {
         @Nonnull
-        private final List<Type.Record.Field> fieldPath;
+        private final List<FieldValue.FieldDelegate> fieldPath;
 
         @Nonnull
         private final Function<Value, Value> downstreamCompensation;
 
-        public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath) {
+        public FieldValueCompensation(@Nonnull final List<FieldValue.FieldDelegate> fieldPath) {
             this(fieldPath, Function.identity());
         }
 
-        public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
+        public FieldValueCompensation(@Nonnull final List<FieldValue.FieldDelegate> fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
             this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.downstreamCompensation = downstreamCompensation;
         }
 
         @Nonnull
-        public List<Type.Record.Field> getFieldPath() {
+        public List<FieldValue.FieldDelegate> getFieldPath() {
             return fieldPath;
         }
 
@@ -133,7 +133,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
             return downstreamCompensation.apply(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
         }
 
-        public Function<Value, Value> withSuffix(@Nonnull final List<Type.Record.Field> suffixFieldPath) {
+        public Function<Value, Value> withSuffix(@Nonnull final List<FieldValue.FieldDelegate> suffixFieldPath) {
             if (suffixFieldPath.isEmpty()) {
                 return downstreamCompensation;
             }
