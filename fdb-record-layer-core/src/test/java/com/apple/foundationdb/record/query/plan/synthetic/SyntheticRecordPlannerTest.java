@@ -1515,6 +1515,10 @@ public class SyntheticRecordPlannerTest {
         }
     }
 
+    /**
+     * Converts an integer into its absolute value. This function is invertible in that for a given value <i>v</i>,
+     * it is always possible to calculate all possible values that have an absolute value of <i>v</i>.
+     */
     public static class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Absoluste-Value-Function");
 

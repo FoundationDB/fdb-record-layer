@@ -33,12 +33,14 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Variation of {@link InComparandSource} where the values should be returned in a sorted order.
+ */
 @API(API.Status.INTERNAL)
 public class SortedInComparandSource extends InComparandSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE = new ObjectPlanHash("Sorted-In-Comparand");
 
-    @Nonnull
     private final boolean reverse;
 
     protected SortedInComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison, boolean reverse) {

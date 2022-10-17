@@ -395,6 +395,7 @@ class JoinedRecordPlanner {
 
         @Nonnull
         @Override
+        @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
         public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             Comparisons.Comparison translated = underlyingComparison.translateCorrelations(translationMap);
             if (translated == underlyingComparison) {

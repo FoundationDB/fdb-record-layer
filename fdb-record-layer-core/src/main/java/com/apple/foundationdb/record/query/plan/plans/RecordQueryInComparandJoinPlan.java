@@ -44,6 +44,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * A query plan that executes a child plan once for each of the elements extracted from a
+ * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison Comparison} object's
+ * comparand.
+ */
 @API(API.Status.INTERNAL)
 public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Comparand-Join-Plan");

@@ -32,6 +32,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
+/**
+ * Source of values for an "IN" query where the values are derived from the comparand of a
+ * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison Comparison} object. This is
+ * a more generic version of {@link InValuesSource} and {@link InParameterSource} that exists because
+ * some comparison objects can have additional logic used to construct the comparand. In principle,
+ * it should be safe (if not necessarily the most efficient) to replace one of those other {@link InSource}
+ * implementations with this one.
+ */
 @API(API.Status.INTERNAL)
 public class InComparandSource extends InSource {
     @Nonnull
