@@ -101,6 +101,29 @@ message Item {
   optional UUID order_uuid = 5;
 }
 
+message Header {
+  optional int64 z_key = 1;
+  optional string rec_id = 2;
+  optional int64 int_rec_id = 3;
+}
+
+message Ref {
+  optional string string_value = 1;
+}
+
+message CustomerWithHeader{
+  optional Header ___header = 1;
+  optional string name = 2[(field).primary_key = true];
+  optional string city = 3;
+}
+
+message OrderWithHeader {
+  optional Header ___header = 1;
+  optional Ref custRef = 2;
+  optional int32 order_no = 3[(field).primary_key = true];
+  optional int32 quantity = 4;
+}
+
 message RecordTypeUnion {
   optional MySimpleRecord _MySimpleRecord = 1;
   optional MyOtherRecord _MyOtherRecord = 2;
@@ -113,4 +136,6 @@ message RecordTypeUnion {
   optional Customer _Customer = 9;
   optional Order _Order = 10;
   optional Item _Item = 11;
+  optional CustomerWithHeader _CustomerWithHeader = 12;
+  optional OrderWithHeader _OrderWithHeader = 13;
 }

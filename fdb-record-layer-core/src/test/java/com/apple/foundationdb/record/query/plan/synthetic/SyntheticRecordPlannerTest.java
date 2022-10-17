@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -40,12 +41,14 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -66,10 +69,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -104,7 +109,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Tests for {@link SyntheticRecordPlanner}.
- *
  */
 @Tag(Tags.RequiresFDB)
 @API(API.Status.EXPERIMENTAL)
@@ -620,7 +624,7 @@ public class SyntheticRecordPlannerTest {
             TestRecordsJoinIndexProto.TypeC.Builder typeC = TestRecordsJoinIndexProto.TypeC.newBuilder();
             typeC.setRecNo(301).setTypeARecNo(999);
             recordStore.saveRecord(typeC.build());
-            
+
             SyntheticRecordPlan plan2 = plan1;
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
@@ -1037,6 +1041,100 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    void joinOnNestedKeysWithDifferentTypes() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+
+        joined.addJoin("order",
+                field("custRef").nest("string_value"),
+                field("custRef").nest(Key.Expressions.function("decanonicalize", field("string_value"))),
+                "cust",
+                field("___header").nest("int_rec_id"),
+                field("___header").nest(Key.Expressions.function("canonicalize", field("int_rec_id")))
+        );
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        )));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader.Builder custBuilder = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder();
+            custBuilder.getHeaderBuilder().setZKey(1).setIntRecId(1L);
+            custBuilder.setName("Scott Fines");
+            custBuilder.setCity("Toronto");
+
+            recStore.saveRecord(custBuilder.build());
+
+            TestRecordsJoinIndexProto.OrderWithHeader.Builder orderBuilder = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder();
+            orderBuilder.getHeaderBuilder().setZKey(1).setRecId("23");
+            orderBuilder.setOrderNo(10).setQuantity(23);
+            orderBuilder.getCustRefBuilder().setStringValue("i:1");
+
+            recStore.saveRecord(orderBuilder.build());
+
+            //now check that we can scan them back out again
+            Index joinIdex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
+            List<IndexEntry> entries = recStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertEquals(1, entries.size());
+            final IndexEntry indexEntry = entries.get(0);
+            assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
+            assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+        }
+    }
+
+    @Test
+    void joinOnMultipleNestedKeys() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+        joined.addJoin("order", field("___header").nest("z_key"),
+                "cust", field("___header").nest("z_key"));
+        joined.addJoin("order", field("custRef").nest("string_value"),
+                "cust", field("___header").nest("rec_id"));
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        )));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader.Builder custBuilder = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder();
+            custBuilder.getHeaderBuilder().setZKey(1).setRecId("1");
+            custBuilder.setName("Scott Fines");
+            custBuilder.setCity("Toronto");
+
+            recStore.saveRecord(custBuilder.build());
+
+            TestRecordsJoinIndexProto.OrderWithHeader.Builder orderBuilder = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder();
+            orderBuilder.getHeaderBuilder().setZKey(1).setRecId("23");
+            orderBuilder.setOrderNo(10).setQuantity(23);
+            orderBuilder.getCustRefBuilder().setStringValue("1");
+
+            recStore.saveRecord(orderBuilder.build());
+
+            //now check that we can scan them back out again
+            Index joinIdex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
+            List<IndexEntry> entries = recStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertEquals(1, entries.size());
+            final IndexEntry indexEntry = entries.get(0);
+            assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
+            assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+        }
+    }
+
+    @Test
     public void multiFieldKeys() throws Exception {
         metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
@@ -1070,12 +1168,12 @@ public class SyntheticRecordPlannerTest {
 
             context.commit();
         }
-        
+
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             List<FDBSyntheticRecord> recs = recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("simple.str_value_other.num_value_3"),
-                    IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
+                            IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
                     .mapPipelined(entry -> recordStore.loadSyntheticRecord(entry.getPrimaryKey()), 1)
                     .asList().join();
             for (FDBSyntheticRecord record : recs) {
@@ -1136,4 +1234,118 @@ public class SyntheticRecordPlannerTest {
         }
     }
 
+    /**
+     * A Test registry so that we can do string-to-long and long-to string fake conversions in test.
+     */
+    @AutoService(FunctionKeyExpression.Factory.class)
+    public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
+        @Nonnull
+        @Override
+        public List<FunctionKeyExpression.Builder> getBuilders() {
+            return Lists.newArrayList(
+                    new FunctionKeyExpression.BiFunctionBuilder("canonicalize", StringCanonicalizerFunction::new),
+                    new FunctionKeyExpression.BiFunctionBuilder("decanonicalize", StringDeCanonicalizerFunction::new)
+            );
+        }
+    }
+
+    /**
+     * Converts an int into an arbitrary canonical form.
+     */
+    public static class StringCanonicalizerFunction extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("String-Canonicalizer-Function");
+
+        protected StringCanonicalizerFunction(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 1;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record,
+                                                                        @Nullable final Message message,
+                                                                        @Nonnull final Key.Evaluated arguments) {
+            return Collections.singletonList(Key.Evaluated.scalar("i:" + arguments.getLong(0)));
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
+        }
+    }
+
+    /**
+     * converts a "canonical" string into an integer. Inverse of StringCanonicalizerFunction.
+     */
+    public static class StringDeCanonicalizerFunction extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("String-DeCanonicalizer-Function");
+
+        protected StringDeCanonicalizerFunction(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 1;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record,
+                                                                        @Nullable final Message message,
+                                                                        @Nonnull final Key.Evaluated arguments) {
+            String canonicalForm = arguments.getString(0);
+            long strippedForm = Long.parseLong(canonicalForm.substring(2));
+            return Collections.singletonList(Key.Evaluated.scalar(strippedForm));
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
+        }
+    }
 }
