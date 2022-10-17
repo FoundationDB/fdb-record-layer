@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -46,6 +47,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,6 +74,7 @@ import static com.apple.foundationdb.record.TestHelpers.eventually;
 import static com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.DEFAULT_CHECK;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -263,8 +266,9 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         }
     }
 
-    @Test
-    public void testPathToAndFromTuple() throws Exception {
+    @ParameterizedTest(name = "testPathToAndFromTuple[clearCaches={0}]")
+    @BooleanSource
+    public void testPathToAndFromTuple(boolean clearCaches) {
         KeySpace root = new KeySpace(
                 new DirectoryLayerDirectory("production", "production")
                         .addSubdirectory(new KeySpaceDirectory("userid", KeyType.LONG)
@@ -293,6 +297,24 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             path1Tuple = path1.toTuple(context);
             path2Tuple = path2.toTuple(context);
+
+            if (clearCaches) {
+                database.clearReverseDirectoryCache();
+            }
+
+            // Check resolving with the same transaction that created the entry
+            assertResolvesFromKey(context, path1Tuple, root,
+                    "production", "production",
+                    "userid", 123456789L,
+                    "application", "com.mybiz.application1",
+                    "dataStore", null);
+
+            assertResolvesFromKey(context, path2Tuple, root,
+                    "test", "test",
+                    "userid", 987654321L,
+                    "application", "com.mybiz.application2",
+                    "metadataStore", "S");
+
             context.commit();
         }
 
@@ -304,29 +326,56 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             path1ExpectedTuple = Tuple.from(entries.get(0), 123456789L, entries.get(2), null);
             path2ExpectedTuple = Tuple.from(entries.get(1), 987654321L, entries.get(3), entries.get(4));
 
+            if (clearCaches) {
+                database.clearReverseDirectoryCache();
+            }
+
             assertEquals(path1ExpectedTuple, path1Tuple);
             assertEquals(path2ExpectedTuple, path2Tuple);
 
             // Now, make sure that we can take a tuple and turn it back into a keyspace path.
-            List<ResolvedKeySpacePath> revPath1 = root.resolveFromKey(context, path1ExpectedTuple).flatten();
-            assertEquals("production", revPath1.get(0).getDirectoryName());
-            assertEquals(entries.get(0), revPath1.get(0).getResolvedValue());
-            assertEquals("userid", revPath1.get(1).getDirectoryName());
-            assertEquals(123456789L, revPath1.get(1).getResolvedValue());
-            assertEquals("application", revPath1.get(2).getDirectoryName());
-            assertEquals(entries.get(2), revPath1.get(2).getResolvedValue());
-            assertEquals("dataStore", revPath1.get(3).getDirectoryName());
-            assertEquals(null, revPath1.get(3).getResolvedValue());
+            assertResolvesFromKey(context, path1ExpectedTuple, root,
+                    "production", "production",
+                    "userid", 123456789L,
+                    "application", "com.mybiz.application1",
+                    "dataStore", null);
 
             // Tack on extra value to make sure it is in the remainder.
             Tuple extendedPath2 = path2ExpectedTuple.add(10L);
-            List<ResolvedKeySpacePath> revPath2 = root.resolveFromKey(context, extendedPath2).flatten();
-            assertEquals("test", revPath2.get(0).getDirectoryName());
-            assertEquals("userid", revPath2.get(1).getDirectoryName());
-            assertEquals("application", revPath2.get(2).getDirectoryName());
-            assertEquals("metadataStore", revPath2.get(3).getDirectoryName());
-            assertEquals(Tuple.from(10L), revPath2.get(3).getRemainder());
+            ResolvedKeySpacePath revPath2 = assertResolvesFromKey(context, extendedPath2, root,
+                    "test", "test",
+                    "userid", 987654321L,
+                    "application", "com.mybiz.application2",
+                    "metadataStore", "S");
+            assertEquals(Tuple.from(10L), revPath2.getRemainder());
         }
+    }
+
+    private ResolvedKeySpacePath assertResolvesFromKey(FDBRecordContext context, Tuple t, KeySpace keySpace, Object... dirPath) {
+        List<Pair<String, Object>> dirPathList = new ArrayList<>(dirPath.length / 2);
+        for (int i = 0; i < dirPath.length; i += 2) {
+            assertThat(dirPath[i], instanceOf(String.class));
+            String directory = (String) dirPath[i];
+            assertThat(i + 1, lessThan(dirPath.length));
+            dirPathList.add(Pair.of(directory, dirPath[i + 1]));
+        }
+        return assertResolvesFromKey(context, t, keySpace, dirPathList);
+    }
+
+    private ResolvedKeySpacePath assertResolvesFromKey(FDBRecordContext context, Tuple t, KeySpace keySpace, List<Pair<String, Object>> dirPath) {
+        ResolvedKeySpacePath resolved = keySpace.resolveFromKey(context, t);
+        List<ResolvedKeySpacePath> flattened = keySpace.resolveFromKey(context, t).flatten();
+        assertEquals(dirPath.size(), flattened.size());
+
+        for (int i = 0; i < dirPath.size(); i++) {
+            ResolvedKeySpacePath resolvedElem = flattened.get(i);
+            Pair<String, Object> pathElem = dirPath.get(i);
+            assertEquals(resolvedElem.getDirectoryName(), pathElem.getLeft());
+            assertEquals(resolvedElem.getLogicalValue(), pathElem.getRight());
+            assertEquals(resolvedElem.getResolvedValue(), t.get(i));
+        }
+
+        return resolved;
     }
 
     @Test

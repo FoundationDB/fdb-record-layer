@@ -163,7 +163,7 @@ public class ResolverValidator {
                         return CompletableFuture.completedFuture(new ValidatedEntry(ValidationResult.OK, keyValue));
                     }
 
-                    return resolver.reverseLookup(context.getTimer(), keyValue.getValue().getValue())
+                    return resolver.reverseLookup(context, keyValue.getValue().getValue())
                             .handle((reverseKey, exception) -> {
                                 if (exception != null) {
                                     if (isEntryMissing(exception)) {
