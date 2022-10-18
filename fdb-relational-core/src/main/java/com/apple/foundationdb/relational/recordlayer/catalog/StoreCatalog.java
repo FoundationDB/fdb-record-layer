@@ -79,6 +79,18 @@ public interface StoreCatalog {
     boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
 
     /**
+     * Updates schema to the latest template.
+     *
+     * @param txn        a Transaction
+     * @param databaseId database id of the schema to be updated
+     * @param schemaName name of the schema to be updated
+     * @throws RelationalException InternalError if txn is compatible type
+     *                           TransactionInactive if txn is no longer active
+     *                           UNDEFINED_SCHEMA if schema not found
+     */
+    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException;
+
+    /**
      * Updates a schema template. If version field in the new schema template is unset (=0L), set the version to be lastVersion (=0L if the template doesn't exist) + 1.
      *
      * @param txn         a Transaction

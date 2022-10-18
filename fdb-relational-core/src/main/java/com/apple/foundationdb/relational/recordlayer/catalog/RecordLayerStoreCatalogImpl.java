@@ -207,6 +207,16 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
+    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+        // a read-modify-write loop, done in 1 transaction
+        Schema schema = loadSchema(txn, URI.create(databaseId), schemaName);
+        // load latest schema template
+        SchemaTemplate template = loadSchemaTemplate(txn, schema.getSchemaTemplateName());
+        Schema newSchema = new Schema(databaseId, schemaName, template.getMetaData(), schema.getSchemaTemplateName(), template.getVersion());
+        updateSchema(txn, newSchema);
+    }
+
+    @Override
     @Nonnull
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
         final FDBRecordStore recordStore = openFDBRecordStore(txn);

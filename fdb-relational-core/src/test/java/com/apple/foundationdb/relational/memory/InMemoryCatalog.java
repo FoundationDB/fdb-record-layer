@@ -81,6 +81,11 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
+    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+        throw new RelationalException("No such schema", ErrorCode.UNDEFINED_SCHEMA);
+    }
+
+    @Override
     @Nonnull
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
         throw new RelationalException("No such schema template", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);

@@ -65,6 +65,11 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
+    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+    }
+
+    @Override
     public boolean updateSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }

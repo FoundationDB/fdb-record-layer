@@ -51,8 +51,7 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     @SuppressWarnings("PMD.LooseCoupling")
     private final LinkedHashSet<TableInfo> tables;
     private final Set<TypeInfo> customTypes;
-    @SuppressWarnings("PMD.UnusedPrivateField") //this will be used eventually
-    private long version;
+    private final long version;
     private final RecordMetaDataProto.MetaData metaData;
 
     @SuppressWarnings("PMD.LooseCoupling")

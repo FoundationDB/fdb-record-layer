@@ -177,6 +177,38 @@ public class RecordLayerStoreCatalogImplTest {
     }
 
     @Test
+    void testRepairSchema() throws RelationalException {
+        // save schema with template version 1L
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1, Arrays.asList("test_table1", "test_table2"));
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseId()));
+            storeCatalog.updateSchema(txn, schema1);
+            txn.commit();
+        }
+        // save schema template with version 1L and 2L
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1L);
+            // a new template with an unset version number, its version number will be set to 2L automatically
+            SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 0L);
+            storeCatalog.updateSchemaTemplate(txn, template1);
+            storeCatalog.updateSchemaTemplate(txn, template2);
+            txn.commit();
+        }
+        // repair schema
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.repairSchema(txn, "test_database_id", "test_schema_name");
+            txn.commit();
+        }
+        // load schema
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            Schema newSchema = storeCatalog.loadSchema(txn, URI.create("test_database_id"), "test_schema_name");
+            txn.commit();
+            // template version should be the latest version
+            Assertions.assertEquals(newSchema.getTemplateVersion(), 2L);
+        }
+    }
+
+    @Test
     void loadSchemaFailsWithNonexistentDatabase() throws RelationalException {
         // test loadSchema method with a nonexistent database_id
         try (Transaction loadTxn2 = new RecordContextTransaction(fdb.openContext())) {
