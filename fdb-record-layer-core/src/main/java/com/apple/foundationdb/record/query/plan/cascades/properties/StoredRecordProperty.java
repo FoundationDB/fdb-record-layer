@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -92,6 +93,13 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
      * e.g. primary keys, or if the result does not flow them.
      */
     public static class StoredRecordVisitor implements RecordQueryPlanVisitor<Boolean> {
+
+        @Nonnull
+        @Override
+        public Boolean visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
+            return true;
+        }
+
         @Nonnull
         @Override
         public Boolean visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {

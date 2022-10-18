@@ -140,7 +140,7 @@ public class MessageValue {
     }
 
     @Nullable
-    private static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
+    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
         if (field.isRepeated()) {
             int count = message.getRepeatedFieldCount(field);
             List<Object> list = new ArrayList<>(count);

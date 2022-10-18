@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -90,6 +91,11 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
      */
     @API(API.Status.EXPERIMENTAL)
     public static class DistinctRecordsVisitor implements RecordQueryPlanVisitor<Boolean> {
+        @Nonnull
+        @Override
+        public Boolean visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
+            return true;
+        }
 
         @Nonnull
         @Override

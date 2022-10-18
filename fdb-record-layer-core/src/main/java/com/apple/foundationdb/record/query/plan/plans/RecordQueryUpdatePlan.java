@@ -44,9 +44,10 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
@@ -82,22 +84,30 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     private final String recordType;
     @Nonnull
+    private final Type.Record targetType;
+    @Nonnull
     private final Descriptors.Descriptor targetDescriptor;
-    
+
     /**
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
      */
     @Nonnull
     private final TrieNode transformTrie;
 
+    @Nonnull
+    private final Supplier<Value> resultValueSupplier;
+
     private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String recordType,
+                                  @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nonnull final TrieNode transformTrie) {
         this.inner = inner;
         this.recordType = recordType;
+        this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
         this.transformTrie = transformTrie;
+        this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
     }
 
     @Nonnull
@@ -120,7 +130,7 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     @SuppressWarnings("unchecked")
     public <M extends Message> M updateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)transformMessage(store, context, transformTrie, targetDescriptor, inRecord);
+        return (M)transformMessage(store, context, transformTrie, getResultValue().getResultType(), targetDescriptor, targetType, inRecord);
     }
 
     @Override
@@ -153,6 +163,7 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
         return new RecordQueryUpdatePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getRecordType(),
+                targetType,
                 targetDescriptor,
                 transformTrie);
     }
@@ -160,13 +171,13 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     @Override
     public RecordQueryUpdatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)), getRecordType(), targetDescriptor, transformTrie);
+        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)), getRecordType(), targetType, targetDescriptor, transformTrie);
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedObjectValue();
+        return resultValueSupplier.get();
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -184,7 +195,7 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
             return false;
         }
         final RecordQueryUpdatePlan otherUpdatePlan = (RecordQueryUpdatePlan)other;
-        if (targetDescriptor != otherUpdatePlan.targetDescriptor) {
+        if (targetType.equals(otherUpdatePlan.targetType)) {
             return false;
         }
         return transformTrie.equals(otherUpdatePlan.transformTrie);
@@ -259,20 +270,18 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     @Nonnull
-    @VisibleForTesting
     public static Map<FieldValue.FieldPath, Value> checkAndPrepareTransformMap(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         for (final var entry : transformMap.entrySet()) {
             // TODO check this using the type, not just the type code! For that to work we need isAssignableTo() checking
             //      in the type system, so we can account for e.g. differences in nullabilities between the types.
             SemanticException.check(entry.getKey()
                     .getLastField()
-                    .getFieldType().getTypeCode().equals(entry.getValue().getResultType().getTypeCode()), SemanticException.ErrorCode.ASSIGNMENT_WRONG_TYPE);
+                    .getFieldType().getTypeCode().equals(entry.getValue().getResultType().getTypeCode()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         }
         return ImmutableMap.copyOf(transformMap);
     }
 
     @Nonnull
-    @VisibleForTesting
     public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         // this brings together all paths that share the same prefixes
         final var orderedFieldPaths =
@@ -306,15 +315,17 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
      * and the data underneath {@code path2} is transformed to the value {@code 3}.
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
-     * @param targetDescriptor a protobuf descriptor to coerce the current record prior to the update
+     * @param targetType a target type to coerce the current record to prior to the update
+     * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param transformMap a map of field paths to values.
      */
     @Nonnull
     public static RecordQueryUpdatePlan forTransformMap(@Nonnull final Quantifier.Physical inner,
                                                         @Nonnull final String recordType,
+                                                        @Nonnull final Type.Record targetType,
                                                         @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                         @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        return new RecordQueryUpdatePlan(inner, recordType, targetDescriptor, computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap));
+        return new RecordQueryUpdatePlan(inner, recordType, targetType, targetDescriptor, computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap));
     }
 
     /**
@@ -325,7 +336,6 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
      * @return a {@link TrieNode}
      */
     @Nonnull
-    @VisibleForTesting
     public static TrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
                                                     @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
@@ -365,13 +375,20 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
                                                               @Nonnull final EvaluationContext context,
                                                               @Nonnull final TrieNode trieNode,
+                                                              @Nonnull final Type targetType,
                                                               @Nullable Descriptors.Descriptor targetDescriptor,
+                                                              @Nonnull final Type currentType,
                                                               @Nullable final Object current) {
         final var value = trieNode.getValue();
         if (value != null) {
             return value.eval(store, context);
         } else {
             targetDescriptor = Verify.verifyNotNull(targetDescriptor);
+            final var targetRecordType = (Type.Record)targetType;
+            final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
+            final var currentRecordType = (Type.Record)currentType;
+            final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
+
             final var fieldIndexToFieldMap = Verify.verifyNotNull(trieNode.getFieldIndexToFieldMap());
             final var childrenMap = Verify.verifyNotNull(trieNode.getChildrenMap());
             final var subRecord = (M)Verify.verifyNotNull(current);
@@ -382,28 +399,27 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
                 final var field = fieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
                 final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
                 if (field != null) {
-                    final var fieldTrieNode = Verify.verifyNotNull(childrenMap.get(field));
+                    final var targetFieldType = targetNameToFieldMap.get(field.getFieldName()).getFieldType();
+                    final var currentFieldType = field.getFieldType();
                     var fieldResult = transformMessage(store,
                             context,
-                            fieldTrieNode,
+                            Verify.verifyNotNull(childrenMap.get(field)),
+                            targetFieldType,
                             targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
+                            currentFieldType,
                             subRecord.getField(messageFieldDescriptor));
-                    final var fieldType = field.getFieldType();
-                    if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
-                        final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
-                        final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-                        if (fieldResult != null) {
-                            wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), fieldResult);
-                        }
-                        fieldResult = wrapperBuilder.build();
-                    }
+                    Verify.verify(fieldResult != null || (currentFieldType.isNullable() && targetFieldType.isNullable()));
                     if (fieldResult != null) {
+                        fieldResult = coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult);
                         resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
                     }
                 } else {
-                    if (subRecord.hasField(messageFieldDescriptor)) {
-                        final var fieldResult = coerceField(targetFieldDescriptor, subRecord);
-                        resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
+                    var fieldResult = MessageValue.getFieldOnMessage(subRecord, messageFieldDescriptor);
+                    if (fieldResult != null) {
+                        final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                        final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                        fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
+                        resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult));
                     }
                 }
             }
@@ -413,8 +429,17 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public static <M extends Message> Object coerceField(@Nonnull final Descriptors.FieldDescriptor targetFieldDescriptor,
-                                                         @Nonnull final Object current) {
+    public static <M extends Message> Object coerceField(@Nonnull final Type targetFieldType,
+                                                         @Nonnull final Descriptors.FieldDescriptor targetFieldDescriptor,
+                                                         @Nonnull final Type currentFieldType,
+                                                         @Nonnull Object current) {
+        if (currentFieldType.getTypeCode() == Type.TypeCode.ARRAY && currentFieldType.isNullable()) {
+            final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
+            final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
+            wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), current);
+            return wrapperBuilder.build();
+        }
+
         switch (targetFieldDescriptor.getJavaType()) {
             case INT:
             case LONG:
@@ -426,23 +451,30 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
             case ENUM:
                 return current;
             case MESSAGE:
-                return coerceMessage(targetFieldDescriptor.getMessageType(), (M)current);
+                return coerceMessage(targetFieldType, targetFieldDescriptor.getMessageType(), currentFieldType, (M)current);
             default:
                 throw new IllegalStateException("unsupported java type for record field");
         }
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <M extends Message> Message coerceMessage(@Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                            @Nonnull final M message) {
-        Verify.verifyNotNull(targetDescriptor);
+    public static <M extends Message> Message coerceMessage(@Nonnull final Type targetType,
+                                                            @Nonnull Descriptors.Descriptor targetDescriptor,
+                                                            @Nonnull final Type currentType,
+                                                            @Nonnull final M currentMessage) {
+        targetDescriptor = Verify.verifyNotNull(targetDescriptor);
+        final var targetRecordType = (Type.Record)targetType;
+        final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
+        final var currentRecordType = (Type.Record)currentType;
+        final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
-        final var messageDescriptor = message.getDescriptorForType();
+        final var messageDescriptor = currentMessage.getDescriptorForType();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            final var targetFieldDescriptor = Verify.verifyNotNull(targetDescriptor.findFieldByName(messageFieldDescriptor.getName()));
-            if (message.hasField(messageFieldDescriptor)) {
-                resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldDescriptor, message.getField(messageFieldDescriptor)));
+            if (currentMessage.hasField(messageFieldDescriptor)) {
+                final var targetFieldDescriptor = Verify.verifyNotNull(targetDescriptor.findFieldByName(messageFieldDescriptor.getName()));
+                final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, currentMessage.getField(messageFieldDescriptor)));
             }
         }
         return resultMessageBuilder.build();

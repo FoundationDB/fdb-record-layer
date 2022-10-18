@@ -74,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -95,6 +96,13 @@ import java.util.OptionalLong;
  * constrained from the data flow graph given to the property.
  */
 public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesProperty.Cardinalities> {
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+        return fromChild(updatePlan);
+    }
+
     @Nonnull
     @Override
     public Cardinalities visitRecordQueryPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {

@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -98,6 +99,13 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
      * e.g. primary keys, or if the result does not flow them.
      */
     public static class PrimaryKeyVisitor implements RecordQueryPlanVisitor<Optional<List<Value>>> {
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+            return primaryKeyFromSingleChild(updatePlan);
+        }
+
         @Nonnull
         @Override
         public Optional<List<Value>> visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {

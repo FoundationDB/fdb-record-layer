@@ -69,6 +69,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -111,6 +112,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
+        @Nonnull
+        @Override
+        public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
+            return Ordering.emptyOrder();
+        }
+
         @Nonnull
         @Override
         public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {

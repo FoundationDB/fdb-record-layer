@@ -153,7 +153,7 @@ public class TransformValue implements Value {
     @SuppressWarnings("unchecked")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var inRecord = (M)Preconditions.checkNotNull(inValue.eval(store, context));
-        return RecordQueryUpdatePlan.transformMessage(store, context, transformTrie, inRecord.getDescriptorForType(), inRecord);
+        return RecordQueryUpdatePlan.transformMessage(store, context, transformTrie, inValue.getResultType(), inRecord.getDescriptorForType(), inValue.getResultType(), inRecord);
     }
 
     @Override
