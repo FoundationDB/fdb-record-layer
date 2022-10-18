@@ -176,6 +176,7 @@ public enum LogMessageKeys {
     UNCLOSED_WARNING,
 
     // comparisons
+    COMPARISON_TYPE,
     COMPARISON_VALUE,
     EXPECTED,
     ACTUAL,

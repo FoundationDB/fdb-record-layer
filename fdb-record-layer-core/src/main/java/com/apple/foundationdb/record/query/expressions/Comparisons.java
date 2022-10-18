@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
@@ -61,6 +63,7 @@ import com.google.protobuf.ProtocolMessageEnum;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -73,6 +76,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Helper methods for building {@link Comparison}s.
@@ -2159,4 +2163,173 @@ public class Comparisons {
         }
     }
 
+    /**
+     * Comparison that is built on applying function's inverse to the comparand of a different comparison.
+     * This is to support certain algebraic operations on queries. For example, if a query contains a
+     * clause like {@code f(x) = $val} for some column {@code x} and some parameter {@code val}, then
+     * this comparison can be used to transform the predicate into {@code x = f^-1($val)}, which can
+     * be easier to evaluate. Note also that some functions may not be injective, that is, there may be
+     * multiple inputs that all map to the same output. For that reason, the predicate {@code f(x) = $val}
+     * may sometimes get transformed into {@code x IN f^-1($val)}.
+     *
+     * <p>
+     * In most cases, users should not construct this comparison on their own, but
+     * some planner operations may create this in internal structures.
+     * </p>
+     */
+    @API(API.Status.INTERNAL)
+    public static class InvertedFunctionComparison implements Comparison {
+        @Nonnull
+        private final InvertibleFunctionKeyExpression function;
+        @Nonnull
+        private final Comparison originalComparison;
+        @Nonnull
+        private final Type type;
+
+        private InvertedFunctionComparison(@Nonnull InvertibleFunctionKeyExpression function,
+                                           @Nonnull Comparison originalComparison,
+                                           @Nonnull Type type) {
+            this.function = function;
+            this.originalComparison = originalComparison;
+            this.type = type;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            return PlanHashable.planHash(hashKind, function, originalComparison);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, function, originalComparison);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final InvertedFunctionComparison that = (InvertedFunctionComparison)o;
+            return Objects.equals(function, that.function) && Objects.equals(originalComparison, that.originalComparison);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(function, originalComparison);
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            Object comparand = getComparand(store, context);
+            return evalComparison(type, value, comparand);
+        }
+
+        @Override
+        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+            originalComparison.validate(descriptor, fannedOut);
+        }
+
+        @Nonnull
+        @Override
+        public Type getType() {
+            return type;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
+            Object originalComparandValue = originalComparison.getComparand(store, context);
+            if (originalComparandValue instanceof List<?>) {
+                List<?> underlyingList = (List<?>) originalComparandValue;
+                List<Object> finalValues = new ArrayList<>(underlyingList.size());
+                for (Object obj : underlyingList) {
+                    Key.Evaluated evaluated = Key.Evaluated.scalar(obj);
+                    List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
+                    inverse.stream()
+                            .filter(eval -> eval.size() == 1)
+                            .forEach(eval -> finalValues.add(eval.getObject(0)));
+                }
+                return finalValues;
+            } else {
+                Key.Evaluated evaluated = Key.Evaluated.scalar(originalComparandValue);
+                List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
+                if (getType() == Type.IN) {
+                    return inverse.stream()
+                            .filter(eval -> eval.size() == 1)
+                            .map(eval -> eval.getObject(0))
+                            .collect(Collectors.toList());
+                } else {
+                    Key.Evaluated preImage = inverse.get(0);
+                    if (preImage.size() != 1) {
+                        throw new RecordCoreException("unable to get singleton pre-image for function");
+                    }
+                    return preImage.getObject(0);
+                }
+            }
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return function.getName() + "^-1(" + originalComparison.typelessString() + ")";
+        }
+
+        @Override
+        public String toString() {
+            return getType() + " " + typelessString();
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+            Comparison translated = originalComparison.translateCorrelations(translationMap);
+            if (translated == originalComparison) {
+                return this;
+            } else {
+                return new InvertedFunctionComparison(function, translated, type);
+            }
+        }
+
+        /**
+         * Create an inverted function comparison from an invertible function and a pre-existing comparison.
+         * This will create a new comparison that evaluates the inverse of the given function against the
+         * original comparison's comparand. So, for example, if the original comparison is {@code = 2} and the function
+         * is the exponential function, this will produce a comparison that is equivalent to {@code = log(2)}.
+         *
+         * <p>
+         * This comparison currently has the following limitations:
+         * </p>
+         *
+         * <ul>
+         *     <li>The function must be a unary function (i.e., it must take single-column inputs and produce
+         *          single-column outputs.)</li>
+         *     <li>The comparison must be of type {@link Type#EQUALS EQUALS} or {@link Type#IN IN}.</li>
+         * </ul>
+         *
+         * @param function a unary invertible function key expression
+         * @param originalComparison a comparison
+         * @return a new comparison that applies the inverse of the given function to the comparand of the
+         *     original comparison
+         */
+        public static InvertedFunctionComparison from(@Nonnull InvertibleFunctionKeyExpression function,
+                                                      @Nonnull Comparison originalComparison) {
+            if (function.getMinArguments() != 1 || function.getMaxArguments() != 1 || function.getColumnSize() != 1) {
+                throw new RecordCoreArgumentException("only unary functions can be inverted")
+                        .addLogInfo(LogMessageKeys.FUNCTION, function.getName());
+            }
+            final Type underlyingType = originalComparison.getType();
+            if (underlyingType != Type.IN && underlyingType != Type.EQUALS) {
+                throw new RecordCoreArgumentException("cannot create inverted function comparison of given comparison type")
+                        .addLogInfo(LogMessageKeys.FUNCTION, function.getName())
+                        .addLogInfo(LogMessageKeys.COMPARISON_TYPE, underlyingType);
+            }
+            final Type newType = function.isInjective() ? underlyingType : Type.IN;
+            return new InvertedFunctionComparison(function, originalComparison, newType);
+        }
+    }
 }

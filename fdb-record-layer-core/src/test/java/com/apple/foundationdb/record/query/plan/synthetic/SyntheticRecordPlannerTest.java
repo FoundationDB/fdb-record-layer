@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -41,15 +40,14 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.AbsoluteValueFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -70,12 +68,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
-import com.google.auto.service.AutoService;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -86,7 +82,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -1061,12 +1056,18 @@ public class SyntheticRecordPlannerTest {
         joined.addJoin("order",
                 field("custRef").nest("string_value"),
                 "cust",
-                function("canonicalize", field("___header").nest("int_rec_id"))
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
         );
 
         metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
                 field("cust").nest("name"),
                 field("order").nest("order_no")
+        )));
+
+        // Add index on custRef field to facilitate finding join partners of customer records
+        metaDataBuilder.addIndex("OrderWithHeader", new Index("order$custRef", concat(
+                field("___header").nest("z_key"),
+                field("custRef").nest("string_value")
         )));
 
         try (FDBRecordContext context = openContext()) {
@@ -1172,7 +1173,7 @@ public class SyntheticRecordPlannerTest {
         joined.addJoin("order",
                 field("cc", KeyExpression.FanType.FanOut).nest("string_value"),
                 "cust",
-                function("canonicalize", field("___header").nest("int_rec_id"))
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
         );
 
         // Add an index on the cc field so that the join planner can use the index to resolve join pairs
@@ -1286,7 +1287,7 @@ public class SyntheticRecordPlannerTest {
                 "simple",
                 field("num_value_2"),
                 "other",
-                function("abs_value", field("num_value"))
+                function(AbsoluteValueFunctionKeyExpression.NAME, field("num_value"))
         );
         metaDataBuilder.addIndex(joined, new Index("joinOnNumValue2", concat(field("simple").nest("str_value"), field("other").nest("num_value_3"))));
 
@@ -1433,157 +1434,6 @@ public class SyntheticRecordPlannerTest {
             IndexRecordFunction<Long> rankFunction = ((IndexRecordFunction<Long>)Query.rank(group).getFunction())
                     .cloneWithIndex(index.getName());
             assertEquals(1, recordStore.evaluateRecordFunction(rankFunction, record).join().longValue());
-        }
-    }
-
-    /**
-     * A Test registry so that we can do string-to-long and long-to string fake conversions in test.
-     */
-    @AutoService(FunctionKeyExpression.Factory.class)
-    public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
-        @Override
-        public List<FunctionKeyExpression.Builder> getBuilders() {
-            return Lists.newArrayList(
-                    new FunctionKeyExpression.BiFunctionBuilder("canonicalize", StringCanonicalizerFunction::new),
-                    new FunctionKeyExpression.BiFunctionBuilder("abs_value", AbsoluteValueFunctionKeyExpression::new)
-            );
-        }
-    }
-
-    /**
-     * Converts an int into an arbitrary canonical form.
-     */
-    public static class StringCanonicalizerFunction extends InvertibleFunctionKeyExpression {
-        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("String-Canonicalizer-Function");
-
-        protected StringCanonicalizerFunction(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
-            super(name, arguments);
-        }
-
-        @Override
-        public boolean isInjective() {
-            return true;
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return super.basePlanHash(hashKind, BASE_HASH, arguments);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH, arguments);
-        }
-
-        @Override
-        public int getMinArguments() {
-            return 1;
-        }
-
-        @Override
-        public int getMaxArguments() {
-            return 1;
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record,
-                                                                        @Nullable final Message message,
-                                                                        @Nonnull final Key.Evaluated arguments) {
-            return Collections.singletonList(Key.Evaluated.scalar("i:" + arguments.getLong(0)));
-        }
-
-        @Override
-        protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull final Key.Evaluated result) {
-            String canonicalForm = result.getString(0);
-            if (canonicalForm != null && canonicalForm.startsWith("i:")) {
-                return Collections.singletonList(Key.Evaluated.scalar(Long.parseLong(canonicalForm, 2, canonicalForm.length(), 10)));
-            } else {
-                return Collections.singletonList(result);
-            }
-        }
-
-        @Override
-        public boolean createsDuplicates() {
-            return false;
-        }
-
-        @Override
-        public int getColumnSize() {
-            return 1;
-        }
-    }
-
-    /**
-     * Converts an integer into its absolute value. This function is invertible in that for a given value <i>v</i>,
-     * it is always possible to calculate all possible values that have an absolute value of <i>v</i>.
-     */
-    public static class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExpression {
-        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Absoluste-Value-Function");
-
-        protected AbsoluteValueFunctionKeyExpression(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
-            super(name, arguments);
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record, @Nullable final Message message, @Nonnull final Key.Evaluated arguments) {
-            if (arguments.getObject(0) == null) {
-                return Collections.singletonList(arguments);
-            }
-            long value = arguments.getLong(0);
-            return Collections.singletonList(Key.Evaluated.scalar(Math.abs(value)));
-        }
-
-        @Override
-        protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull final Key.Evaluated result) {
-            if (result.getObject(0) == null) {
-                return Collections.emptyList();
-            }
-            long value = result.getLong(0);
-            if (value < 0L) {
-                return Collections.emptyList();
-            } else if (value == 0L) {
-                return Collections.singletonList(Key.Evaluated.scalar(0L));
-            } else {
-                return List.of(Key.Evaluated.scalar(value), Key.Evaluated.scalar(-1L * value));
-            }
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return super.basePlanHash(hashKind, BASE_HASH, arguments);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH, arguments);
-        }
-
-        @Override
-        public int getMinArguments() {
-            return 1;
-        }
-
-        @Override
-        public int getMaxArguments() {
-            return 1;
-        }
-
-        @Override
-        public boolean isInjective() {
-            return false;
-        }
-
-        @Override
-        public boolean createsDuplicates() {
-            return false;
-        }
-
-        @Override
-        public int getColumnSize() {
-            return 1;
         }
     }
 }
