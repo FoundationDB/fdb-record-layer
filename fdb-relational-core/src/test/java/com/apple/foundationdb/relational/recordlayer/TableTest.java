@@ -316,7 +316,7 @@ public class TableTest {
     void testIndexCreatedUsingLastColumn() throws Exception {
         final String schema =
                 " CREATE TABLE tbl1 (id int64, a string, b string, c string, PRIMARY KEY(id))" +
-                        " CREATE VALUE INDEX c_name_idx ON tbl1(c)";
+                        " CREATE INDEX c_name_idx as select c from tbl1";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
@@ -349,7 +349,7 @@ public class TableTest {
     void testIndexCreatedUsingMultipleColumns() throws Exception {
         final String schema =
                 " CREATE TABLE tbl1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id))" +
-                        " CREATE VALUE INDEX c_name_idx ON tbl1(c, d)";
+                        " CREATE INDEX c_name_idx as select c, d from tbl1 order by c, d";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 

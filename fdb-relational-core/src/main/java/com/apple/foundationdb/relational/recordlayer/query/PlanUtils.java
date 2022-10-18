@@ -22,24 +22,29 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
-import com.google.common.collect.Streams;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,32 +59,69 @@ public final class PlanUtils {
         }
 
         @Nonnull
-        public KeyExpression visitSelectExpression(@Nonnull SelectExpression element) {
-            Assert.thatUnchecked(element.getPredicates().isEmpty(), String.format("Unsupported index definition, found predicate in '%s'", element), ErrorCode.UNSUPPORTED_OPERATION);
-            final var generator = getGenerator(element);
+        private KeyExpression visitLogicalSortExpression(@Nonnull LogicalSortExpression sortExpression) {
+            Assert.thatUnchecked(sortExpression.getRelationalChildCount() == 1);
+            Quantifier quantifier = sortExpression.getQuantifiers().get(0);
+            Assert.thatUnchecked(quantifier.getRangesOver().get() instanceof SelectExpression);
+            return visitSelectExpression(
+                    (SelectExpression) quantifier.getRangesOver().get(),
+                    sortExpression.getSortValues().stream().map(v -> (FieldValue) v).collect(Collectors.toList()));
+        }
+
+        @Nonnull
+        private KeyExpression visitSelectExpression(@Nonnull SelectExpression selectExpression, List<FieldValue> orderBy) {
+            Assert.thatUnchecked(selectExpression.getPredicates().isEmpty(), String.format("Unsupported index definition, found predicate in '%s'", selectExpression), ErrorCode.UNSUPPORTED_OPERATION);
+            final var generator = getGenerator(selectExpression);
+
+            Map<CorrelationIdentifier, Quantifier> projectedQuantifiers = selectExpression.getQuantifiers().stream().collect(Collectors.toMap(Quantifier::getAlias, Function.identity()));
+            final List<FieldValue> projected = selectExpression.getResultValues().stream()
+                    .filter(value -> !Collections.disjoint(value.getCorrelatedTo(), projectedQuantifiers.keySet()))
+                    .map(value -> (FieldValue) value)
+                    .collect(Collectors.toList());
+            Assert.thatUnchecked(selectExpression.getResultValues().size() == projected.size(), String.format("Unsupported index definition, not all fields can be mapped to key expression in '%s'", selectExpression), ErrorCode.UNSUPPORTED_OPERATION);
+
+            // Reorder columns based on orderBy clause
+            List<FieldValue> orderedProjected = new ArrayList<>(orderBy);
+            for (var field : projected) {
+                if (!orderBy.contains(field)) {
+                    orderedProjected.add(field);
+                }
+            }
+
+            Assert.thatUnchecked(isProperlyClustered(orderedProjected), String.format("Unsupported index definition, improper column clustering in '%s'", selectExpression), ErrorCode.UNSUPPORTED_OPERATION);
+
+            List<CorrelationIdentifier> orderedQuantifiers = orderedProjected.stream()
+                    .map(f -> ((QuantifiedValue) f.getChild()).getAlias())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // Add fields for the quantifier or drill down to a nested expression
             final List<KeyExpression> parts = new ArrayList<>();
-            // we should iterate based on the order of columns in the select, we could change that later to use an explicit ORDER BY for example.
-            final var sorted = element.getQuantifiers().stream().map(q -> Pair.of(projectedFieldsOf(element, q), q)).filter(p -> !p.getLeft().isEmpty()).sorted(
-                    Comparator.comparingInt(p -> (p.getLeft().stream().min(Comparator.comparingInt(Pair::getLeft))).get().getLeft())).collect(Collectors.toList());
-            // number of fields must match what the select contains.
-            Assert.thatUnchecked(element.getResultValues().size() == sorted.stream().mapToInt(p -> p.getLeft().size()).sum(), String.format("Unsupported index definition, not all fields can be mapped to key expression in '%s'", element), ErrorCode.UNSUPPORTED_OPERATION);
-            sorted.forEach(pair -> {
-                final var qun = pair.getRight();
-                final var qunFields = pair.getLeft();
-                final var child = qun.getRangesOver().get();
-                if (child instanceof SelectExpression) {
-                    final var part = visitSelectExpression((SelectExpression) qun.getRangesOver().get());
-                    parts.add(part);
+            int fieldIndex = 0;
+            for (CorrelationIdentifier qunAlias : orderedQuantifiers) {
+                Quantifier quantifier = projectedQuantifiers.remove(qunAlias);
+                RelationalExpression child = quantifier.getRangesOver().get();
+                if (child instanceof LogicalSortExpression) {
+                    parts.add(visitLogicalSortExpression((LogicalSortExpression) child));
+                    while (fieldIndex < orderedProjected.size() && ((QuantifiedValue) orderedProjected.get(fieldIndex).getChild()).getAlias().equals(qunAlias)) {
+                        fieldIndex++;
+                    }
                 } else {
-                    Assert.thatUnchecked(generator.isPresent() && generator.get().equals(qun),
-                            String.format("Unsupported index definition, select statement can nest at most a single correlated join or table scan, found more than one in '%s'", element), ErrorCode.UNSUPPORTED_OPERATION);
-                    parts.addAll(qunFields.stream().map(Pair::getRight).map(Key.Expressions::field).collect(Collectors.toList()));
+                    Assert.thatUnchecked(generator.isPresent() && generator.get().equals(quantifier),
+                            String.format("Unsupported index definition, select statement can nest at most a single correlated join or table scan, found more than one in '%s'", selectExpression), ErrorCode.UNSUPPORTED_OPERATION);
+                    for (; fieldIndex < orderedProjected.size() &&
+                            ((QuantifiedValue) orderedProjected.get(fieldIndex).getChild()).getAlias().equals(qunAlias);
+                            fieldIndex++) {
+                        parts.add(Key.Expressions.field(orderedProjected.get(fieldIndex).getLastField().getFieldName()));
+                    }
                     if (child instanceof LogicalTypeFilterExpression) {
                         visitLogicalTypeFilterExpression((LogicalTypeFilterExpression) child);
                     }
                 }
-            });
-            final var result = parts.size() == 1 ? parts.get(0) : Key.Expressions.concat(parts);
+            }
+
+            // Combine KeyExpression parts
+            KeyExpression result = parts.size() == 1 ? parts.get(0) : Key.Expressions.concat(parts);
             if (generator.isPresent()) {
                 if (generator.get().getRangesOver().get() instanceof ExplodeExpression) {
                     final var explode = (ExplodeExpression) generator.get().getRangesOver().get();
@@ -90,32 +132,28 @@ public final class PlanUtils {
                 }
                 Assert.thatUnchecked(generator.get().getRangesOver().get() instanceof LogicalTypeFilterExpression); // we should not nest, top-level index assumes definition starts here.
             }
+            if (projected.size() != orderBy.size() && projected.size() > 1) {
+                result = Key.Expressions.keyWithValue(result, orderBy.size());
+            }
             return result;
         }
 
-        private List<Pair<Integer, String>> projectedFieldsOf(SelectExpression element, Quantifier qun) {
-            final var fields = IntStream.range(0, element.getResultValues().size()).filter(i -> element.getResultValues().get(i).getCorrelatedTo().contains(qun.getAlias())).mapToObj(i -> Pair.of(i, ((FieldValue) element.getResultValues().get(i)).getLastField().getFieldName())).collect(Collectors.toList());
-            if (fields.isEmpty()) {
-                return List.of();
+        private static boolean isProperlyClustered(List<FieldValue> fields) {
+            Set<CorrelationIdentifier> seenQuantifiers = new HashSet<>();
+            CorrelationIdentifier previous = ((QuantifiedValue) fields.get(0).getChild()).getAlias();
+            seenQuantifiers.add(previous);
+            for (FieldValue field : fields) {
+                CorrelationIdentifier current = ((QuantifiedValue) field.getChild()).getAlias();
+                if (!current.equals(previous)) {
+                    if (seenQuantifiers.contains(current)) {
+                        return false;
+                    } else {
+                        seenQuantifiers.add(current);
+                        previous = current;
+                    }
+                }
             }
-
-            // make sure columns are adjacent to one another.
-            {
-                final var min = fields.stream().map(Pair::getLeft).min(Integer::compare).get();
-                Assert.thatUnchecked(min.equals(fields.get(0).getLeft()) || min.equals(fields.get(fields.size() - 1).getLeft()),
-                        String.format("Unsupported index definition, improper column clustering in '%s'", element), ErrorCode.UNSUPPORTED_OPERATION);
-                final int step = min.equals(fields.get(fields.size() - 1).getLeft()) ? 1 : -1;
-                final var isConsecutive = Streams.zip(fields.stream().map(Pair::getLeft), fields.stream().map(Pair::getLeft).skip(1), (a, b) -> a - b).allMatch(i -> i.equals(step));
-                Assert.thatUnchecked(isConsecutive, String.format("Unsupported index definition, improper column clustering in '%s'", element), ErrorCode.UNSUPPORTED_OPERATION);
-            }
-
-            // make sure columns have the same order as their underlying.
-            if (qun.getRangesOver().get() instanceof SelectExpression) {
-                final var underlyingColNames = qun.getFlowedColumns().stream().map(c -> c.getField().getFieldName()).collect(Collectors.toList());
-                final var colNames = fields.stream().sorted(Comparator.comparing(Pair::getLeft)).map(Pair::getRight).collect(Collectors.toList());
-                Assert.thatUnchecked(colNames.equals(underlyingColNames), String.format("Unsupported index definition, order of underlying projected columns changed '%s'", element));
-            }
-            return fields;
+            return true;
         }
 
         @Nonnull
@@ -146,8 +184,8 @@ public final class PlanUtils {
 
         public static Pair<String, KeyExpression> evaluate(@Nonnull final RelationalExpression ref) {
             final var instance = new KeyGenerator();
-            Assert.thatUnchecked(ref instanceof SelectExpression, String.format("Unsupported index definition from query '%s'", ref));
-            final var keyExpression = instance.visitSelectExpression((SelectExpression) ref);
+            Assert.thatUnchecked(ref instanceof LogicalSortExpression, String.format("Unsupported index definition from query '%s'", ref));
+            final var keyExpression = instance.visitLogicalSortExpression((LogicalSortExpression) ref);
             return Pair.of(instance.getBaseTable(), keyExpression);
         }
 
@@ -159,14 +197,15 @@ public final class PlanUtils {
 
     @Nonnull
     static Pair<String, KeyExpression> getMaterializedViewKeyDefinition(@Nonnull final RelationalExpression relationalExpression) {
-        final String invalidIndexAsSelect = "invalid index definition";
-        Assert.thatUnchecked(relationalExpression instanceof SelectExpression, invalidIndexAsSelect);
-        final var selectExpression = (SelectExpression) relationalExpression;
-        final var result = PlanUtils.KeyGenerator.evaluate(selectExpression);
+        final String invalidIndex = "invalid index definition";
+        Assert.thatUnchecked(relationalExpression instanceof LogicalSortExpression, invalidIndex);
+        final var sortExpression = (LogicalSortExpression) relationalExpression;
+        final var result = PlanUtils.KeyGenerator.evaluate(sortExpression);
         Assert.notNullUnchecked(result.getLeft(), String.format("could not generate a key expression from '%s'", relationalExpression));
         return Pair.of(result.getLeft(), result.getRight());
     }
 
     private PlanUtils() {
     }
+
 }

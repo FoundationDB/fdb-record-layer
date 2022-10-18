@@ -75,8 +75,8 @@ public class StandardQueryTests {
                     " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
-                    " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
+                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
+                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -88,8 +88,8 @@ public class StandardQueryTests {
                     " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE VALUE INDEX record_name_idx on RestaurantComplexRecord(name)" +
-                    " CREATE VALUE INDEX reviewer_name_idx on RestaurantReviewer(name)" +
+                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
+                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -408,7 +408,7 @@ public class StandardQueryTests {
     @Test
     void testSelectWithCoveringIndexHint() throws Exception {
         final String schema = "CREATE TABLE T1(COL1 int64, COL2 int64, COL3 int64, PRIMARY KEY(COL1, COL3))" +
-                " CREATE VALUE INDEX T1_IDX on T1(COL1, COL3) INCLUDE (COL2)";
+                " CREATE INDEX T1_IDX as select col1, col3, col2 from t1 order by col1, col3";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("T1").setField("COL1", 42L).setField("COL2", 100L).setField("COL3", 200L).build();

@@ -125,6 +125,9 @@ public final class TypingContext {
 
     public void addAllToTypeRepository() {
         verify();
+        if (types.isEmpty()) {
+            return;
+        }
         final var deps = generateTypeDependencyGraph();
         var typeDefinitions = TopologicalSort.anyTopologicalOrderPermutation(types, id -> deps.getOrDefault(id, ImmutableSet.of()));
         Assert.thatUnchecked(typeDefinitions.isPresent(), "Invalid cyclic dependency in the schema definition", ErrorCode.INVALID_SCHEMA_TEMPLATE);

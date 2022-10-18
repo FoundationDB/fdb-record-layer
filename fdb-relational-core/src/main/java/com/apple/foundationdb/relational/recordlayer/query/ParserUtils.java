@@ -507,4 +507,13 @@ public final class ParserUtils {
         }
         return stringBuilder.toString();
     }
+
+    @Nonnull
+    public static String toString(@Nonnull final Value value) {
+        if (value instanceof LiteralValue) {
+            return Objects.requireNonNull(((LiteralValue<?>) value).getLiteralValue()).toString();
+        } else {
+            return value.toString();
+        }
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * IndexAsSelectTest.java
+ * IndexTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -48,8 +48,9 @@ import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 
-public class IndexAsSelectTest {
+public class IndexTest {
     @BeforeAll
     public static void setup() {
         if (Debugger.getDebugger() == null) {
@@ -64,7 +65,7 @@ public class IndexAsSelectTest {
             "int64", "double", "boolean", "string", "bytes"
     };
 
-    public IndexAsSelectTest() throws RelationalException {
+    public IndexTest() throws RelationalException {
         TypingContext ctx = TypingContext.create();
         SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
         SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
@@ -73,7 +74,7 @@ public class IndexAsSelectTest {
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
-                .withDbUri(URI.create("/IndexAsSelectTest"))
+                .withDbUri(URI.create("/IndexTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpConstantActionFactory.INSTANCE)
                 .build();
@@ -117,7 +118,7 @@ public class IndexAsSelectTest {
     }
 
     @Test
-    void createdIndexAsSelectWorksSimpleNesting() throws Exception {
+    void createdIndexWorksSimpleNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
@@ -126,25 +127,25 @@ public class IndexAsSelectTest {
     }
 
     @Test
-    void createdIndexAsSelectWorksSimpleNestingAndConcat() throws Exception {
+    void createdIndexWorksSimpleNestingAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p)) " +
-                "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ";
+                "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p";
         indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")));
     }
 
     @Test
-    void createdIndexAsSelectWorksSimpleNestingAndConcatDifferentOrder() throws Exception {
+    void createdIndexWorksSimpleNestingAndConcatDifferentOrder() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ";
+                "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ ORDER BY t.p, SQ.x";
         indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))));
     }
 
     @Test
-    void createdIndexAsSelectWorksDeepNesting() throws Exception {
+    void createdIndexWorksDeepNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(a A array) " +
@@ -154,26 +155,30 @@ public class IndexAsSelectTest {
     }
 
     @Test
-    void createdIndexAsSelectWorksDeepNestingAndConcat() throws Exception {
+    void createdIndexWorksDeepNestingAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT C(z int64) " +
                 "CREATE STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z from T AS t, (select M.x from t.b AS Y, (select x from Y.a) M) SQ1, (select M.z from t.b AS Y, (select z from Y.c) M) SQ2";
+                "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z from " +
+                "  T AS t," +
+                "  (select M.x from t.b AS Y, (select x from Y.a) M) SQ1," +
+                "  (select M.z from t.b AS Y, (select z from Y.c) M) SQ2" +
+                " ORDER BY SQ1.x, SQ2.z";
         indexIs(stmt,
                 concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
                         field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))));
     }
 
     @Test
-    void createdIndexAsSelectWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+    void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT C(z int64) " +
                 "CREATE STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ";
+                "CREATE INDEX mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ ORDER BY SQ.x, SQ.z";
         indexIs(stmt,
                 field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(
                         concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))),
@@ -182,44 +187,126 @@ public class IndexAsSelectTest {
     }
 
     @Test
-    void createIndexAsSelectWithPredicateIsNotSupported() throws Exception {
+    void createIndexWithPredicateIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T(p int64, a A array, b B array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT * FROM T where p > 10";
+                "CREATE INDEX mv1 AS SELECT * FROM T where p > 10 order by p, a, b";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate");
     }
 
     @Test
-    void createIndexAsSelectWithImproperNestedFieldClusteringIsNotSupported() throws Exception {
+    void createIndexWithImproperNestedFieldClusteringIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
-                "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y";
+                "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, improper column clustering");
     }
 
     @Test
-    void createIndexAsSelectWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
+    void createIndexWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
-                "CREATE INDEX mv1 AS SELECT * FROM T1, T2";
+                "CREATE INDEX mv1 AS SELECT * FROM T1, T2 order by t1.p1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found more than iteration generator");
     }
 
     @Test
-    void createIndexAsSelectWithExpressionsInProjectionIsNotSupported() throws Exception {
+    void createIndexWithExpressionsInProjectionIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT A(x int64) " +
                 "CREATE STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
+    }
+
+    @Test
+    void createSimpleValueIndex() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1 FROM T1";
+        indexIs(stmt,
+                field("A1")
+        );
+    }
+
+    @Test
+    void createSimpleValueIndexOnTwoCols() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a1, a2";
+        indexIs(stmt,
+                concat(field("A1"), field("A2")));
+    }
+
+    @Test
+    void createSimpleValueIndexOnNestedCol() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT S1(S1_1 int64, S1_2 int64) " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 S1, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a2.S1_1 FROM T1 order by a2.S1_1";
+        indexIs(stmt, field("S1_1"));
+    }
+
+    @Test
+    void createSimpleValueIndexOnTwoColsReverse() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a2, a1";
+        indexIs(stmt,
+                concat(field("A2"), field("A1")));
+    }
+
+    @Test
+    void createCoveringValueIndex() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, a3 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2, a3 FROM T1 order by a1, a2";
+        indexIs(stmt,
+                keyWithValue(concat(field("A1"), field("A2"), field("A3")), 2)
+        );
+    }
+
+    @Test
+    void createIndexWithoutTopOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Indexes must have an order by clause at the top level");
+    }
+
+    @Test
+    void createIndexOrderByUnkownColumns() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a4";
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "non existing column");
+    }
+
+    @Test
+    void createIndexOrderByUnprojectedColumn() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 int64, a1 int64, a2 int64, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a1 FROM T1 order by a2";
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "not present in the projection list");
+    }
+
+    @Test
+    void createIndexWithImproperNestedFieldClusteringInOrderByIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE STRUCT B(y string) " +
+                "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
+                "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
+                "CREATE INDEX mv1 AS SELECT X.a1,X.c1, Y.b2 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, improper column clustering");
     }
 }

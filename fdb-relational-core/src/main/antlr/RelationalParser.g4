@@ -112,7 +112,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structOrTableDefinition | indexDefinition | indexAsSelectDefinition )
+        CREATE ( structOrTableDefinition | indexDefinition )
     ;
 
 createStatement
@@ -149,15 +149,7 @@ primaryKeyDefinition
     | SINGLE ROW ONLY
     ;
 
-indexDefinition // TODO: add more index types
-    : valueIndexDefinition
-    ;
-
-valueIndexDefinition
-    : UNIQUE? VALUE INDEX idxName=uid ON tblName=uid '(' ( idxField (COMMA idxField)*) ')' ( INCLUDE '(' (incField (COMMA incField)*) ')' )? // todo: provide matview syntax for this
-    ;
-
-indexAsSelectDefinition
+indexDefinition
     : INDEX indexName=uid AS querySpecificationNointo
     ;
 

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
@@ -34,7 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -226,7 +227,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.limitClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause());
     }
 
     @Override
@@ -234,38 +235,43 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
+        //Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.limitClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause());
     }
 
     private RelationalExpression handleSelectInternal(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                       @Nonnull final RelationalParser.FromClauseContext fromClause,
-                                                      @Nullable final RelationalParser.GroupByClauseContext groupByClause) {
+                                                      @Nullable final RelationalParser.GroupByClauseContext groupByClause,
+                                                      @Nullable final RelationalParser.OrderByClauseContext orderByClause) {
         if (groupByClause != null || ParserUtils.hasAggregation(selectElements)) {
-            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause);
+            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause, orderByClause);
         } else {
             parserContext.siblingScope();
             fromClause.accept(this); // includes checking predicates
             selectElements.accept(this); // potentially sets explicit result columns on top-level select expression.
-            return parserContext.popScope().convertToSelectExpression();
+            if (orderByClause != null) {
+                visit(orderByClause);
+            }
+            return parserContext.popScope().convertToRelationalExpression();
         }
     }
 
     @Nonnull
     private RelationalExpression handleSelectWithGroupBy(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                          @Nonnull final RelationalParser.FromClauseContext fromClause,
-                                                         @Nullable final RelationalParser.GroupByClauseContext groupByClause) {
+                                                         @Nullable final RelationalParser.GroupByClauseContext groupByClause,
+                                                         @Nullable final RelationalParser.OrderByClauseContext orderByClause) {
         /*
          * planning GROUP BY is relatively complex, we do not end up generating a single QP node, but rather
-         * three:
-         *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
-         *  - the GROUP BY expression with aggregate expression and grouping expressions.
-         *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
-         *    expressions in the underlying GROUP BY expression.
-         */
+     * three:
+     *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
+     *  - the GROUP BY expression with aggregate expression and grouping expressions.
+     *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
+     *    expressions in the underlying GROUP BY expression.
+     */
         final var groupingAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
         final var groupByQunAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
 
@@ -342,8 +348,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             scope.setGroupByQuantifierCorrelation(groupByQunAlias);
             scope.setGroupByType(groupByExpressionType);
             scope.getProjectList().clear();
-            selectElements.accept(this);
-            return parserContext.popScope().convertToSelectExpression();
+            visit(selectElements);
+            if (orderByClause != null) {
+                visit(orderByClause);
+            }
+            return parserContext.popScope().convertToRelationalExpression();
         }
     }
 
@@ -353,7 +362,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             expandedColumnNames = qun.getFlowedColumns().subList(1, qun.getFlowedColumns().size());
         } else {
             expandedColumnNames = qun.getFlowedColumns().stream()
-                    .filter(fv -> fv.getValue().getFieldPath().get(0).getFieldName().equals(id.toString()))
+                    .filter(fv -> fv.getValue().getFieldPath().getFields().get(0).getFieldName().equals(ParserUtils.toString(id)))
                     .collect(Collectors.toList());
         }
         // now validate each column using the parser to make sure that it is visible.
@@ -403,7 +412,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             List<Column<? extends Value>> columns = new ArrayList<>();
             for (Quantifier quantifier : scope.getForEachQuantifiers()) {
-                if (id == null || quantifier.getAlias().getId().equals(id.toString())) {
+                if (id == null || quantifier.getAlias().getId().equals(ParserUtils.toString(id))) {
                     for (var column : quantifier.getFlowedColumns()) {
                         var field = column.getField();
                         // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
@@ -484,6 +493,21 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
         parserContext.getCurrentScope().addProjectionColumn(column);
         return null;
+    }
+
+    @Override
+    public Void visitOrderByClause(RelationalParser.OrderByClauseContext ctx) {
+        ctx.orderByExpression().forEach(expression -> {
+            Column<? extends Value> column = (Column<? extends Value>) expression.accept(this);
+            parserContext.getCurrentScope().addOrderByColumn(column);
+        });
+        return null;
+    }
+
+    @Override
+    public Column<Value> visitOrderByExpression(RelationalParser.OrderByExpressionContext ctx) {
+        Assert.isNullUnchecked(ctx.DESC(), "Unsupported DESC order", ErrorCode.UNSUPPORTED_OPERATION);
+        return ParserUtils.toColumn((Value) ctx.expression().accept(this));
     }
 
     @Override
@@ -1096,15 +1120,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Void visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
         if (ctx.structOrTableDefinition() != null) {
             ctx.structOrTableDefinition().accept(this);
-        } else if (ctx.indexDefinition() != null) {
-            ctx.indexDefinition().accept(this);
         } else {
             typingContext.addAllToTypeRepository();
             // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
             parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
                     .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                     .withIndexNames(typingContext.getIndexNames());
-            ctx.indexAsSelectDefinition().accept(this);
+            visit(ctx.indexDefinition());
         }
         return null;
     }
@@ -1182,35 +1204,20 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitValueIndexDefinition(RelationalParser.ValueIndexDefinitionContext ctx) {
-        final String tableName = ParserUtils.safeCastLiteral(visit(ctx.tblName), String.class);
-        final String indexName = ParserUtils.safeCastLiteral(visit(ctx.idxName), String.class);
-        final List<String> fieldNames = ctx.idxField().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
-        final List<String> includeNames = ctx.incField().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList());
-        final List<KeyExpression> fieldExpressions = fieldNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
-        final List<KeyExpression> includeExpressions = includeNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
-        KeyExpression rootExpression;
-        if (includeExpressions.isEmpty()) {
-            rootExpression = fieldExpressions.size() == 1 ? fieldExpressions.get(0) : Key.Expressions.concat(fieldExpressions);
-        } else {
-            List<KeyExpression> allFields = new ArrayList<>(fieldExpressions.size() + includeExpressions.size());
-            allFields.addAll(fieldExpressions);
-            allFields.addAll(includeExpressions);
-            rootExpression = Key.Expressions.keyWithValue(Key.Expressions.concat(allFields), fieldExpressions.size());
-        }
-        typingContext.addIndex(tableName, RecordMetaDataProto.Index.newBuilder().setRootExpression(NullableArrayUtils.wrapArray(rootExpression.toKeyExpression(), typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(tableName), containsNonNullableArray))
-                .setName(indexName).setType("value").build(), Stream.concat(fieldNames.stream(), includeNames.stream()).collect(Collectors.toList()));
-        return null;
-    }
-
-    @Override
-    public Void visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext ctx) {
+    public Void visitIndexDefinition(RelationalParser.IndexDefinitionContext ctx) {
         final String indexName = ParserUtils.safeCastLiteral(visit(ctx.indexName), String.class);
-        final RelationalExpression viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
+        final LogicalSortExpression viewPlan = (LogicalSortExpression) ctx.querySpecificationNointo().accept(this);
+        final int selectedColumnCount = ((SelectExpression) viewPlan.getQuantifiers().get(0).getRangesOver().getMembers().toArray()[0]).getResultValues().size();
+        Assert.thatUnchecked(selectedColumnCount <= 1 || !viewPlan.getSortValues().isEmpty(),
+                "Indexes must have an order by clause at the top level", ErrorCode.UNSUPPORTED_OPERATION);
         final var result = PlanUtils.getMaterializedViewKeyDefinition(viewPlan);
         final KeyExpression indexExpression = result.getRight();
-        typingContext.addIndex(result.getLeft(), RecordMetaDataProto.Index.newBuilder().setRootExpression(NullableArrayUtils.wrapArray(indexExpression.toKeyExpression(), typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(result.getLeft()), containsNonNullableArray))
-                .setName(indexName).setType("value").build(), List.of());
+        RecordMetaDataProto.KeyExpression rootExpression = NullableArrayUtils.wrapArray(indexExpression.toKeyExpression(), typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(result.getLeft()), containsNonNullableArray);
+        typingContext.addIndex(result.getLeft(), RecordMetaDataProto.Index.newBuilder()
+                .setRootExpression(rootExpression)
+                .setName(indexName)
+                .setType("value")
+                .build(), List.of());
         return null;
     }
 

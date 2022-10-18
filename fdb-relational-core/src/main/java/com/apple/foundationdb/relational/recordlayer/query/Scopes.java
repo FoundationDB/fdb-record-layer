@@ -24,13 +24,17 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.base.Verify;
@@ -136,6 +140,9 @@ public class Scopes {
         @Nonnull
         private final List<Column<? extends Value>> projectionList;
 
+        @Nonnull
+        private final List<Column<? extends Value>> orderByList;
+
         @Nullable
         private QueryPredicate predicate;
 
@@ -154,11 +161,13 @@ public class Scopes {
                       @Nullable final Scope sibling,
                       @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers,
                       @Nonnull final List<Column<? extends Value>> projectionList,
+                      @Nonnull final List<Column<? extends Value>> orderByList,
                       @Nullable final QueryPredicate predicate) {
             this.parent = parent;
             this.sibling = sibling;
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
+            this.orderByList = orderByList;
             this.predicate = predicate;
             this.flags = new HashSet<>();
             this.aggCounter = 0;
@@ -168,7 +177,7 @@ public class Scopes {
         }
 
         @Nonnull
-        public SelectExpression convertToSelectExpression() {
+        private SelectExpression convertToSelectExpression() {
             GraphExpansion.Builder builder = GraphExpansion.builder();
             builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()))
                     .addAllResultColumns(projectionList);
@@ -178,10 +187,33 @@ public class Scopes {
             return builder.build().buildSelect();
         }
 
+        @Nonnull
+        private LogicalSortExpression convertToLogicalSortExpression() {
+            SelectExpression selectExpression = convertToSelectExpression();
+            List<Value> orderByValues = orderByList.stream()
+                    .map(Column::getValue)
+                    .collect(Collectors.toList());
+
+            final Quantifier qun = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+            return new LogicalSortExpression(orderByValues, false, qun);
+        }
+
+        @Nonnull
+        public RelationalExpression convertToRelationalExpression() {
+            if (getParent() != null) {
+                Assert.thatUnchecked(orderByList.isEmpty(), "ORDER BY is only supported for top level selects", ErrorCode.UNSUPPORTED_OPERATION);
+                return convertToSelectExpression();
+            } else {
+                return convertToLogicalSortExpression();
+            }
+        }
+
         public void addQuantifier(@Nonnull final Quantifier quantifier) {
             if (hasQuantifier(quantifier.getAlias())) {
                 // TODO we should use error codes for proper dispatch in caller.
-                throw new SemanticException(String.format("quantifier with name '%s' already exists in scope", quantifier.getAlias()));
+                throw new SemanticException(SemanticException.ErrorCode.UNKNOWN,
+                        String.format("quantifier with name '%s' already exists in scope", quantifier.getAlias()),
+                        null);
             }
             quantifiers.put(quantifier.getAlias(), quantifier);
         }
@@ -234,6 +266,11 @@ public class Scopes {
 
         public void addProjectionColumn(@Nonnull final Column<? extends Value> column) {
             projectionList.add(column);
+        }
+
+        public void addOrderByColumn(@Nonnull final Column<? extends Value> column) {
+            Assert.thatUnchecked(projectionList.contains(column), "Cannot order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
+            orderByList.add(column);
         }
 
         @Nonnull
@@ -311,7 +348,7 @@ public class Scopes {
         }
 
         public static Scope withParentAndSibling(@Nullable final Scope parent, @Nullable final Scope sibling) {
-            return new Scope(parent, sibling, new LinkedHashMap<>(), new ArrayList<>(), null);
+            return new Scope(parent, sibling, new LinkedHashMap<>(), new ArrayList<>(), new ArrayList<>(), null);
         }
     }
 }

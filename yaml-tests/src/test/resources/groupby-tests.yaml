@@ -24,7 +24,7 @@
 ---
 - query: create schema template groupby_tests_template
     create table t1(id int64, col1 int64, col2 int64, primary key(id))
-    create value index i1 on t1(col1)
+    create index i1 as select col1 from t1
 ---
 - query: drop database /GB_YAML
 ---

@@ -39,7 +39,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,6 +47,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +56,6 @@ import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
@@ -129,7 +127,7 @@ public class DdlStatementParsingTest {
     @Test
     void indexFailsWithNonExistingTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE VALUE INDEX t_idx on foo(a)";
+                "CREATE INDEX t_idx as select a from foo" ;
         shouldFailWith(stmt, ErrorCode.UNDEFINED_TABLE);
     }
 
@@ -137,14 +135,14 @@ public class DdlStatementParsingTest {
     void indexFailsWithNonExistingIndexColumn() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE foo(a int64, PRIMARY KEY(a))" +
-                " CREATE VALUE INDEX t_idx on foo(NON_EXISTING)";
+                " CREATE INDEX t_idx as select non_existing from foo" ;
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test
     void indexFailsWithReservedKeywordAsName() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE VALUE INDEX table on foo(a)";
+                "CREATE INDEX table as select a from foo" ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -188,8 +186,6 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                // index references a table that is not seen yet.
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ")" +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "";
@@ -200,35 +196,12 @@ public class DdlStatementParsingTest {
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                TableInfo info = template.getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
-                Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
-
-                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
-                List<RecordMetaDataProto.KeyExpression> keys = null;
-                if (actualKe.hasThen()) {
-                    keys = new ArrayList<>(actualKe.getThen().getChildList());
-                } else if (actualKe.hasField()) {
-                    keys = new ArrayList<>();
-                    keys.add(actualKe);
-                } else {
-                    Assertions.fail("Unexpected KeyExpression type");
-                }
-                //if the first key is RecordType,remove that
-                if (keys.get(0).hasRecordTypeKey()) {
-                    keys.remove(0);
-                }
-
-                List<String> idxColumns = chooseIndexColumns(columns, n -> n % 2 == 0);
-                for (int i = 0; i < idxColumns.size(); i++) {
-                    Assertions.assertEquals(idxColumns.get(i), keys.get(i).getField().getFieldName(), "Incorrect column at position " + i);
-                }
                 return txn -> {
                 };
             }
         });
     }
+
 
     /*Schema Template tests*/
     @ParameterizedTest
@@ -290,8 +263,8 @@ public class DdlStatementParsingTest {
         final String baseTableDef = makeColumnDefinition(columns, true);
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE FOO " + baseTableDef +
-                " CREATE VALUE INDEX foo_idx on FOO(col0)" +
-                " CREATE VALUE INDEX foo_idx on FOO(col1)"; //duplicate with the same name  on same table should fail
+                " CREATE INDEX foo_idx as select col0 from foo order by col0" +
+                " CREATE INDEX foo_idx as select col1 from foo order by col1"; //duplicate with the same name  on same table should fail
 
         shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractConstantActionFactory() {
             @Nonnull
@@ -308,10 +281,11 @@ public class DdlStatementParsingTest {
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
+        final String indexColumns = String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0));
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0)) + ")";
+                "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
@@ -356,9 +330,9 @@ public class DdlStatementParsingTest {
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
-                "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
-                "CREATE VALUE INDEX v_idx on TBL(" + String.join(",", indexedColumns) + ") INCLUDE (" + String.join(",", unindexedColumns) + ")";
+                " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
+                " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns) ;
         shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
             @Nonnull
             @Override

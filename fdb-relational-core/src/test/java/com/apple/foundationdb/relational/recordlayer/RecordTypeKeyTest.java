@@ -47,7 +47,7 @@ public class RecordTypeKeyTest {
             RecordTypeKeyTest.class,
             "CREATE TABLE restaurant_review (reviewer int64, rating int64, SINGLE ROW ONLY)" +
                     " CREATE TABLE restaurant_tag (tag string, weight int64, PRIMARY KEY(tag))" +
-                    " CREATE VALUE INDEX record_rt_covering_idx on restaurant_review(reviewer)");
+                    " CREATE INDEX record_rt_covering_idx as select reviewer from restaurant_review");
 
     @RegisterExtension
     @Order(2)

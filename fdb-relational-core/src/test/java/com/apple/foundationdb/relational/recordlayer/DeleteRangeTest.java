@@ -220,7 +220,7 @@ public class DeleteRangeTest {
 
     @Test
     void testDeleteWithIndexWithSamePrefix() throws Exception {
-        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE VALUE INDEX idx1 on T1(id, a)";
+        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 as select id, a from t1 order by id, a";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
@@ -250,7 +250,7 @@ public class DeleteRangeTest {
 
     @Test
     void testDeleteWithIndexSamePrefixButDeleteGoesBeyondIndex() throws Exception {
-        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE VALUE INDEX idx1 on T1(id)";
+        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 as select id from t1";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
