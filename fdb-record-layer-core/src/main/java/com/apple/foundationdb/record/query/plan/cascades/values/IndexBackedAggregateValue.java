@@ -144,7 +144,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
         // todo: adapt this once we support MIN_EVER_TUPLE and MAX_EVER_TUPLE.
-        SemanticException.check(type0.isNumeric(), "only numeric types allowed in numeric aggregation operation");
+        SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in numeric aggregation operation");
         return new IndexBackedAggregateValue(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
     }
 

@@ -65,9 +65,7 @@ public class FieldValue implements ValueWithChild {
     private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
-        normalizedFieldsSupplier = Suppliers.memoize(() -> {
-            return normalizeForStructuralEquality(childValue.getResultType(), fieldPath.fields);
-        });
+        normalizedFieldsSupplier = Suppliers.memoize(() -> normalizeForStructuralEquality(childValue.getResultType(), fieldPath.fields));
     }
 
     @Nonnull
