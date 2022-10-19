@@ -287,7 +287,7 @@ public interface Type extends Narrowable<Type> {
                 return primitiveType(typeCode, isNullable);
             } else if (typeCode == TypeCode.ENUM) {
                 final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                return new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()), enumDescriptor.getName());
+                return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
             } else if (typeCode == TypeCode.RECORD) {
                 Objects.requireNonNull(descriptor);
                 final var messageDescriptor = (Descriptors.Descriptor)descriptor;
@@ -318,7 +318,7 @@ public interface Type extends Narrowable<Type> {
             return new Array(isNullable, primitiveType);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            final var enumType = new Enum(isNullable, Enum.enumValuesFromProto(enumDescriptor.getValues()), enumDescriptor.getName());
+            final var enumType = Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
             return new Array(isNullable, enumType);
         } else {
             if (isNullable) {
@@ -589,6 +589,11 @@ public interface Type extends Narrowable<Type> {
         final String name;
 
         public Enum(final boolean isNullable,
+                    @Nullable final List<EnumValue> enumValues) {
+            this(isNullable, enumValues, null);
+        }
+
+        public Enum(final boolean isNullable,
                     @Nullable final List<EnumValue> enumValues,
                     @Nullable final String name) {
             this.isNullable = isNullable;
@@ -693,6 +698,10 @@ public interface Type extends Narrowable<Type> {
                            .stream()
                            .map(Object::toString)
                            .collect(Collectors.joining(", ")) + ">";
+        }
+
+        private static Enum fromProtoValues(boolean isNullable, @Nonnull List<Descriptors.EnumValueDescriptor> values) {
+            return new Enum(isNullable, enumValuesFromProto(values), null);
         }
 
         public static List<EnumValue> enumValuesFromProto(@Nonnull final List<Descriptors.EnumValueDescriptor> enumValueDescriptors) {
