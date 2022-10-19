@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -92,7 +94,10 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
      */
     @Nonnull
-    private final TrieNode transformTrie;
+    private final TrieNode transformationsTrie;
+
+    @Nullable
+    private final TrieNode promotionsTrie;
 
     @Nonnull
     private final Supplier<Value> resultValueSupplier;
@@ -101,12 +106,14 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nonnull final TrieNode transformTrie) {
+                                  @Nonnull final TrieNode transformationsTrie,
+                                  @Nullable final TrieNode promotionsTrie) {
         this.inner = inner;
         this.recordType = recordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
-        this.transformTrie = transformTrie;
+        this.transformationsTrie = transformationsTrie;
+        this.promotionsTrie = promotionsTrie;
         this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
     }
 
@@ -130,7 +137,7 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     @SuppressWarnings("unchecked")
     public <M extends Message> M updateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)transformMessage(store, context, transformTrie, getResultValue().getResultType(), targetDescriptor, targetType, inRecord);
+        return (M)transformMessage(store, context, transformationsTrie, promotionsTrie, getResultValue().getResultType(), targetDescriptor, targetType, inRecord);
     }
 
     @Override
@@ -165,13 +172,14 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
                 getRecordType(),
                 targetType,
                 targetDescriptor,
-                transformTrie);
+                transformationsTrie,
+                promotionsTrie);
     }
 
     @Nonnull
     @Override
     public RecordQueryUpdatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)), getRecordType(), targetType, targetDescriptor, transformTrie);
+        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)), getRecordType(), targetType, targetDescriptor, transformationsTrie, promotionsTrie);
     }
 
     @Nonnull
@@ -198,7 +206,7 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
         if (targetType.equals(otherUpdatePlan.targetType)) {
             return false;
         }
-        return transformTrie.equals(otherUpdatePlan.transformTrie);
+        return transformationsTrie.equals(otherUpdatePlan.transformationsTrie);
     }
 
     @Override
@@ -270,18 +278,6 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     @Nonnull
-    public static Map<FieldValue.FieldPath, Value> checkAndPrepareTransformMap(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        for (final var entry : transformMap.entrySet()) {
-            // TODO check this using the type, not just the type code! For that to work we need isAssignableTo() checking
-            //      in the type system, so we can account for e.g. differences in nullabilities between the types.
-            SemanticException.check(entry.getKey()
-                    .getLastField()
-                    .getFieldType().getTypeCode().equals(entry.getValue().getResultType().getTypeCode()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        }
-        return ImmutableMap.copyOf(transformMap);
-    }
-
-    @Nonnull
     public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         // this brings together all paths that share the same prefixes
         final var orderedFieldPaths =
@@ -325,7 +321,13 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
                                                         @Nonnull final Type.Record targetType,
                                                         @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                         @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        return new RecordQueryUpdatePlan(inner, recordType, targetType, targetDescriptor, computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap));
+        final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
+        return new RecordQueryUpdatePlan(inner,
+                recordType,
+                targetType,
+                targetDescriptor,
+                transformationsTrie,
+                computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie));
     }
 
     /**
@@ -371,73 +373,150 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     @Nullable
+    public static TrieNode computePromotionsTrie(@Nonnull final Type targetType,
+                                                 @Nonnull Type currentType,
+                                                 @Nullable final TrieNode transformationsTrie) {
+        if (transformationsTrie != null && transformationsTrie.getValue() != null) {
+            currentType = transformationsTrie.getValue().getResultType();
+        }
+
+        if (currentType.isPrimitive()) {
+            SemanticException.check(targetType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            if (!PromoteValue.isPromotionNeeded(currentType, targetType)) {
+                return null;
+            }
+            // this is definitely a leaf; and we need to promote
+            return new TrieNode(PromoteValue.inject(ObjectValue.of(Quantifier.CURRENT, currentType), targetType), null);
+        }
+
+        Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
+
+        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
+            final var targetElementType = (Type.Array)targetType;
+            final var currentElementType = (Type.Array)currentType;
+            return computePromotionsTrie(targetElementType, currentElementType, null);
+        }
+
+        Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
+        final var targetRecordType = (Type.Record)targetType;
+        final var currentRecordType = (Type.Record)currentType;
+        SemanticException.check(targetRecordType.getFields().size() == currentRecordType.getFields().size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+
+        final var targetFields = targetRecordType.getFields();
+        final var currentFields = currentRecordType.getFields();
+
+        final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
+        final var childrenMapBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+        for (int i = 0; i < targetFields.size(); i++) {
+            final Type.Record.Field targetField = targetFields.get(i);
+            final Type.Record.Field currentField = currentFields.get(i);
+            final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(currentField);
+            final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentField.getFieldType(), transformationsFieldTrie);
+            if (fieldTrie != null) {
+                childrenMapBuilder.put(currentField, fieldTrie);
+            }
+        }
+        final var childrenMap = childrenMapBuilder.build();
+        return childrenMap.isEmpty() ? null : new TrieNode(null, childrenMap);
+    }
+
+    @Nullable
     @SuppressWarnings("unchecked")
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
                                                               @Nonnull final EvaluationContext context,
-                                                              @Nonnull final TrieNode trieNode,
+                                                              @Nonnull final TrieNode transformationsTrie,
+                                                              @Nullable final TrieNode promotionsTrie,
                                                               @Nonnull final Type targetType,
                                                               @Nullable Descriptors.Descriptor targetDescriptor,
                                                               @Nonnull final Type currentType,
                                                               @Nullable final Object current) {
-        final var value = trieNode.getValue();
-        if (value != null) {
-            return value.eval(store, context);
-        } else {
-            targetDescriptor = Verify.verifyNotNull(targetDescriptor);
-            final var targetRecordType = (Type.Record)targetType;
-            final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
-            final var currentRecordType = (Type.Record)currentType;
-            final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
+        final var value = transformationsTrie.getValue();
+        Verify.verify(value == null);
 
-            final var fieldIndexToFieldMap = Verify.verifyNotNull(trieNode.getFieldIndexToFieldMap());
-            final var childrenMap = Verify.verifyNotNull(trieNode.getChildrenMap());
-            final var subRecord = (M)Verify.verifyNotNull(current);
+        targetDescriptor = Verify.verifyNotNull(targetDescriptor);
+        final var targetRecordType = (Type.Record)targetType;
+        final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
+        final var currentRecordType = (Type.Record)currentType;
+        final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
 
-            final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
-            final var messageDescriptor = subRecord.getDescriptorForType();
-            for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-                final var field = fieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
-                final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
-                if (field != null) {
-                    final var targetFieldType = targetNameToFieldMap.get(field.getFieldName()).getFieldType();
-                    final var currentFieldType = field.getFieldType();
-                    var fieldResult = transformMessage(store,
-                            context,
-                            Verify.verifyNotNull(childrenMap.get(field)),
-                            targetFieldType,
-                            targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
-                            currentFieldType,
-                            subRecord.getField(messageFieldDescriptor));
-                    Verify.verify(fieldResult != null || (currentFieldType.isNullable() && targetFieldType.isNullable()));
-                    if (fieldResult != null) {
-                        fieldResult = coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult);
-                        resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
-                    }
+        final var transformationsFieldIndexToFieldMap = Verify.verifyNotNull(transformationsTrie.getFieldIndexToFieldMap());
+        final var transformationsChildrenMap = Verify.verifyNotNull(transformationsTrie.getChildrenMap());
+        final var promotionsFieldIndexToFieldMap = promotionsTrie == null ? null : promotionsTrie.getFieldIndexToFieldMap();
+        final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
+        final var subRecord = (M)Verify.verifyNotNull(current);
+
+        final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
+        final var messageDescriptor = subRecord.getDescriptorForType();
+        for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
+            final var transformationField = transformationsFieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
+            final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
+            final var promotionField = promotionsFieldIndexToFieldMap == null ? null : promotionsFieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
+            final var promotionFieldTrie = (promotionsChildrenMap == null || promotionField == null) ? null : promotionsChildrenMap.get(promotionField);
+            if (transformationField != null) {
+                final var transformationFieldTrie = Verify.verifyNotNull(transformationsChildrenMap.get(transformationField));
+                final var targetFieldType = targetNameToFieldMap.get(transformationField.getFieldName()).getFieldType();
+                final var currentFieldType = transformationField.getFieldType();
+                Object fieldResult;
+                if (transformationFieldTrie.getValue() == null) {
+                    fieldResult =
+                            transformMessage(store,
+                                    context,
+                                    transformationFieldTrie,
+                                    promotionFieldTrie,
+                                    targetFieldType,
+                                    targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
+                                    currentFieldType,
+                                    subRecord.getField(messageFieldDescriptor));
                 } else {
-                    var fieldResult = MessageValue.getFieldOnMessage(subRecord, messageFieldDescriptor);
-                    if (fieldResult != null) {
-                        final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                        final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                        fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
-                        resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult));
+                    final var transformationValue = transformationFieldTrie.getValue();
+                    fieldResult = transformationValue.eval(store, context);
+                    if (fieldResult !=  null) {
+                        fieldResult = coerceField(store, context, promotionFieldTrie, targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult);
                     }
                 }
+                Verify.verify(fieldResult != null || (currentFieldType.isNullable() && targetFieldType.isNullable()));
+                if (fieldResult != null) {
+                    resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
+                }
+            } else {
+                var fieldResult = MessageValue.getFieldOnMessage(subRecord, messageFieldDescriptor);
+                if (fieldResult != null) {
+                    final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                    final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                    fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
+                    resultMessageBuilder.setField(targetFieldDescriptor, coerceField(store, context, promotionFieldTrie, targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult));
+                }
             }
-            return resultMessageBuilder.build();
         }
+        return resultMessageBuilder.build();
     }
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public static <M extends Message> Object coerceField(@Nonnull final Type targetFieldType,
+    public static <M extends Message> Object coerceField(@Nonnull final FDBRecordStoreBase<M> store,
+                                                         @Nonnull final EvaluationContext context,
+                                                         @Nullable final TrieNode promotionsTrie,
+                                                         @Nonnull final Type targetFieldType,
                                                          @Nonnull final Descriptors.FieldDescriptor targetFieldDescriptor,
                                                          @Nonnull final Type currentFieldType,
                                                          @Nonnull Object current) {
-        if (currentFieldType.getTypeCode() == Type.TypeCode.ARRAY && currentFieldType.isNullable()) {
-            final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
-            final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-            wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), current);
-            return wrapperBuilder.build();
+        if (currentFieldType.getTypeCode() == Type.TypeCode.ARRAY) {
+            SemanticException.check(targetFieldType.getTypeCode() == Type.TypeCode.ARRAY, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetFieldType).getElementType());
+            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentFieldType).getElementType());
+            final var currentObjects = (List<?>)current;
+            final var coercedObjectsBuilder = ImmutableList.builder();
+            for (final var currentObject : currentObjects) {
+                coercedObjectsBuilder.add(coerceField(store, context, promotionsTrie, targetElementType, targetFieldDescriptor, currentElementType, currentObject));
+            }
+            current = coercedObjectsBuilder.build();
+
+            if (currentFieldType.isNullable()) {
+                final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
+                final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
+                wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), current);
+                return wrapperBuilder.build();
+            }
         }
 
         switch (targetFieldDescriptor.getJavaType()) {
@@ -449,20 +528,29 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
             case STRING:
             case BYTE_STRING:
             case ENUM:
-                return current;
+                if (promotionsTrie == null) {
+                    return current;
+                }
+
+                final var promoteValue = Verify.verifyNotNull(promotionsTrie.getValue());
+                return Verify.verifyNotNull(promoteValue.eval(store, context.withBinding(Quantifier.CURRENT, current)));
             case MESSAGE:
-                return coerceMessage(targetFieldType, targetFieldDescriptor.getMessageType(), currentFieldType, (M)current);
+                return coerceMessage(store, context, promotionsTrie, targetFieldType, targetFieldDescriptor.getMessageType(), currentFieldType, (M)current);
             default:
                 throw new IllegalStateException("unsupported java type for record field");
         }
     }
 
     @Nonnull
-    public static <M extends Message> Message coerceMessage(@Nonnull final Type targetType,
+    public static <M extends Message> Message coerceMessage(@Nonnull final FDBRecordStoreBase<M> store,
+                                                            @Nonnull final EvaluationContext context,
+                                                            @Nullable final TrieNode promotionsTrie,
+                                                            @Nonnull final Type targetType,
                                                             @Nonnull Descriptors.Descriptor targetDescriptor,
                                                             @Nonnull final Type currentType,
                                                             @Nonnull final M currentMessage) {
         targetDescriptor = Verify.verifyNotNull(targetDescriptor);
+        final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
         final var targetRecordType = (Type.Record)targetType;
         final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
         final var currentRecordType = (Type.Record)currentType;
@@ -473,8 +561,17 @@ public class RecordQueryUpdatePlan implements RecordQueryPlanWithChild, PlannerG
             if (currentMessage.hasField(messageFieldDescriptor)) {
                 final var targetFieldDescriptor = Verify.verifyNotNull(targetDescriptor.findFieldByName(messageFieldDescriptor.getName()));
                 final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                resultMessageBuilder.setField(targetFieldDescriptor, coerceField(targetFieldType, targetFieldDescriptor, currentFieldType, currentMessage.getField(messageFieldDescriptor)));
+                final var currentField = currentNameToFieldMap.get(messageFieldDescriptor.getName());
+                final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
+
+                resultMessageBuilder.setField(targetFieldDescriptor,
+                        coerceField(store,
+                                context,
+                                promotionsChildrenMap == null ? null : promotionsChildrenMap.get(currentField),
+                                targetFieldType,
+                                targetFieldDescriptor,
+                                currentFieldType,
+                                currentMessage.getField(messageFieldDescriptor)));
             }
         }
         return resultMessageBuilder.build();

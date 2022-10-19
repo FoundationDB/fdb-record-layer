@@ -139,12 +139,8 @@ public class PromoteValue implements ValueWithChild {
     }
 
     @Nonnull
-    public static Value injectIfNecessary(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
+    public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
         final var inType = inValue.getResultType();
-        SemanticException.check(typesCanBePromoted(inType, promoteToType), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        if (!isPromotionNeeded(inType, promoteToType)) {
-            return inValue;
-        }
         final var promotionFunction = resolvePromotionFunction(inType, promoteToType);
         SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return new PromoteValue(inValue, promoteToType, promotionFunction);
@@ -155,14 +151,8 @@ public class PromoteValue implements ValueWithChild {
         return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 
-    private static boolean typesCanBePromoted(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
-        if (!inType.isPrimitive() || !promoteToType.isPrimitive()) {
-            return false;
-        }
-        return inType.isNumeric() == promoteToType.isNumeric();
-    }
-
-    private static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+        SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }
 }

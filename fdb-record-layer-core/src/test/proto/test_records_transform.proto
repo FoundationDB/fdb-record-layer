@@ -26,25 +26,49 @@ option java_outer_classname = "TestRecordsTransformProto";
 
 import "record_metadata_options.proto";
 
-message MessageAa {
-  required string aaa = 1;
-  required int32 aab = 2;
-  optional string aac = 3;
+message DefaultTransformMessage {
+  message MessageAa {
+    required string aaa = 1;
+    required int32 aab = 2;
+    optional string aac = 3;
+  }
+
+  message MessageA {
+    required MessageAa aa = 1;
+    required int32 ab = 2;
+    optional string ac = 3;
+  }
+
+  message MessageX {
+    required string xa = 1;
+    required int32 xb = 2;
+    optional string xc = 3;
+  }
+
+  required MessageA a = 1;
+  required MessageX x = 2;
+  required string z = 3;
 }
 
-message MessageA {
-  required MessageAa aa = 1;
-  required int32 ab = 2;
-  optional string ac = 3;
-}
+message TransformMessageMaxTypes {
+  message MessageAa {
+    required string aaa = 1;
+    required double aab = 2;
+    optional string aac = 3;
+  }
 
-message MessageX {
-  required string xa = 1;
-  required int32 xb = 2;
-  optional string xc = 3;
-}
+  message MessageA {
+    required MessageAa aa = 1;
+    required float ab = 2;
+    optional string ac = 3;
+  }
 
-message MainMessage {
+  message MessageX {
+    required string xa = 1;
+    required int64 xb = 2;
+    optional string xc = 3;
+  }
+
   required MessageA a = 1;
   required MessageX x = 2;
   required string z = 3;

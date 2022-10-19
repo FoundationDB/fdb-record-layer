@@ -113,8 +113,11 @@ class MessageTransformationTest {
                         a_aa_aab.getFieldPath(), new LiteralValue<>(2),
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
+        final var transformationsTrie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                transformMap);
         Assertions.assertThrows(SemanticException.class,
-                () -> RecordQueryUpdatePlan.checkAndPrepareTransformMap(transformMap));
+                () -> RecordQueryUpdatePlan.computePromotionsTrie(inValue.getResultType(), inValue.getResultType(), transformationsTrie));
     }
 
     @Test
@@ -153,6 +156,7 @@ class MessageTransformationTest {
         final var result = RecordQueryUpdatePlan.transformMessage(null,
                 evaluationContext,
                 trie,
+                null,
                 inValue.getResultType(),
                 evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inValue.getResultType(),
@@ -217,6 +221,7 @@ class MessageTransformationTest {
         final var result = RecordQueryUpdatePlan.transformMessage(null,
                 evaluationContext,
                 trie,
+                null,
                 inValue.getResultType(),
                 evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inValue.getResultType(),
@@ -267,6 +272,7 @@ class MessageTransformationTest {
         final var result = RecordQueryUpdatePlan.transformMessage(null,
                 evaluationContext,
                 trie,
+                null,
                 inValue.getResultType(),
                 evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inValue.getResultType(),
@@ -322,17 +328,18 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.MainMessage.getDescriptor());
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)Verify.verifyNotNull(RecordQueryUpdatePlan.transformMessage(null,
                 evaluationContext,
                 trie,
+                null,
                 coercedType,
-                TestRecordsTransformProto.MainMessage.getDescriptor(),
+                TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
                 inValue.getResultType(),
                 inRecord));
-        Assertions.assertEquals(TestRecordsTransformProto.MainMessage.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
+        Assertions.assertEquals(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
         final var resultSerialized = result.toByteString();
-        final var typedResult = TestRecordsTransformProto.MainMessage.parseFrom(resultSerialized);
+        final var typedResult = TestRecordsTransformProto.DefaultTransformMessage.parseFrom(resultSerialized);
         Assertions.assertEquals("1", typedResult.getA().getAa().getAaa());
         Assertions.assertEquals(2, typedResult.getA().getAa().getAab());
         Assertions.assertEquals("aac", typedResult.getA().getAa().getAac());
@@ -365,19 +372,59 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.MainMessage.getDescriptor());
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)RecordQueryUpdatePlan.transformMessage(null,
                 evaluationContext,
                 trie,
+                null,
                 coercedType,
-                TestRecordsTransformProto.MainMessage.getDescriptor(),
+                TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
                 inValue.getResultType(),
                 inRecord);
         final var resultSerialized = result.toByteString();
-        final var typedResult = TestRecordsTransformProto.MainMessage.parseFrom(resultSerialized);
+        final var typedResult = TestRecordsTransformProto.DefaultTransformMessage.parseFrom(resultSerialized);
         Assertions.assertEquals("10", typedResult.getA().getAa().getAaa());
         Assertions.assertEquals(20, typedResult.getA().getAa().getAab());
         Assertions.assertEquals("30", typedResult.getA().getAa().getAac());
+        Assertions.assertEquals(3, typedResult.getA().getAb());
+        Assertions.assertEquals("ac", typedResult.getA().getAc());
+        Assertions.assertEquals("z", typedResult.getZ());
+    }
+
+    @Test
+    void testTransformLeafsWithPromotion() throws Exception {
+        final var inValue = makeRecordConstructor();
+        final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
+        final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
+        final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
+
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor());
+        final var transformationsTrie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
+        final var promotionsTrie = RecordQueryUpdatePlan.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = inValue.eval(null, evaluationContext);
+        final var result = (Message)Verify.verifyNotNull(RecordQueryUpdatePlan.transformMessage(null,
+                evaluationContext,
+                transformationsTrie,
+                promotionsTrie,
+                coercedType,
+                TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor(),
+                inValue.getResultType(),
+                inRecord));
+        Assertions.assertEquals(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
+        final var resultSerialized = result.toByteString();
+        final var typedResult = TestRecordsTransformProto.TransformMessageMaxTypes.parseFrom(resultSerialized);
+        Assertions.assertEquals("1", typedResult.getA().getAa().getAaa());
+        Assertions.assertEquals(2, typedResult.getA().getAa().getAab());
+        Assertions.assertEquals("aac", typedResult.getA().getAa().getAac());
         Assertions.assertEquals(3, typedResult.getA().getAb());
         Assertions.assertEquals("ac", typedResult.getA().getAc());
         Assertions.assertEquals("z", typedResult.getZ());
