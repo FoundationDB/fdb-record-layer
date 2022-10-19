@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -55,7 +56,7 @@ public class RecordLayerPropertyStorage {
     @Nullable
     public <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
         if (propertyMap.containsKey(propertyKey)) {
-            Object value = propertyMap.get(propertyKey).getValue();
+            Object value = Preconditions.checkNotNull(propertyMap.get(propertyKey)).getValue();
             try {
                 return propertyKey.getType().cast(value);
             } catch (ClassCastException ex) {

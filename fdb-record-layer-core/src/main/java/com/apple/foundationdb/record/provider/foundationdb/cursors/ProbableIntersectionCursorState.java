@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
+import com.google.common.base.Verify;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnel;
 import com.google.common.hash.PrimitiveSink;
@@ -125,7 +126,7 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
 
         @Override
         public void funnel(List<Object> objects, PrimitiveSink primitiveSink) {
-            for (Object o : objects) {
+            for (Object o : Verify.verifyNotNull(objects)) {
                 if (o == null) {
                     primitiveSink.putByte((byte)0x00);
                 } else if (o instanceof byte[]) {

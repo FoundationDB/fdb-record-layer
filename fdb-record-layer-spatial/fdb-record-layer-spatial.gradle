@@ -34,13 +34,13 @@ dependencies {
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     implementation "org.slf4j:jul-to-slf4j:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
-    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    compileOnly "com.google.auto.service:auto-service:undefined"
+    annotationProcessor "com.google.auto.service:auto-service:undefined"
 
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testCompileOnly "com.google.auto.service:auto-service:undefined"
     testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 

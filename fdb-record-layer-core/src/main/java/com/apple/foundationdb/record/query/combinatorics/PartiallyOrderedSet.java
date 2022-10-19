@@ -153,7 +153,8 @@ public class PartiallyOrderedSet<T> {
             final var value = entry.getValue();
             Verify.verify(elementsToMappedElementsMap.containsKey(key));
             Verify.verify(elementsToMappedElementsMap.containsKey(value));
-            resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
+            resultDependencyMapBuilder.put(Verify.verifyNotNull(elementsToMappedElementsMap.get(key)),
+                    Verify.verifyNotNull(elementsToMappedElementsMap.get(value)));
         }
 
         return PartiallyOrderedSet.of(elementsToMappedElementsMap.values(), resultDependencyMapBuilder.build());

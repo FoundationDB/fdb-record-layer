@@ -43,10 +43,10 @@ import static com.apple.foundationdb.record.query.expressions.BooleanComponent.g
  * A bound record query wraps an instance of {@link RecordQuery} and {@link RecordStoreState} in order to associate
  * the query with the state of a store. That allows for differentiation of queries depending on the store state, e.g.
  * the availability of indexes at the time the query was bound to the state, etc.
- *
+ * <br>
  * Bound record queries also define {@link #hashCode()} and {@link #equals(Object)} in a way that allows for queries to
  * be considered compatible to each other which is useful with respect to pre-bound parameter markers.
- *
+ * <br>
  * Two queries are considered compatible, iff
  * 1. their query structure is equal (minus their pre-bound parameter markers)
  * 2. their associated record store state was compatible at the time of binding the {@link RecordQuery} to the
@@ -134,7 +134,7 @@ public class BoundRecordQuery {
 
     @SuppressWarnings("UnstableApiUsage")
     private int computeHashCode() {
-        final HashFunction hashFunction = Hashing.murmur3_32();
+        final HashFunction hashFunction = Hashing.murmur3_32_fixed();
         final Hasher hasher = hashFunction.newHasher();
         hasher.putInt(recordQuery.hashCode());
         hasher.putInt(recordStoreState.getIndexStates().hashCode());

@@ -5,24 +5,11 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 3.2
-
-### Features
-
-This version of the Record Layer allows the FDB API version to be configured through the `FDBDatabaseFactory`. This means that while this version allows the client to be configured to use 7.1 features, it also supports connecting to 6.3 FDB clusters if the API version is set appropriately. Note that setting the API version does restrict the set of potential FDB server versions that can be connected to, so this configuration change should only be made if the FDB server has already been updated.
- 
-New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is: 
-1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
-2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
-3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds. 
-An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
-
+## 3.3
 
 ### Breaking Changes
 
-The FoundationDB Java binding dependency has been updated to 7.1 with this release. This means that clients also need to update their main FDB C client to a 7.1 version. Adopters that still wish to connect to an FDB cluster running a 6.3 or 7.0 server version can do so by packaging additional FDB C clients at the appropriate version(s) using the [FDB multi-version client feature](https://apple.github.io/foundationdb/api-general.html#multi-version-client).
-
-This release also updates downstream dependency versions. Most notably, the proto3 artifacts now require Protobuf version 3.20.1.
+The Guava dependency version has been updated to 31.1. Projects may need to check for compatibility with their own versions of the dependency, or they may need to consider using the shaded artifact if the new version is incompatible.
 
 <!--
 // begin next release
@@ -51,6 +38,33 @@ This release also updates downstream dependency versions. Most notably, the prot
 
 // end next release
 -->
+
+### 3.3.296.0
+
+* **Performance** Looking up logical values from `DirectoryLayerDirectory`s no longer needs to create new transactions [(Issue #1857)](https://github.com/FoundationDB/fdb-record-layer/issues/1857)
+
+### 3.3.295.0
+
+* **Breaking change** Enable incremental builds. Upgrade guava dependency to 31.1-jre. [(Issue #1868)](https://github.com/FoundationDB/fdb-record-layer/issues/1868)
+
+## 3.2
+
+### Features
+
+This version of the Record Layer allows the FDB API version to be configured through the `FDBDatabaseFactory`. This means that while this version allows the client to be configured to use 7.1 features, it also supports connecting to 6.3 FDB clusters if the API version is set appropriately. Note that setting the API version does restrict the set of potential FDB server versions that can be connected to, so this configuration change should only be made if the FDB server has already been updated.
+ 
+New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is: 
+1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
+2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
+3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds. 
+An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
+
+
+### Breaking Changes
+
+The FoundationDB Java binding dependency has been updated to 7.1 with this release. This means that clients also need to update their main FDB C client to a 7.1 version. Adopters that still wish to connect to an FDB cluster running a 6.3 or 7.0 server version can do so by packaging additional FDB C clients at the appropriate version(s) using the [FDB multi-version client feature](https://apple.github.io/foundationdb/api-general.html#multi-version-client).
+
+This release also updates downstream dependency versions. Most notably, the proto3 artifacts now require Protobuf version 3.20.1.
 
 ### 3.2.293.0
 

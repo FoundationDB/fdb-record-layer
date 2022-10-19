@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.CombineFilterRule;
@@ -171,13 +172,20 @@ public class PlannerRuleSet {
     public static final PlannerRuleSet DEFAULT = new PlannerRuleSet(ALL_EXPRESSION_RULES);
 
     @Nonnull
-    private final Multimap<Class<?>, CascadesRule<? extends RelationalExpression>> ruleIndex =
-            MultimapBuilder.hashKeys().arrayListValues().build();
+    private final Multimap<Class<?>, CascadesRule<? extends RelationalExpression>> ruleIndex;
+
     @Nonnull
-    private final List<CascadesRule<? extends RelationalExpression>> alwaysRules = new ArrayList<>();
+    private final List<CascadesRule<? extends RelationalExpression>> alwaysRules;
 
     @VisibleForTesting
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     PlannerRuleSet(@Nonnull List<CascadesRule<? extends RelationalExpression>> rules) {
+        this.ruleIndex =
+                MultimapBuilder
+                        .hashKeys()
+                        .arrayListValues()
+                        .build();
+        this.alwaysRules = new ArrayList<>();
         for (CascadesRule<? extends RelationalExpression> rule : rules) {
             Optional<Class<?>> root = rule.getRootOperator();
             if (root.isPresent()) {

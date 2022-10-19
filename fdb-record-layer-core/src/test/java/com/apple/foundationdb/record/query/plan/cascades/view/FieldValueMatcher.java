@@ -47,7 +47,7 @@ public class FieldValueMatcher extends ValueMatcher {
     @Override
     protected boolean matchesSafely(final Value element) {
         return element instanceof FieldValue &&
-               ((FieldValue)element).getFieldPath().equals(fieldPath);
+               ((FieldValue)element).getFields().equals(fieldPath);
     }
 
     @Override

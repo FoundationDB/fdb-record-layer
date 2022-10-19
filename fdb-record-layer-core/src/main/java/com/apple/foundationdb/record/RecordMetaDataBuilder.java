@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
@@ -760,7 +761,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 }
                 // When pulling from a local file descriptor, the preferred field is the one that has the same
                 // position as the field in the old union descriptor (so that the byte representation is the same).
-                Descriptors.FieldDescriptor oldUnionField = oldUnionFields.get(oldDescriptor);
+                Descriptors.FieldDescriptor oldUnionField = Verify.verifyNotNull(oldUnionFields.get(oldDescriptor));
                 if (unionField.getNumber() == oldUnionField.getNumber()) {
                     unionFields.put(newDescriptor, unionField);
                 }

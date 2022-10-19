@@ -40,8 +40,8 @@ dependencies {
     implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     implementation "com.google.guava:guava:${guavaVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
-    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    compileOnly "com.google.auto.service:auto-service:undefined"
+    annotationProcessor "com.google.auto.service:auto-service:undefined"
 
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
@@ -49,14 +49,14 @@ dependencies {
     testImplementation "org.apache.commons:commons-math3:${commonsMath3Version}"
     testImplementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testCompileOnly "com.google.auto.service:auto-service:undefined"
     testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
     testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testAnnotationProcessor "com.google.auto.service:auto-service:undefined"
     testImplementation "org.jline:jline:${jlineVersion}"
     testImplementation "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
     repl "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"

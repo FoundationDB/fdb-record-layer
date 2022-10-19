@@ -80,7 +80,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                     // $b.z
                     //
                     if (fieldValue.getChild().semanticEquals(toBePulledUpFieldValue.getChild(), call.getEquivalenceMap())) {
-                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
+                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFields(), fieldValue.getFields());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {
                                 newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
@@ -94,7 +94,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                     final var compensation = matchedValuesMap.get(toBePulledUpValue);
                     if (compensation instanceof FieldValueCompensation) {
                         final var fieldValueCompensation = (FieldValueCompensation)compensation;
-                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFieldPath());
+                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFields());
                         pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValuesMap.put(toBePulledUpValue, fieldValueCompensation.withSuffix(pathSuffix)));
                     }
                 }

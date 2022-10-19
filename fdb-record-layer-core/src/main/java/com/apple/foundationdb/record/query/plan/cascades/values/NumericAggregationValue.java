@@ -170,7 +170,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
-        SemanticException.check(type0.isPrimitive(), "only primitive types allowed in numeric aggregation operation");
+        SemanticException.check(type0.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
         final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
