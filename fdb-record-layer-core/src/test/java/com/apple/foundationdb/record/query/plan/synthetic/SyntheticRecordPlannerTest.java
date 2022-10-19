@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.HashMultiset;
@@ -62,6 +63,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Message;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -148,6 +151,11 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("OneToOne"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("MySimpleRecord$other_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(0), Tuple.from(1000)),
                     Tuple.from(-1, Tuple.from(1), Tuple.from(1001)),
@@ -187,6 +195,11 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("ManyToOne"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("MySimpleRecord$other_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(100), Tuple.from(1001)),
                     Tuple.from(-1, Tuple.from(200), Tuple.from(1002)),
@@ -196,6 +209,10 @@ public class SyntheticRecordPlannerTest {
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1002));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
+            assertThat(plan2, SyntheticPlanMatchers.joinedRecord(List.of(
+                    PlanMatchers.indexScan(Matchers.allOf(
+                            PlanMatchers.indexName("MySimpleRecord$other_rec_no"),
+                            PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))));
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(200), Tuple.from(1002)),
                     Tuple.from(-1, Tuple.from(201), Tuple.from(1002)));
@@ -240,6 +257,14 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("ManyToMany"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.typeFilter(Matchers.contains("MySimpleRecord"), PlanMatchers.scan()),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(
+                                    PlanMatchers.indexName("JoiningRecord$simple_rec_no"),
+                                    PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))),
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j2]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(1), Tuple.from(1000), Tuple.from(100)),
                     Tuple.from(-1, Tuple.from(2), Tuple.from(1000), Tuple.from(101)),
@@ -274,6 +299,11 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("SelfJoin"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("MySimpleRecord$other_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MySimpleRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(0), Tuple.from(1)),
                     Tuple.from(-1, Tuple.from(1), Tuple.from(2)));
@@ -282,6 +312,14 @@ public class SyntheticRecordPlannerTest {
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
+            assertThat(plan2, SyntheticPlanMatchers.syntheticRecordConcat(List.of(
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MySimpleRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(
+                                    PlanMatchers.indexName("MySimpleRecord$other_rec_no"),
+                                    PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))))));
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(0), Tuple.from(1)),
                     Tuple.from(-1, Tuple.from(1), Tuple.from(2)));
@@ -326,6 +364,11 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("InnerJoined"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("MySimpleRecord$other_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(0), Tuple.from(1001)),
                     Tuple.from(-1, Tuple.from(1), Tuple.from(1002)));
@@ -333,6 +376,11 @@ public class SyntheticRecordPlannerTest {
             assertEquals(expected1, results1);
 
             SyntheticRecordPlan plan2 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("LeftJoined"));
+            assertThat(plan2, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("MySimpleRecord$other_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))));
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-2, Tuple.from(0), Tuple.from(1001)),
                     Tuple.from(-2, Tuple.from(1), Tuple.from(1002)),
@@ -341,6 +389,16 @@ public class SyntheticRecordPlannerTest {
             assertEquals(expected2, results2);
 
             SyntheticRecordPlan plan3 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("FullOuterJoined"));
+            assertThat(plan3, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.typeFilter(Matchers.containsInAnyOrder("MySimpleRecord", "MyOtherRecord"), PlanMatchers.scan()),
+                    SyntheticPlanMatchers.syntheticRecordByType(Map.of(
+                            "MySimpleRecord", SyntheticPlanMatchers.joinedRecord(List.of(
+                                    PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))),
+                            "MyOtherRecord", SyntheticPlanMatchers.joinedRecord(List.of(
+                                    PlanMatchers.indexScan(Matchers.allOf(
+                                            PlanMatchers.indexName("MySimpleRecord$other_rec_no"),
+                                            PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))))))));
             Multiset<Tuple> expected3 = ImmutableMultiset.of(
                     Tuple.from(-3, null, Tuple.from(1000)),
                     Tuple.from(-3, Tuple.from(0), Tuple.from(1001)),
@@ -351,6 +409,10 @@ public class SyntheticRecordPlannerTest {
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(2));
             SyntheticRecordFromStoredRecordPlan plan4 = planner.fromStoredType(record.getRecordType(), false);
+            assertThat(plan4, SyntheticPlanMatchers.syntheticRecordConcat(Collections.nCopies(3,
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))))));
             Multiset<Tuple> expected4 = ImmutableMultiset.of(
                     Tuple.from(-2, Tuple.from(2), null),
                     Tuple.from(-3, Tuple.from(2), null));
@@ -392,6 +454,14 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("Clique"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.indexScan("TypeA$type_b_rec_no"),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("TypeB"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))),
+                            PlanMatchers.indexScan(Matchers.allOf(
+                                    PlanMatchers.indexName("TypeC$type_a_rec_no"),
+                                    PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j3, EQUALS $_j2]"))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
                     Tuple.from(-1, Tuple.from(101), Tuple.from(201), Tuple.from(301)),
@@ -404,7 +474,7 @@ public class SyntheticRecordPlannerTest {
             typeC.setRecNo(301).setTypeARecNo(999);
             recordStore.saveRecord(typeC.build());
             
-            SyntheticRecordPlan plan2 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("Clique"));
+            SyntheticRecordPlan plan2 = plan1;
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
                     Tuple.from(-1, Tuple.from(102), Tuple.from(202), Tuple.from(302)));
@@ -457,6 +527,14 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("NestedRepeated"));
+            assertThat(plan1, SyntheticPlanMatchers.syntheticRecordScan(
+                    PlanMatchers.typeFilter(Matchers.contains("NestedA"), PlanMatchers.scan()),
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.inParameter(Matchers.equalTo("_j1"),
+                                    PlanMatchers.primaryKeyDistinct(
+                                            PlanMatchers.indexScan(Matchers.allOf(
+                                                    PlanMatchers.indexName("repeatedB"),
+                                                    PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $__in_nums__0]"))))))))));
             Multiset<Tuple> expected1 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(101), Tuple.from(201)),
                     Tuple.from(-1, Tuple.from(101), Tuple.from(202)),
@@ -467,6 +545,12 @@ public class SyntheticRecordPlannerTest {
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(101));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
+            assertThat(plan2, SyntheticPlanMatchers.joinedRecord(List.of(
+                    PlanMatchers.inParameter(Matchers.equalTo("_j1"),
+                            PlanMatchers.primaryKeyDistinct(
+                                    PlanMatchers.indexScan(Matchers.allOf(
+                                            PlanMatchers.indexName("repeatedB"),
+                                            PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $__in_nums__0]")))))))));
             // TODO: IN can generate duplicates from repeated field (https://github.com/FoundationDB/fdb-record-layer/issues/98)
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(101), Tuple.from(201)),

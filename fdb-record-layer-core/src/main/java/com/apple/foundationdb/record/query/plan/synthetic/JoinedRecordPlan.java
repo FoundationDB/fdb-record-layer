@@ -278,6 +278,21 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         return FDBSyntheticRecord.of(joinedRecordType, records);
     }
 
+    @Nonnull
+    public JoinedRecordType getJoinedRecordType() {
+        return joinedRecordType;
+    }
+
+    @Nonnull
+    public List<JoinedType> getJoinedTypes() {
+        return joinedTypes;
+    }
+
+    @Nonnull
+    public List<RecordQueryPlan> getQueries() {
+        return queries;
+    }
+
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder();

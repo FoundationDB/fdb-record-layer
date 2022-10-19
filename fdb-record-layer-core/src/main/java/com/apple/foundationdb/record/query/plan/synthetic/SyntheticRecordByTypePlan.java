@@ -57,6 +57,11 @@ class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  
         }
     }
 
+    @Nonnull
+    public Map<String, SyntheticRecordFromStoredRecordPlan> getSubPlans() {
+        return subPlans;
+    }
+
     @Override
     @Nonnull
     public Set<String> getStoredRecordTypes() {
