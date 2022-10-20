@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.AbsoluteValueFunctionKeyExpression;
@@ -75,6 +76,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -1071,15 +1073,27 @@ public class SyntheticRecordPlannerTest {
         )));
 
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
-            final Index joinIndex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS wrap_int^-1($_j2)]")))))),
+                    "cust",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("order$custRef"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]"))))))
+            ));
 
             TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
                     .setName("Scott")
                     .setCity("Toronto")
                     .build();
-            recStore.saveRecord(customer);
+            recordStore.saveRecord(customer);
 
             TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
@@ -1087,9 +1101,9 @@ public class SyntheticRecordPlannerTest {
                     .setQuantity(23)
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
                     .build();
-            recStore.saveRecord(order);
+            recordStore.saveRecord(order);
 
-            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> entries = cursor.asList().get();
                 assertEquals(1, entries.size());
                 final IndexEntry indexEntry = entries.get(0);
@@ -1101,9 +1115,9 @@ public class SyntheticRecordPlannerTest {
             TestRecordsJoinIndexProto.CustomerWithHeader customerWithNewName = customer.toBuilder()
                     .setName("Alec")
                     .build();
-            recStore.saveRecord(customerWithNewName);
+            recordStore.saveRecord(customerWithNewName);
 
-            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> entries = cursor.asList().get();
                 assertEquals(1, entries.size());
                 final IndexEntry indexEntry = entries.get(0);
@@ -1115,9 +1129,9 @@ public class SyntheticRecordPlannerTest {
             TestRecordsJoinIndexProto.OrderWithHeader orderWithNewNumber = order.toBuilder()
                     .setOrderNo(42)
                     .build();
-            recStore.saveRecord(orderWithNewNumber);
+            recordStore.saveRecord(orderWithNewNumber);
 
-            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> entries = cursor.asList().get();
                 assertEquals(1, entries.size());
                 final IndexEntry indexEntry = entries.get(0);
@@ -1131,9 +1145,9 @@ public class SyntheticRecordPlannerTest {
                     .setOrderNo(1066)
                     .setQuantity(9001)
                     .build();
-            recStore.saveRecord(orderWithNoCustomer);
+            recordStore.saveRecord(orderWithNoCustomer);
 
-            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> entries = cursor.asList().get();
                 assertEquals(1, entries.size());
                 final IndexEntry indexEntry = entries.get(0);
@@ -1145,9 +1159,9 @@ public class SyntheticRecordPlannerTest {
             TestRecordsJoinIndexProto.OrderWithHeader orderWithNoncanonicalCustomer = orderWithNoCustomer.toBuilder()
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("dangling_ref"))
                     .build();
-            recStore.saveRecord(orderWithNoncanonicalCustomer);
+            recordStore.saveRecord(orderWithNoncanonicalCustomer);
 
-            try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> entries = cursor.asList().get();
                 assertEquals(1, entries.size());
                 final IndexEntry indexEntry = entries.get(0);
@@ -1200,14 +1214,31 @@ public class SyntheticRecordPlannerTest {
                 .collect(Collectors.toList());
 
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.inComparand(PlanMatchers.hasTypelessString("wrap_int^-1($_j2)"),
+                                    PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $__in_int_rec_id__0]"))))))),
+                    "cust",
+                    // This should be able to use the OrderWithHeader$cc index, but for some reason, is favoring a full scan
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.filter(Query.field("cc").oneOfThem().matches(Query.field("string_value").equalsParameter("_j2")),
+                                    PlanMatchers.typeFilter(Matchers.contains("OrderWithHeader"),
+                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))
+                    ))
+            ));
 
             for (int i = 0; i < customers.size(); i++) {
-                recStore.saveRecord(customers.get(i));
-                recStore.saveRecord(orders.get(orders.size() - i - 1));
+                recordStore.saveRecord(customers.get(i));
+                recordStore.saveRecord(orders.get(orders.size() - i - 1));
             }
 
-            final Index joinIndex = recStore.getRecordMetaData().getIndex("OrderCCNames");
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("OrderCCNames");
             for (TestRecordsJoinIndexProto.OrderWithHeader order : orders) {
                 final Set<String> ccIds = order.getCcList().stream()
                         .map(TestRecordsJoinIndexProto.Ref::getStringValue)
@@ -1216,7 +1247,7 @@ public class SyntheticRecordPlannerTest {
                         .filter(customer -> ccIds.contains(String.format("i:%d", customer.getHeader().getIntRecId())))
                         .map(TestRecordsJoinIndexProto.CustomerWithHeader::getName)
                         .collect(Collectors.toList());
-                try (RecordCursor<IndexEntry> cursor = recStore.scanIndex(
+                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                         joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(order.getHeader().getZKey(), order.getOrderNo())), null, ScanProperties.FORWARD_SCAN)) {
 
                     final List<String> foundNames = cursor
@@ -1248,27 +1279,40 @@ public class SyntheticRecordPlannerTest {
                 field("cust").nest("name"),
                 field("order").nest("order_no")
         )));
+        metaDataBuilder.addIndex("OrderWithHeader", "order$custRef", concat(field("___header").nest("z_key"), field("custRef").nest("string_value")));
 
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recStore = recordStoreBuilder.setContext(context).create();
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]")))))),
+                    "cust",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("order$custRef"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]"))))))
+            ));
 
             TestRecordsJoinIndexProto.CustomerWithHeader.Builder custBuilder = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder();
             custBuilder.getHeaderBuilder().setZKey(1).setRecId("1");
             custBuilder.setName("Scott Fines");
             custBuilder.setCity("Toronto");
 
-            recStore.saveRecord(custBuilder.build());
+            recordStore.saveRecord(custBuilder.build());
 
             TestRecordsJoinIndexProto.OrderWithHeader.Builder orderBuilder = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder();
             orderBuilder.getHeaderBuilder().setZKey(1).setRecId("23");
             orderBuilder.setOrderNo(10).setQuantity(23);
             orderBuilder.getCustRefBuilder().setStringValue("1");
 
-            recStore.saveRecord(orderBuilder.build());
+            recordStore.saveRecord(orderBuilder.build());
 
             //now check that we can scan them back out again
-            Index joinIdex = recStore.getRecordMetaData().getIndex("joinNestedConcat");
-            List<IndexEntry> entries = recStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            Index joinIdex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+            List<IndexEntry> entries = recordStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
             assertEquals(1, entries.size());
             final IndexEntry indexEntry = entries.get(0);
             assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
@@ -1312,6 +1356,23 @@ public class SyntheticRecordPlannerTest {
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            final JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "simple",
+                    // Note that even though this was an equi-join on a single field, because abs_value is not injective, this
+                    // gets planned as an IN-join
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.inComparand(PlanMatchers.hasTypelessString("abs_value^-1($_j1)"),
+                                    PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("MyOtherRecord$num_value"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $__in_num_value__0]")))))
+                    )),
+                    "other",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("MySimpleRecord$num_value_2"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))
+                    ))
+            ));
+
             final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinOnNumValue2");
             for (int i = 0; i < simpleRecords.size(); i++) {
                 recordStore.saveRecord(simpleRecords.get(i));
@@ -1434,6 +1495,17 @@ public class SyntheticRecordPlannerTest {
             IndexRecordFunction<Long> rankFunction = ((IndexRecordFunction<Long>)Query.rank(group).getFunction())
                     .cloneWithIndex(index.getName());
             assertEquals(1, recordStore.evaluateRecordFunction(rankFunction, record).join().longValue());
+        }
+    }
+
+    private static void assertConstituentPlansMatch(SyntheticRecordPlanner planner, JoinedRecordType joinedRecordType,
+                                                    Map<String, Matcher<? super SyntheticRecordFromStoredRecordPlan>> constituentMatchers) {
+        for (JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
+            assertThat(String.format("constituent matchers missing matcher for constituent %s", constituent.getName()),
+                    constituentMatchers, Matchers.hasKey(constituent.getName()));
+            Matcher<? super SyntheticRecordFromStoredRecordPlan> matcher = constituentMatchers.get(constituent.getName());
+            final SyntheticRecordFromStoredRecordPlan plan = planner.forJoinConstituent(joinedRecordType, constituent);
+            assertThat(plan, matcher);
         }
     }
 }
