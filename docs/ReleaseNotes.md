@@ -15,7 +15,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `TimeWindowLeaderboardWindowUpdate` `rebuild` = `NEVER` is not honored for new directory [(Issue #1878)](https://github.com/FoundationDB/fdb-record-layer/issues/1878)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.297.0
+
+* **Bug fix** `TimeWindowLeaderboardWindowUpdate` `rebuild` = `NEVER` is not honored for new directory [(Issue #1878)](https://github.com/FoundationDB/fdb-record-layer/issues/1878)
 
 ### 3.3.296.0
 
