@@ -40,15 +40,31 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Scan-Plan");
 
     @Nonnull
-    private final RecordQueryPlan recordPlan;
+    private final RecordQueryPlan seedPlan;
     @Nonnull
-    private final SyntheticRecordFromStoredRecordPlan syntheticRecordPlan;
+    private final SyntheticRecordFromStoredRecordPlan fromSeedPlan;
     private final boolean needDistinct;
 
-    public SyntheticRecordScanPlan(@Nonnull RecordQueryPlan recordPlan, @Nonnull SyntheticRecordFromStoredRecordPlan syntheticRecordPlan, boolean needDistinct) {
-        this.recordPlan = recordPlan;
-        this.syntheticRecordPlan = syntheticRecordPlan;
+    public SyntheticRecordScanPlan(@Nonnull RecordQueryPlan seedPlan,
+                                   @Nonnull SyntheticRecordFromStoredRecordPlan fromSeedPlan,
+                                   boolean needDistinct) {
+        this.seedPlan = seedPlan;
+        this.fromSeedPlan = fromSeedPlan;
         this.needDistinct = needDistinct;
+    }
+
+    @Nonnull
+    public RecordQueryPlan getSeedPlan() {
+        return seedPlan;
+    }
+
+    @Nonnull
+    public SyntheticRecordFromStoredRecordPlan getFromSeedPlan() {
+        return fromSeedPlan;
+    }
+
+    public boolean isNeedDistinct() {
+        return needDistinct;
     }
 
     @Override
@@ -59,8 +75,8 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
                                                     @Nonnull ExecuteProperties executeProperties) {
         final ExecuteProperties baseProperties = executeProperties.clearSkipAndLimit();
         RecordCursor<FDBSyntheticRecord> cursor = RecordCursor.flatMapPipelined(
-                outerContinuation -> store.executeQuery(recordPlan, outerContinuation, baseProperties),
-                (queriedRecord, innerContinuation) -> syntheticRecordPlan.execute(store, queriedRecord.getStoredRecord(), innerContinuation, baseProperties),
+                outerContinuation -> store.executeQuery(seedPlan, outerContinuation, baseProperties),
+                (queriedRecord, innerContinuation) -> fromSeedPlan.execute(store, queriedRecord.getStoredRecord(), innerContinuation, baseProperties),
                 continuation,
                 store.getPipelineSize(PipelineOperation.SYNTHETIC_RECORD_JOIN));
         if (needDistinct) {
@@ -72,7 +88,7 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
 
     @Override
     public String toString() {
-        return recordPlan + " | " + syntheticRecordPlan;
+        return seedPlan + " | " + fromSeedPlan;
     }
 
     @Override
@@ -85,23 +101,23 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
         }
         SyntheticRecordScanPlan that = (SyntheticRecordScanPlan)o;
         return needDistinct == that.needDistinct &&
-               Objects.equals(recordPlan, that.recordPlan) &&
-               Objects.equals(syntheticRecordPlan, that.syntheticRecordPlan);
+               Objects.equals(seedPlan, that.seedPlan) &&
+               Objects.equals(fromSeedPlan, that.fromSeedPlan);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(recordPlan, syntheticRecordPlan, needDistinct);
+        return Objects.hash(seedPlan, fromSeedPlan, needDistinct);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return recordPlan.planHash(hashKind) + syntheticRecordPlan.planHash(hashKind) + (needDistinct ? 1 : 0);
+                return seedPlan.planHash(hashKind) + fromSeedPlan.planHash(hashKind) + (needDistinct ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, recordPlan, syntheticRecordPlan, needDistinct);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, seedPlan, fromSeedPlan, needDistinct);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

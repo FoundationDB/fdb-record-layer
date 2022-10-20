@@ -67,6 +67,15 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
         }
     }
 
+    @Nonnull
+    public List<SyntheticRecordFromStoredRecordPlan> getSubPlans() {
+        return subPlans;
+    }
+
+    public boolean isNeedDistinct() {
+        return needDistinct;
+    }
+
     @Override
     @Nonnull
     public Set<String> getStoredRecordTypes() {
