@@ -683,7 +683,15 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
             if (directory == null) {
                 directory = new TimeWindowLeaderboardDirectory(update.isHighScoreFirst());
-                rebuild = true;
+                if (isRebuildConditional()) {
+                    rebuild = true;
+                }
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.of(rebuild ?
+                                                      "rebuilding leaderboard index for initial directory" :
+                                                      "need to rebuild leaderboard index for initial directory",
+                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                }
             }
         }
 
