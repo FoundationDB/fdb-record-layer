@@ -404,21 +404,19 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
 
+        var indexPlanMatcher = indexPlan().where(indexName("complex"))
+                .and(scanComparisons(range("[[something, 1, 10, 20],[something, 1, 10, 20]]")));
         if (planner instanceof RecordQueryPlanner) {
             // Does not understand duplicate condition
             assertMatchesExactly(plan,
-                    filterPlan(
-                            indexPlan()
-                                    .where(indexName("duplicates"))
-                                    .and(scanComparisons(range("[[something, something, 1],[something, something, 1]]"))))
-                            .where(queryComponents(only(equalsObject(nestedComponent)))));
+                    filterPlan(unorderedPrimaryKeyDistinctPlan(indexPlanMatcher))
+                            .where(queryComponents(only(equalsObject(Query.field("name").equalsValue("something"))))));
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
                             unorderedPrimaryKeyDistinctPlan(
                                     coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("complex"))
-                                                    .and(scanComparisons(range("[[something, 1, 10, 20],[something, 1, 10, 20]]"))))))));
+                                            .where(indexPlanOf(indexPlanMatcher)))));
 
         }
     }

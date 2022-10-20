@@ -110,6 +110,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -2180,6 +2181,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                     planWithComparisonChild(child, (FieldWithComparison) filterComponent, filterChild);
                 } else if (filterComponent instanceof NestedField) {
                     planNestedFieldChild(child, (NestedField) filterComponent, filterChild);
+                } else if (filterComponent instanceof OneOfThemWithComponent) {
+                    planOneOfThemWithComponentChild(child, (OneOfThemWithComponent) filterComponent, filterChild);
                 } else if (filterComponent instanceof OneOfThemWithComparison) {
                     planOneOfThemWithComparisonChild(child, (OneOfThemWithComparison) filterComponent, filterChild);
                 } else if (filterComponent instanceof QueryRecordFunctionWithComparison
@@ -2197,7 +2200,22 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
-            ScoredPlan scoredPlan = planNestedField(candidateScan, child, filterField, null);
+            return planNestedFieldOrComponentChild(child, filterChild,
+                    () -> planNestedField(candidateScan, child, filterField, null),
+                    () -> planNestedField(candidateScan, child, filterField, currentSort));
+        }
+
+        private boolean planOneOfThemWithComponentChild(@Nonnull KeyExpression child, @Nonnull OneOfThemWithComponent oneOfThemWithComponent, @Nonnull QueryComponent filterChild) {
+            return planNestedFieldOrComponentChild(child, filterChild,
+                    () -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, null),
+                    () -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, currentSort));
+        }
+
+        private boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
+                                                        @Nonnull QueryComponent filterChild,
+                                                        @Nonnull Supplier<ScoredPlan> unsortedPlanSupplier,
+                                                        @Nonnull Supplier<ScoredPlan> sortedPlanSupplier) {
+            ScoredPlan scoredPlan = unsortedPlanSupplier.get();
             ScanComparisons nextComparisons = getPlanComparisons(scoredPlan);
             if (nextComparisons != null) {
                 if (!comparisons.isEquality() && nextComparisons.getEqualitySize() > 0) {
@@ -2211,7 +2229,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                         }
                     } else if (currentSort != null) {
                         // Didn't plan to equality, need to try with sorting.
-                        scoredPlan = planNestedField(candidateScan, child, filterField, currentSort);
+                        scoredPlan = sortedPlanSupplier.get();
                         if (scoredPlan != null) {
                             advanceCurrentSort();
                         }

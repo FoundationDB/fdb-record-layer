@@ -1226,13 +1226,10 @@ public class SyntheticRecordPlannerTest {
                                     PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
                                             PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $__in_int_rec_id__0]"))))))),
                     "cust",
-                    // This should be able to use the OrderWithHeader$cc index, but for some reason, is favoring a full scan
                     SyntheticPlanMatchers.joinedRecord(List.of(
-                            PlanMatchers.filter(Query.field("cc").oneOfThem().matches(Query.field("string_value").equalsParameter("_j2")),
-                                    PlanMatchers.typeFilter(Matchers.contains("OrderWithHeader"),
-                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))
-                    ))
-            ));
+                            PlanMatchers.primaryKeyDistinct(
+                                    PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("OrderWithHeader$cc"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]"))))))))
+            );
 
             for (int i = 0; i < customers.size(); i++) {
                 recordStore.saveRecord(customers.get(i));
