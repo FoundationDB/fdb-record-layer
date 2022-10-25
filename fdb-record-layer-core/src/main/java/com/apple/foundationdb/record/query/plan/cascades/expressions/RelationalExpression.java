@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -702,7 +703,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
 
         if (equalsWithoutChildren(candidateExpression, aliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap)
+            return MatchInfo.tryFromMatchMap(partialMatchMap, Pair.of(candidateExpression.getResultValue(), getResultValue()))
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {

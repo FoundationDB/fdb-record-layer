@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -552,5 +553,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         } else {
             return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
         }
+    }
+
+    default boolean subsumedBy(@Nonnull final Value other, @Nonnull final AliasMap aliasMap) {
+        return this.semanticEquals(other, aliasMap);
+        //if (rcv ) {
+        //    //ignore output fields (columns)
+        //}
+        //else if (field value) {
+        //    //compare using field ordinals
+        //}
     }
 }

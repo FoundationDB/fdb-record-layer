@@ -45,7 +45,9 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 /**
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
@@ -215,7 +217,6 @@ public class AndOrValue implements BooleanValue {
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1));
     }
-
 
     /**
      * The {@code and} function.

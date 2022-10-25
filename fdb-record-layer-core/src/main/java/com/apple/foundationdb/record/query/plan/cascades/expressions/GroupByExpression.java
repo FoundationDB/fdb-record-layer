@@ -48,6 +48,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -285,7 +286,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
         if (aggregateValue.semanticEquals(otherAggregateValue, aliasMap)) {
             // placeholder for information needed for later compensation.
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty(),
+                            Pair.of(candidateExpression.getResultValue().simplify(aliasMap, Set.of()), getResultValue().simplify(aliasMap, Set.of())))
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

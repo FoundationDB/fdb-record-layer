@@ -32,12 +32,13 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
+@SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
 public class FieldValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
@@ -59,13 +61,22 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     private final FieldPath fieldPath;
 
+    /**
+     * This encapsulates the ordinals of the field path encoded by this {@link FieldValue}. It serves two purposes:
+     * <ul>
+     *     <li>checking whether a {@link FieldValue} subsumes another {@link FieldValue}.</li>
+     *     <li>evaluating a {@link Message} to get the corresponding field value object.</li>
+     * </ul>
+     */
     @Nonnull
-    private final Supplier<List<Field>> normalizedFieldsSupplier;
+    private final ImmutableIntArray fieldOrdinals;
 
-    private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
+    private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath, @Nonnull ImmutableIntArray fieldOrdinals) {
+        Preconditions.checkArgument(fieldOrdinals.length() == fieldPath.fields.size());
+        Preconditions.checkArgument(fieldOrdinals.stream().allMatch(f -> f >= 0));
         this.childValue = childValue;
         this.fieldPath = fieldPath;
-        normalizedFieldsSupplier = Suppliers.memoize(() -> normalizeForStructuralEquality(childValue.getResultType(), fieldPath.fields));
+        this.fieldOrdinals = fieldOrdinals;
     }
 
     @Nonnull
@@ -76,6 +87,11 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     public List<Field> getFields() {
         return fieldPath.getFields();
+    }
+
+    @Nonnull
+    public ImmutableIntArray getFieldOrdinals() {
+        return fieldOrdinals;
     }
 
     @Nonnull
@@ -110,7 +126,7 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue(child, fieldPath);
+        return new FieldValue(child, fieldPath, fieldOrdinals);
     }
 
     @Override
@@ -119,7 +135,7 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        final var fieldValue = MessageValue.getFieldValueForFields((Message)childResult, getFields());
+        final var fieldValue = MessageValue.getFieldValueForFieldOrdinals((Message)childResult, fieldOrdinals);
         //
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
@@ -135,7 +151,7 @@ public class FieldValue implements ValueWithChild {
 
         final var that = (FieldValue)other;
         return childValue.semanticEquals(that.childValue, equivalenceMap) &&
-               normalizedFieldsSupplier.get().equals(that.normalizedFieldsSupplier.get());
+               fieldPath.equals(that.fieldPath);
     }
 
     @Override
@@ -177,8 +193,9 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
-    private static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
+    private static Pair<FieldPath, ImmutableIntArray> resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
         final var accessorPathBuilder = ImmutableList.<Field>builder();
+        final var fieldOrdinals = ImmutableIntArray.builder();
         var currentType = inputType;
         for (final var accessor : accessors) {
             final var fieldName = accessor.getFieldName();
@@ -190,60 +207,64 @@ public class FieldValue implements ValueWithChild {
             if (fieldName != null) {
                 SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
                 field = fieldNameFieldMap.get(fieldName);
+                final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
+                SemanticException.check(fieldOrdinalsMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                fieldOrdinals.add(fieldOrdinalsMap.get(fieldName));
             } else {
                 // field is not accessed by field but by ordinal number
                 Verify.verify(accessor.getOrdinalFieldNumber() >= 0);
                 field = recordType.getFields().get(accessor.getOrdinalFieldNumber());
+                fieldOrdinals.add(accessor.getOrdinalFieldNumber());
             }
             accessorPathBuilder.add(field);
             currentType = field.getFieldType();
         }
-        return new FieldPath(accessorPathBuilder.build());
+        return Pair.of(new FieldPath(accessorPathBuilder.build()), fieldOrdinals.build());
     }
 
     @Nonnull
-    private static List<Field> normalizeForStructuralEquality(@Nonnull final Type inputType, @Nonnull final List<Field> fields) {
-        final var normalizedFields = ImmutableList.<Field>builder();
+    private static ImmutableIntArray resolveFieldOrdinals(@Nonnull final Type inputType, @Nonnull final List<Field> fields) {
+        final var fieldOrdinals = ImmutableIntArray.builder();
         var currentType = inputType;
         for (final var field : fields) {
-            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD,
-                    SemanticException.ErrorCode.UNKNOWN,
-                    String.format("field '%s' can only be normalized on records", field.getFieldNameOptional().isEmpty() ? "#" + field.getFieldIndex() : field.getFieldName()));
+            SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
+                    String.format("field '%s' can only be resolved on records", field.getFieldNameOptional().isPresent() ? field.getFieldName() : "#" + field.getFieldIndex()));
             final var recordType = (Type.Record)currentType;
-            if (field.getFieldIndexOptional().isPresent()) {
-                if (field.getFieldNameOptional().isEmpty()) {
-                    normalizedFields.add(field);
-                } else {
-                    normalizedFields.add(Field.of(field.getFieldType(), Optional.empty(), field.getFieldIndexOptional()));
-                }
+            final var fieldName = field.getFieldNameOptional();
+            if (fieldName.isPresent()) {
+                final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
+                SemanticException.check(fieldOrdinalsMap.containsKey(fieldName.get()), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                fieldOrdinals.add(fieldOrdinalsMap.get(fieldName.get()));
             } else {
-                SemanticException.check(field.getFieldNameOptional().isPresent(), SemanticException.ErrorCode.UNKNOWN, "field does not have name or index");
-                final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
-                final var fieldName = field.getFieldName();
-                SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.UNKNOWN, "record does not contain specified field");
-                final var recordField = fieldNameFieldMap.get(field.getFieldName());
-                normalizedFields.add(Field.of(field.getFieldType(), Optional.empty(), recordField.getFieldIndexOptional()));
+                // field is using the index as an accessor.
+                Verify.verify(field.getFieldIndexOptional().isPresent());
+                final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldIndexToOrdinalMap());
+                SemanticException.check(fieldOrdinalsMap.containsKey(field.getFieldIndex()), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                fieldOrdinals.add(fieldOrdinalsMap.get(field.getFieldIndex()));
             }
             currentType = field.getFieldType();
         }
-        return normalizedFields.build();
+        return fieldOrdinals.build();
     }
 
     @Nonnull
     public static FieldValue ofFieldName(@Nonnull Value childValue, @Nonnull final String fieldName) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(fieldName, -1))));
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(fieldName, -1)));
+        return new FieldValue(childValue, resolved.getKey(), resolved.getValue());
     }
 
     public static FieldValue ofFieldNames(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList())));
+        final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
+        return new FieldValue(childValue, resolved.getKey(), resolved.getValue());
     }
 
     public static FieldValue ofAccessors(@Nonnull Value childValue, @Nonnull final List<Accessor> accessors) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), accessors));
+        final var resolved = resolveFieldPath(childValue.getResultType(), accessors);
+        return new FieldValue(childValue, resolved.getKey(), resolved.getValue());
     }
 
     public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
-        return new FieldValue(childValue, new FieldPath(fields));
+        return new FieldValue(childValue, new FieldPath(fields), resolveFieldOrdinals(childValue.getResultType(), fields));
     }
 
     public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<Field> fields) {
@@ -257,7 +278,8 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     public static FieldValue ofOrdinalNumber(@Nonnull Value childValue, final int ordinalNumber) {
-        return new FieldValue(childValue, resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber))));
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
+        return new FieldValue(childValue, resolved.getKey(), resolved.getValue());
     }
 
     @Nonnull

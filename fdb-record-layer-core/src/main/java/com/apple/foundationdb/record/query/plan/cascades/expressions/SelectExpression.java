@@ -61,6 +61,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -331,7 +332,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional,
+                                Pair.of(candidateExpression.getResultValue(), getResultValue()))
                         .map(ImmutableList::of)
                         .orElse(ImmutableList.of());
             } else {
@@ -560,7 +562,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
                                 return allParameterBindingMapOptional
-                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional))
+                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional,
+                                                Pair.of(candidateExpression.getResultValue().simplify(aliasMap, Set.of()), getResultValue().simplify(aliasMap, Set.of()))))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
