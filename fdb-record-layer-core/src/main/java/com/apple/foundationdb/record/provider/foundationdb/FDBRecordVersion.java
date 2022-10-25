@@ -94,7 +94,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
         }
     }
 
-    @Nonnull
     private FDBRecordVersion(boolean complete, @Nonnull byte[] versionBytes, boolean copy) {
         if (versionBytes.length != VERSION_LENGTH) {
             throw new RecordCoreException("Specified version has invalid byte length " + versionBytes.length + " != " + VERSION_LENGTH);

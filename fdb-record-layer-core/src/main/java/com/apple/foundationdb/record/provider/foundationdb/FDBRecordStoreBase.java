@@ -2428,7 +2428,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return the length of the primary key common to all record types defined for the index, or -1 if no such key exists
      */
     @API(API.Status.INTERNAL)
-    @Nullable
     default int getCommonPrimaryKeyLength(@Nonnull Index index) {
         RecordMetaData metaData = getRecordMetaData();
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
