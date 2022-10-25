@@ -38,18 +38,28 @@ import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
+import com.google.protobuf.Message;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MultiPhraseQuery;
+import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SynonymQuery;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -60,9 +70,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -114,6 +129,11 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
+    @Nonnull
+    private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    @Nonnull
+    private final LuceneAnalyzerCombinationProvider analyzerSelector;
+
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     @SuppressWarnings("squid:S107")
@@ -126,8 +146,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable Sort sort,
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
+                       @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable final List<String> storedFields,
-                       @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
+                       @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
+                       @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
         this.state = state;
         this.executor = executor;
         this.pageSize = pageSize;
@@ -151,6 +173,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
+        this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+        this.analyzerSelector = analyzerSelector;
     }
 
     @Nonnull
@@ -351,23 +375,90 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                 }
 
-                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple);
+                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, query, analyzerSelector);
             } catch (Exception e) {
                 throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
             }
         }, executor);
     }
 
+    // Parse the Lucene query to get all the mapping from field to terms
+    private static void getTerms(Query query, Map<String, Set<String>> map) {
+        if (query instanceof BooleanQuery) {
+            BooleanQuery booleanQuery = (BooleanQuery) query;
+            for (BooleanClause clause : booleanQuery.clauses()) {
+                getTerms(clause.getQuery(), map);
+            }
+        } else if (query instanceof TermQuery) {
+            TermQuery termQuery = (TermQuery) query;
+            Term term = termQuery.getTerm();
+            map.putIfAbsent(term.field(), new HashSet<>());
+            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
+        } else if (query instanceof PhraseQuery) {
+            PhraseQuery phraseQuery = (PhraseQuery) query;
+            for (Term term : phraseQuery.getTerms()) {
+                map.putIfAbsent(term.field(), new HashSet<>());
+                map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
+            }
+        } else if (query instanceof MultiPhraseQuery) {
+            MultiPhraseQuery multiPhraseQuery = (MultiPhraseQuery) query;
+            for (Term[] termArray : multiPhraseQuery.getTermArrays()) {
+                for (Term term : termArray) {
+                    map.putIfAbsent(term.field(), new HashSet<>());
+                    map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
+                }
+            }
+        } else if (query instanceof BoostQuery) {
+            BoostQuery boostQuery = (BoostQuery) query;
+            getTerms(boostQuery.getQuery(), map);
+        } else if (query instanceof SynonymQuery) {
+            SynonymQuery synonymQuery = (SynonymQuery) query;
+            for (Term term : synonymQuery.getTerms()) {
+                map.putIfAbsent(term.field(), new HashSet<>());
+                map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
+            }
+        } else {
+            throw new RecordCoreException("This lucene query is not supported for highlighting");
+        }
+    }
+
     protected static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
+
+        private final Map<String, Set<String>> termMap;
+        private final LuceneAnalyzerCombinationProvider analyzerSelector;
+        private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+        private final KeyExpression indexKey;
 
         public ScoreDoc getScoreDoc() {
             return scoreDoc;
         }
 
-        private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key) {
+        private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
+                                   @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
+                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
+            this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+            this.termMap = new HashMap<>();
+            this.analyzerSelector = analyzerSelector;
+            this.indexKey = index.getRootExpression();
+            if (luceneQueryHighlightParameters.isHighlight()) {
+                getTerms(query, this.termMap);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        @Nonnull
+        public <M extends Message> FDBStoredRecord<M> rewriteStoredRecord(@Nonnull FDBStoredRecord<M> record) {
+            if (!luceneQueryHighlightParameters.isHighlight()) {
+                return super.rewriteStoredRecord(record);
+            }
+            M message = record.getRecord();
+            M.Builder builder = message.toBuilder();
+            LuceneDocumentFromRecord.highlightTermsInMessage(indexKey, builder, termMap, analyzerSelector, luceneQueryHighlightParameters);
+            return FDBStoredRecord.newBuilder(record).setRecord((M) builder.build()).build();
         }
 
         @Override

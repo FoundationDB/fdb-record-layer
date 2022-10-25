@@ -133,7 +133,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
-                    scanQuery.getGroupKey(), scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes());
+                    scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(),
+                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {

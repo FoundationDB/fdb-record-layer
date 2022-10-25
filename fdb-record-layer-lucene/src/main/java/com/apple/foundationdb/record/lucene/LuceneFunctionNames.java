@@ -38,6 +38,8 @@ public class LuceneFunctionNames {
     public static final String LUCENE_SORT_BY_RELEVANCE = "lucene_sort_by_relevance";
     public static final String LUCENE_SORT_BY_DOCUMENT_NUMBER = "lucene_sort_by_document_number";
 
+    public static final String LUCENE_HIGHLIGHT_TAG = "lucene_highlight_tag";
+
     private LuceneFunctionNames() {
     }
 

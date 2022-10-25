@@ -151,6 +151,25 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     }
 
     /**
+     * Get a builder with the parameters of a given {@link FDBStoredRecord}.
+     * @param record given record
+     * @param <M> type used to represent stored records
+     * @return a new builder
+     */
+    @Nonnull
+    public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder(@Nonnull FDBStoredRecord<M> record) {
+        return new FDBStoredRecordBuilder<>(record.getRecord())
+                .setPrimaryKey(record.getPrimaryKey())
+                .setRecordType(record.getRecordType())
+                .setKeyCount(record.getKeyCount())
+                .setKeySize(record.getKeySize())
+                .setValueSize(record.getValueSize())
+                .setSplit(record.isSplit())
+                .setVersion(record.getVersion())
+                .setVersionedInline(record.isVersionedInline());
+    }
+
+    /**
      * Copy this record with a different version.
      * @param recordVersion new version
      * @return a new stored record with the given version

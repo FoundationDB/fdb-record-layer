@@ -60,18 +60,22 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Nullable
     final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
+    final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
-        this(groupComparisons, query, null, null, null);
+        this(groupComparisons, query, null, null, null, new LuceneQueryHighlightParameters(false));
     }
 
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query,
                                      @Nullable Sort sort,
-                                     @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes) {
+                                     @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
+                                     @Nonnull LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;
         this.storedFieldTypes = storedFieldTypes;
+        this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
     }
 
     @Nonnull
@@ -103,7 +107,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         return new LuceneScanQuery(scanType, getGroupKey(store, context), query.bind(store, index, context),
-                sort, storedFields, storedFieldTypes);
+                sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters);
     }
 
     @Nonnull
@@ -191,5 +195,63 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+
+    /**
+     * The parameters for highlighting matching terms of a Lucene search.
+     */
+    public static class LuceneQueryHighlightParameters {
+        private static final String DEFAULT_LEFT_TAG = "<b>";
+        private static final String DEFAULT_RIGHT_TAG = "</b>";
+        private static final int DEFAULT_SNIPPETS_SIZE = 20;
+        private final boolean highlight;
+        @Nonnull
+        private final String leftTag;
+        @Nonnull
+        private final String rightTag;
+
+        private final boolean cutSnippets;
+        private final int snippedSize;
+
+        public LuceneQueryHighlightParameters(boolean highlight) {
+            this(highlight, false);
+        }
+
+        public LuceneQueryHighlightParameters(boolean highlight, boolean cutSnippets) {
+            this(highlight, DEFAULT_LEFT_TAG, DEFAULT_RIGHT_TAG, cutSnippets, DEFAULT_SNIPPETS_SIZE);
+        }
+
+        public LuceneQueryHighlightParameters(boolean highlight, @Nonnull String leftTag, @Nonnull String rightTag,
+                                              boolean cutSnippets, int snippedSize) {
+            this.highlight = highlight;
+            this.leftTag = leftTag;
+            this.rightTag = rightTag;
+            this.cutSnippets = cutSnippets;
+            this.snippedSize = snippedSize;
+        }
+
+        public boolean isHighlight() {
+            return highlight;
+        }
+
+        @Nonnull
+        public String getLeftTag() {
+            return leftTag;
+        }
+
+        @Nonnull
+        public String getRightTag() {
+            return rightTag;
+        }
+
+        @Nonnull
+        public boolean isCutSnippets() {
+            return cutSnippets;
+        }
+
+        public int getSnippedSize() {
+            return snippedSize;
+        }
     }
 }

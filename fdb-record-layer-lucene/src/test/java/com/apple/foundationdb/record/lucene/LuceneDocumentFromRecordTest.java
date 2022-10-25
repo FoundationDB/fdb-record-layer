@@ -34,9 +34,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -50,25 +50,34 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  */
 class LuceneDocumentFromRecordTest {
 
+    private LuceneAnalyzerCombinationProvider analyzerProvider = new LuceneAnalyzerCombinationProvider(t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
+            t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
+            null, null);
+
     @Test
     void simple() {
-        TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
+        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(1)
-                .setText("some text")
-                .build();
+                .setText("some text");
+        TestRecordsTextProto.SimpleDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "some" for text field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("text", Set.of("some")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("<b>some</b> text", builder.build().getText());
+
         KeyExpression primaryKey = field("doc_id");
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion");
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(1));
-        TestRecordsTextProto.SimpleDocument partialMsg = builder.build();
+        TestRecordsTextProto.SimpleDocument.Builder newBuilder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "text", "suggestion");
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(1));
+        TestRecordsTextProto.SimpleDocument partialMsg = newBuilder.build();
 
         // The suggestion is supposed to show up in text field
         assertEquals("suggestion", partialMsg.getText());
@@ -79,24 +88,29 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void group() {
-        TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
+        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(2)
                 .setText("more text")
-                .setGroup(2)
-                .build();
+                .setGroup(2);
+        TestRecordsTextProto.SimpleDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group"));
         assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "text" for text field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("more <b>text</b>", builder.build().getText());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(2, 2));
-        TestRecordsTextProto.SimpleDocument partialMsg = builder.build();
+        TestRecordsTextProto.SimpleDocument.Builder newBuilder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "text", "suggestion", Tuple.from(2));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(2, 2));
+        TestRecordsTextProto.SimpleDocument partialMsg = newBuilder.build();
 
         // The suggestion is supposed to show up in text field
         assertEquals("suggestion", partialMsg.getText());
@@ -110,11 +124,11 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void multi() {
-        TestRecordsTextProto.MultiDocument message = TestRecordsTextProto.MultiDocument.newBuilder()
+        TestRecordsTextProto.MultiDocument.Builder builder = TestRecordsTextProto.MultiDocument.newBuilder()
                 .setDocId(3)
                 .addText("some text")
-                .addText("other text")
-                .build();
+                .addText("other text");
+        TestRecordsTextProto.MultiDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text", KeyExpression.FanType.FanOut));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
@@ -122,14 +136,20 @@ class LuceneDocumentFromRecordTest {
                         textField("text", "other text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "text" for text field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("some <b>text</b>", builder.build().getText(0));
+        assertEquals("other <b>text</b>", builder.build().getText(1));
+
         KeyExpression primaryKey = field("doc_id");
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MultiDocument.Builder builder = TestRecordsTextProto.MultiDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(3));
-        TestRecordsTextProto.MultiDocument partialMsg = builder.build();
+        TestRecordsTextProto.MultiDocument.Builder newBuilder = TestRecordsTextProto.MultiDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "text", "suggestion", Tuple.from(2));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(3));
+        TestRecordsTextProto.MultiDocument partialMsg = newBuilder.build();
 
         // The suggestion is supposed to show up in text field
         assertEquals(1, partialMsg.getTextCount());
@@ -141,7 +161,7 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void biGroup() {
-        TestRecordsTextProto.ComplexDocument message = TestRecordsTextProto.ComplexDocument.newBuilder()
+        TestRecordsTextProto.ComplexDocument.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder()
                 .setHeader(TestRecordsTextProto.ComplexDocument.Header.newBuilder().setHeaderId(4))
                 .setGroup(10)
                 .setDocId(4)
@@ -149,8 +169,8 @@ class LuceneDocumentFromRecordTest {
                 .addTag("tag1")
                 .addTag("tag2")
                 .setText2("second text")
-                .setScore(100)
-                .build();
+                .setScore(100);
+        TestRecordsTextProto.ComplexDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = concat(
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -162,14 +182,20 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(10, "tag2"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "text" for text field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("text2", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("first text", builder.build().getText());
+        assertEquals("second <b>text</b>", builder.build().getText2());
+
         KeyExpression primaryKey = concat(field("group"), field("header").nest("header_id"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.ComplexDocument.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(10, "tag1"));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(10, 4, 4));
-        TestRecordsTextProto.ComplexDocument partialMsg = builder.build();
+        TestRecordsTextProto.ComplexDocument.Builder newBuilder = TestRecordsTextProto.ComplexDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "text", "suggestion", Tuple.from(10, "tag1"));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(10, 4, 4));
+        TestRecordsTextProto.ComplexDocument partialMsg = newBuilder.build();
 
         // The suggestion is supposed to show up in text field
         assertEquals("suggestion", partialMsg.getText());
@@ -187,12 +213,12 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void uncorrelatedMap() {
-        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder()
                 .setGroup(10)
                 .setDocId(5)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v1"))
-                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"))
-                .build();
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"));
+        TestRecordsTextProto.MapDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value"))));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
@@ -202,14 +228,20 @@ class LuceneDocumentFromRecordTest {
                         textField("entry_value", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "v2" for entry_value field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("entry_value", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("v1", builder.build().getEntry(0).getValue());
+        assertEquals("<b>v2</b>", builder.build().getEntry(1).getValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_value", "suggestion");
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(10, 5));
-        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+        TestRecordsTextProto.MapDocument.Builder newBuilder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "entry_value", "suggestion");
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(10, 5));
+        TestRecordsTextProto.MapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
@@ -223,12 +255,12 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void map() {
-        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder()
                 .setGroup(10)
                 .setDocId(5)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v1"))
-                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"))
-                .build();
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"));
+        TestRecordsTextProto.MapDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(
                 field("entry", KeyExpression.FanType.FanOut).nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), field("key")))),
@@ -238,14 +270,20 @@ class LuceneDocumentFromRecordTest {
                         textField("k2", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "v2" for k2 field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("v1", builder.build().getEntry(0).getValue());
+        assertEquals("<b>v2</b>", builder.build().getEntry(1).getValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion");
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(10, 5));
-        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+        TestRecordsTextProto.MapDocument.Builder newBuilder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "k1", "suggestion");
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(10, 5));
+        TestRecordsTextProto.MapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
@@ -261,12 +299,12 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void groupedMap() {
-        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(6)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v10"))
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v20"))
-                .setGroup(20)
-                .build();
+                .setGroup(20);
+        TestRecordsTextProto.MapDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(
                 field("entry", KeyExpression.FanType.FanOut).nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), field("key")))),
@@ -277,14 +315,20 @@ class LuceneDocumentFromRecordTest {
                         textField("k2", "v20"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "v20" for k2 field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v20")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("v10", builder.build().getEntry(0).getValue());
+        assertEquals("<b>v20</b>", builder.build().getEntry(1).getValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion", Tuple.from(20));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(20, 6));
-        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+        TestRecordsTextProto.MapDocument.Builder newBuilder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "k1", "suggestion", Tuple.from(20));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(20, 6));
+        TestRecordsTextProto.MapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
@@ -303,12 +347,12 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void groupingMap() {
-        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(7)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("r1").setValue("val").setSecondValue("2val").setThirdValue("3val"))
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("r2").setValue("nval").setSecondValue("2nval").setThirdValue("3nval"))
-                .setGroup(30)
-                .build();
+                .setGroup(30);
+        TestRecordsTextProto.MapDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = new GroupingKeyExpression(concat(field("group"),
                 field("entry", KeyExpression.FanType.FanOut)
@@ -321,14 +365,22 @@ class LuceneDocumentFromRecordTest {
                 Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "2val" for entry_second_value field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("2val")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("val", builder.build().getEntry(0).getValue());
+        assertEquals("<b>2val</b>", builder.build().getEntry(0).getSecondValue());
+        assertEquals("nval", builder.build().getEntry(1).getValue());
+        assertEquals("2nval", builder.build().getEntry(1).getSecondValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_value", "suggestion", Tuple.from(30, "r1"));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(30, 7));
-        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+        TestRecordsTextProto.MapDocument.Builder newBuilder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "entry_value", "suggestion", Tuple.from(30, "r1"));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(30, 7));
+        TestRecordsTextProto.MapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
@@ -349,13 +401,13 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void groupingMapWithExtra() {
-        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(8)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("en").setValue("first").setSecondValue("second"))
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("de").setValue("erste").setSecondValue("zweite"))
                 .setGroup(40)
-                .setText2("extra")
-                .build();
+                .setText2("extra");
+        TestRecordsTextProto.MapDocument message = builder.build();
         FDBRecord<Message> record = unstoredRecord(message);
         KeyExpression index = new GroupingKeyExpression(concat(
                 field("group"),
@@ -366,14 +418,22 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(40, "de"), ImmutableList.of(textField("entry_value", "erste"), textField("entry_second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "second" for entry_second_value field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("second")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("first", builder.build().getEntry(0).getValue());
+        assertEquals("<b>second</b>", builder.build().getEntry(0).getSecondValue());
+        assertEquals("erste", builder.build().getEntry(1).getValue());
+        assertEquals("zweite", builder.build().getEntry(1).getSecondValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_second_value", "suggestion", Tuple.from(40, "en"));
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(40, 8));
-        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+        TestRecordsTextProto.MapDocument.Builder newBuilder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "entry_second_value", "suggestion", Tuple.from(40, "en"));
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(40, 8));
+        TestRecordsTextProto.MapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
@@ -394,11 +454,11 @@ class LuceneDocumentFromRecordTest {
 
     @Test
     void mapWithSubMessage() {
-        TestRecordsTextProto.NestedMapDocument message = TestRecordsTextProto.NestedMapDocument.newBuilder()
+        TestRecordsTextProto.NestedMapDocument.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder()
                 .setDocId(5)
                 .setGroup(50)
-                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setValue("testValue").build()).build())
-                .build();
+                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setValue("testValue").build()).build());
+        TestRecordsTextProto.NestedMapDocument message = builder.build();
         KeyExpression index = field("entry", KeyExpression.FanType.FanOut)
                 .nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME,
                         concat(field("sub_entry").nest(concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
@@ -409,14 +469,19 @@ class LuceneDocumentFromRecordTest {
                         textField("entry_k1_value", "testValue"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "testValue" for entry_k1_value field
+        LuceneDocumentFromRecord.highlightTermsInMessage(index, builder, Map.of("entry_k1_value", Set.of("testvalue")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+        assertEquals("<b>testValue</b>", builder.build().getEntry(0).getSubEntry().getValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
-        TestRecordsTextProto.NestedMapDocument.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder();
-        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_k1_value", "suggestion");
-        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, builder, Tuple.from(50, 5));
-        TestRecordsTextProto.NestedMapDocument partialMsg = builder.build();
+        TestRecordsTextProto.NestedMapDocument.Builder newBuilder = TestRecordsTextProto.NestedMapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, newBuilder, "entry_k1_value", "suggestion");
+        LuceneIndexKeyValueToPartialRecordUtils.populatePrimaryKey(primaryKey, recordDescriptor, newBuilder, Tuple.from(50, 5));
+        TestRecordsTextProto.NestedMapDocument partialMsg = newBuilder.build();
 
         assertEquals(1, partialMsg.getEntryCount());
         TestRecordsTextProto.NestedMapDocument.Entry entry = partialMsg.getEntry(0);
