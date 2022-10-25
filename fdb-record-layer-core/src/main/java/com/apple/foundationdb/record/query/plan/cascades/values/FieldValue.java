@@ -150,8 +150,22 @@ public class FieldValue implements ValueWithChild {
         }
 
         final var that = (FieldValue)other;
-        return childValue.semanticEquals(that.childValue, equivalenceMap) &&
-               fieldPath.equals(that.fieldPath);
+        return fieldPath.equals(that.fieldPath) &&
+               childValue.semanticEquals(that.childValue, equivalenceMap);
+    }
+
+    @Override
+    public boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap equivalenceMap) {
+        if (other == null) {
+            return false;
+        }
+
+        if (!(other instanceof FieldValue)) {
+            return false;
+        }
+        final var otherFieldValue = (FieldValue)other;
+        return fieldOrdinals.equals(otherFieldValue.fieldOrdinals) &&
+                childValue.subsumedBy(otherFieldValue.childValue, equivalenceMap);
     }
 
     @Override
@@ -243,6 +257,9 @@ public class FieldValue implements ValueWithChild {
                 fieldOrdinals.add(fieldOrdinalsMap.get(field.getFieldIndex()));
             }
             currentType = field.getFieldType();
+            if (currentType.getTypeCode() == Type.TypeCode.ARRAY ) {
+                currentType = Objects.requireNonNull(((Type.Array)currentType).getElementType());
+            }
         }
         return fieldOrdinals.build();
     }

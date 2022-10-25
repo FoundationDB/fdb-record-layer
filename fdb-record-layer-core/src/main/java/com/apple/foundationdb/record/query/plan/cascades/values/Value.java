@@ -70,7 +70,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -555,13 +554,32 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
     }
 
-    default boolean subsumedBy(@Nonnull final Value other, @Nonnull final AliasMap aliasMap) {
-        return this.semanticEquals(other, aliasMap);
-        //if (rcv ) {
-        //    //ignore output fields (columns)
-        //}
-        //else if (field value) {
-        //    //compare using field ordinals
-        //}
+    default boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap aliasMap) {
+        if (other == null) {
+            return false;
+        }
+
+        if (this == other) {
+            return true;
+        }
+
+        if (!equalsWithoutChildren(other, aliasMap)) {
+            return false;
+        }
+
+        final Iterator<? extends Value> children = getChildren().iterator();
+        final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
+
+        while (children.hasNext()) {
+            if (!otherChildren.hasNext()) {
+                return false;
+            }
+
+            if (!children.next().subsumedBy(otherChildren.next(), aliasMap)) {
+                return false;
+            }
+        }
+
+        return !otherChildren.hasNext();
     }
 }
