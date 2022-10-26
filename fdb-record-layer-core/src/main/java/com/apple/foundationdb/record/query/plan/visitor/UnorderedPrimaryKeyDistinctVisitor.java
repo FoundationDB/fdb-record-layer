@@ -65,12 +65,19 @@ public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubsti
     public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
             RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) recordQueryPlan;
+
+            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(distinctPlan.getChild());
+            if (fetchIndexRecords == null) {
+                return recordQueryPlan;
+            }
+
             @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild(), Collections.emptySet());
             if (newPlan != null) {
                 return new RecordQueryFetchFromPartialRecordPlan(
                         new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan),
                         TranslateValueFunction.unableToTranslate(),
-                        new Type.Any());
+                        new Type.Any(),
+                        fetchIndexRecords);
             }
         }
         return recordQueryPlan;

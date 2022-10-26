@@ -1388,8 +1388,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public RecordMetaData build(boolean validate) {
         Map<String, RecordType> builtRecordTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
         Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
+        Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
-                builtRecordTypes, builtSyntheticRecordTypes,
+                builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
                 indexes, universalIndexes, formerIndexes,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
@@ -1420,6 +1421,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             for (SyntheticRecordTypeBuilder<?> recordTypeBuilder : syntheticRecordTypes.values()) {
                 final SyntheticRecordType<?> syntheticType = recordTypeBuilder.build(metaData, fileDescriptor);
                 builtSyntheticRecordTypes.put(recordTypeBuilder.getName(), syntheticType);
+                recordTypeKeyToSyntheticRecordTypeMap.put(syntheticType.getRecordTypeKey(), syntheticType);
             }
         }
         if (validate) {

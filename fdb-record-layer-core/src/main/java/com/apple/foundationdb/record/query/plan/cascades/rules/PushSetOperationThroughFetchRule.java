@@ -214,7 +214,18 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                         .map(quantifier -> (Quantifier.Physical)quantifier)
                         .filter(quantifier -> !pushableAliases.contains(quantifier.getAlias()))
                         .collect(ImmutableList.toImmutableList());
-        
+
+        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
+        for (final var pushableFetchPlan : pushableFetchPlans) {
+            if (fetchIndexRecords == null) {
+                fetchIndexRecords = pushableFetchPlan.getFetchIndexRecords();
+            } else {
+                if (fetchIndexRecords != pushableFetchPlan.getFetchIndexRecords()) {
+                    return;
+                }
+            }
+        }
+
         final List<? extends ExpressionRef<RecordQueryPlan>> newPushedInnerPlans =
                 pushableFetchPlans
                         .stream()
@@ -230,7 +241,8 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
                 new RecordQueryFetchFromPartialRecordPlan(newSetOperationPlan,
                         combinedTranslateValueFunction,
-                        Type.Relation.scalarOf(setOperationPlan.getResultType()));
+                        Type.Relation.scalarOf(setOperationPlan.getResultType()),
+                        Verify.verifyNotNull(fetchIndexRecords));
 
         if (nonPushableQuantifiers.isEmpty()) {
             call.yield(GroupExpressionRef.of(newFetchPlan));

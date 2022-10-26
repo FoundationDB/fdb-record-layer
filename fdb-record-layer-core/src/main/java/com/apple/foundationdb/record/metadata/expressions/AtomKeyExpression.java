@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 
 /**
- * An "atom expression" is one that has semantic meaning; that is, it presence is significant to the meaning of
+ * An "atom expression" is one that has semantic meaning; that is, its presence is significant to the meaning of
  * the expression. A non-atom expression (such as Then) is just a holder for its children; in particular, multiple
  * nested non-atom expressions could be collapsed into a single one with the same semantics.
  */

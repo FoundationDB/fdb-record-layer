@@ -93,6 +93,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().getColumnSize();
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return getWholeKey().needsCopyingToPartialRecord();
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Grouping toProto() throws SerializationException {
@@ -116,7 +121,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 

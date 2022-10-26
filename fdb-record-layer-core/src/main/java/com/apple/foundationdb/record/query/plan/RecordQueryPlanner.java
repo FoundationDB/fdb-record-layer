@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -72,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -93,6 +95,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.ImmutableIntArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -783,7 +786,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = RecordMetaData.commonPrimaryKey(metaData.getRecordTypes().values());
             } else {
-                final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
+                final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getQueryableRecordType).collect(Collectors.toList());
                 if (recordTypes.size() == 1) {
                     final RecordType recordType = recordTypes.get(0);
                     indexes.addAll(readableOf(recordType.getIndexes()));
@@ -1413,6 +1416,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
                                      @Nonnull IndexScanComparisons indexScanComparisons,
                                      boolean strictlySorted) {
+        final var queriedRecordTypes = candidateScan.planContext.query.getRecordTypes();
+        final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
+
         RecordQueryPlan plan;
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
@@ -1422,14 +1428,62 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
+            
+            if (!queriedRecordTypes.isEmpty() && // ok if user queried all record types which excludes synthetic ones
+                    queriedRecordTypes.stream().anyMatch(syntheticRecordTypes::contains)) {
+                throw new RecordCoreException("cannot create scan plan for a synthetic record type");
+            }
+
             plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, getConfiguration().getIndexFetchMethod(), candidateScan.reverse, strictlySorted);
+            final FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecords(queriedRecordTypes, syntheticRecordTypes);
+            // If this is a regular fetch using the primary key, we can opt to use the configured fetch method,
+            // if, however, this fetch fetches synthetic constituents, we must do it at the client (at this point).
+            final IndexFetchMethod indexFetchMethod =
+                    fetchIndexRecords == FetchIndexRecords.PRIMARY_KEY
+                    ? getConfiguration().getIndexFetchMethod()
+                    : IndexFetchMethod.SCAN_AND_FETCH;
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanComparisons, indexFetchMethod, fetchIndexRecords, candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
         plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
         return plan;
+    }
+
+    /**
+     * Method to statically resolve the method of how records are fetched given an index key. In particular,
+     * {@link com.apple.foundationdb.record.metadata.SyntheticRecordType}s have constituent parts which need to
+     * be separately fetched, while index scans over regular record types just need to fetch the base record
+     * using the entire primary key in the index.
+     * <br>
+     * Note that the method on how to fetch the base record(s) has to be statically resolved during planning time as
+     * the index entry itself does not contain any information to help us resolve that question on a per-record
+     * basis.
+     * 
+     * @param queriedRecordTypes a set of record types queried by the query or all record types if empty
+     * @param syntheticRecordTypes a set of synthetic record types available
+     * @return an enum of type {@link FetchIndexRecords} which determines how records are fetched given an index key
+     */
+    @Nonnull
+    private FetchIndexRecords resolveFetchIndexRecords(@Nonnull Collection<String> queriedRecordTypes,
+                                                       @Nonnull Set<String> syntheticRecordTypes) {
+        final var regularRecordTypes = metaData.getRecordTypes().keySet();
+        if (!syntheticRecordTypes.isEmpty()) {
+            if (queriedRecordTypes.isEmpty()) {
+                // all record types are queried
+                return FetchIndexRecords.PRIMARY_KEY;
+            } else {
+                if (syntheticRecordTypes.containsAll(queriedRecordTypes)) {
+                    return FetchIndexRecords.SYNTHETIC_CONSTITUENTS;
+                }
+                if (regularRecordTypes.containsAll(queriedRecordTypes)) {
+                    return FetchIndexRecords.PRIMARY_KEY;
+                }
+                throw new RecordCoreException("cannot mix regular and synthetic record types in query");
+            }
+        }
+        return FetchIndexRecords.PRIMARY_KEY;
     }
 
     @Nonnull
@@ -1755,6 +1809,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), AvailableFields.NO_FIELDS, builder.build());
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                             @Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                             @Nonnull List<KeyExpression> keyFields,
@@ -1775,7 +1830,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return false;
             }
         }
-        return AvailableFields.addCoveringField(requiredExpr, AvailableFields.FieldData.of(source, index), builder);
+        return AvailableFields.addCoveringField(requiredExpr, AvailableFields.FieldData.ofUnconditional(source, ImmutableIntArray.of(index)), builder);
     }
 
     private static class PlanContext {

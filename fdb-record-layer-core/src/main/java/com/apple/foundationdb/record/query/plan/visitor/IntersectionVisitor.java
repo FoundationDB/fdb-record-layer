@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,17 +76,32 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
             Set<KeyExpression> requiredFields = intersectionPlan.getRequiredFields();
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
+            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
             for (RecordQueryPlan plan : intersectionPlan.getChildren()) {
+                @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords currentFetchIndexRecords = resolveFetchIndexRecordsFromPlan(plan);
+                if (currentFetchIndexRecords == null) {
+                    return recordQueryPlan;
+                }
+                if (fetchIndexRecords == null) {
+                    fetchIndexRecords = currentFetchIndexRecords;
+                } else {
+                    if (fetchIndexRecords != currentFetchIndexRecords) {
+                        return recordQueryPlan;
+                    }
+                }
+
                 @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan, requiredFields);
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }
                 newChildren.add(newPlan);
             }
+
             return new RecordQueryFetchFromPartialRecordPlan(
                     RecordQueryIntersectionPlan.from(newChildren, intersectionPlan.getComparisonKeyExpression()),
                     TranslateValueFunction.unableToTranslate(),
-                    new Type.Any());
+                    new Type.Any(),
+                    Verify.verifyNotNull(fetchIndexRecords));
         }
 
         return recordQueryPlan;

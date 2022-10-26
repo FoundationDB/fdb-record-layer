@@ -102,6 +102,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                 // Need the primary key, even if it wasn't one of the explicit result fields.
                 fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
             }
+            fields.removeIf(keyExpression -> !keyExpression.needsCopyingToPartialRecord());
 
             if (fieldsFromIndex.containsAll(fields)) {
                 final IndexKeyValueToPartialRecord keyValueToPartialRecord = fieldsFromIndex.buildIndexKeyValueToPartialRecord(recordType).build();
@@ -114,6 +115,16 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             if (fetchPlan.getChild().getAvailableFields().containsAll(requiredFields)) {
                 return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
             }
+        }
+        return null;
+    }
+
+    @Nullable
+    public static RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords resolveFetchIndexRecordsFromPlan(@Nonnull final RecordQueryPlan plan) {
+        if (plan instanceof RecordQueryPlanWithIndex) {
+            return ((RecordQueryPlanWithIndex)plan).getFetchIndexRecords();
+        } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
+            return ((RecordQueryFetchFromPartialRecordPlan)plan).getFetchIndexRecords();
         }
         return null;
     }

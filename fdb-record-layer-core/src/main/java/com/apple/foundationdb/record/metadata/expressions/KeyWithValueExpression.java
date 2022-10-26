@@ -126,6 +126,11 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return getInnerKey().getColumnSize();
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return getInnerKey().needsCopyingToPartialRecord();
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.KeyWithValue toProto() throws SerializationException {
@@ -143,7 +148,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 

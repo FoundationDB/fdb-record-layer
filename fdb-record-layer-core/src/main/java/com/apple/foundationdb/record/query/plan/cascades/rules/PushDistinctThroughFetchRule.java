@@ -101,7 +101,7 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(newInnerQuantifier);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedDistinctPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()));
+                new RecordQueryFetchFromPartialRecordPlan(pushedDistinctPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
         // case 2
         call.yield(GroupExpressionRef.of(newFetchPlan));

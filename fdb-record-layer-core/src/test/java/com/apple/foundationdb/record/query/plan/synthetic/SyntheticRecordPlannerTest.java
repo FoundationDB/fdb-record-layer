@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -54,24 +56,36 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.base.Verify;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -79,6 +93,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -103,6 +122,13 @@ public class SyntheticRecordPlannerTest {
         FDBRecordContext context = fdb.openContext();
         context.setTimer(timer);
         return context;
+    }
+
+    private QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
+        if (indexTypes == null) {
+            indexTypes = PlannableIndexTypes.DEFAULT;
+        }
+        return new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
     }
 
     @BeforeEach
@@ -422,6 +448,127 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    public void indexScansOverOuterJoins() throws Exception {
+        metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
+        final JoinedRecordTypeBuilder leftJoined = metaDataBuilder.addJoinedRecordType("LeftJoined");
+        leftJoined.addConstituent("simple", "MySimpleRecord");
+        leftJoined.addConstituent("other", metaDataBuilder.getRecordType("MyOtherRecord"), true);
+        leftJoined.addJoin("simple", "other_rec_no", "other", "rec_no");
+        metaDataBuilder.addIndex(leftJoined, new Index("simple.str_value_other", field("simple").nest("str_value")));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            for (int i = 0; i < 3; i++) {
+                TestRecordsJoinIndexProto.MySimpleRecord.Builder simple = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder();
+                simple.setStrValue(i % 2 == 0 ? "even" : "odd");
+                simple.setRecNo(i).setOtherRecNo(1001 + i);
+                recordStore.saveRecord(simple.build());
+                TestRecordsJoinIndexProto.MyOtherRecord.Builder other = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder();
+                other.setRecNo(1000 + i);
+                other.setNumValue3(i);
+                recordStore.saveRecord(other.build());
+            }
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            final QueryPlanner planner = setupPlanner(recordStore, null);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("LeftJoined")
+                    .setFilter(Query.field("simple").matches(Query.field("str_value").equalsValue("even")))
+                    .setRequiredResults(ImmutableList.of(field("simple").nest("str_value"), field("other").nest("num_value_3")))
+                    .build();
+
+            RecordQueryPlan plan = planner.plan(query);
+            Assertions.assertTrue(
+                    indexPlan().where(RecordQueryPlanMatchers.indexName("simple.str_value_other"))
+                            .and(scanComparisons(range("[[even],[even]]"))).matches(plan));
+            var join = recordStore.executeQuery(plan).asList().join();
+            
+            //
+            // TODO Note that due to https://github.com/FoundationDB/fdb-record-layer/issues/1883, the index incorrectly
+            //      returns items that should not be in the index anymore.
+            //
+            Assertions.assertEquals(3, join.size());
+            var simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(0).getConstituents()).get("simple")).getRecord();
+            Assertions.assertNull(Verify.verifyNotNull(join.get(0).getConstituents()).get("other"));
+            Descriptors.Descriptor simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertEquals(1001L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
+
+            simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(1).getConstituents()).get("simple")).getRecord();
+            simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertEquals(1001L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
+            var otherRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(1).getConstituents()).get("other")).getRecord();
+            Descriptors.Descriptor otherDescriptor = otherRecord.getDescriptorForType();
+            Assertions.assertEquals(1001L, otherRecord.getField(otherDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals(1, otherRecord.getField(otherDescriptor.findFieldByName("num_value_3")));
+
+            simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(2).getConstituents()).get("simple")).getRecord();
+            simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(2L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertEquals(1003L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
+            Assertions.assertNull(Verify.verifyNotNull(join.get(2).getConstituents()).get("other"));
+            
+            // same query except setting required fields to get a covering scan
+            query = RecordQuery.newBuilder()
+                    .setRecordType("LeftJoined")
+                    .setFilter(Query.field("simple").matches(Query.field("str_value").equalsValue("even")))
+                    .setRequiredResults(ImmutableList.of(field("simple").nest("str_value")))
+                    .build();
+            plan = planner.plan(query);
+            Assertions.assertTrue(
+                    coveringIndexPlan()
+                            .where(indexPlanOf(indexPlan().where(RecordQueryPlanMatchers.indexName("simple.str_value_other"))
+                                    .and(scanComparisons(range("[[even],[even]]"))))).matches(plan));
+
+            // same result set as before except some fields remain unset due to using a covering index
+            join = recordStore.executeQuery(plan).asList().join();
+
+            //
+            // TODO Note that due to https://github.com/FoundationDB/fdb-record-layer/issues/1883, the index incorrectly
+            //      returns items that should not be in the index anymore.
+            //
+            Assertions.assertEquals(3, join.size());
+            Message message = Verify.verifyNotNull(join.get(0).getRecord());
+            Descriptors.Descriptor descriptor = message.getDescriptorForType();
+            simpleRecord = (Message)Verify.verifyNotNull(message.getField(descriptor.findFieldByName("simple")));
+            simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertFalse(simpleRecord.hasField(simpleDescriptor.findFieldByName("other_rec_no")));
+            Assertions.assertFalse(message.hasField(descriptor.findFieldByName("other")));
+
+            message = Verify.verifyNotNull(join.get(1).getRecord());
+            simpleRecord = (Message)Verify.verifyNotNull(message.getField(descriptor.findFieldByName("simple")));
+            simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertFalse(simpleRecord.hasField(simpleDescriptor.findFieldByName("other_rec_no")));
+            otherRecord = (Message)Verify.verifyNotNull(message.getField(descriptor.findFieldByName("other")));
+            otherDescriptor = otherRecord.getDescriptorForType();
+            Assertions.assertEquals(1001L, otherRecord.getField(otherDescriptor.findFieldByName("rec_no")));
+            Assertions.assertFalse(otherRecord.hasField(otherDescriptor.findFieldByName("num_value_3")));
+
+            message = Verify.verifyNotNull(join.get(2).getRecord());
+            simpleRecord = (Message)Verify.verifyNotNull(message.getField(descriptor.findFieldByName("simple")));
+            simpleDescriptor = simpleRecord.getDescriptorForType();
+            Assertions.assertEquals(2L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+            Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+            Assertions.assertFalse(simpleRecord.hasField(simpleDescriptor.findFieldByName("other_rec_no")));
+            Assertions.assertFalse(message.hasField(descriptor.findFieldByName("other")));
+        }
+    }
+
+    @Test
     public void clique() throws Exception {
         final JoinedRecordTypeBuilder clique = metaDataBuilder.addJoinedRecordType("Clique");
         clique.addConstituent("type_a", "TypeA");
@@ -618,6 +765,70 @@ public class SyntheticRecordPlannerTest {
             List<Tuple> expected3 = Arrays.asList();
             List<Tuple> results3 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected3, results3);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            final QueryPlanner planner = setupPlanner(recordStore, null);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("Simple_Other")
+                    .setFilter(Query.field("simple").matches(Query.field("str_value").equalsValue("even")))
+                    .build();
+
+            RecordQueryPlan plan = planner.plan(query);
+            Assertions.assertTrue(
+                    indexPlan().where(RecordQueryPlanMatchers.indexName("simple.str_value_other.num_value_3"))
+                            .and(scanComparisons(range("[[even],[even]]"))).matches(plan));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
+                    Message message = record.getRecord();
+                    count ++;
+                    Descriptors.Descriptor descriptor = message.getDescriptorForType();
+                    Message simpleRecord = (Message)message.getField(descriptor.findFieldByName("simple"));
+                    Descriptors.Descriptor simpleDescriptor = simpleRecord.getDescriptorForType();
+                    Assertions.assertEquals(200L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+                    Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+                    Assertions.assertEquals(1002L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
+                    Message otherRecord = (Message)message.getField(descriptor.findFieldByName("other"));
+                    Descriptors.Descriptor otherDescriptor = otherRecord.getDescriptorForType();
+                    Assertions.assertEquals(1002L, otherRecord.getField(otherDescriptor.findFieldByName("rec_no")));
+                    Assertions.assertEquals(2, otherRecord.getField(otherDescriptor.findFieldByName("num_value_3")));
+                }
+                Assertions.assertEquals(1, count);
+            }
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType("Simple_Other")
+                    .setFilter(Query.field("simple").matches(Query.field("str_value").equalsValue("even")))
+                    .setRequiredResults(ImmutableList.of(field("simple").nest("str_value"), field("other").nest("num_value_3")))
+                    .build();
+            plan = planner.plan(query);
+            Assertions.assertTrue(
+                    coveringIndexPlan()
+                            .where(indexPlanOf(indexPlan().where(RecordQueryPlanMatchers.indexName("simple.str_value_other.num_value_3"))
+                                    .and(scanComparisons(range("[[even],[even]]"))))).matches(plan));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
+                    Message message = record.getRecord();
+                    count ++;
+                    Descriptors.Descriptor descriptor = message.getDescriptorForType();
+                    Message simpleRecord = (Message)message.getField(descriptor.findFieldByName("simple"));
+                    Descriptors.Descriptor simpleDescriptor = simpleRecord.getDescriptorForType();
+                    Assertions.assertEquals(200L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
+                    Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
+                    Message otherRecord = (Message)message.getField(descriptor.findFieldByName("other"));
+                    Descriptors.Descriptor otherDescriptor = otherRecord.getDescriptorForType();
+                    Assertions.assertEquals(1002L, otherRecord.getField(otherDescriptor.findFieldByName("rec_no")));
+                    Assertions.assertEquals(2, otherRecord.getField(otherDescriptor.findFieldByName("num_value_3")));
+                }
+                Assertions.assertEquals(1, count);
+            }
         }
     }
 

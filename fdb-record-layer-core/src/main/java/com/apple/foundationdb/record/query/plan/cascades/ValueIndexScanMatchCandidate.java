@@ -43,6 +43,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -223,12 +224,14 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
                                 baseRecordType));
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final PlanContext planContext,
@@ -245,8 +248,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
+                @SuppressWarnings("UnstableApiUsage") final AvailableFields.FieldData fieldData =
+                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
                 if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
                     return Optional.empty();
                 }
@@ -257,7 +260,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             final Value valueValue = indexValueValues.get(i);
             if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
+                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
                 if (!addCoveringField(builder, (FieldValue)valueValue, fieldData)) {
                     return Optional.empty();
                 }
@@ -274,6 +277,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
@@ -284,7 +288,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
     @Nonnull
@@ -339,7 +343,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
         final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
+            builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
         }
         return true;
     }

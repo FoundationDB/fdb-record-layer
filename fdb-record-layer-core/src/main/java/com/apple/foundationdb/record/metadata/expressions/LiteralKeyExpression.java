@@ -113,6 +113,11 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return RecordMetaDataProto.KeyExpression.newBuilder().setValue(toProto()).build();
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return false;
+    }
+
     @Nonnull
     public static LiteralKeyExpression<?> fromProto(RecordMetaDataProto.Value proto) {
         return new LiteralKeyExpression<>(fromProtoValue(proto), proto);

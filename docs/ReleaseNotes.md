@@ -28,7 +28,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Add a method to construct a single record from a raw indexed record [(Issue #1865)](https://github.com/FoundationDB/fdb-record-layer/issues/1865)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** support planning of (covering) index scans, fetches over synthetic record types [(Issue #1886)](https://github.com/FoundationDB/fdb-record-layer/issues/1886)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

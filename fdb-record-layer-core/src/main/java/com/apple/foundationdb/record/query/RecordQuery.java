@@ -50,7 +50,7 @@ import java.util.Objects;
  * </ul>
  * Executing a query means returning records of the given type(s) that match the filter in the indicated order.
  *
- * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
+ * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(RecordQuery)
  */
 @API(API.Status.STABLE)
 public class RecordQuery implements QueryHashable {
@@ -139,7 +139,7 @@ public class RecordQuery implements QueryHashable {
      */
     public void validate(@Nonnull RecordMetaData metaData) {
         for (String recordTypeName : recordTypes) {
-            final RecordType recordType = metaData.getRecordType(recordTypeName);
+            final RecordType recordType = metaData.getQueryableRecordType(recordTypeName);
             final Descriptors.Descriptor descriptor = recordType.getDescriptor();
             if (filter != null) {
                 filter.validate(descriptor);
