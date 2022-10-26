@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -51,6 +52,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator {@link RecordQueryStreamingAggregationPlan}.
  */
+@API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpression> {
 
     @Nonnull

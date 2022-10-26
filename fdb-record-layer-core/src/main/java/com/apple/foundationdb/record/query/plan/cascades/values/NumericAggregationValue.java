@@ -109,6 +109,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     }
 
     @Nonnull
+    @Override
     public String getOperatorName() {
         return operator.logicalOperator.name();
     }

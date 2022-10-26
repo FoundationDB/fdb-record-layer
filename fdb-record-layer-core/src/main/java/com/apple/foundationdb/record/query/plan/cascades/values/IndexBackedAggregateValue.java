@@ -81,6 +81,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     }
 
     @Nonnull
+    @Override
     public String getOperatorName() {
         return operator.name();
     }

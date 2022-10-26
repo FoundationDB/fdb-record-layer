@@ -554,6 +554,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap aliasMap) {
         if (other == null) {
             return false;
