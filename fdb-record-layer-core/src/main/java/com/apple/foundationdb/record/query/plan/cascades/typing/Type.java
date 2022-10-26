@@ -588,6 +588,12 @@ public interface Type extends Narrowable<Type> {
         @Nullable
         final String name;
 
+        /**
+         * Memoized hash function.
+         */
+        @Nonnull
+        private final Supplier<Integer> hashFunctionSupplier = Suppliers.memoize(this::computeHashCode);
+
         public Enum(final boolean isNullable,
                     @Nullable final List<EnumValue> enumValues) {
             this(isNullable, enumValues, null);
@@ -622,6 +628,11 @@ public interface Type extends Narrowable<Type> {
         @Override
         public boolean isNullable() {
             return isNullable;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
         }
 
         @Override
@@ -683,9 +694,13 @@ public interface Type extends Narrowable<Type> {
                     && Objects.equals(enumValues, otherType.enumValues);
         }
 
+        private int computeHashCode() {
+            return Objects.hash(isNullable, enumValues);
+        }
+
         @Override
         public int hashCode() {
-            return Objects.hash(isNullable, enumValues);
+            return hashFunctionSupplier.get();
         }
 
         @Override
