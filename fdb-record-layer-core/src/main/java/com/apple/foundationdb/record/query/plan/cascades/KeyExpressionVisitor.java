@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
@@ -35,7 +36,7 @@ import javax.annotation.Nonnull;
  * @param <S> the type of the state object which depends on the specific implementation
  * @param <R> the type of the result object which is returned by all visitation methods
  */
-public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> {
+public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
 
     /**
      * Method to return the (immutable) current state.
@@ -44,9 +45,9 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R ex
     S getCurrentState();
 
     /**
-     * Default method that is called on unknown sub classes of {@link KeyExpression}. That makes it possible to
+     * Default method that is called on unknown subclasses of {@link KeyExpression}. That makes it possible to
      * add a {@code visitor.visitExpression(this)} regardless whether the visitor defines an actual specific override
-     * for the sub class of {@code this} or not.
+     * for the subclass of {@code this} or not.
      *
      * @param keyExpression key expression to visit
      * @return a new expression of type {@code R}
@@ -109,16 +110,18 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R ex
     R visitExpression(@Nonnull ThenKeyExpression thenKeyExpression);
 
     /**
+     * Specific method that is called on {@link ListKeyExpression}s.
+     *
+     * @param listKeyExpression {@link ListKeyExpression} to visit
+     * @return a new expression of type {@code R}
+     */
+    @Nonnull
+    R visitExpression(@Nonnull ListKeyExpression listKeyExpression);
+
+    /**
      * Tag interface to capture state within this visitor.
      */
     interface State {
-        // tag
-    }
-
-    /**
-     * Tag interface to capture the result being returned by visitation methods of this visitor.
-     */
-    interface Result {
         // tag
     }
 }

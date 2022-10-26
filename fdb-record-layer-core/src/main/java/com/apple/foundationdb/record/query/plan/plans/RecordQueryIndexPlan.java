@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -69,6 +70,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
@@ -129,6 +131,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final IndexScanParameters scanParameters;
     @Nonnull
     private IndexFetchMethod indexFetchMethod;
+    @Nonnull
+    private final FetchIndexRecords fetchIndexRecords;
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
@@ -137,16 +141,17 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Type resultType;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
-        this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, reverse, false);
+        this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 @Nonnull final IndexFetchMethod useIndexPrefetch,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, reverse, strictlySorted, Optional.empty(), new Type.Any());
+        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any());
     }
 
     @VisibleForTesting
@@ -154,17 +159,19 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final ScanWithFetchMatchCandidate matchCandidate,
                                 @Nonnull final Type.Record resultType) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
@@ -173,6 +180,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
         this.indexFetchMethod = indexFetchMethod;
+        this.fetchIndexRecords = fetchIndexRecords;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
@@ -321,6 +329,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                   @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                   @Nonnull final ExecuteProperties executeProperties) {
+        return fetchIndexRecords.fetchIndexRecords(store, entryRecordCursor, executeProperties);
+    }
+
+    @Nonnull
+    @Override
     public String getIndexName() {
         return indexName;
     }
@@ -344,6 +360,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
+    }
+
+    @Nonnull
+    @Override
+    public FetchIndexRecords getFetchIndexRecords() {
+        return fetchIndexRecords;
     }
 
     @Override
@@ -395,7 +417,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), reverse, true, matchCandidateOptional, resultType);
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType);
     }
 
     @Override
@@ -423,6 +445,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 commonPrimaryKey,
                 newIndexScanParameters,
                 indexFetchMethod,
+                fetchIndexRecords,
                 reverse,
                 strictlySorted,
                 matchCandidateOptional,
@@ -454,6 +477,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
                strictlySorted == that.strictlySorted &&
+               indexFetchMethod == that.indexFetchMethod &&
+               fetchIndexRecords == that.fetchIndexRecords &&
                Objects.equals(indexName, that.indexName) &&
                Objects.equals(scanParameters, that.scanParameters);
     }
@@ -471,7 +496,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanParameters, reverse, strictlySorted);
+        return Objects.hash(indexName, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted);
     }
 
     @Override

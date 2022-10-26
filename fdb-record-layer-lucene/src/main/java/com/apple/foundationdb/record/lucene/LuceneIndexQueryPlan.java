@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -109,6 +110,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
      * @param scanType the type of scan
      * @return a partial record generator
      */
+    @SuppressWarnings("UnstableApiUsage")
     @VisibleForTesting
     public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,
                                                                   @Nonnull RecordType recordType,
@@ -119,7 +121,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         if (root instanceof GroupingKeyExpression) {
             KeyExpression groupingKey = ((GroupingKeyExpression) root).getGroupingSubKey();
             for (int i = 0; i < groupingKey.getColumnSize(); i++) {
-                AvailableFields.addCoveringField(groupingKey, AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i), builder);
+                AvailableFields.addCoveringField(groupingKey, AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i)), builder);
             }
         }
 

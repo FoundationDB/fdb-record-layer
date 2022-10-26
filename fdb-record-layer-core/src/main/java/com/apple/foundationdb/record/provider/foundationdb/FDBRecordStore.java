@@ -726,8 +726,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @return a future which completes to the synthesized record
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    @Override
     public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
         int nconstituents = syntheticRecordType.getConstituents().size();

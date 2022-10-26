@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -453,6 +454,22 @@ public class Index {
         }
     }
 
+    @API(API.Status.INTERNAL)
+    public BitSet getCoveredPrimaryKeyPositions() {
+        final BitSet resultSet;
+        if (primaryKeyComponentPositions != null) {
+            resultSet = new BitSet(primaryKeyComponentPositions.length);
+            for (int i = 0; i < primaryKeyComponentPositions.length; i++) {
+                if (primaryKeyComponentPositions[i] >= 0) {
+                    resultSet.set(i);
+                }
+            }
+        } else {
+            resultSet = new BitSet();
+        }
+        return resultSet;
+    }
+    
     /**
      * Return whether this index has non-default primary key component positions.
      * In particular, this will return {@code true} if it does something more advanced than appending

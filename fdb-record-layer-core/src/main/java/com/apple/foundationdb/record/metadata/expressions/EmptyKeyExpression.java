@@ -81,7 +81,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -94,6 +94,11 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     @Nonnull
     public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
+    }
+
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return false;
     }
 
     @Override

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -61,7 +62,6 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -684,6 +684,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey);
+
+    /**
+     * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
+     * @return a future which completes to the synthesized record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey);
 
     /**
      * Check if a record exists in the record store with the given primary key.

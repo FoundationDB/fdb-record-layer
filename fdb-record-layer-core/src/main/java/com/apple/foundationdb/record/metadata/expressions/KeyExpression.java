@@ -231,6 +231,20 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
+     * Method to determine if data in an index represented by this key expression needs to be copied from an
+     * index entry to a partial record. For instance all {@link LiteralKeyExpression}s are constant and not dependent on
+     * an input record. Similarly, when scanning a single type index, the record type of each record is known, however,
+     * it is not part of the base record, or by extension the message contained therein.
+     * This information is needed to allow key expressions to partake in covering index scans that are not
+     * provided by the underlying index entries, but can easily be computed on-the-fly.
+     * @return {@code true} if the key expression needs to be copied from index entry to partial record.
+     */
+    @API(API.Status.INTERNAL)
+    default boolean needsCopyingToPartialRecord() {
+        return true;
+    }
+
+    /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
      * ({@link RelationalExpression}s). Note that implementors should
@@ -246,7 +260,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor);
+    <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor);
 
     /**
      * Return the key fields for an expression.

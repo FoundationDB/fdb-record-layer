@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -359,12 +360,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 primaryKey,
                                 new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
                                 (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
                                 baseRecordType));
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final PlanContext planContext,
@@ -382,7 +385,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
                 final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
+                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
                 if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
                     return Optional.empty();
                 }
@@ -399,6 +402,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
                         (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
@@ -409,7 +413,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
     @Nonnull
@@ -463,7 +467,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         }
         final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
+            builder.addField(fieldName, fieldData.getSource(), t -> true, fieldData.getOrdinalPath());
         }
         return true;
     }

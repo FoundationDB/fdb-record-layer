@@ -253,7 +253,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 

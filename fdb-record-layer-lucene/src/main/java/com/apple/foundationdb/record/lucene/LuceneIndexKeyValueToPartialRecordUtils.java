@@ -314,8 +314,8 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
-        public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                         @Nonnull IndexEntry kv) {
+        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                            @Nonnull IndexEntry kv) {
             Tuple keyTuple = kv.getKey();
             if (keyTuple.size() < 2) {
                 throw new RecordCoreException("Invalid key tuple for auto-complete suggestion's index entry")
@@ -329,6 +329,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             if (primaryKeyNeeded) {
                 populatePrimaryKey(primaryKeyExpression, recordDescriptor, recordBuilder, kv.getPrimaryKey());
             }
+            return true;
         }
     }
 }

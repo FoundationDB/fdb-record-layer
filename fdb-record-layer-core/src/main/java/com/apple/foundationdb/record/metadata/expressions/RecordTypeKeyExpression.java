@@ -121,6 +121,11 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     }
 
     @Override
+    public boolean needsCopyingToPartialRecord() {
+        return false;
+    }
+
+    @Override
     public boolean equals(Object o) {
         return o == this || !(o == null || getClass() != o.getClass());
     }

@@ -174,6 +174,19 @@ public class QueryResult {
     }
 
     /**
+     * Create a new result with the given element while inheriting other parts from a caller-provided entities.
+     * @param computed the given computed result
+     * @param indexEntry an index entry (if appropriate) or {@code null}
+     * @param primaryKey a primary key (if available) or {@code null}
+     * @param recordType a record type (if available) or {@code null}
+     * @return the newly created query result
+     */
+    @Nonnull
+    public static QueryResult ofComputed(@Nullable Object computed, @Nullable IndexEntry indexEntry, @Nullable Tuple primaryKey, @Nullable RecordType recordType) {
+        return new QueryResult(computed, null, indexEntry, primaryKey, recordType);
+    }
+
+    /**
      * Create a new queriedRecord with the given element.
      * @param queriedRecord the given queriedRecord
      * @return the newly created query queriedRecord
