@@ -2243,15 +2243,18 @@ public class Comparisons {
         @Override
         public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
             Object originalComparandValue = originalComparison.getComparand(store, context);
-            if (originalComparandValue instanceof List<?>) {
+            if (originalComparison.getType() == Type.IN) {
+                if (!(originalComparandValue instanceof List<?>)) {
+                    throw new RecordCoreException("cannot evaluate IN comparison on non-list type");
+                }
                 List<?> underlyingList = (List<?>) originalComparandValue;
                 List<Object> finalValues = new ArrayList<>(underlyingList.size());
                 for (Object obj : underlyingList) {
                     Key.Evaluated evaluated = Key.Evaluated.scalar(obj);
                     List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
                     inverse.stream()
-                            .filter(eval -> eval.size() == 1)
-                            .forEach(eval -> finalValues.add(eval.getObject(0)));
+                            .map(this::getSingletonPreImage)
+                            .forEach(finalValues::add);
                 }
                 return finalValues;
             } else {
@@ -2259,17 +2262,21 @@ public class Comparisons {
                 List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
                 if (getType() == Type.IN) {
                     return inverse.stream()
-                            .filter(eval -> eval.size() == 1)
-                            .map(eval -> eval.getObject(0))
+                            .map(this::getSingletonPreImage)
                             .collect(Collectors.toList());
                 } else {
                     Key.Evaluated preImage = inverse.get(0);
-                    if (preImage.size() != 1) {
-                        throw new RecordCoreException("unable to get singleton pre-image for function");
-                    }
-                    return preImage.getObject(0);
+                    return getSingletonPreImage(preImage);
                 }
             }
+        }
+
+        private Object getSingletonPreImage(Key.Evaluated preImage) {
+            if (preImage.size() != 1) {
+                throw new RecordCoreException("unable to get singleton pre-image for function")
+                        .addLogInfo(LogMessageKeys.FUNCTION, function.getName());
+            }
+            return preImage.getObject(0);
         }
 
         @Nonnull
