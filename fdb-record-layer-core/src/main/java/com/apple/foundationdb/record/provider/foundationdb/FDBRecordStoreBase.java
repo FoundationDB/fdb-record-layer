@@ -1175,6 +1175,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                            @Nonnull IndexOrphanBehavior orphanBehavior);
 
     /**
+     * Build an IndexedRecord from parts returned by the index maintainer's {@link IndexMaintainer#scanRemoteFetch} call.
+     * This method would reconstruct a record from the parts returned by the index scan call, such that the record can
+     * be used separately from the cursor that constructs all records for the index. This can be useful in case there are
+     * some validations that need to be done during the iteration of the cursor without waiting for all records to be serialized.
+     * @param indexedRawRecord the raw records (the set of key-value pairs returned from scanRemoteFetch)
+     * @return a future containing (when completed) the reconstructed record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord);
+
+    /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
      *
      * @param indexCursor a cursor iterating over entries in the index

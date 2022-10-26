@@ -1260,12 +1260,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new UnsupportedMethodException("Index Remote Fetch can only be used with API_VERSION of at least 7.1.");
         }
 
-        Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         // Get the cursor with the index entries and the records from FDB
         RecordCursor<FDBIndexedRawRecord> indexEntries = indexMaintainer.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
         // Parse the index entries and payload and build records
-        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, recordSubspace, indexEntries, typedSerializer);
+        RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntriesToIndexRecords(scanProperties, orphanBehavior, indexEntries, typedSerializer);
 
         return context.instrument(FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY, indexedRecordCursor);
     }
@@ -1275,31 +1274,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final ScanProperties scanProperties,
                                                                                      @Nonnull final IndexOrphanBehavior orphanBehavior,
-                                                                                     @Nonnull final Subspace recordSubspace,
                                                                                      @Nonnull final RecordCursor<FDBIndexedRawRecord> indexEntries,
                                                                                      @Nonnull RecordSerializer<M> typedSerializer) {
-        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        ExecuteState executeState = scanProperties.getExecuteProperties().getState();
-
+        ByteScanLimiter byteScanLimiter = scanProperties.getExecuteProperties().getState().getByteScanLimiter();
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
-            // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
-            FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordSubspace, sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
-            if (fdbRawRecord == null) {
-                return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
-            } else {
-                Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
-                // The version future will be ignored in case the record already has a version
-                if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
-                    versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+            CompletableFuture<FDBIndexedRecord<M>> indexedRecordFuture = buildSingleRecordInternal(indexedRawRecord, typedSerializer, byteScanLimiter);
+            return indexedRecordFuture.thenApply(record -> {
+                if (record == null) {
+                    // This is the case that there were no record parts in the RawRecord, and so the index entry is attached to
+                    // an empty record and returned
+                    return handleOrphanEntry(indexedRawRecord.getIndexEntry(), orphanBehavior);
+                } else {
+                    return record;
                 }
-                final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
-                byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
-                byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
-
-                // Deserialize the raw record
-                CompletableFuture<FDBStoredRecord<M>> storedRecord = deserializeRecord(typedSerializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
-                return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
-            }
+            });
         }, 1);
 
         if (orphanBehavior == IndexOrphanBehavior.SKIP) {
@@ -1308,12 +1296,42 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return indexedRecordCursor;
     }
 
-    private <M extends Message> CompletableFuture<FDBIndexedRecord<M>> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
+    @Override
+    @Nonnull
+    public CompletableFuture<FDBIndexedRecord<Message>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord) {
+        return buildSingleRecordInternal(indexedRawRecord, serializer, null);
+    }
+
+    protected <M extends Message> CompletableFuture<FDBIndexedRecord<M>> buildSingleRecordInternal(@Nonnull FDBIndexedRawRecord indexedRawRecord,
+                                                                                                 @Nonnull RecordSerializer<M> typedSerializer,
+                                                                                                 @Nullable final ByteScanLimiter byteScanLimiter) {
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
+        FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordsSubspace(), sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
+        if (fdbRawRecord == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+        // The version future will be ignored in case the record already has a version
+        if (useOldVersionFormat() && !fdbRawRecord.hasVersion()) {
+            versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
+        }
+        if (byteScanLimiter != null) {
+            byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
+            byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
+        }
+
+        // Deserialize the raw record
+        CompletableFuture<FDBStoredRecord<M>> storedRecord = deserializeRecord(typedSerializer, fdbRawRecord, metaDataProvider.getRecordMetaData(), versionFutureOptional);
+        return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
+    }
+
+    private <M extends Message> FDBIndexedRecord<M> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
         switch (orphanBehavior) {
             case SKIP:
-                return CompletableFuture.completedFuture(null);
+                return null;
             case RETURN:
-                return CompletableFuture.completedFuture(new FDBIndexedRecord<>(indexEntry, null));
+                return new FDBIndexedRecord<>(indexEntry, null);
             case ERROR:
                 if (getTimer() != null) {
                     getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);

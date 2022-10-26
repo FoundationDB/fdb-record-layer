@@ -181,6 +181,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, typedSerializer, scanProperties, orphanBehavior);
     }
 
+    @Override
+    @Nonnull
+    public CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord) {
+        return untypedStore.buildSingleRecordInternal(indexedRawRecord, typedSerializer, null);
+    }
+
     @Nonnull
     @Override
     public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
