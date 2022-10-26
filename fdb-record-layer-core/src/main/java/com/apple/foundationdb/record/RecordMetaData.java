@@ -677,10 +677,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         // (e.g. causing duplicate field indexes in a Record type which is a precondition violation).
         // one way to solve this would be to return Any() Type.
         return recordTypeStream
-                //.sorted(Comparator.comparing(RecordType::getName))
+                .sorted(Comparator.comparing(RecordType::getName))
                 .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
                 .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
-                        //LinkedHashMap::new,
+                        LinkedHashMap::new,
                         Collectors.reducing(null,
                                 (fieldDescriptor, fieldDescriptor2) -> {
                                     Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);

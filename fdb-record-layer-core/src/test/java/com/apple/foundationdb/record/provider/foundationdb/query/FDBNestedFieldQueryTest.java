@@ -163,8 +163,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
             assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1949336585, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(288971890, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(117315419, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1543049276, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
@@ -187,8 +187,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     scanPlan().where(scanComparisons(range("{[photos],[photos]}"))));
             assertEquals(224213141, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(582105050, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2011769627, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1249916116, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(179748461, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(Arrays.asList(12, 11, 112, 111, 1111), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
@@ -973,8 +973,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     scanPlan()
                             .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
             assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1904214744, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1445521737, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-17638472, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-962869287, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
