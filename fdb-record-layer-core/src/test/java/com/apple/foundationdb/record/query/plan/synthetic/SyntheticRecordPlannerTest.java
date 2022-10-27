@@ -38,9 +38,12 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.AbsoluteValueFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -73,6 +76,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,12 +90,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
@@ -104,7 +111,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Tests for {@link SyntheticRecordPlanner}.
- *
  */
 @Tag(Tags.RequiresFDB)
 @API(API.Status.EXPERIMENTAL)
@@ -620,7 +626,7 @@ public class SyntheticRecordPlannerTest {
             TestRecordsJoinIndexProto.TypeC.Builder typeC = TestRecordsJoinIndexProto.TypeC.newBuilder();
             typeC.setRecNo(301).setTypeARecNo(999);
             recordStore.saveRecord(typeC.build());
-            
+
             SyntheticRecordPlan plan2 = plan1;
             Multiset<Tuple> expected2 = ImmutableMultiset.of(
                     Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
@@ -1037,6 +1043,363 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    void joinOnNestedKeysWithDifferentTypes() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+
+        joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
+                field("custRef").nest("string_value"),
+                "cust",
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
+        );
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        )));
+
+        // Add index on custRef field to facilitate finding join partners of customer records
+        metaDataBuilder.addIndex("OrderWithHeader", new Index("order$custRef", concat(
+                field("___header").nest("z_key"),
+                field("custRef").nest("string_value")
+        )));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS wrap_int^-1($_j2)]")))))),
+                    "cust",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("order$custRef"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]"))))))
+            ));
+
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+
+            TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
+                    .setOrderNo(10)
+                    .setQuantity(23)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
+                    .build();
+            recordStore.saveRecord(order);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Scott", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Update the customer name
+            TestRecordsJoinIndexProto.CustomerWithHeader customerWithNewName = customer.toBuilder()
+                    .setName("Alec")
+                    .build();
+            recordStore.saveRecord(customerWithNewName);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Update the order number
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNewNumber = order.toBuilder()
+                    .setOrderNo(42)
+                    .build();
+            recordStore.saveRecord(orderWithNewNumber);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Insert an order with no associated customer
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNoCustomer = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(2).setRecId("noCustomer"))
+                    .setOrderNo(1066)
+                    .setQuantity(9001)
+                    .build();
+            recordStore.saveRecord(orderWithNoCustomer);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+
+            // Update no customer record with a string that cannot be decanonicalized
+            TestRecordsJoinIndexProto.OrderWithHeader orderWithNoncanonicalCustomer = orderWithNoCustomer.toBuilder()
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("dangling_ref"))
+                    .build();
+            recordStore.saveRecord(orderWithNoncanonicalCustomer);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> entries = cursor.asList().get();
+                assertEquals(1, entries.size());
+                final IndexEntry indexEntry = entries.get(0);
+                assertEquals("Alec", indexEntry.getKey().getString(0), "Incorrect customer name");
+                assertEquals(42L, indexEntry.getKey().getLong(1), "Incorrect order number");
+            }
+        }
+    }
+
+    @Test
+    void joinOnListOfKeysWithDifferentTypes() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("OrderCCJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+        joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
+                field("cc", KeyExpression.FanType.FanOut).nest("string_value"),
+                "cust",
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
+        );
+
+        // Add an index on the cc field so that the join planner can use the index to resolve join pairs
+        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("OrderWithHeader"),
+                new Index("OrderWithHeader$cc", concat(field("___header").nest("z_key"), field("cc", KeyExpression.FanType.FanOut).nest("string_value"))));
+        // Add a join index listing all of the CC'd customer names for a given order number
+        metaDataBuilder.addIndex(joined, new Index("OrderCCNames",
+                concat(field("order").nest(field("___header").nest("z_key")), field("order").nest("order_no"), field("cust").nest("name"))));
+
+        List<TestRecordsJoinIndexProto.CustomerWithHeader> customers = IntStream.range(0, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setIntRecId(i).build())
+                        .setName(String.format("Customer %d", i))
+                        .build()
+                )
+                .collect(Collectors.toList());
+        List<TestRecordsJoinIndexProto.OrderWithHeader> orders = IntStream.range(0, customers.size())
+                .mapToObj(i -> TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setRecId(String.format("order_%d", i)))
+                        .setOrderNo(1000 + i)
+                        .setQuantity(100)
+                        .addAllCc(IntStream.range(0, i).mapToObj(refId -> TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue(String.format("i:%d", refId)).build()).collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.inComparand(PlanMatchers.hasTypelessString("wrap_int^-1($_j2)"),
+                                    PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $__in_int_rec_id__0]"))))))),
+                    "cust",
+                    // This should be able to use the OrderWithHeader$cc index, but for some reason, is favoring a full scan
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.filter(Query.field("cc").oneOfThem().matches(Query.field("string_value").equalsParameter("_j2")),
+                                    PlanMatchers.typeFilter(Matchers.contains("OrderWithHeader"),
+                                            PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]")))))
+                    ))
+            ));
+
+            for (int i = 0; i < customers.size(); i++) {
+                recordStore.saveRecord(customers.get(i));
+                recordStore.saveRecord(orders.get(orders.size() - i - 1));
+            }
+
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("OrderCCNames");
+            for (TestRecordsJoinIndexProto.OrderWithHeader order : orders) {
+                final Set<String> ccIds = order.getCcList().stream()
+                        .map(TestRecordsJoinIndexProto.Ref::getStringValue)
+                        .collect(Collectors.toSet());
+                final List<String> customerNames = customers.stream()
+                        .filter(customer -> ccIds.contains(String.format("i:%d", customer.getHeader().getIntRecId())))
+                        .map(TestRecordsJoinIndexProto.CustomerWithHeader::getName)
+                        .collect(Collectors.toList());
+                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+                        joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(order.getHeader().getZKey(), order.getOrderNo())), null, ScanProperties.FORWARD_SCAN)) {
+
+                    final List<String> foundNames = cursor
+                            .map(IndexEntry::getKey)
+                            .map(key -> key.getString(2))
+                            .asList()
+                            .get();
+
+                    assertEquals(customerNames, foundNames);
+                }
+            }
+        }
+    }
+
+    @Test
+    void joinOnMultipleNestedKeys() throws Exception {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+        joined.addJoin("order", field("___header").nest("z_key"),
+                "cust", field("___header").nest("z_key"));
+        joined.addJoin("order", field("custRef").nest("string_value"),
+                "cust", field("___header").nest("rec_id"));
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        )));
+        metaDataBuilder.addIndex("OrderWithHeader", "order$custRef", concat(field("___header").nest("z_key"), field("custRef").nest("string_value")));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "order",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.typeFilter(Matchers.contains("CustomerWithHeader"),
+                                    PlanMatchers.scan(PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]")))))),
+                    "cust",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("order$custRef"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1, EQUALS $_j2]"))))))
+            ));
+
+            TestRecordsJoinIndexProto.CustomerWithHeader.Builder custBuilder = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder();
+            custBuilder.getHeaderBuilder().setZKey(1).setRecId("1");
+            custBuilder.setName("Scott Fines");
+            custBuilder.setCity("Toronto");
+
+            recordStore.saveRecord(custBuilder.build());
+
+            TestRecordsJoinIndexProto.OrderWithHeader.Builder orderBuilder = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder();
+            orderBuilder.getHeaderBuilder().setZKey(1).setRecId("23");
+            orderBuilder.setOrderNo(10).setQuantity(23);
+            orderBuilder.getCustRefBuilder().setStringValue("1");
+
+            recordStore.saveRecord(orderBuilder.build());
+
+            //now check that we can scan them back out again
+            Index joinIdex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+            List<IndexEntry> entries = recordStore.scanIndex(joinIdex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertEquals(1, entries.size());
+            final IndexEntry indexEntry = entries.get(0);
+            assertEquals("Scott Fines", indexEntry.getKey().getString(0), "Incorrect customer name");
+            assertEquals(10L, indexEntry.getKey().getLong(1), "Incorrect order number");
+        }
+    }
+
+    @Test
+    void joinOnNonInjectiveFunction() throws Exception {
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("NumValue2Join");
+        joined.addConstituent("simple", "MySimpleRecord");
+        joined.addConstituent("other", "MyOtherRecord");
+
+        // Join where simple.num_value_2 = abs_value(other.num_value)
+        joined.addJoin(
+                "simple",
+                field("num_value_2"),
+                "other",
+                function(AbsoluteValueFunctionKeyExpression.NAME, field("num_value"))
+        );
+        metaDataBuilder.addIndex(joined, new Index("joinOnNumValue2", concat(field("simple").nest("str_value"), field("other").nest("num_value_3"))));
+
+        // Indexes used to compute the join
+        metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
+        metaDataBuilder.addIndex("MyOtherRecord", "num_value");
+
+        List<TestRecordsJoinIndexProto.MySimpleRecord> simpleRecords = IntStream.range(-10, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
+                        .setRecNo(i + 1000L)
+                        .setNumValue2(i)
+                        .setStrValue(String.format("Record %d", i))
+                        .build())
+                .collect(Collectors.toList());
+        List<TestRecordsJoinIndexProto.MyOtherRecord> otherRecords = IntStream.range(-10, 10)
+                .mapToObj(i -> TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
+                        .setRecNo(i + 2000L)
+                        .setNumValue(i)
+                        .setNumValue3(i * 10)
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
+            final JoinedRecordType joinedRecordType = (JoinedRecordType) recordStore.getRecordMetaData().getSyntheticRecordType(joined.getName());
+            assertConstituentPlansMatch(planner, joinedRecordType, Map.of(
+                    "simple",
+                    // Note that even though this was an equi-join on a single field, because abs_value is not injective, this
+                    // gets planned as an IN-join
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.inComparand(PlanMatchers.hasTypelessString("abs_value^-1($_j1)"),
+                                    PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("MyOtherRecord$num_value"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $__in_num_value__0]")))))
+                    )),
+                    "other",
+                    SyntheticPlanMatchers.joinedRecord(List.of(
+                            PlanMatchers.indexScan(Matchers.allOf(PlanMatchers.indexName("MySimpleRecord$num_value_2"), PlanMatchers.bounds(PlanMatchers.hasTupleString("[EQUALS $_j1]"))))
+                    ))
+            ));
+
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinOnNumValue2");
+            for (int i = 0; i < simpleRecords.size(); i++) {
+                recordStore.saveRecord(simpleRecords.get(i));
+                recordStore.saveRecord(otherRecords.get(otherRecords.size() - i - 1));
+            }
+
+            for (TestRecordsJoinIndexProto.MySimpleRecord simpleRecord : simpleRecords) {
+                List<Integer> matchingNumValue3s = otherRecords.stream()
+                        .filter(other -> simpleRecord.getNumValue2() == Math.abs(other.getNumValue()))
+                        .map(TestRecordsJoinIndexProto.MyOtherRecord::getNumValue3)
+                        .collect(Collectors.toList());
+
+                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+                        joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(simpleRecord.getStrValue())), null, ScanProperties.FORWARD_SCAN)) {
+                    List<Integer> foundNumValue3s = cursor.map(IndexEntry::getKey)
+                            .map(key -> key.getLong(1))
+                            .map(Long::intValue)
+                            .asList()
+                            .get();
+                    assertEquals(matchingNumValue3s, foundNumValue3s);
+                }
+            }
+        }
+    }
+
+    @Test
     public void multiFieldKeys() throws Exception {
         metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
@@ -1070,12 +1433,12 @@ public class SyntheticRecordPlannerTest {
 
             context.commit();
         }
-        
+
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             List<FDBSyntheticRecord> recs = recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("simple.str_value_other.num_value_3"),
-                    IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
+                            IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
                     .mapPipelined(entry -> recordStore.loadSyntheticRecord(entry.getPrimaryKey()), 1)
                     .asList().join();
             for (FDBSyntheticRecord record : recs) {
@@ -1136,4 +1499,14 @@ public class SyntheticRecordPlannerTest {
         }
     }
 
+    private static void assertConstituentPlansMatch(SyntheticRecordPlanner planner, JoinedRecordType joinedRecordType,
+                                                    Map<String, Matcher<? super SyntheticRecordFromStoredRecordPlan>> constituentMatchers) {
+        for (JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
+            assertThat(String.format("constituent matchers missing matcher for constituent %s", constituent.getName()),
+                    constituentMatchers, Matchers.hasKey(constituent.getName()));
+            Matcher<? super SyntheticRecordFromStoredRecordPlan> matcher = constituentMatchers.get(constituent.getName());
+            final SyntheticRecordFromStoredRecordPlan plan = planner.forJoinConstituent(joinedRecordType, constituent);
+            assertThat(plan, matcher);
+        }
+    }
 }

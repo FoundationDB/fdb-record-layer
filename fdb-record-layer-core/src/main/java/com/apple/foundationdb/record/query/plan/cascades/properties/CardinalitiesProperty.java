@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
@@ -49,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
@@ -235,7 +237,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         final var inSourcesCardinalitiesOptional =
                 inSources.stream()
                         .map(inSource -> {
-                            if (inSource instanceof InParameterSource) {
+                            if (inSource instanceof InParameterSource || inSource instanceof InComparandSource) {
                                 return Cardinalities.unknownCardinalities();
                             } else {
                                 Verify.verify(inSource instanceof InValuesSource);
@@ -256,6 +258,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Nonnull
     @Override
     public Cardinalities visitRecordQueryInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan element) {
+        return Cardinalities.unknownCardinalities();
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan element) {
         return Cardinalities.unknownCardinalities();
     }
 

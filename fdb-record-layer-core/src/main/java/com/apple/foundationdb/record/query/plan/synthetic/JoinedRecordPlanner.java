@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.synthetic;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -261,9 +262,12 @@ class JoinedRecordPlanner {
                 default:
                     throw new RecordCoreException("unsupported fan type in join key expression: " + expression);
             }
+        } else if (expression instanceof InvertibleFunctionKeyExpression) {
+            final InvertibleFunctionKeyExpression function = (InvertibleFunctionKeyExpression)expression;
+            final Comparisons.Comparison inverted = Comparisons.InvertedFunctionComparison.from(function, comparison);
+            return buildCondition(function.getArguments(), inverted);
         } else {
             throw new RecordCoreException("unsupported join key expression: " + expression);
         }
     }
-
 }
