@@ -35,6 +35,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -114,90 +115,91 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         /* Should this could as one read? */
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end)));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end)));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range)));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit, reverse));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
         increment(FDBStoreTimer.Counts.RANGE_READS);
-        return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit, reverse, streamingMode));
+        return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final boolean reverse, final StreamingMode mode) {
         increment(FDBStoreTimer.Counts.REMOTE_FETCH);
-        return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
+        return new ByteCountingAsyncIterable<>(underlying.getMappedRange(begin, end, mapper, limit, reverse, mode),
+                InstrumentedReadTransaction::countMappedKeyValueBytes);
     }
 
     @Override
@@ -246,13 +248,6 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
             increment(FDBStoreTimer.Counts.BYTES_READ, value.length);
         }
         return value;
-    }
-
-    @Nullable
-    protected KeyValue recordRead(@Nonnull KeyValue keyValue) {
-        final int bytes = keyValue.getKey().length + keyValue.getValue().length;
-        increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
-        return keyValue;
     }
 
     protected void increment(StoreTimer.Count count) {
@@ -320,24 +315,40 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
                 + " bytes";
     }
 
-    private class ByteCountingAsyncIterable implements AsyncIterable<KeyValue> {
-        private AsyncIterable<KeyValue> underlying;
+    private static int countKeyValueBytes(KeyValue kv) {
+        return kv.getKey().length + kv.getValue().length;
+    }
 
-        public ByteCountingAsyncIterable(AsyncIterable<KeyValue> underlying) {
+    private static int countMappedKeyValueBytes(MappedKeyValue mkv) {
+        return countKeyValueBytes(mkv) + mkv.getRangeResult().stream().mapToInt(InstrumentedReadTransaction::countKeyValueBytes).sum();
+    }
+
+    private class ByteCountingAsyncIterable<KV extends KeyValue> implements AsyncIterable<KV> {
+        private final AsyncIterable<KV> underlying;
+
+        private final Function<KV, Integer> counterOp;
+
+        public ByteCountingAsyncIterable(AsyncIterable<KV> underlying) {
+            this(underlying, InstrumentedReadTransaction::countKeyValueBytes);
+        }
+
+        public ByteCountingAsyncIterable(AsyncIterable<KV> underlying, Function<KV, Integer> counterOp) {
             this.underlying = underlying;
+            this.counterOp = counterOp;
         }
 
         @Override
-        public AsyncIterator<KeyValue> iterator() {
-            return new ByteCountingAsyncIterator(underlying.iterator());
+        @NonNull
+        public AsyncIterator<KV> iterator() {
+            return new ByteCountingAsyncIterator<>(underlying.iterator(), counterOp);
         }
 
         @Override
-        public CompletableFuture<List<KeyValue>> asList() {
+        public CompletableFuture<List<KV>> asList() {
             return underlying.asList().thenApply(keyValues -> {
                 int bytes = 0;
-                for (KeyValue kv : keyValues) {
-                    bytes += kv.getKey().length + kv.getValue().length;
+                for (KV kv : keyValues) {
+                    bytes += counterOp.apply(kv);
                 }
                 increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
                 return keyValues;
@@ -345,11 +356,14 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
     }
 
-    private class ByteCountingAsyncIterator implements AsyncIterator<KeyValue> {
-        private AsyncIterator<KeyValue> underlying;
+    private class ByteCountingAsyncIterator<KV extends KeyValue> implements AsyncIterator<KV> {
+        private AsyncIterator<KV> underlying;
 
-        public ByteCountingAsyncIterator(AsyncIterator<KeyValue> iterator) {
+        private Function<KV, Integer> counterOp;
+
+        public ByteCountingAsyncIterator(AsyncIterator<KV> iterator, Function<KV, Integer> counterOp) {
             this.underlying = iterator;
+            this.counterOp = counterOp;
         }
 
         @Override
@@ -363,8 +377,10 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
 
         @Override
-        public KeyValue next() {
-            return recordRead(underlying.next());
+        public KV next() {
+            KV next = underlying.next();
+            increment(FDBStoreTimer.Counts.BYTES_READ, counterOp.apply(next));
+            return next;
         }
 
         @Override
