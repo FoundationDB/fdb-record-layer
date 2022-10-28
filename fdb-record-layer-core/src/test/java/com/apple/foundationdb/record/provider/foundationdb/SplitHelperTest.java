@@ -24,6 +24,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -121,13 +123,16 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    public static Stream<Arguments> splitAndSuffixArgs() {
-        // Arguments: splitLongRecords, omitUnsplitSuffix
-        // Note that "true", "true" is not valid
+    public static Stream<Arguments> splitSuffixAndUnrollArgs() {
+        // Arguments: splitLongRecords, omitUnsplitSuffix, unrollSingleRecordDeletes
+        // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
         return Stream.of(
-                Arguments.of(false, false),
-                Arguments.of(false, true),
-                Arguments.of(true, false)
+                Arguments.of(false, false, false),
+                Arguments.of(false, false, true),
+                Arguments.of(false, true, false),
+                Arguments.of(false, true, true),
+                Arguments.of(true, false, false),
+                Arguments.of(true, false, true)
         );
     }
 
@@ -137,6 +142,12 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return limits.stream()
                 .flatMap(returnLimit -> limits.stream()
                         .flatMap(readLimit -> Stream.of(Arguments.of(returnLimit, readLimit, false), Arguments.of(returnLimit, readLimit, true))));
+    }
+
+    private FDBRecordContext openContextWithProps(boolean unrollSingleRecordDeletes) {
+        RecordLayerPropertyStorage.Builder propertyStorage = RecordLayerPropertyStorage.newBuilder()
+                .addProp(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES, unrollSingleRecordDeletes);
+        return openContext(propertyStorage);
     }
 
     private <E extends Throwable> SplitHelper.SizeInfo saveUnsuccessfully(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
@@ -286,10 +297,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return saveWithSplit(context, key, serialized, null, splitLongRecords, omitUnsplitSuffix);
     }
 
-    @MethodSource("splitAndSuffixArgs")
-    @ParameterizedTest(name = "saveWithSplit [splitLongRecords = {0}, omitUnsplitSuffix = {1}]")
-    public void saveWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix) throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @MethodSource("splitSuffixAndUnrollArgs")
+    @ParameterizedTest(name = "saveWithSplit [splitLongRecords = {0}, omitUnsplitSuffix = {1}, unrollSingleRecordDeletes = {2}]")
+    public void saveWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollSingleRecordDeletes)  {
+        try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
             // No version
             FDBStoredSizes sizes1 = saveWithSplit(context, Tuple.from(1066L), SHORT_STRING, splitLongRecords, omitUnsplitSuffix);
             FDBStoredSizes sizes2 = saveWithSplit(context, Tuple.from(1415L), LONG_STRING, splitLongRecords, omitUnsplitSuffix);
@@ -306,12 +317,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @MethodSource("splitAndSuffixArgs")
-    @ParameterizedTest(name = "saveWithSplitAndIncompleteVersions [splitLongRecords = {0}, omitUnsplitSuffix = {1}]")
-    public void saveWithSplitAndIncompleteVersions(boolean splitLongRecords, boolean omitUnsplitSuffix) throws Exception {
+    @MethodSource("splitSuffixAndUnrollArgs")
+    @ParameterizedTest(name = "saveWithSplitAndIncompleteVersions [splitLongRecords = {0}, omitUnsplitSuffix = {1}, unrollSingleRecordDeletes = {2}]")
+    public void saveWithSplitAndIncompleteVersions(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollSingleRecordDeletes) {
         final byte[] versionstamp;
-        final byte[] globalVersion = "whiteroses".getBytes(Charsets.US_ASCII);
-        try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
             // With incomplete version
             saveWithSplit(context, Tuple.from(962L), SHORT_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), splitLongRecords, omitUnsplitSuffix);
             saveWithSplit(context, Tuple.from(967L), LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), splitLongRecords, omitUnsplitSuffix);
@@ -349,10 +359,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @MethodSource("splitAndSuffixArgs")
-    @ParameterizedTest(name = "saveWithSplitAndCompleteVersion [splitLongRecords = {0}, omitUnsplitSuffix = {1}]")
-    public void saveWithSplitAndCompleteVersions(boolean splitLongRecords, boolean omitUnsplitSuffix) throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @MethodSource("splitSuffixAndUnrollArgs")
+    @ParameterizedTest(name = "saveWithSplitAndCompleteVersion [splitLongRecords = {0}, omitUnsplitSuffix = {1}, unrollSingleRecordDeletes = {2}]")
+    public void saveWithSplitAndCompleteVersions(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollSingleRecordDeletes) {
+        try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
             // With complete version
             byte[] globalVersion = "karlgrosse".getBytes(Charsets.US_ASCII);
             saveWithSplit(context, Tuple.from(800L), SHORT_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), splitLongRecords, omitUnsplitSuffix);
@@ -434,10 +444,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         assertEquals(0, count);
     }
 
-    @MethodSource("splitAndSuffixArgs")
-    @ParameterizedTest(name = "deleteWithSplit [splitLongRecords = {0}, omitUnsplitSuffix = {1}]")
-    public void deleteWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix) throws Exception {
-        try (FDBRecordContext context = openContext()) {
+    @MethodSource("splitSuffixAndUnrollArgs")
+    @ParameterizedTest(name = "deleteWithSplit [splitLongRecords = {0}, omitUnsplitSuffix = {1}, unrollSingleRecordDeletes = {2}]")
+    public void deleteWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollSingleRecordDeletes) {
+        try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
             // Delete unsplit with the size info
             FDBStoredSizes sizes1 = writeDummyRecord(context, Tuple.from(-660L), 1, omitUnsplitSuffix);
             deleteSplit(context, Tuple.from(-660L), splitLongRecords, omitUnsplitSuffix, sizes1);
@@ -462,7 +472,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}]")
     @BooleanSource
-    public void deleteWithSplitAndVersion(boolean splitLongRecords) throws Exception {
+    public void deleteWithSplitAndVersion(boolean splitLongRecords) {
         final byte[] globalVersion = "chrysan_th".getBytes(Charsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // Delete unsplit with size info
@@ -492,7 +502,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void loadSingleRecords(boolean splitLongRecords, boolean omitUnsplitSuffix, @Nonnull LoadRecordFunction loadRecordFunction) throws Exception {
+    private void loadSingleRecords(boolean splitLongRecords, boolean omitUnsplitSuffix, @Nonnull LoadRecordFunction loadRecordFunction) {
         final byte[] globalVersion = "-hastings-".getBytes(Charsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // No record
@@ -623,18 +633,18 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @Nullable
     private FDBRawRecord loadWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, boolean splitLongRecords, boolean omitUnsplitSuffix,
-                                       @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents) throws InterruptedException {
+                                       @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents) {
         return loadWithSplit(context, key, splitLongRecords, omitUnsplitSuffix, expectedSizes, expectedContents, null);
     }
 
-    @MethodSource("splitAndSuffixArgs")
-    @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}, omitUnsplitSuffix = {1}]")
-    public void loadWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix) throws Exception {
+    @MethodSource("splitSuffixAndUnrollArgs")
+    @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}, omitUnsplitSuffix = {1}, unrollSingleRecordDeletes = {2}]")
+    public void loadWithSplit(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollSingleRecordDeletes) {
         loadSingleRecords(splitLongRecords, omitUnsplitSuffix,
                 (context, key, expectedSizes, expectedContents, version) -> loadWithSplit(context, key, splitLongRecords, omitUnsplitSuffix, expectedSizes, expectedContents, version));
 
         if (splitLongRecords) {
-            try (FDBRecordContext context = openContext()) {
+            try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
                 // Unsplit record followed by some unsplit stuff
                 // This particular error is caught by the single key unsplitter but not the mulit-key one
                 writeDummyRecord(context, Tuple.from(1307L), 1, false);
@@ -685,12 +695,12 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "scan [reverse = {0}]")
     @BooleanSource
-    public void scanSingleRecords(boolean reverse) throws Exception {
+    public void scanSingleRecords(boolean reverse) {
         loadSingleRecords(true, false,
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
 
-    private List<FDBRawRecord> writeDummyRecords() throws Exception {
+    private List<FDBRawRecord> writeDummyRecords() {
         final byte[] globalVersion = "_cushions_".getBytes(Charsets.US_ASCII);
         final List<FDBRawRecord> rawRecords = new ArrayList<>();
         // Generate primary keys using a generalization of the Fibonacci formula: https://oeis.org/A247698
@@ -718,7 +728,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "scanMultipleRecords [reverse = {0}]")
     @BooleanSource
-    public void scanMultipleRecords(boolean reverse) throws Exception {
+    public void scanMultipleRecords(boolean reverse) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         List<FDBRawRecord> rawRecords = writeDummyRecords();
 
@@ -729,7 +739,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                     .setScanProperties(scanProperties)
                     .build();
             List<FDBRawRecord> readRecords = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties)
-                    .asList().get();
+                    .asList().join();
             if (reverse) {
                 readRecords = Lists.reverse(readRecords);
             }
@@ -745,7 +755,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @MethodSource("limitsAndReverseArgs")
     @ParameterizedTest(name = "scanContinuations [returnLimit = {0}, readLimit = {1}, reverse = {2}]")
-    public void scanContinuations(final int returnLimit, final int readLimit, final boolean reverse) throws Exception {
+    public void scanContinuations(final int returnLimit, final int readLimit, final boolean reverse) {
         List<FDBRawRecord> rawRecords = writeDummyRecords();
         if (reverse) {
             rawRecords = Lists.reverse(rawRecords);

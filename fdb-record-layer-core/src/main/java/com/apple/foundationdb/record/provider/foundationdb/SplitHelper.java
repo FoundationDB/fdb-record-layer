@@ -30,6 +30,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -244,14 +245,23 @@ public class SplitHelper {
         final Subspace keySplitSubspace = subspace.subspace(key);
         if (clearBasedOnPreviousSizeInfo) {
             if (previousSizeInfo != null) {
-                // Issue individual deletes for each key to allow underlying storage to optimize single key range
-                // clears. However, still include a write conflict range for the whole record to avoid adding extra
-                // work to the resolver.
-                Range keySplitSubspaceRange = keySplitSubspace.range();
-                tr.addWriteConflictRange(keySplitSubspaceRange.begin, keySplitSubspaceRange.end);
-                List<Long> offsets = offsets(previousSizeInfo);
-                for (Long offset : offsets) {
-                    tr.clear(keySplitSubspace.pack(offset));
+                if (Boolean.TRUE.equals(context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES))) {
+                    // Issue individual deletes for each key to allow underlying storage to optimize single key range
+                    // clears. However, still include a write conflict range for the whole record to avoid adding extra
+                    // work to the resolver.
+                    Range keySplitSubspaceRange = keySplitSubspace.range();
+                    tr.addWriteConflictRange(keySplitSubspaceRange.begin, keySplitSubspaceRange.end);
+                    List<Long> offsets = offsets(previousSizeInfo);
+                    for (Long offset : offsets) {
+                        tr.clear(keySplitSubspace.pack(offset));
+                    }
+                } else {
+                    if (previousSizeInfo.isSplit() || previousSizeInfo.isVersionedInline()) {
+                        tr.clear(keySplitSubspace.range()); // Record might be shorter than previous split.
+                    } else {
+                        // Record was previously unsplit and had unsplit suffix because we are splitting long records.
+                        tr.clear(keySplitSubspace.pack(UNSPLIT_RECORD));
+                    }
                 }
             }
         } else {
