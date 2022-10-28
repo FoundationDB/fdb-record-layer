@@ -1,5 +1,5 @@
 /*
- * RecordQueryUpdatePlan.java
+ * RecordQueryInsertPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,8 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -44,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -52,22 +49,21 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPlan {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Update-Plan");
+public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPlan {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Insert-Plan");
 
-    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUpdatePlan.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryInsertPlan.class);
 
-    private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
+    private RecordQueryInsertPlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final TrieNode transformationsTrie,
                                   @Nullable final TrieNode promotionsTrie) {
-        super(inner, recordType, targetType, targetDescriptor, transformationsTrie, promotionsTrie);
+        super(inner, recordType, targetType, targetDescriptor, null, promotionsTrie);
     }
 
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
-        return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+        return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 
     @Nonnull
@@ -79,25 +75,23 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryInsertPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUpdatePlan(
+        return new RecordQueryInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getTransformationsTrie(),
                 getPromotionsTrie());
     }
 
     @Nonnull
     @Override
-    public RecordQueryUpdatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)),
+    public RecordQueryInsertPlan withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryInsertPlan(Quantifier.physical(GroupExpressionRef.of(child)),
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getTransformationsTrie(),
                 getPromotionsTrie());
     }
 
@@ -135,46 +129,28 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.ModificationOperatorNodeWithInfo(this,
                         NodeInfo.MODIFICATION_OPERATOR,
-                        ImmutableList.of("UPDATE"),
+                        ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
                 ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
     }
 
     /**
-     * Factory method to create a {@link RecordQueryUpdatePlan}.
-     * <br>
-     * Example:
-     * <pre>
-     * {@code
-     *    RecordQueryAbstractDataModificationPlan.forTransformMap(inner,
-     *                                          ...,
-     *                                          ImmutableMap.of(path1, new LiteralValue<>("1"),
-     *                                                          path2, new LiteralValue<>(2),
-     *                                                          path3, new LiteralValue<>(3)));
-     * }
-     * </pre>
-     * transforms the current inner's object, according to the transform map, i.e. the data underneath {@code path1}
-     * is transformed to the value {@code "1"}, the data underneath {@code path2} is transformed to the value {@code 2},
-     * and the data underneath {@code path2} is transformed to the value {@code 3}.
+     * Factory method to create a {@link RecordQueryInsertPlan}.
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
-     * @param transformMap a map of field paths to values.
-     * @return a newly created {@link RecordQueryUpdatePlan}
+     * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull
-    public static RecordQueryUpdatePlan updatePlan(@Nonnull final Quantifier.Physical inner,
+    public static RecordQueryInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                    @Nonnull final String recordType,
                                                    @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
-        return new RecordQueryUpdatePlan(inner,
+                                                   @Nonnull final Descriptors.Descriptor targetDescriptor) {
+        return new RecordQueryInsertPlan(inner,
                 recordType,
                 targetType,
                 targetDescriptor,
-                transformationsTrie,
-                computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie));
+                computePromotionsTrie(targetType, inner.getFlowedObjectType(), null));
     }
 }
