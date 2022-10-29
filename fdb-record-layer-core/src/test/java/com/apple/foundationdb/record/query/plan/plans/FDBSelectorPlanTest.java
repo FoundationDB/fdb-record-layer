@@ -30,9 +30,9 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.ValuePickerValue;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -176,7 +176,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan plan = RecordQuerySelectorPlan.from(plan(query1, query2), List.of(50, 50));
 
-        ValuePickerValue value = (ValuePickerValue)plan.getResultValue();
+        PickValue value = (PickValue)plan.getResultValue();
         List<Value> subValues = ImmutableList.copyOf(value.getChildren());
         assertThat(subValues.size(), is(2));
         assertThat(((QuantifiedObjectValue)subValues.get(0)).getAlias(), is(plan.getQuantifiers().get(0).getAlias()));

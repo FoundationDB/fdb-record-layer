@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -58,19 +59,13 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final TrieNode promotionsTrie) {
-        super(inner, recordType, targetType, targetDescriptor, null, promotionsTrie);
+                                  @Nullable final TrieNode promotionsTrie,
+                                  @Nonnull final Value computationValue) {
+        super(inner, recordType, targetType, targetDescriptor, null, promotionsTrie, computationValue);
     }
 
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
         return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
-    }
-
-    @Nonnull
-    @Override
-    public String toString() {
-        // TODO provide proper explain
-        return getInnerPlan() + " | " + "UPDATE " + getTargetRecordType();
     }
 
     @Nonnull
@@ -82,7 +77,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getPromotionsTrie());
+                getPromotionsTrie(),
+                getComputationValue());
     }
 
     @Nonnull
@@ -92,7 +88,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getPromotionsTrie());
+                getPromotionsTrie(),
+                getComputationValue());
     }
 
     @Override
@@ -110,8 +107,15 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
     }
 
+    @Nonnull
+    @Override
+    public String toString() {
+        // TODO provide proper explain
+        return getInnerPlan() + " | " + "INSERT INTO " + getTargetRecordType();
+    }
+
     /**
-     * Rewrite the planner graph for better visualization of a query index plan.
+     * Rewrite the planner graph for better visualization.
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
@@ -140,17 +144,20 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      * @param recordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
+     * @param computationValue a value to be computed based on the {@code inner} and {@link Quantifier#CURRENT}
      * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull
     public static RecordQueryInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                    @Nonnull final String recordType,
                                                    @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Descriptors.Descriptor targetDescriptor) {
+                                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
+                                                   @Nonnull final Value computationValue) {
         return new RecordQueryInsertPlan(inner,
                 recordType,
                 targetType,
                 targetDescriptor,
-                computePromotionsTrie(targetType, inner.getFlowedObjectType(), null));
+                computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
+                computationValue);
     }
 }

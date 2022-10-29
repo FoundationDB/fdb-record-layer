@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -51,12 +53,15 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +73,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -99,7 +105,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final TrieNode promotionsTrie;
 
     @Nonnull
-    private final Supplier<Value> resultValueSupplier;
+    private final Value computationValue;
+
+    @Nonnull
+    private final Value resultValue;
 
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
@@ -117,14 +126,16 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                       @Nonnull final Type.Record targetType,
                                                       @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                       @Nullable final TrieNode transformationsTrie,
-                                                      @Nullable final TrieNode promotionsTrie) {
+                                                      @Nullable final TrieNode promotionsTrie,
+                                                      @Nonnull final Value computationValue) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
         this.transformationsTrie = transformationsTrie;
         this.promotionsTrie = promotionsTrie;
-        this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
+        this.computationValue = computationValue;
+        this.resultValue = new QueriedValue(computationValue.getResultType());
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
@@ -152,11 +163,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public Supplier<Value> getResultValueSupplier() {
-        return resultValueSupplier;
-    }
-
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -167,10 +173,17 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .map(queryResult -> mutateRecord(store, context, queryResult))
-                .mapPipelined(message -> saveRecordAsync(store, message),
-                        store.getPipelineSize(PipelineOperation.UPDATE))
-                .map(storedRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(storedRecord)));
+                .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult)))
+                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight())
+                                .thenApply(storedRecord -> {
+                                    final var nestedContext = context.childBuilder()
+                                            .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
+                                            .setBinding(Quantifier.CURRENT, storedRecord.getRecord()) // post-mutation
+                                            .build(context.getTypeRepository());
+                                    final var result = computationValue.eval(store, nestedContext);
+                                    return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
+                                }),
+                                store.getPipelineSize(PipelineOperation.UPDATE));
     }
 
     @Nullable
@@ -201,20 +214,56 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+        final var resultValueCorrelatedTo =
+                Sets.filter(computationValue.getCorrelatedTo(),
+                        alias -> !alias.equals(Quantifier.CURRENT));
         if (transformationsTrie != null) {
-            return transformationsTrie.values()
-                    .stream()
-                    .flatMap(value -> value.getCorrelatedTo().stream())
-                    .collect(ImmutableSet.toImmutableSet());
+            final var aliasesFromTransformationsTrieIterator =
+                    transformationsTrie.values()
+                            .stream()
+                            .flatMap(value -> value.getCorrelatedTo().stream())
+                            .iterator();
+            return ImmutableSet.<CorrelationIdentifier>builder().addAll(aliasesFromTransformationsTrieIterator).addAll(resultValueCorrelatedTo).build();
         } else {
-            return ImmutableSet.of();
+            return resultValueCorrelatedTo;
         }
+    }
+
+    @Nullable
+    protected TrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+        final var transformationsTrie = getTransformationsTrie();
+        if (transformationsTrie == null) {
+            return null;
+        }
+
+        return transformationsTrie.<TrieNode>mapMaybe((current, childrenTries) -> {
+            final var value = current.getValue();
+            if (value != null) {
+                Verify.verify(Iterables.isEmpty(childrenTries));
+                return new TrieNode(value.translateCorrelations(translationMap), null);
+            } else {
+                final var oldChildrenMap = current.getChildrenMap();
+                final var childrenTriesIterator = childrenTries.iterator();
+                final var resultBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+                for (final var oldEntry : oldChildrenMap.entrySet()) {
+                    Verify.verify(childrenTriesIterator.hasNext());
+                    final var childTrie = childrenTriesIterator.next();
+                    resultBuilder.put(oldEntry.getKey(), childTrie);
+                }
+                return new TrieNode(null, resultBuilder.build());
+            }
+        }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
+    }
+
+    @Nonnull
+    public Value getComputationValue() {
+        return computationValue;
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return resultValueSupplier.get();
+        return resultValue;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -238,7 +287,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         if (!getTargetType().equals(otherUpdatePlan.getTargetType())) {
             return false;
         }
-        if (!getResultValue().equals(otherUpdatePlan.getResultValue())) {
+        if (!getResultValue().semanticEquals(otherUpdatePlan.getResultValue(), equivalences)) {
             return false;
         }
         if (!Objects.equals(getTransformationsTrie(), otherUpdatePlan.getTransformationsTrie())) {
@@ -258,7 +307,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, promotionsTrie);
+        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, promotionsTrie, computationValue);
     }
 
     @Override
@@ -641,6 +690,49 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             return Objects.equals(getValue(), trieNode.getValue()) &&
                    Objects.equals(getChildrenMap(), trieNode.getChildrenMap()) &&
                    Objects.equals(getFieldIndexToFieldMap(), trieNode.getFieldIndexToFieldMap());
+        }
+
+        public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof TrieNode)) {
+                return false;
+            }
+            final TrieNode otherTrieNode = (TrieNode)other;
+
+            return equalsNullable(getValue(), otherTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
+                   equalsNullable(getChildrenMap(), otherTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap)) &&
+                   Objects.equals(getFieldIndexToFieldMap(), otherTrieNode.getFieldIndexToFieldMap());
+        }
+
+        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Type.Record.Field, TrieNode> self,
+                                                            @Nonnull final Map<Type.Record.Field, TrieNode> other,
+                                                            @Nonnull final AliasMap equivalencesMap) {
+            if (self.size() != other.size()) {
+                return false;
+            }
+
+            for (final var fieldPath : self.keySet()) {
+                final var selfNestedTrie = self.get(fieldPath);
+                final var otherNestedTrie = self.get(fieldPath);
+                if (!selfNestedTrie.semanticEquals(otherNestedTrie, equivalencesMap)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static <T> boolean equalsNullable(@Nullable final T self,
+                                                  @Nullable final T other,
+                                                  @Nonnull final BiFunction<T, T, Boolean> nonNullableTest) {
+            if (self == null && other == null) {
+                return true;
+            }
+            if (self == null) {
+                return false;
+            }
+            return nonNullableTest.apply(self, other);
         }
 
         @Override

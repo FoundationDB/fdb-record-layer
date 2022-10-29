@@ -58,23 +58,17 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUpdatePlan.class);
 
     private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
-                                  @Nonnull final String recordType,
+                                  @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final TrieNode transformationsTrie,
-                                  @Nullable final TrieNode promotionsTrie) {
-        super(inner, recordType, targetType, targetDescriptor, transformationsTrie, promotionsTrie);
+                                  @Nullable final TrieNode promotionsTrie,
+                                  @Nonnull final Value computationValue) {
+        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, promotionsTrie, computationValue);
     }
 
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
         return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
-    }
-
-    @Nonnull
-    @Override
-    public String toString() {
-        // TODO provide proper explain
-        return getInnerPlan() + " | " + "UPDATE " + getTargetRecordType();
     }
 
     @Nonnull
@@ -86,8 +80,9 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getTransformationsTrie(),
-                getPromotionsTrie());
+                translateTransformationsTrie(translationMap),
+                getPromotionsTrie(),
+                getComputationValue().translateCorrelations(translationMap));
     }
 
     @Nonnull
@@ -98,7 +93,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 getTargetDescriptor(),
                 getTransformationsTrie(),
-                getPromotionsTrie());
+                getPromotionsTrie(),
+                getComputationValue());
     }
 
     @Override
@@ -116,8 +112,15 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
     }
 
+    @Nonnull
+    @Override
+    public String toString() {
+        // TODO provide proper explain
+        return getInnerPlan() + " | " + "UPDATE " + getTargetRecordType();
+    }
+
     /**
-     * Rewrite the planner graph for better visualization of a query index plan.
+     * Rewrite the planner graph for better visualization.
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
@@ -157,24 +160,27 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * is transformed to the value {@code "1"}, the data underneath {@code path2} is transformed to the value {@code 2},
      * and the data underneath {@code path2} is transformed to the value {@code 3}.
      * @param inner an input value to transform
-     * @param recordType the name of the record type this update modifies
+     * @param targetRecordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param transformMap a map of field paths to values.
+     * @param computationValue a value to be computed based on the {@code inner} and {@link Quantifier#CURRENT}
      * @return a newly created {@link RecordQueryUpdatePlan}
      */
     @Nonnull
     public static RecordQueryUpdatePlan updatePlan(@Nonnull final Quantifier.Physical inner,
-                                                   @Nonnull final String recordType,
+                                                   @Nonnull final String targetRecordType,
                                                    @Nonnull final Type.Record targetType,
                                                    @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                   @Nonnull final Value computationValue) {
         final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
-                recordType,
+                targetRecordType,
                 targetType,
                 targetDescriptor,
                 transformationsTrie,
-                computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie));
+                computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
+                computationValue);
     }
 }
