@@ -323,31 +323,31 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return countKeyValueBytes(mkv) + mkv.getRangeResult().stream().mapToInt(InstrumentedReadTransaction::countKeyValueBytes).sum();
     }
 
-    private class ByteCountingAsyncIterable<Kv extends KeyValue> implements AsyncIterable<Kv> {
-        private final AsyncIterable<Kv> underlying;
+    private class ByteCountingAsyncIterable<K extends KeyValue> implements AsyncIterable<K> {
+        private final AsyncIterable<K> underlying;
 
-        private final Function<Kv, Integer> counterOp;
+        private final Function<K, Integer> counterOp;
 
-        public ByteCountingAsyncIterable(AsyncIterable<Kv> underlying) {
+        public ByteCountingAsyncIterable(AsyncIterable<K> underlying) {
             this(underlying, InstrumentedReadTransaction::countKeyValueBytes);
         }
 
-        public ByteCountingAsyncIterable(AsyncIterable<Kv> underlying, Function<Kv, Integer> counterOp) {
+        public ByteCountingAsyncIterable(AsyncIterable<K> underlying, Function<K, Integer> counterOp) {
             this.underlying = underlying;
             this.counterOp = counterOp;
         }
 
         @Override
         @NonNull
-        public AsyncIterator<Kv> iterator() {
+        public AsyncIterator<K> iterator() {
             return new ByteCountingAsyncIterator<>(underlying.iterator(), counterOp);
         }
 
         @Override
-        public CompletableFuture<List<Kv>> asList() {
+        public CompletableFuture<List<K>> asList() {
             return underlying.asList().thenApply(keyValues -> {
                 int bytes = 0;
-                for (Kv kv : keyValues) {
+                for (K kv : keyValues) {
                     bytes += counterOp.apply(kv);
                 }
                 increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
@@ -356,12 +356,12 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
     }
 
-    private class ByteCountingAsyncIterator<Kv extends KeyValue> implements AsyncIterator<Kv> {
-        private AsyncIterator<Kv> underlying;
+    private class ByteCountingAsyncIterator<K extends KeyValue> implements AsyncIterator<K> {
+        private AsyncIterator<K> underlying;
 
-        private Function<Kv, Integer> counterOp;
+        private Function<K, Integer> counterOp;
 
-        public ByteCountingAsyncIterator(AsyncIterator<Kv> iterator, Function<Kv, Integer> counterOp) {
+        public ByteCountingAsyncIterator(AsyncIterator<K> iterator, Function<K, Integer> counterOp) {
             this.underlying = iterator;
             this.counterOp = counterOp;
         }
@@ -377,8 +377,8 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
 
         @Override
-        public Kv next() {
-            Kv next = underlying.next();
+        public K next() {
+            K next = underlying.next();
             increment(FDBStoreTimer.Counts.BYTES_READ, counterOp.apply(next));
             return next;
         }
