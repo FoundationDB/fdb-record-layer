@@ -1,5 +1,5 @@
 /*
- * UpdateExpression.java
+ * InsertExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,13 +29,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,21 +43,19 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
- * A logical version of {@link RecordQueryUpdatePlan}.
+ * A logical version of {@link RecordQueryInsertPlan}.
  *
- * @see ImplementUpdateRule which converts this to a {@link RecordQueryUpdatePlan}
+ * @see ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
  */
-public class UpdateExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 
     private static final String OLD_FIELD_NAME = "old";
+
     private static final String NEW_FIELD_NAME = "new";
 
     @Nonnull
@@ -73,28 +70,15 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     private final Value resultValue;
 
-    @Nonnull
-    private final Map<FieldValue.FieldPath, Value> transformMap;
-
-    @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-
-    public UpdateExpression(@Nonnull final Quantifier.ForEach inner,
+    public InsertExpression(@Nonnull final Quantifier.ForEach inner,
                             @Nonnull final String targetRecordType,
                             @Nonnull final Type.Record targetType,
-                            @Nonnull final Descriptors.Descriptor targetDescriptor,
-                            @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+                            @Nonnull final Descriptors.Descriptor targetDescriptor) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
         this.resultValue = new QueriedValue(computeResultType(inner.getFlowedObjectType(), targetType));
-        this.transformMap = ImmutableMap.copyOf(transformMap);
-        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
     @Override
@@ -105,16 +89,9 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return correlatedToWithoutChildrenSupplier.get();
+        return ImmutableSet.of();
     }
 
-    @Nonnull
-    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
-        return transformMap.values()
-                .stream()
-                .flatMap(value -> value.getCorrelatedTo().stream())
-                .collect(ImmutableSet.toImmutableSet());
-    }
 
     @Nonnull
     @Override
@@ -124,12 +101,8 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public UpdateExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
-        for (final var entry : transformMap.entrySet()) {
-            translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
-        }
-        return new UpdateExpression(inner, targetRecordType, targetType, targetDescriptor, translatedTransformMapBuilder.build());
+    public InsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new InsertExpression(inner, targetRecordType, targetType, targetDescriptor);
     }
 
     @Nonnull
@@ -139,13 +112,12 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Nonnull
-    public RecordQueryUpdatePlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public RecordQueryInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
-        return RecordQueryUpdatePlan.updatePlan(physicalInner,
+        return RecordQueryInsertPlan.insertPlan(physicalInner,
                 targetRecordType,
                 targetType,
                 targetDescriptor,
-                transformMap,
                 makeComputationValue(physicalInner, targetType));
     }
 
@@ -159,10 +131,9 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final UpdateExpression otherUpdateExpression = (UpdateExpression)otherExpression;
-        return targetRecordType.equals(otherUpdateExpression.targetRecordType) &&
-               targetType.equals(otherUpdateExpression.targetType) &&
-               semanticEqualsForTransformMap(transformMap, otherUpdateExpression.transformMap, equivalencesMap);
+        final InsertExpression otherInsertExpression = (InsertExpression)otherExpression;
+        return targetRecordType.equals(otherInsertExpression.targetRecordType) &&
+               targetType.equals(otherInsertExpression.targetType);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -178,25 +149,18 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
 
     @Override
     public int hashCodeWithoutChildren() {
-        return hashCodeWithoutChildrenSupplier.get();
-    }
-
-    public int computeHashCodeWithoutChildren() {
-        return Objects.hash(targetRecordType, targetType, transformMap);
+        return Objects.hash(targetRecordType, targetType);
     }
 
     @Override
     public String toString() {
-        final var str = new StringBuilder("Update(");
-        str.append(targetRecordType).append(", ");
-        str.append("[").append(transformMap.keySet().stream().map(FieldValue.FieldPath::toString).collect(Collectors.joining(", "))).append("] ");
-        return str.toString();
+        return "Insert(" + targetRecordType + ")";
     }
 
     /**
      * Create a planner graph for better visualization.
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
-     *         update expression node.
+     *         insert expression node.
      */
     @Nonnull
     @Override
@@ -213,7 +177,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.ModificationLogicalOperatorNode(this,
                         NodeInfo.MODIFICATION_OPERATOR,
-                        ImmutableList.of("UPDATE"),
+                        ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
                 ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
     }
@@ -228,26 +192,9 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     private static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
         final var oldColumn =
-                Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), inner.getFlowedObjectValue());
+                Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), new NullValue(inner.getFlowedObjectType()));
         final var newColumn =
                 Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(Quantifier.CURRENT, targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
-    }
-
-    private static boolean semanticEqualsForTransformMap(@Nonnull final Map<FieldValue.FieldPath, Value> self,
-                                                         @Nonnull final Map<FieldValue.FieldPath, Value> other,
-                                                         @Nonnull final AliasMap equivalencesMap) {
-        if (self.size() != other.size()) {
-            return false;
-        }
-
-        for (final var fieldPath : self.keySet()) {
-            final var selfValue = self.get(fieldPath);
-            final var otherValue = self.get(fieldPath);
-            if (!selfValue.semanticEquals(otherValue, equivalencesMap)) {
-                return false;
-            }
-        }
-        return true;
     }
 }

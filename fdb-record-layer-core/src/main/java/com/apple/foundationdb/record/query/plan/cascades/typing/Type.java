@@ -325,10 +325,10 @@ public interface Type extends Narrowable<Type> {
             if (isNullable) {
                 Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                 Objects.requireNonNull(wrappedDescriptor);
-                return new Array(isNullable, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
             } else {
                 // case 2: any arbitrary sub message we don't understand
-                return new Array(isNullable, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
             }
         }
     }
