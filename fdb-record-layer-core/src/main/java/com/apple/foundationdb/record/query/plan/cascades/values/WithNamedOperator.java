@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 /**
  * trait that allows a class, typically a {@link Value} to return the name of the underlying physical operator.
  */
-public interface WithNamedPhysicalOperation {
+public interface WithNamedOperator {
 
     @Nonnull
     String getOperatorName();

@@ -48,7 +48,7 @@ import java.util.Locale;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public class IndexBackedAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, WithNamedPhysicalOperation {
+public class IndexBackedAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, WithNamedOperator {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Backed-Aggregate-Value");
 
@@ -128,6 +128,16 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        return other.getClass() == getClass() && ((IndexBackedAggregateValue)other).operator.equals(operator);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

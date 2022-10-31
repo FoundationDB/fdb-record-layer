@@ -50,7 +50,7 @@ import java.util.function.UnaryOperator;
  * A counting aggregate value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CountValue implements Value, StreamableAggregateValue {
+public class CountValue implements StreamableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
     @Nonnull
@@ -100,6 +100,12 @@ public class CountValue implements Value, StreamableAggregateValue {
     @Override
     public Type getResultType() {
         return Type.primitiveType(operator.getResultTypeCode());
+    }
+
+    @Nonnull
+    @Override
+    public String getOperatorName() {
+        return operator.name();
     }
 
     @Nonnull

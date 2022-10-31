@@ -57,7 +57,7 @@ import java.util.function.Supplier;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ArithmeticValue implements Value, WithNamedPhysicalOperation {
+public class ArithmeticValue implements Value, WithNamedOperator {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
     @Nonnull
