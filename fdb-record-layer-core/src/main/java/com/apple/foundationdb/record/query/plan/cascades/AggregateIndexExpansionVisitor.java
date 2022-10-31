@@ -168,7 +168,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
-        builder.addResultColumn(Column.of(Type.Record.Field.ofAutoNamed(groupingValue.getResultType()), groupingValue));
+        // we need to refer to the following colum later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
+        // to it using an ordinal FieldAccessor (we do the same in plan generation).
+        builder.addResultColumn(Column.unnamedOf(groupingValue));
         Stream.concat(Stream.of(baseQuantifier), selectWhereGraphExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
@@ -194,9 +196,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             return (AggregateValue)aggregateMap.get().get(index.getType()).encapsulate(TypeRepository.newBuilder(), List.of(groupedFieldReference));
         }).map(av -> Column.of(Type.Record.Field.of(av.getResultType(), Optional.of(generateAggregateFieldName(cnt[0]++))), av)).collect(Collectors.toList()));
 
-        // construct grouping column(s) value
-        final var groupingColumnName = getGroupingColumnName(selectWhereQun);
-        final var groupingColsValue = FieldValue.ofFieldName(selectWhereQun.getFlowedObjectValue(), groupingColumnName);
+        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
+        final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
 
         if (groupingColsValue.getResultType() instanceof Type.Record && ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
             return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(aggregateValue, null, selectWhereQun)));
@@ -235,13 +236,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         }
         selectHavingGraphExpansionBuilder.addResultColumn(Column.of(aggregateValueReference.getLastField(), aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
         return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
-    }
-
-    @Nonnull
-    private static String getGroupingColumnName(@Nonnull final Quantifier selectWhereQun) {
-        final var flowedValues = selectWhereQun.getFlowedValues();
-        Verify.verify(!flowedValues.isEmpty());
-        return flowedValues.get(0).getLastField().getFieldName();
     }
 
     @Nonnull
