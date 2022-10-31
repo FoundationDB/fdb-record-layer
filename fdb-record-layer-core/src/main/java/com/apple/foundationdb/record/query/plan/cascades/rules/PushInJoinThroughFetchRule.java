@@ -113,7 +113,7 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
         final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(innerPlan);
 
         final var newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedInJoinPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()));
+                new RecordQueryFetchFromPartialRecordPlan(pushedInJoinPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
         call.yield(GroupExpressionRef.of(newFetchPlan));
     }

@@ -187,7 +187,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -241,6 +241,12 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     public List<KeyExpression> getChildrenRefs() {
         return children;
+    }
+
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return getChildren().stream()
+                .anyMatch(KeyExpression::needsCopyingToPartialRecord);
     }
 
     // should not be used outside of the Then constructors

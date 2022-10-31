@@ -105,6 +105,14 @@ public class PlanMatchers {
         return new IndexMatcher.BoundsMatcher(new ScanComparisonsEmptyMatcher());
     }
 
+    public static Matcher<Comparisons.Comparison> hasTypelessString(@Nonnull Matcher<String> stringMatcher) {
+        return new TypelessStringMatcher(stringMatcher);
+    }
+
+    public static Matcher<Comparisons.Comparison> hasTypelessString(@Nonnull String string) {
+        return hasTypelessString(equalTo(string));
+    }
+
     public static Matcher<ScanComparisons> hasTupleString(@Nonnull Matcher<String> stringMatcher) {
         return new ScanComparisonsStringMatcher(stringMatcher);
     }
@@ -197,6 +205,11 @@ public class PlanMatchers {
     public static Matcher<RecordQueryPlan> inParameter(@Nonnull Matcher<String> bindingMatcher,
                                               @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         return new InParameterJoinMatcher(bindingMatcher, childMatcher);
+    }
+
+    public static Matcher<RecordQueryPlan> inComparand(@Nonnull Matcher<Comparisons.Comparison> bindingMatcher,
+                                                       @Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new InComparandJoinMatcher(bindingMatcher, childMatcher);
     }
 
     public static Matcher<RecordQueryPlan> scoreForRank(@Nonnull Matcher<Iterable<? extends RecordQueryScoreForRankPlan.ScoreForRank>> rankMatchers,

@@ -39,9 +39,11 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -97,13 +99,15 @@ public class InExtractor {
                 if (withComparison.getComparison() instanceof Comparisons.ComparisonWithParameter) {
                     final String parameterName = ((Comparisons.ComparisonWithParameter)withComparison.getComparison()).getParameter();
                     inClauses.add(new InParameterClause(bindingName, parameterName, orderingKey));
-                } else {
+                } else if (withComparison.getComparison() instanceof Comparisons.ListComparison || withComparison.getComparison() instanceof Comparisons.SimpleComparison) {
                     final List<Object> comparand = (List<Object>) withComparison.getComparison().getComparand();
                     // ListComparison does not allow empty/null
                     if (comparand != null && comparand.size() == 1) {
                         return withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand.get(0)));
                     }
                     inClauses.add(new InValuesClause(bindingName, comparand, orderingKey));
+                } else {
+                    inClauses.add(new InComparandClause(bindingName, withComparison.getComparison(), orderingKey));
                 }
                 return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
             } else {
@@ -342,6 +346,31 @@ public class InExtractor {
         @Override
         protected InSource unionSource() {
             return new InParameterSource(bindingName, parameterName);
+        }
+    }
+
+    static class InComparandClause extends InClause {
+        @Nonnull
+        private final Comparisons.Comparison comparison;
+
+        protected InComparandClause(@Nonnull String bindingName, @Nonnull Comparisons.Comparison comparison, @Nullable KeyExpression orderingKey) {
+            super(bindingName, orderingKey);
+            this.comparison = comparison;
+        }
+
+        @Override
+        protected RecordQueryPlan wrap(final RecordQueryPlan inner) {
+            return new RecordQueryInComparandJoinPlan(inner,
+                    bindingName,
+                    Bindings.Internal.IN,
+                    comparison,
+                    sortValues,
+                    sortReverse);
+        }
+
+        @Override
+        protected InSource unionSource() {
+            return new InComparandSource(bindingName, comparison);
         }
     }
 }

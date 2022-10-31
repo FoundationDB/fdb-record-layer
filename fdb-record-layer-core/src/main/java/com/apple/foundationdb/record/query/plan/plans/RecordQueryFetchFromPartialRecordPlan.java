@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -52,6 +55,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -72,16 +76,20 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     private final TranslateValueFunction translateValueFunction;
 
     @Nonnull
+    private final FetchIndexRecords fetchIndexRecords;
+
+    @Nonnull
     private final Supplier<? extends Value> resultValueSupplier;
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction, resultType);
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction, resultType, fetchIndexRecords);
     }
 
-    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType) {
+    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
         this.inner = inner;
         this.resultType = resultType;
         this.translateValueFunction = translateValueFunction;
+        this.fetchIndexRecords = fetchIndexRecords;
         this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
@@ -91,10 +99,10 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        // Plan return exactly one (full) record for each (partial) record from inner, so we can preserve all limits.
-        return store.fetchIndexRecords(getChild().executePlan(store, context, continuation, executeProperties)
-                .map(QueryResult::getIndexEntry), IndexOrphanBehavior.ERROR, executeProperties.getState())
-                .map(store::queriedRecord)
+        return fetchIndexRecords.fetchIndexRecords(
+                        store,
+                        getChild().executePlan(store, context, continuation, executeProperties)
+                                .map(QueryResult::getIndexEntry), executeProperties)
                 .map(QueryResult::fromQueriedRecord);
     }
 
@@ -118,6 +126,11 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Override
     public boolean isReverse() {
         return getChild().isReverse();
+    }
+
+    @Nonnull
+    public FetchIndexRecords getFetchIndexRecords() {
+        return fetchIndexRecords;
     }
 
     @Override
@@ -150,7 +163,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction, resultType);
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction, resultType, fetchIndexRecords);
     }
 
     @Nonnull
@@ -161,7 +174,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryFetchFromPartialRecordPlan(child, TranslateValueFunction.unableToTranslate(), resultType);
+        return new RecordQueryFetchFromPartialRecordPlan(child, TranslateValueFunction.unableToTranslate(), resultType, fetchIndexRecords);
     }
 
     @Nonnull
@@ -181,7 +194,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         if (this == otherExpression) {
             return true;
         }
-        return getClass() == otherExpression.getClass();
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        final var otherFetchPlan = (RecordQueryFetchFromPartialRecordPlan)otherExpression;
+        return fetchIndexRecords == otherFetchPlan.fetchIndexRecords;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -197,7 +215,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash();
+        return Objects.hash(BASE_HASH.planHash(), fetchIndexRecords);
     }
 
     @Override
@@ -224,5 +242,57 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.FETCH_OPERATOR),
                 childGraphs);
+    }
+
+    /**
+     * Enum to govern how to interpret the primary key of an index entry when accessing its base record(s).
+     */
+    public enum FetchIndexRecords {
+        PRIMARY_KEY(new FetchIndexRecordsFunction() {
+            @Nonnull
+            @Override
+            public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                           @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                           @Nonnull final ExecuteProperties executeProperties) {
+                return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
+                        .map(store::queriedRecord);
+            }
+        }),
+        SYNTHETIC_CONSTITUENTS(new FetchIndexRecordsFunction() {
+            @Nonnull
+            @Override
+            public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                           @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                           @Nonnull final ExecuteProperties executeProperties) {
+                return entryRecordCursor.mapPipelined(
+                        indexEntry -> store.loadSyntheticRecord(indexEntry.getPrimaryKey())
+                                .thenApply(syntheticRecord -> FDBQueriedRecord.synthetic(indexEntry.getIndex(), indexEntry, syntheticRecord)),
+                        store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
+            }
+        });
+
+        @Nonnull
+        private final FetchIndexRecordsFunction fetchIndexRecordsFunction;
+
+        FetchIndexRecords(@Nonnull final FetchIndexRecordsFunction fetchIndexRecordsFunction) {
+            this.fetchIndexRecordsFunction = fetchIndexRecordsFunction;
+        }
+
+        @Nonnull
+        <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                @Nonnull final ExecuteProperties executeProperties) {
+            return fetchIndexRecordsFunction.fetchIndexRecords(store, entryRecordCursor, executeProperties);
+        }
+
+        /**
+         * The function to apply.
+         */
+        public interface FetchIndexRecordsFunction {
+            @Nonnull
+            <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull FDBRecordStoreBase<M> store,
+                                                                                    @Nonnull RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                    @Nonnull ExecuteProperties executeProperties);
+        }
     }
 }

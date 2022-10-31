@@ -57,7 +57,7 @@ public class QueryPlanUtils {
                                                                                                                              final @Nonnull IndexKeyValueToPartialRecord toRecord,
                                                                                                                              final boolean hasPrimaryKey) {
         final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordType recordType = metaData.getRecordType(recordTypeName);
+        final RecordType recordType = metaData.getQueryableRecordType(recordTypeName);
         final Index index = metaData.getIndex(indexName);
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);

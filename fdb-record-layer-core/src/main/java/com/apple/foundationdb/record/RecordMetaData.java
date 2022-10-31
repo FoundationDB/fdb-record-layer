@@ -76,6 +76,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordType<?>> syntheticRecordTypes;
     @Nonnull
+    private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -101,6 +103,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
                              @Nonnull Map<String, RecordType> recordTypes,
                              @Nonnull Map<String, SyntheticRecordType<?>> syntheticRecordTypes,
+                             @Nonnull Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap,
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
@@ -116,6 +119,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.unionFields = unionFields;
         this.recordTypes = recordTypes;
         this.syntheticRecordTypes = syntheticRecordTypes;
+        this.recordTypeKeyToSyntheticTypeMap = recordTypeKeyToSyntheticTypeMap;
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
@@ -219,12 +223,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
     public SyntheticRecordType<?> getSyntheticRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
-        for (SyntheticRecordType<?> recordType : getRecordMetaData().getSyntheticRecordTypes().values()) {
-            if (recordType.getRecordTypeKey().equals(recordTypeKey)) {
-                return recordType;
-            }
+        final SyntheticRecordType<?> recordType = recordTypeKeyToSyntheticTypeMap.get(recordTypeKey);
+        if (recordType == null) {
+            throw new MetaDataException("Unknown synthetic record type " + recordTypeKey);
         }
-        throw new MetaDataException("Unknown synthetic record type " + recordTypeKey);
+        return recordType;
     }
 
     /**
@@ -233,6 +236,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the possibly synthetic record type
      */
     public RecordType getIndexableRecordType(@Nonnull String name) {
+        RecordType recordType = recordTypes.get(name);
+        if (recordType == null) {
+            recordType = syntheticRecordTypes.get(name);
+        }
+        if (recordType == null) {
+            throw new MetaDataException("Unknown record type " + name);
+        }
+        return recordType;
+    }
+
+    /**
+     * Get a record type or synthetic record type by name as used in a query.
+     * @param name the name of the record type
+     * @return the possibly synthetic record type
+     */
+    public RecordType getQueryableRecordType(@Nonnull String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
             recordType = syntheticRecordTypes.get(name);

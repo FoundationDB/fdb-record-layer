@@ -54,7 +54,7 @@ import java.util.stream.IntStream;
  * This class also hides some data cleansing process, in particular related to potential duplicity on place holders,
  * which must be corrected (de-duplicated) before the placeholders are used in the predicates of e.g. a match candidate.
  */
-public class GraphExpansion implements KeyExpressionVisitor.Result {
+public class GraphExpansion {
     /**
      * A list of columns, i.e., fields and values representing the result of this expansion, if sealed and built.
      */

@@ -103,6 +103,11 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return splitSize;
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return joined.needsCopyingToPartialRecord();
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Split toProto() throws SerializationException {
@@ -126,7 +131,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 

@@ -43,7 +43,7 @@ public interface KeyExpressionWithValue extends KeyExpression {
 
     @Nonnull
     @Override
-    default <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor) {
+    default <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 }

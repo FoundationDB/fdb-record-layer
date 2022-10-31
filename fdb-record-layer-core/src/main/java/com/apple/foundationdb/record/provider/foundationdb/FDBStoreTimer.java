@@ -547,6 +547,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_IN_UNION("number of in union plans", false),
         /** The number of query plans that include an {@code IN} with literal values. */
         PLAN_IN_VALUES("number of in plans with values", false),
+        /** The number of query plans that include an {@code IN} with values extracted from a comparison. */
+        PLAN_IN_COMPARAND("number of in plans with comparison comparands", false),
         /** The number of query plans that include an {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan}. */
         PLAN_INTERSECTION("number of intersection plans", false),
         /** The number of query plans that include a loading records directly by their primary keys. */

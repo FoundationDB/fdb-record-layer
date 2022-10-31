@@ -88,6 +88,11 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 return recordQueryPlan;
             }
 
+            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(filterPlan.getChild());
+            if (fetchIndexRecords == null) {
+                return recordQueryPlan;
+            }
+
             @Nullable RecordQueryPlan removedFetchPlan = removeIndexFetch(filterPlan.getChild(), allReferencedFields);
             if (removedFetchPlan == null) {
                 return recordQueryPlan;
@@ -96,7 +101,8 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
             recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(
                     new RecordQueryFilterPlan(removedFetchPlan, indexFilters),
                     TranslateValueFunction.unableToTranslate(),
-                    new Type.Any());
+                    new Type.Any(),
+                    fetchIndexRecords);
 
             if (!residualFilters.isEmpty()) {
                 recordQueryPlan = new RecordQueryFilterPlan(recordQueryPlan, residualFilters);

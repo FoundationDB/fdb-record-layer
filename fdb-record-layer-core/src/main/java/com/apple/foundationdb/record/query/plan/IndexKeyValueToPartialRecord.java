@@ -27,17 +27,21 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 /**
  * Construct a record from a covering index.
@@ -51,12 +55,21 @@ public class IndexKeyValueToPartialRecord {
         this.copiers = copiers;
     }
 
+    @Nonnull
     public Message toRecord(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull IndexEntry kv) {
+        return Verify.verifyNotNull(toRecordInternal(recordDescriptor, kv));
+    }
+
+    @Nullable
+    public Message toRecordInternal(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull IndexEntry kv) {
         Message.Builder recordBuilder = DynamicMessage.newBuilder(recordDescriptor);
+        boolean allCopiersRefused = true;
         for (Copier copier : copiers) {
-            copier.copy(recordDescriptor, recordBuilder, kv);
+            if (copier.copy(recordDescriptor, recordBuilder, kv)) {
+                allCopiersRefused = false;
+            }
         }
-        return recordBuilder.build();
+        return allCopiersRefused ? null : recordBuilder.build();
     }
 
     @Override
@@ -81,6 +94,39 @@ public class IndexKeyValueToPartialRecord {
         return Objects.hash(copiers);
     }
 
+    @SuppressWarnings("UnstableApiUsage")
+    @Nullable
+    public static Object getForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
+        Object value = tuple;
+        for (int i = 0; i < ordinalPath.length(); i ++) {
+            if (value instanceof Tuple) {
+                value = ((Tuple)value).get(ordinalPath.get(i));
+            } else {
+                value = ((List<?>)value).get(ordinalPath.get(i));
+            }
+            if (value == null) {
+                return null;
+            }
+        }
+        return value;
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    public static boolean existsSubTupleForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
+        Object value = tuple;
+        for (int i = 0; i < ordinalPath.length(); i ++) {
+            if (value instanceof Tuple) {
+                value = ((Tuple)value).get(ordinalPath.get(i));
+            } else {
+                value = ((List<?>)value).get(ordinalPath.get(i));
+            }
+            if (value == null) {
+                break;
+            }
+        }
+        return (value instanceof Tuple) || (value instanceof List<?>);
+    }
+
     /**
      * Which side of the {@link IndexEntry} to take a field from.
      */
@@ -92,34 +138,47 @@ public class IndexKeyValueToPartialRecord {
      * Copy from an index entry into part of a record.
      */
     public interface Copier {
-        void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                  @Nonnull IndexEntry kv);
+        boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                     @Nonnull IndexEntry kv);
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     static class FieldCopier implements Copier {
         @Nonnull
         private final String field;
         @Nonnull
         private final TupleSource source;
-        private final int index;
+        @Nonnull
+        private final Predicate<Tuple> copyIfPredicate;
+        @Nonnull
+        private final ImmutableIntArray ordinalPath;
         private Descriptors.FieldDescriptor fieldDescriptor;
         private Descriptors.Descriptor containingType;
 
-        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor, @Nonnull String field, @Nonnull TupleSource source, int index) {
+        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
+                            @Nonnull final String field,
+                            @Nonnull final TupleSource source,
+                            @Nonnull final Predicate<Tuple> copyIfPredicate,
+                            @Nonnull final ImmutableIntArray ordinalPath) {
             this.field = field;
             this.source = source;
-            this.index = index;
+            this.copyIfPredicate = copyIfPredicate;
+            this.ordinalPath = ordinalPath;
             this.fieldDescriptor = fieldDescriptor;
             this.containingType = fieldDescriptor.getContainingType();
         }
 
         @Override
-        public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                         @Nonnull IndexEntry kv) {
+        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                            @Nonnull IndexEntry kv) {
             final Tuple tuple = (source == TupleSource.KEY ? kv.getKey() : kv.getValue());
-            Object value = tuple.get(index);
+            if (!copyIfPredicate.test(tuple)) {
+                return false;
+            }
+
+            Object value = getForOrdinalPath(tuple, ordinalPath);
             if (value == null) {
-                return;
+                return true;
             }
             if (!containingType.equals(recordDescriptor)) {
                 containingType = recordDescriptor;
@@ -142,11 +201,12 @@ public class IndexKeyValueToPartialRecord {
                     break;
             }
             recordBuilder.setField(fieldDescriptor, value);
+            return true;
         }
 
         @Override
         public String toString() {
-            return field + ": " + source + "[" + index + "]";
+            return field + ": " + source + ordinalPath;
         }
 
         @Override
@@ -158,14 +218,14 @@ public class IndexKeyValueToPartialRecord {
                 return false;
             }
             FieldCopier that = (FieldCopier) o;
-            return index == that.index &&
+            return ordinalPath.equals(that.ordinalPath) &&
                     Objects.equals(field, that.field) &&
                     source == that.source;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(field, source, index);
+            return Objects.hash(field, source, ordinalPath);
         }
     }
 
@@ -184,8 +244,8 @@ public class IndexKeyValueToPartialRecord {
         }
 
         @Override
-        public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                         @Nonnull IndexEntry kv) {
+        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                            @Nonnull IndexEntry kv) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             switch (fieldDescriptor.getType()) {
                 case MESSAGE:
@@ -193,12 +253,16 @@ public class IndexKeyValueToPartialRecord {
                 default:
                     throw new RecordCoreException("only nested message should be handled by MessageCopier");
             }
-            final Message message = nested.toRecord(fieldDescriptor.getMessageType(), kv);
+            final Message message = nested.toRecordInternal(fieldDescriptor.getMessageType(), kv);
+            if (message == null) {
+                return false;
+            }
             if (fieldDescriptor.isRepeated()) {
                 recordBuilder.addRepeatedField(fieldDescriptor, message);
             } else {
                 recordBuilder.setField(fieldDescriptor, message);
             }
+            return true;
         }
 
         @Override
@@ -243,7 +307,7 @@ public class IndexKeyValueToPartialRecord {
         private final Map<String, FieldCopier> fields;
         @Nonnull
         private final Map<String, Builder> nestedBuilders;
-        private List<Copier> regularCopiers = new ArrayList<>();
+        private final List<Copier> regularCopiers = new ArrayList<>();
 
         private Builder(@Nonnull RecordType recordType) {
             this(recordType.getDescriptor());
@@ -259,7 +323,8 @@ public class IndexKeyValueToPartialRecord {
             return fields.containsKey(field) || nestedBuilders.containsKey(field);
         }
 
-        public Builder addField(@Nonnull String field, @Nonnull TupleSource source, int index) {
+        @SuppressWarnings("UnstableApiUsage")
+        public Builder addField(@Nonnull String field, @Nonnull TupleSource source, @Nonnull final Predicate<Tuple> copyIfPredicate, @Nonnull ImmutableIntArray ordinalPath) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);
@@ -268,7 +333,7 @@ public class IndexKeyValueToPartialRecord {
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(fieldDescriptor, field, source, index);
+            FieldCopier copier = new FieldCopier(fieldDescriptor, field, source, copyIfPredicate, ordinalPath);
             FieldCopier prev = fields.put(field, copier);
             if (prev != null) {
                 throw new RecordCoreException("setting field more than once: " + field);

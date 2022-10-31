@@ -138,6 +138,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull final Tuple primaryKey) {
+        throw new RecordCoreException("api unsupported on typed store");
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
         return untypedStore.recordExistsAsync(primaryKey, isolationLevel);
     }
@@ -179,6 +185,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
                                                                   @Nonnull ScanProperties scanProperties,
                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
         return untypedStore.scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, typedSerializer, scanProperties, orphanBehavior);
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord) {
+        return untypedStore.buildSingleRecordInternal(indexedRawRecord, typedSerializer, null);
     }
 
     @Nonnull

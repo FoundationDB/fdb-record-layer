@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -130,6 +131,12 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords() {
+        return RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
     @Nonnull

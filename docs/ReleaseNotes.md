@@ -40,6 +40,20 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.300.0
+
+
+### 3.3.298.0
+
+* **Feature** Add a method to construct a single record from a raw indexed record [(Issue #1865)](https://github.com/FoundationDB/fdb-record-layer/issues/1865)
+* **Feature** Joined record types now allow some kinds of function key expressions in their join conditions [(Issue #1872)](https://github.com/FoundationDB/fdb-record-layer/issues/1872)
+* **Feature** Allow users to name enum types in `TypeRepository` [(Issue #1847)](https://github.com/FoundationDB/fdb-record-layer/issues/1847)
+* **Feature** Support planning of (covering) index scans, fetches over synthetic record types [(Issue #1886)](https://github.com/FoundationDB/fdb-record-layer/issues/1886)
+
+### 3.3.297.0
+
+* **Bug fix** `TimeWindowLeaderboardWindowUpdate` `rebuild` = `NEVER` is not honored for new directory [(Issue #1878)](https://github.com/FoundationDB/fdb-record-layer/issues/1878)
+
 ### 3.3.296.0
 
 * **Performance** Looking up logical values from `DirectoryLayerDirectory`s no longer needs to create new transactions [(Issue #1857)](https://github.com/FoundationDB/fdb-record-layer/issues/1857)

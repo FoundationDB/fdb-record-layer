@@ -206,7 +206,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                 new RecordQueryPredicatesFilterPlan(newInnerQuantifier, pushedPredicates);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedFilterPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()));
+                new RecordQueryFetchFromPartialRecordPlan(pushedFilterPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
         if (residualPredicates.isEmpty()) {
             // case 2

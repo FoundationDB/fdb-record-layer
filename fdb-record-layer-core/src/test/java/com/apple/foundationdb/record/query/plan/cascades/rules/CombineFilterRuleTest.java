@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -61,6 +62,7 @@ public class CombineFilterRuleTest {
                     null,
                     IndexScanComparisons.byValue(),
                     IndexFetchMethod.SCAN_AND_FETCH,
+                    RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                     false,
                     false,
                     Optional.empty(),

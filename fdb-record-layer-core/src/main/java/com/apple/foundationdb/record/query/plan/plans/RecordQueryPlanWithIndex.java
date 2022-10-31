@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -81,10 +81,19 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ExecuteProperties executeProperties) {
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-        return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
-                .map(store::queriedRecord)
+        return fetchIndexRecords(store,  entryRecordCursor, executeProperties)
                 .map(QueryResult::fromQueriedRecord);
     }
+
+    @Nonnull
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                    @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                    @Nonnull final ExecuteProperties executeProperties) {
+        return getFetchIndexRecords().fetchIndexRecords(store, entryRecordCursor, executeProperties);
+    }
+
+    @Nonnull
+    RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords();
 
     /**
      * Rewrite the planner graph for better visualization of a query index plan.

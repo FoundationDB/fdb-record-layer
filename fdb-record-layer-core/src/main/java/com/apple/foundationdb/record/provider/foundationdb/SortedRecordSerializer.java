@@ -125,6 +125,12 @@ public class SortedRecordSerializer<M extends Message> {
         public FDBStoredRecord<M> getStoredRecord() {
             return null;
         }
+
+        @Nullable
+        @Override
+        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+            return null;
+        }
     }
 
     public void write(@Nonnull FDBRecord<M> rec, CodedOutputStream stream) throws IOException {

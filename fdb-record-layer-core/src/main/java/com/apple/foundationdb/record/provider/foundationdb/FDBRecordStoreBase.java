@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -61,7 +62,6 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -686,6 +686,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey);
 
     /**
+     * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
+     * @return a future which completes to the synthesized record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey);
+
+    /**
      * Check if a record exists in the record store with the given primary key.
      * This performs its reads at the {@link IsolationLevel#SERIALIZABLE} isolation level.
      *
@@ -1173,6 +1182,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ScanProperties scanProperties,
                                                            @Nonnull IndexOrphanBehavior orphanBehavior);
+
+    /**
+     * Build an IndexedRecord from parts returned by the index maintainer's {@link IndexMaintainer#scanRemoteFetch} call.
+     * This method would reconstruct a record from the parts returned by the index scan call, such that the record can
+     * be used separately from the cursor that constructs all records for the index. This can be useful in case there are
+     * some validations that need to be done during the iteration of the cursor without waiting for all records to be serialized.
+     * @param indexedRawRecord the raw records (the set of key-value pairs returned from scanRemoteFetch)
+     * @return a future containing (when completed) the reconstructed record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -2428,7 +2449,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return the length of the primary key common to all record types defined for the index, or -1 if no such key exists
      */
     @API(API.Status.INTERNAL)
-    @Nullable
     default int getCommonPrimaryKeyLength(@Nonnull Index index) {
         RecordMetaData metaData = getRecordMetaData();
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
