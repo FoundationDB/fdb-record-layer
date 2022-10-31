@@ -39,12 +39,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -266,6 +268,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
                 null,
                 new IndexScanComparisons(IndexScanType.BY_GROUP, toScanComparisons(comparisonRanges)),
                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
@@ -284,6 +287,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         return recordTypes;
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
@@ -298,14 +302,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         for (int i = 0; i < groupingCount; i++) {
             final Value keyValue = selectHavingFields.get(i);
             if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
+                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
             }
         }
         for (int i = groupingCount; i < selectHavingFields.size(); i++) {
             final Value keyValue = selectHavingFields.get(i);
             if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i - groupingCount);
+                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i - groupingCount));
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
             }
         }
@@ -342,7 +346,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         Verify.verify(field.getFieldNameOptional().isPresent());
         final String fieldName = field.getFieldName();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
+            builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
         }
     }
 
