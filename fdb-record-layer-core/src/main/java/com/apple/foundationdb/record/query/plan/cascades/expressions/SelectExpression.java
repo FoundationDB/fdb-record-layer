@@ -332,8 +332,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional,
-                                Pair.of(candidateExpression.getResultValue(), getResultValue()))
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
                         .orElse(ImmutableList.of());
             } else {
@@ -562,8 +561,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
                                 return allParameterBindingMapOptional
-                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional,
-                                                Pair.of(candidateExpression.getResultValue().simplify(aliasMap, Set.of()), getResultValue().simplify(aliasMap, Set.of()))))
+                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })

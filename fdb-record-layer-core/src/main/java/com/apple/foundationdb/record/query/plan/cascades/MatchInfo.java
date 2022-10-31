@@ -228,16 +228,15 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap, @Nonnull Pair<Value, Value> valueMapping) {
-        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty(), valueMapping);
+    public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty());
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                @Nonnull final PredicateMap predicateMap,
-                                               @Nonnull Optional<Value> remainingComputationValueOptional,
-                                               @Nonnull final Pair<Value, Value> valueMapping) {
+                                               @Nonnull Optional<Value> remainingComputationValueOptional) {
         final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
         final var matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
