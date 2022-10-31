@@ -34,7 +34,7 @@ import com.google.protobuf.Message;
 @API(API.Status.EXPERIMENTAL)
 public final class FDBRecordStoreProperties {
     /**
-     * Whether single record deletes should unroll range deletes into multiple singe key deletes. This is used
+     * Whether single record deletes should unroll range deletes into multiple single key deletes. This is used
      * during {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#saveRecord(Message)} and
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#deleteRecord(Tuple)} to control
      * whether multiple FDB key clears are issued when a record is split across multiple keys, or if instead a single

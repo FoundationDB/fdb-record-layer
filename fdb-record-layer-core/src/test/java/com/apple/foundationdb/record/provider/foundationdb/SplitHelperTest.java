@@ -124,16 +124,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     public static Stream<Arguments> splitSuffixAndUnrollArgs() {
-        // Arguments: splitLongRecords, omitUnsplitSuffix, unrollSingleRecordDeletes
         // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-        return Stream.of(
-                Arguments.of(false, false, false),
-                Arguments.of(false, false, true),
-                Arguments.of(false, true, false),
-                Arguments.of(false, true, true),
-                Arguments.of(true, false, false),
-                Arguments.of(true, false, true)
-        );
+        return Stream.of(false, true).flatMap(splitLongRecords ->
+                (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
+                        Stream.of(false, true).map(unrollSingleRecordDeletes ->
+                                Arguments.of(splitLongRecords, omitUnsplitSuffix, unrollSingleRecordDeletes))));
     }
 
     @Nonnull
@@ -470,11 +465,17 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}]")
-    @BooleanSource
-    public void deleteWithSplitAndVersion(boolean splitLongRecords) {
+    static Stream<Arguments> deleteWithSplitAndVersion() {
+        return Stream.of(false, true).flatMap(splitLongRecords ->
+                Stream.of(false, true).map(unrollSingleRecordDeletes ->
+                        Arguments.of(splitLongRecords, unrollSingleRecordDeletes)));
+    }
+
+    @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}, unrollSingleRecordDeletes = {2}]")
+    @MethodSource("deleteWithSplitAndVersion")
+    public void deleteWithSplitAndVersion(boolean splitLongRecords, boolean unrollSingleRecordDeletes) {
         final byte[] globalVersion = "chrysan_th".getBytes(Charsets.US_ASCII);
-        try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContextWithProps(unrollSingleRecordDeletes)) {
             // Delete unsplit with size info
             FDBStoredSizes sizes1 = writeDummyRecord(context, Tuple.from(-475L), FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), 1);
             deleteSplit(context, Tuple.from(-475L), splitLongRecords, false, sizes1);
