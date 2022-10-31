@@ -673,9 +673,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     private static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
-        // we should get rid of this method as it is attempting to create an "uber-record" in a brittle way
-        // (e.g. causing duplicate field indexes in a Record type which is a precondition violation).
-        // one way to solve this would be to return Any() Type.
+        // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
         return recordTypeStream
                 .sorted(Comparator.comparing(RecordType::getName))
                 .flatMap(recordType -> recordType.getDescriptor().getFields().stream())

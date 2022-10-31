@@ -74,15 +74,11 @@ public class MatchInfo {
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
 
-    @Nonnull
-    private final Pair<Value, Value> valueMapping;
-
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                      @Nonnull final Optional<Value> remainingComputationValueOptional,
-                      @Nonnull final Pair<Value, Value> valueMapping) {
+                      @Nonnull final Optional<Value> remainingComputationValueOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -99,7 +95,6 @@ public class MatchInfo {
 
         this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
         this.remainingComputationValueOptional = remainingComputationValueOptional;
-        this.valueMapping = valueMapping;
     }
 
     @Nonnull
@@ -229,8 +224,7 @@ public class MatchInfo {
                 quantifierToPartialMatchMap,
                 predicateMap,
                 matchedOrderingParts,
-                remainingComputationValueOptional,
-                valueMapping);
+                remainingComputationValueOptional);
     }
 
     @Nonnull
@@ -284,8 +278,7 @@ public class MatchInfo {
                         partialMatchMap,
                         predicateMap,
                         orderingParts,
-                        remainingComputationValueOptional,
-                        valueMapping));
+                        remainingComputationValueOptional));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

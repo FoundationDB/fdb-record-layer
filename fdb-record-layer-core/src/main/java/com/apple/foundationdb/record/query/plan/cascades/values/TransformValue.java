@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
 import com.google.common.collect.PeekingIterator;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -176,7 +178,7 @@ public class TransformValue implements Value {
             final var childrenMap = Verify.verifyNotNull(trieNode.getChildrenMap());
             final var subRecord = (M)current;
 
-            final var fieldDescriptors = descriptor.getFields();
+            final var fieldDescriptors = Objects.requireNonNull(descriptor).getFields();
             final var resultMessageBuilder = DynamicMessage.newBuilder(descriptor);
             for (final var fieldDescriptor : fieldDescriptors) {
                 final var field = fieldIndexToFieldMap.get(fieldDescriptor.getNumber());
@@ -264,7 +266,7 @@ public class TransformValue implements Value {
                     .getLastField()
                     .getFieldType().getTypeCode().equals(entry.getValue().getResultType().getTypeCode()), SemanticException.ErrorCode.ASSIGNMENT_WRONG_TYPE);
         }
-        return ImmutableMap.copyOf(transformMap);
+        return Maps.newLinkedHashMap(transformMap);
     }
 
     @Nonnull
@@ -292,7 +294,7 @@ public class TransformValue implements Value {
      * @return a {@link TrieNode}
      */
     @Nonnull
-    private static TrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldPath> orderedFieldPaths, @Nonnull final Map<FieldPath, Value> transformMap) {
+    public static TrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldPath> orderedFieldPaths, @Nonnull final Map<FieldPath, Value> transformMap) {
         return computeTrieForFieldPaths(new FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
@@ -304,7 +306,7 @@ public class TransformValue implements Value {
             orderedFieldPathIterator.next();
             return new TrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
         }
-        final var childrenMapBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+        final var childrenMapBuilder = Maps.<Type.Record.Field, TrieNode>newLinkedHashMap();
         while (orderedFieldPathIterator.hasNext()) {
             final var fieldPath = orderedFieldPathIterator.peek();
             if (!prefix.isPrefixOf(fieldPath)) {
@@ -322,7 +324,7 @@ public class TransformValue implements Value {
             childrenMapBuilder.put(currentField, currentTrie);
         }
 
-        return new TrieNode(null, childrenMapBuilder.build());
+        return new TrieNode(null, childrenMapBuilder);
     }
 
     @Nonnull
@@ -330,7 +332,7 @@ public class TransformValue implements Value {
     public TransformValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(getChildren().size() == Iterables.size(newChildren));
 
-        final var newTransformMapBuilder = ImmutableMap.<FieldPath, Value>builder();
+        final var newTransformMapBuilder = Maps.<FieldPath, Value>newLinkedHashMap();
 
         final var newChildrenIterator = newChildren.iterator();
 
@@ -346,7 +348,7 @@ public class TransformValue implements Value {
         }
         Verify.verify(i == orderedFieldPaths.size());
 
-        return new TransformValue(newInValue, newTransformMapBuilder.build());
+        return new TransformValue(newInValue, newTransformMapBuilder);
     }
 
     /**
@@ -357,13 +359,13 @@ public class TransformValue implements Value {
         private final Value value;
         @Nullable
         private final Map<Type.Record.Field, TrieNode> childrenMap;
-        @Nullable
-        private final Map<Integer, Type.Record.Field> fieldIndexToFieldMap;
+        @Nonnull
+        private final Supplier<Map<Integer, Type.Record.Field>> fieldIndexToFieldMapSupplier;
 
         public TrieNode(@Nullable final Value value, @Nullable final Map<Type.Record.Field, TrieNode> childrenMap) {
             this.value = value;
-            this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-            this.fieldIndexToFieldMap = childrenMap == null ? null : computeFieldIndexToFieldMap(this.childrenMap);
+            this.childrenMap = childrenMap == null ? null : Maps.newLinkedHashMap(childrenMap);
+            this.fieldIndexToFieldMapSupplier = Suppliers.memoize(() -> computeFieldIndexToFieldMap(childrenMap));
         }
 
         @Nullable
@@ -378,11 +380,14 @@ public class TransformValue implements Value {
 
         @Nullable
         public Map<Integer, Type.Record.Field> getFieldIndexToFieldMap() {
-            return fieldIndexToFieldMap;
+            return fieldIndexToFieldMapSupplier.get();
         }
 
-        @Nonnull
-        private static Map<Integer, Type.Record.Field> computeFieldIndexToFieldMap(@Nonnull final Map<Type.Record.Field, TrieNode> childrenMap) {
+        @Nullable
+        private static Map<Integer, Type.Record.Field> computeFieldIndexToFieldMap(@Nullable final Map<Type.Record.Field, TrieNode> childrenMap) {
+            if (childrenMap == null) {
+                return null;
+            }
             final var resultBuilder = ImmutableMap.<Integer, Type.Record.Field>builder();
             for (final var entry : childrenMap.entrySet()) {
                 resultBuilder.put(entry.getKey().getFieldIndex(), entry.getKey());

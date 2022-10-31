@@ -43,9 +43,9 @@ import java.util.Deque;
 import java.util.List;
 
 /**
- * Visitor that translates a {@link KeyExpression} into a {@link Value}, it works very similar to {@link KeyExpressionVisitor}
- * however in addition, it is able to set field information (name, index) to each generated {@link Value} using a given
- * {@link Type} information set in its {@link ScalarVisitorState}.
+ * Visitor that translates a {@link KeyExpression} into a {@link Value}, keeping a state of the currently processed
+ * input type while it is processing the {@link KeyExpression}. The main caveat of this visitor is that it is meant to only
+ * expand key expressions that are provably scalar.
  */
 @SuppressWarnings("java:S5993")
 public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTranslationVisitor.ScalarVisitorState, Value> {
