@@ -79,6 +79,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexScanType;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
@@ -404,21 +405,24 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
 
+        var indexPlanMatcher = indexPlan().where(indexName("complex"))
+                .and(scanComparisons(range("[[something, 1, 10, 20],[something, 1, 10, 20]]")));
         if (planner instanceof RecordQueryPlanner) {
-            // Does not understand duplicate condition
+            // Does not understand duplicate condition, and so plans an extraneous (but harmless, semantically speaking)
+            // intersection with the "duplicates" index
             assertMatchesExactly(plan,
-                    filterPlan(
+                    intersectionOnExpressionPlan(
+                            unorderedPrimaryKeyDistinctPlan(indexPlanMatcher),
                             indexPlan()
                                     .where(indexName("duplicates"))
-                                    .and(scanComparisons(range("[[something, something, 1],[something, something, 1]]"))))
-                            .where(queryComponents(only(equalsObject(nestedComponent)))));
+                                    .and(scanComparisons(range("[[something, something, 1],[something, something, 1]]")))
+                    ));
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
                             unorderedPrimaryKeyDistinctPlan(
                                     coveringIndexPlan()
-                                            .where(indexPlanOf(indexPlan().where(indexName("complex"))
-                                                    .and(scanComparisons(range("[[something, 1, 10, 20],[something, 1, 10, 20]]"))))))));
+                                            .where(indexPlanOf(indexPlanMatcher)))));
 
         }
     }
