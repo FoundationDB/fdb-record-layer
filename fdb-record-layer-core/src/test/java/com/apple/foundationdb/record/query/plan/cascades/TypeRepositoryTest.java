@@ -208,7 +208,7 @@ class TypeRepositoryTest {
     @Test
     void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
         try {
-            new AbstractArrayConstructorValue.ArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
+            new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

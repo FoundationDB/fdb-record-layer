@@ -27,11 +27,9 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
 
@@ -39,33 +37,30 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.updateExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.insertExpression;
 
 /**
- * A rule that implements an {@link UpdateExpression} delete expression by creating
+ * A rule that implements an {@link InsertExpression} delete expression by creating
  * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
+public class ImplementInsertRule extends CascadesRule<InsertExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
-                    any(innerPlanPartitionMatcher)));
+            planPartitions(any(innerPlanPartitionMatcher));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
             forEachQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
-    private static final BindingMatcher<UpdateExpression> root =
-            updateExpression(innerQuantifierMatcher);
+    private static final BindingMatcher<InsertExpression> root =
+            insertExpression(innerQuantifierMatcher);
 
-    public ImplementUpdateRule() {
+    public ImplementInsertRule() {
         super(root);
     }
 
@@ -73,19 +68,15 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerQuantifier = call.get(innerQuantifierMatcher);
-        final var updateExpression = call.get(root);
+        final var insertExpression = call.get(root);
 
-        final ExpressionRef<? extends RelationalExpression> distinctPlansReference;
-        if (!innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
-            distinctPlansReference = GroupExpressionRef.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(GroupExpressionRef.from(innerPlanPartition.getPlans()))));
-        } else {
-            distinctPlansReference = GroupExpressionRef.from(innerPlanPartition.getPlans());
-        }
+        final ExpressionRef<? extends RelationalExpression> plansReference =
+                GroupExpressionRef.from(innerPlanPartition.getPlans());
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
-                        .build(distinctPlansReference);
-        call.yield(GroupExpressionRef.of(updateExpression.toPlan(physicalQuantifier)));
+                        .build(plansReference);
+        call.yield(GroupExpressionRef.of(insertExpression.toPlan(physicalQuantifier)));
     }
 }

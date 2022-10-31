@@ -870,6 +870,11 @@ public interface Type extends Narrowable<Type> {
         }
 
         @Nonnull
+        public Field getField(int index) {
+            return Verify.verifyNotNull(fields.get(index));
+        }
+
+        @Nonnull
         public Map<String, Integer> getFieldNameToOrdinalMap() {
             return fieldNameToOrdinalSupplier.get();
         }

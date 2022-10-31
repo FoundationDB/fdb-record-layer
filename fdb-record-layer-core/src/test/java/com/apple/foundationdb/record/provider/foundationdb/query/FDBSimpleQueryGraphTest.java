@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
@@ -45,9 +46,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
@@ -570,6 +574,50 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testPlanInsertExpression() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+        // no index hints, plan a query
+        final var plan = cascadesPlanner.planGraph(
+                () -> {
+                    final var reviewsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor()));
+                    final var tagsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor()));
+                    final var customerType = new Type.Array(Type.primitiveType(Type.TypeCode.STRING));
+
+                    final var bananaRecord = RecordConstructorValue.ofUnnamed(
+                            ImmutableList.of(LiteralValue.ofScalar(1L),
+                                    LiteralValue.ofScalar("Banana Bungalow"),
+                                    new NullValue(reviewsType),
+                                    new NullValue(tagsType),
+                                    new NullValue(customerType)));
+                    final var bestRecord = RecordConstructorValue.ofUnnamed(
+                            ImmutableList.of(LiteralValue.ofScalar(2L),
+                                    LiteralValue.ofScalar("Best Western"),
+                                    new NullValue(reviewsType),
+                                    new NullValue(tagsType),
+                                    new NullValue(customerType)));
+                    final var explodeExpression = new ExplodeExpression(new AbstractArrayConstructorValue.LightArrayConstructorValue(ImmutableList.of(bananaRecord, bestRecord)));
+                    var qun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
+                            "RestaurantRecord",
+                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
+                            TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        plan.show(false);
+        assertMatchesExactly(plan,
+                mapPlan(
+                        typeFilterPlan(
+                                scanPlan()
+                                        .where(scanComparisons(range("([1],>")))))
+                        .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
+    }
 
     @Nonnull
     private CascadesPlanner setUp() throws Exception {

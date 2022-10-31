@@ -483,18 +483,18 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         final var currentRecordType = (Type.Record)currentType;
         final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
 
-        final var transformationsFieldIndexToFieldMap = transformationsTrie == null ? null : transformationsTrie.getFieldIndexToFieldMap();
+        final var transformationsFieldNameToFieldMap = transformationsTrie == null ? null : transformationsTrie.getFieldNameToFieldMap();
         final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
-        final var promotionsFieldIndexToFieldMap = promotionsTrie == null ? null : promotionsTrie.getFieldIndexToFieldMap();
+        final var promotionsFieldIndexToFieldMap = promotionsTrie == null ? null : promotionsTrie.getFieldNameToFieldMap();
         final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
         final var subRecord = (M)Verify.verifyNotNull(current);
 
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
         final var messageDescriptor = subRecord.getDescriptorForType();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            final var transformationField = transformationsFieldIndexToFieldMap == null ? null : transformationsFieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
+            final var transformationField = transformationsFieldNameToFieldMap == null ? null : transformationsFieldNameToFieldMap.get(messageFieldDescriptor.getName());
             final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
-            final var promotionField = promotionsFieldIndexToFieldMap == null ? null : promotionsFieldIndexToFieldMap.get(messageFieldDescriptor.getNumber());
+            final var promotionField = promotionsFieldIndexToFieldMap == null ? null : promotionsFieldIndexToFieldMap.get(messageFieldDescriptor.getName());
             final var promotionFieldTrie = (promotionsChildrenMap == null || promotionField == null) ? null : promotionsChildrenMap.get(promotionField);
             if (transformationField != null) {
                 final var transformationFieldTrie = Verify.verifyNotNull(Verify.verifyNotNull(transformationsChildrenMap).get(transformationField));
@@ -596,16 +596,15 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         targetDescriptor = Verify.verifyNotNull(targetDescriptor);
         final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
         final var targetRecordType = (Type.Record)targetType;
-        final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
         final var currentRecordType = (Type.Record)currentType;
-        final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
         final var messageDescriptor = currentMessage.getDescriptorForType();
+        final var targetFieldsFromDescriptor = targetDescriptor.getFields();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
             if (currentMessage.hasField(messageFieldDescriptor)) {
-                final var targetFieldDescriptor = Verify.verifyNotNull(targetDescriptor.findFieldByName(messageFieldDescriptor.getName()));
-                final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                final var currentField = currentNameToFieldMap.get(messageFieldDescriptor.getName());
+                final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(messageFieldDescriptor.getIndex()));
+                final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
+                final var currentField = currentRecordType.getField(messageFieldDescriptor.getIndex());
                 final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
 
                 resultMessageBuilder.setField(targetFieldDescriptor,
@@ -629,13 +628,17 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         private final Value value;
         @Nullable
         private final Map<Type.Record.Field, TrieNode> childrenMap;
+
+        /**
+         * Map to track fieldName -> field associations in order to find transformations by name quicker.
+         */
         @Nullable
-        private final Map<Integer, Type.Record.Field> fieldIndexToFieldMap;
+        private final Map<String, Type.Record.Field> fieldNameToFieldMap;
 
         public TrieNode(@Nullable final Value value, @Nullable final Map<Type.Record.Field, TrieNode> childrenMap) {
             this.value = value;
             this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-            this.fieldIndexToFieldMap = childrenMap == null ? null : computeFieldIndexToFieldMap(this.childrenMap);
+            this.fieldNameToFieldMap = childrenMap == null ? null : computeFieldNameToFieldMap(this.childrenMap);
         }
 
         @Nullable
@@ -649,8 +652,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         }
 
         @Nullable
-        public Map<Integer, Type.Record.Field> getFieldIndexToFieldMap() {
-            return fieldIndexToFieldMap;
+        public Map<String, Type.Record.Field> getFieldNameToFieldMap() {
+            return fieldNameToFieldMap;
         }
 
         @Nonnull
@@ -689,7 +692,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             final TrieNode trieNode = (TrieNode)o;
             return Objects.equals(getValue(), trieNode.getValue()) &&
                    Objects.equals(getChildrenMap(), trieNode.getChildrenMap()) &&
-                   Objects.equals(getFieldIndexToFieldMap(), trieNode.getFieldIndexToFieldMap());
+                   Objects.equals(getFieldNameToFieldMap(), trieNode.getFieldNameToFieldMap());
         }
 
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
@@ -703,7 +706,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
             return equalsNullable(getValue(), otherTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
                    equalsNullable(getChildrenMap(), otherTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap)) &&
-                   Objects.equals(getFieldIndexToFieldMap(), otherTrieNode.getFieldIndexToFieldMap());
+                   Objects.equals(getFieldNameToFieldMap(), otherTrieNode.getFieldNameToFieldMap());
         }
 
         private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Type.Record.Field, TrieNode> self,
@@ -737,14 +740,15 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
         @Override
         public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap(), getFieldIndexToFieldMap());
+            return Objects.hash(getValue(), getChildrenMap(), getFieldNameToFieldMap());
         }
 
         @Nonnull
-        private static Map<Integer, Type.Record.Field> computeFieldIndexToFieldMap(@Nonnull final Map<Type.Record.Field, TrieNode> childrenMap) {
-            final var resultBuilder = ImmutableMap.<Integer, Type.Record.Field>builder();
+        private static Map<String, Type.Record.Field> computeFieldNameToFieldMap(@Nonnull final Map<Type.Record.Field, TrieNode> childrenMap) {
+            final var resultBuilder = ImmutableMap.<String, Type.Record.Field>builder();
             for (final var entry : childrenMap.entrySet()) {
-                resultBuilder.put(entry.getKey().getFieldIndex(), entry.getKey());
+                final var field = entry.getKey();
+                field.getFieldNameOptional().ifPresent(fieldName -> resultBuilder.put(fieldName, field));
             }
             return resultBuilder.build();
         }
