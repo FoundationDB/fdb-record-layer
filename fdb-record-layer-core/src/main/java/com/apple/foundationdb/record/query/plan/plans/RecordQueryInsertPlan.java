@@ -130,12 +130,12 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                 ImmutableList.of(getTargetRecordType())),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationOperatorNodeWithInfo(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
     /**
@@ -144,7 +144,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      * @param recordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
-     * @param computationValue a value to be computed based on the {@code inner} and {@link Quantifier#CURRENT}
+     * @param computationValue a value to be computed based on the {@code inner} and
+     *        {@link RecordQueryAbstractDataModificationPlan#CURRENT_MODIFIED_RECORD}
      * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull

@@ -29,8 +29,10 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -687,6 +689,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     public static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
+        if (recordTypes.size() == 1) {
+            final var recordType = Iterables.getOnlyElement(recordTypes);
+            return Type.Record.toFieldDescriptorMap(recordType.getDescriptor().getFields());
+        }
         return getFieldDescriptorMap(recordTypes.stream());
     }
 

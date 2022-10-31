@@ -33,12 +33,14 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -51,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExp
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -58,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -114,8 +118,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
         @Nonnull
         @Override
-        public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
-            return Ordering.emptyOrder();
+        public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+            return orderingFromSingleChild(updatePlan);
         }
 
         @Nonnull
@@ -199,6 +203,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+            return orderingFromSingleChild(deletePlan);
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
             return Ordering.emptyOrder();
         }
@@ -232,8 +242,23 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+            return Ordering.ofUnnormalized(ImmutableSetMultimap.of(),
+                    PartiallyOrderedSet.of(
+                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.CURRENT, Type.primitiveType(Type.TypeCode.INT)))),
+                            ImmutableSetMultimap.of()), true);
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
             return Ordering.emptyOrder();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+            return orderingFromSingleChild(insertPlan);
         }
 
         @Nonnull

@@ -82,9 +82,9 @@ import java.util.stream.Stream;
  */
 @API(API.Status.INTERNAL)
 public abstract class RecordQueryAbstractDataModificationPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Abstract-Data-Modification-Plan");
-
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryAbstractDataModificationPlan.class);
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Abstract-Data-Modification-Plan");
+    public static final CorrelationIdentifier CURRENT_MODIFIED_RECORD = CorrelationIdentifier.uniqueID(Quantifier.class);
 
     @Nonnull
     private final Quantifier.Physical inner;
@@ -178,7 +178,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
-                                            .setBinding(Quantifier.CURRENT, storedRecord.getRecord()) // post-mutation
+                                            .setBinding(CURRENT_MODIFIED_RECORD, storedRecord.getRecord()) // post-mutation
                                             .build(context.getTypeRepository());
                                     final var result = computationValue.eval(store, nestedContext);
                                     return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
@@ -216,7 +216,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
-                        alias -> !alias.equals(Quantifier.CURRENT));
+                        alias -> !alias.equals(CURRENT_MODIFIED_RECORD));
         if (transformationsTrie != null) {
             final var aliasesFromTransformationsTrieIterator =
                     transformationsTrie.values()
@@ -436,8 +436,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
         if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
-            final var targetElementType = (Type.Array)targetType;
-            final var currentElementType = (Type.Array)currentType;
+            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetType).getElementType());
+            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentType).getElementType());
             return computePromotionsTrie(targetElementType, currentElementType, null);
         }
 

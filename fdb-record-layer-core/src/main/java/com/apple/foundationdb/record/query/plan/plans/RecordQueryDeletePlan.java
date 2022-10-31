@@ -85,11 +85,6 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     @Nonnull
-    public Supplier<Value> getResultValueSupplier() {
-        return resultValueSupplier;
-    }
-
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -237,12 +232,12 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                                 ImmutableList.of(getTargetRecordType())),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationOperatorNodeWithInfo(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("DELETE"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
     /**

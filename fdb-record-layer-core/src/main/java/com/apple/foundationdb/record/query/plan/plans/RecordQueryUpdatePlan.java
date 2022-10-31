@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -128,6 +129,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        Verify.verify(childGraphs.size() == 1);
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
@@ -135,12 +137,12 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                 ImmutableList.of(getTargetRecordType())),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationOperatorNodeWithInfo(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("UPDATE"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
     /**
@@ -164,7 +166,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param transformMap a map of field paths to values.
-     * @param computationValue a value to be computed based on the {@code inner} and {@link Quantifier#CURRENT}
+     * @param computationValue a value to be computed based on the {@code inner} and
+     *        {@link RecordQueryAbstractDataModificationPlan#CURRENT_MODIFIED_RECORD}
      * @return a newly created {@link RecordQueryUpdatePlan}
      */
     @Nonnull

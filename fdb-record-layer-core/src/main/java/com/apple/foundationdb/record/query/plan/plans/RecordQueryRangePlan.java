@@ -70,6 +70,10 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
         this.exclusiveLimitValue = exclusiveLimitValue;
     }
 
+    public Value getExclusiveLimitValue() {
+        return exclusiveLimitValue;
+    }
+
     @Nonnull
     @Override
     public Value getResultValue() {

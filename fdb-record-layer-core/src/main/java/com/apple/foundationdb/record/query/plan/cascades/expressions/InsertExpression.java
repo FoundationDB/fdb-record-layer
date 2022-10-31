@@ -39,6 +39,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -174,12 +175,12 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
                                 ImmutableList.of(targetRecordType)),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationLogicalOperatorNode(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
     @Nonnull

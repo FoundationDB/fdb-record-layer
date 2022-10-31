@@ -40,6 +40,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -54,7 +55,7 @@ import java.util.stream.Collectors;
 /**
  * A logical version of {@link RecordQueryUpdatePlan}.
  *
- * @see ImplementUpdateRule which converts this to a {@link RecordQueryUpdatePlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule which converts this to a {@link RecordQueryUpdatePlan}
  */
 public class UpdateExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 
@@ -95,6 +96,11 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         this.transformMap = ImmutableMap.copyOf(transformMap);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+    }
+
+    @Nonnull
+    public Type.Record getTargetType() {
+        return targetType;
     }
 
     @Override
@@ -210,12 +216,12 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
                                 ImmutableList.of(targetRecordType)),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationLogicalOperatorNode(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("UPDATE"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
     @Nonnull
@@ -226,7 +232,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Nonnull
-    private static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
+    public static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
         final var oldColumn =
                 Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), inner.getFlowedObjectValue());
         final var newColumn =

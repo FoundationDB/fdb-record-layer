@@ -33,6 +33,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -42,10 +43,10 @@ import java.util.Set;
 /**
  * A logical version of {@link RecordQueryDeletePlan}.
  *
- * @see ImplementDeleteRule which converts this to a {@link RecordQueryDeletePlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule which converts this
+ *      to a {@link RecordQueryDeletePlan}
  */
 public class DeleteExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
-
     @Nonnull
     private final Quantifier.ForEach inner;
     @Nonnull
@@ -149,11 +150,11 @@ public class DeleteExpression implements RelationalExpressionWithChildren, Plann
                                 ImmutableList.of(targetRecordType)),
                         ImmutableList.of());
 
-        return PlannerGraph.fromNodeAndChildGraphs(
+        return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationLogicalOperatorNode(this,
                         NodeInfo.MODIFICATION_OPERATOR,
                         ImmutableList.of("DELETE"),
                         ImmutableMap.of()),
-                ImmutableList.<PlannerGraph>builder().addAll(childGraphs).add(graphForTarget).build());
+                Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 }

@@ -512,8 +512,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                  @Nonnull final CorrelationIdentifier upperBaseAlias) {
         return Streams.stream(toBePushedDownValues)
-                .map(toBePulledUpValue ->
-                        toBePulledUpValue.replaceLeavesMaybe(value -> {
+                .map(toBePushedDownValue ->
+                        toBePushedDownValue.replaceLeavesMaybe(value -> {
                             if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
                                 return this;
                             }
