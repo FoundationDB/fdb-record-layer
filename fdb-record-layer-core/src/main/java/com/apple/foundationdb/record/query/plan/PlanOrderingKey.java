@@ -35,8 +35,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -103,12 +101,11 @@ public class PlanOrderingKey {
         if (primaryKey == null) {
             return null;
         }
+        
         while (queryPlan instanceof RecordQueryPlanWithChild) {
             // as long as we can tunnel through single-child plans
             if (queryPlan instanceof RecordQueryFilterPlan ||
-                    queryPlan instanceof RecordQueryTypeFilterPlan ||
-                    queryPlan instanceof RecordQueryUnorderedDistinctPlan ||
-                    queryPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
+                    queryPlan instanceof RecordQueryTypeFilterPlan) {
                 // if we know the kind of plan does not modify the ordered-ness
                 queryPlan = ((RecordQueryPlanWithChild)queryPlan).getChild();
             } else {

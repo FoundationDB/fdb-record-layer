@@ -50,9 +50,11 @@ import java.util.function.Predicate;
 public class IndexKeyValueToPartialRecord {
     @Nonnull
     private final List<Copier> copiers;
+    private final boolean isRequired;
 
-    private IndexKeyValueToPartialRecord(@Nonnull List<Copier> copiers) {
+    private IndexKeyValueToPartialRecord(@Nonnull List<Copier> copiers, boolean isRequired) {
         this.copiers = copiers;
+        this.isRequired = isRequired;
     }
 
     @Nonnull
@@ -68,6 +70,9 @@ public class IndexKeyValueToPartialRecord {
             if (copier.copy(recordDescriptor, recordBuilder, kv)) {
                 allCopiersRefused = false;
             }
+        }
+        if (isRequired) {
+            return recordBuilder.build();
         }
         return allCopiersRefused ? null : recordBuilder.build();
     }
@@ -290,11 +295,11 @@ public class IndexKeyValueToPartialRecord {
     }
 
     public static Builder newBuilder(@Nonnull RecordType recordType) {
-        return new Builder(recordType);
+        return new Builder(recordType, true);
     }
 
     public static Builder newBuilder(@Nonnull Descriptors.Descriptor recordDescriptor) {
-        return new Builder(recordDescriptor);
+        return new Builder(recordDescriptor, true);
     }
 
     /**
@@ -309,14 +314,17 @@ public class IndexKeyValueToPartialRecord {
         private final Map<String, Builder> nestedBuilders;
         private final List<Copier> regularCopiers = new ArrayList<>();
 
-        private Builder(@Nonnull RecordType recordType) {
-            this(recordType.getDescriptor());
+        private final boolean isRequired;
+
+        private Builder(@Nonnull RecordType recordType, boolean isRequired) {
+            this(recordType.getDescriptor(), isRequired);
         }
 
-        private Builder(@Nonnull Descriptors.Descriptor recordDescriptor) {
+        private Builder(@Nonnull Descriptors.Descriptor recordDescriptor, boolean isRequired) {
             this.recordDescriptor = recordDescriptor;
             this.fields = new TreeMap<>();
             this.nestedBuilders = new TreeMap<>();
+            this.isRequired = isRequired;
         }
         
         public boolean hasField(@Nonnull String field) {
@@ -351,7 +359,7 @@ public class IndexKeyValueToPartialRecord {
                 if (fieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
                     throw new RecordCoreException("not a nested message: " + field);
                 }
-                builder = new Builder(fieldDescriptor.getMessageType());
+                builder = new Builder(fieldDescriptor.getMessageType(), fieldDescriptor.isRequired());
                 nestedBuilders.put(field, builder);
             }
             return builder;
@@ -360,7 +368,7 @@ public class IndexKeyValueToPartialRecord {
         public void addRequiredMessageFields() {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() && fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                    nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType()));
+                    nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType(), true));
                 }
             }
         }
@@ -402,7 +410,7 @@ public class IndexKeyValueToPartialRecord {
                 copiers.add(new MessageCopier(entry.getKey(), entry.getValue().build()));
             }
             copiers.addAll(regularCopiers);
-            return new IndexKeyValueToPartialRecord(copiers);
+            return new IndexKeyValueToPartialRecord(copiers, isRequired);
         }
     }
 }
