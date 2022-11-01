@@ -35,6 +35,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Revert** Reverts [PR #1888](https://github.com/FoundationDB/fdb-record-layer/pull/1888) which led to plan instability issues
 
 // end next release
 -->
