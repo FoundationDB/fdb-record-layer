@@ -35,6 +35,7 @@ public interface StreamableAggregateValue extends AggregateValue, WithNamedOpera
     /*
      * empty interface.
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
     default boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {

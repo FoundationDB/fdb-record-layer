@@ -130,7 +130,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
         return semanticHashCode();
     }
 
-
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {
