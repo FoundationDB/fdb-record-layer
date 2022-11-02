@@ -589,10 +589,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(prefix);
                         // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we
                         // may store something at the group root as well.
-                        final byte[] indexKey = indexSubspace.pack(leaderboardGroupKey);
-                        tr.clear(indexKey, ByteArrayUtil.strinc(indexKey));
-                        final byte[] ranksetKey = extraSubspace.pack(leaderboardGroupKey);
-                        tr.clear(ranksetKey, ByteArrayUtil.strinc(ranksetKey));
+                        tr.clear(indexSubspace.pack(leaderboardGroupKey));
+                        tr.clear(extraSubspace.pack(leaderboardGroupKey));
                     }
                 }
             }
