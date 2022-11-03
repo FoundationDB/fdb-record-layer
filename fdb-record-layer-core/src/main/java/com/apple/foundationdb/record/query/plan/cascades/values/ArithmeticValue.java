@@ -57,7 +57,7 @@ import java.util.function.Supplier;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ArithmeticValue implements Value, WithNamedOperator {
+public class ArithmeticValue implements Value {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
     @Nonnull
@@ -192,12 +192,6 @@ public class ArithmeticValue implements Value, WithNamedOperator {
             mapBuilder.put(Triple.of(operator.getLogicalOperator(), operator.getLeftArgType(), operator.getRightArgType()), operator);
         }
         return mapBuilder.build();
-    }
-
-    @Nonnull
-    @Override
-    public String getOperatorName() {
-        return getLogicalOperator().name();
     }
 
     /**
