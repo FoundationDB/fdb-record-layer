@@ -157,6 +157,16 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return false;
     }
 
+    @Override
+    public int getColumnSize() {
+        return primaryKey.getColumnSize(); // not sure this is correct.
+    }
+
+    @Override
+    public boolean isUnique() {
+        return true;
+    }
+
     @Nonnull
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,

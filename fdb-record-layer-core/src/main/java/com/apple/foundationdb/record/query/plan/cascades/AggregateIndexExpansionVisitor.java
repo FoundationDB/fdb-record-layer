@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexBackedAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -251,8 +251,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     private static Map<String, BuiltInFunction<? extends Value>> computeAggregateMap() {
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
-        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexBackedAggregateValue.MaxEverLongFn());
-        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexBackedAggregateValue.MinEverLongFn());
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverLongFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverLongFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         return mapBuilder.build();

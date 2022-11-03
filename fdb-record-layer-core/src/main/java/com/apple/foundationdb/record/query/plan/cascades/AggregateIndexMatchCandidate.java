@@ -150,6 +150,16 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         return index.getRootExpression().createsDuplicates();
     }
 
+    @Override
+    public int getColumnSize() {
+        return index.getColumnSize();
+    }
+
+    @Override
+    public boolean isUnique() {
+        return index.isUnique();
+    }
+
     @Nonnull
     @Override
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
@@ -157,7 +167,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
-                getFullKeyExpression().normalizeKeyForPositions();
+                ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();

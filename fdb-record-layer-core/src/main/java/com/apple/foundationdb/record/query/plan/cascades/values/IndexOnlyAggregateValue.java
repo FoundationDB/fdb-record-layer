@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -48,7 +49,7 @@ import java.util.Locale;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public class IndexBackedAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, WithNamedOperator {
+public class IndexOnlyAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Backed-Aggregate-Value");
 
@@ -64,12 +65,12 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     private final Value child;
 
     /**
-     * Creates a new instance of {@link IndexBackedAggregateValue}.
+     * Creates a new instance of {@link IndexOnlyAggregateValue}.
      * @param operator the aggregation function.
      * @param child the child {@link Value}.
      */
-    private IndexBackedAggregateValue(@Nonnull final PhysicalOperator operator,
-                                     @Nonnull final Value child) {
+    protected IndexOnlyAggregateValue(@Nonnull final PhysicalOperator operator,
+                                      @Nonnull final Value child) {
         this.operator = operator;
         this.child = child;
     }
@@ -82,12 +83,6 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
 
     @Nonnull
     @Override
-    public String getOperatorName() {
-        return operator.name();
-    }
-
-    @Nonnull
-    @Override
     public Type getResultType() {
         return child.getResultType();
     }
@@ -95,7 +90,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     @Nonnull
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
-        return new IndexBackedAggregateValue(operator, rebasedChild);
+        return new IndexOnlyAggregateValue(operator, rebasedChild);
     }
 
     @Nonnull
@@ -137,7 +132,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
             return true;
         }
 
-        return other.getClass() == getClass() && ((IndexBackedAggregateValue)other).operator.equals(operator);
+        return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -147,17 +142,67 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    @Nonnull
-    private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                              @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                              @Nonnull final List<Typed> arguments) {
-        Verify.verify(arguments.size() == 1);
-        final Typed arg0 = arguments.get(0);
-        final Type type0 = arg0.getResultType();
-        // todo: adapt this once we support MIN_EVER_TUPLE and MAX_EVER_TUPLE.
-        SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in numeric aggregation operation");
-        return new IndexBackedAggregateValue(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
+    static class MinEverLongAggregateValue extends IndexOnlyAggregateValue implements IndexableAggregateValue {
+
+        /**
+         * Creates a new instance of {@link MinEverLongAggregateValue}.
+         *
+         * @param operator the aggregation function.
+         * @param child the child {@link Value}.
+         */
+        MinEverLongAggregateValue(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexName() {
+            return IndexTypes.MIN_EVER_LONG;
+        }
+
+        @Nonnull
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            Verify.verify(arguments.size() == 1);
+            final Typed arg0 = arguments.get(0);
+            final Type type0 = arg0.getResultType();
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MIN_EVER_LONG));
+            return new MaxEverLongAggregateValue(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
+        }
     }
+
+    static class MaxEverLongAggregateValue extends IndexOnlyAggregateValue implements IndexableAggregateValue {
+
+        /**
+         * Creates a new instance of {@link MaxEverLongAggregateValue}.
+         *
+         * @param operator the aggregation function.
+         * @param child the child {@link Value}.
+         */
+        MaxEverLongAggregateValue(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexName() {
+            return IndexTypes.MAX_EVER_LONG;
+        }
+
+        @Nonnull
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            Verify.verify(arguments.size() == 1);
+            final Typed arg0 = arguments.get(0);
+            final Type type0 = arg0.getResultType();
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MAX_EVER_LONG));
+            return new MaxEverLongAggregateValue(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
+        }
+    }
+
+
 
     /**
      * The {@code min_ever} function.
@@ -165,7 +210,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     @AutoService(BuiltInFunction.class)
     public static class MinEverLongFn extends BuiltInFunction<AggregateValue> {
         public MinEverLongFn() {
-            super(PhysicalOperator.MIN_EVER_LONG.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
+            super(PhysicalOperator.MIN_EVER_LONG.name(), ImmutableList.of(new Type.Any()), MinEverLongAggregateValue::encapsulate);
         }
     }
 
@@ -175,7 +220,7 @@ public class IndexBackedAggregateValue implements AggregateValue, Value.CompileT
     @AutoService(BuiltInFunction.class)
     public static class MaxEverLongFn extends BuiltInFunction<AggregateValue> {
         public MaxEverLongFn() {
-            super(PhysicalOperator.MAX_EVER_LONG.name(), ImmutableList.of(new Type.Any()), IndexBackedAggregateValue::encapsulate);
+            super(PhysicalOperator.MAX_EVER_LONG.name(), ImmutableList.of(new Type.Any()), MaxEverLongAggregateValue::encapsulate);
         }
     }
 }

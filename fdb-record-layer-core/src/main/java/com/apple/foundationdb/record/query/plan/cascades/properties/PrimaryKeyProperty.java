@@ -125,10 +125,6 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Nonnull
         @Override
         public Optional<List<Value>> visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-            final var indexPlan = aggregateIndexPlan.getIndexPlan();
-            if (indexPlan instanceof RecordQueryIndexPlan) {
-                return visitIndexPlan((RecordQueryIndexPlan)indexPlan);
-            }
             return Optional.empty();
         }
 

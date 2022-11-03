@@ -119,7 +119,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
-            return true;
+            return false;
         }
 
         @Nonnull

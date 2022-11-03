@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -31,9 +30,6 @@ import java.util.Optional;
  */
 public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidate {
 
-    @Nonnull
-    Index getIndex();
-    
     @Nonnull
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier sourceAlias,

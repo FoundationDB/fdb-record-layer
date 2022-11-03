@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -50,18 +51,42 @@ import java.util.function.UnaryOperator;
  * A counting aggregate value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CountValue implements StreamableAggregateValue {
+public class CountValue implements AggregateValue, StreamableAggregateValue, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
     @Nonnull
-    private final PhysicalOperator operator;
+    protected final PhysicalOperator operator;
     @Nullable
     private final Value child;
 
+    @Nonnull
+    private final String indexName;
+
+    public CountValue(@Nonnull final Value child) {
+        this(isCountStar(child), child);
+    }
+
+    public CountValue(boolean isCountStar, @Nonnull final Value child) {
+        this(isCountStar ? PhysicalOperator.COUNT_STAR : PhysicalOperator.COUNT, child);
+    }
+
+    public CountValue(@Nonnull PhysicalOperator operator, @Nullable Value child) {
+        this(operator, child, operator == PhysicalOperator.COUNT ? IndexTypes.COUNT_NOT_NULL : IndexTypes.COUNT);
+    }
+
     public CountValue(@Nonnull PhysicalOperator operator,
-                      @Nullable Value child) {
+                      @Nullable Value child,
+                      @Nonnull String indexName) {
         this.operator = operator;
         this.child = child;
+        this.indexName = indexName;
+    }
+
+    private static boolean isCountStar(@Nonnull Typed valueType) {
+        // todo: we should dispatch on the right function depending on whether the child
+        // value type is nullable or not. The '*' in count(*) must be guaranteed to be not-null
+        // during plan generation.
+        return !valueType.getResultType().isPrimitive();
     }
 
     @Nullable
@@ -100,12 +125,6 @@ public class CountValue implements StreamableAggregateValue {
     @Override
     public Type getResultType() {
         return Type.primitiveType(operator.getResultTypeCode());
-    }
-
-    @Nonnull
-    @Override
-    public String getOperatorName() {
-        return operator.name();
     }
 
     @Nonnull
@@ -152,6 +171,12 @@ public class CountValue implements StreamableAggregateValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
+    @Override
+    public String getIndexName() {
+        return indexName;
+    }
+
     /**
      * The {@code count(x)} function.
      */
@@ -168,26 +193,7 @@ public class CountValue implements StreamableAggregateValue {
                                                   @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<Typed> arguments) {
             final Typed arg0 = arguments.get(0);
-            return new CountValue(PhysicalOperator.COUNT, (Value)arg0);
-        }
-    }
-
-    /**
-     * The {@code count(*)} function.
-     */
-    @AutoService(BuiltInFunction.class)
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    public static class CountStarFn extends BuiltInFunction<AggregateValue> {
-        public CountStarFn() {
-            super("count",
-                    ImmutableList.of(), CountStarFn::encapsulate);
-        }
-
-        @Nonnull
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
-            return new CountValue(PhysicalOperator.COUNT_STAR, null);
+            return new CountValue((Value)arg0);
         }
     }
 

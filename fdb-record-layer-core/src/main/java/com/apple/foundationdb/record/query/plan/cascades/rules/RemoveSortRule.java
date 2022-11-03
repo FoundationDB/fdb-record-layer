@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -150,10 +149,9 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         if (orderedPlan instanceof RecordQueryIndexPlan) {
             RecordQueryIndexPlan indexPlan = (RecordQueryIndexPlan)orderedPlan;
             final var matchCandidateOptional = indexPlan.getMatchCandidateMaybe();
-            if (matchCandidateOptional.isPresent() && matchCandidateOptional.get() instanceof ScanWithFetchMatchCandidate) {
-                final var matchCandidate = (ScanWithFetchMatchCandidate)matchCandidateOptional.get();
-                final var index = matchCandidate.getIndex();
-                return index.isUnique() && nkeys >= index.getColumnSize();
+            if (matchCandidateOptional.isPresent()) {
+                final var matchCandidate = matchCandidateOptional.get();
+                return matchCandidate.isUnique() && nkeys >= matchCandidate.getColumnSize();
             }
         }
         return false;

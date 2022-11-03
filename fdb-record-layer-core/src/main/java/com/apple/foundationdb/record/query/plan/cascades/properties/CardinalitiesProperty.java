@@ -125,8 +125,26 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Nonnull
     @Override
     public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-        // TODO be better
-        return Cardinalities.unknownCardinalities();
+        final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
+        if (groupingValueMaybe.isEmpty()) {
+            return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+        }
+        final var groupingValue = groupingValueMaybe.get();
+        final var indexScanPlan = aggregateIndexPlan.getIndexPlan();
+        final var primaryMatchCandidate = indexScanPlan.getMatchCandidateMaybe();
+        if (primaryMatchCandidate.isEmpty()) {
+            return Cardinalities.unknownCardinalities();
+        }
+        final var ordering = primaryMatchCandidate.get()
+                .computeOrderingFromScanComparisons(
+                        indexScanPlan.getComparisons(),
+                        indexScanPlan.isReverse(),
+                        false);
+        if (ordering.getEqualityBoundValues().contains(groupingValue)) {
+            return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
+        } else {
+            return Cardinalities.unknownCardinalities();
+        }
     }
 
     @Nonnull

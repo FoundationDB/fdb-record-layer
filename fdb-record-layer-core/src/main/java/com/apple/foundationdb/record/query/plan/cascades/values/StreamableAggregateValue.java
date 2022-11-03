@@ -21,27 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-
-import javax.annotation.Nonnull;
 
 /**
- * Signature interface used to mark {@link AggregateValue} implementations that can be calculated by a
+ * Tag interface used to mark {@link AggregateValue} implementations that can be calculated by a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan} operator.
  * This is mainly used for matching.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface StreamableAggregateValue extends AggregateValue, WithNamedOperator {
-    /*
-     * empty interface.
-     */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Override
-    default boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-
-        return other.getClass() == getClass() && getOperatorName().equals(((StreamableAggregateValue)other).getOperatorName());
-    }
+public interface StreamableAggregateValue {
 }

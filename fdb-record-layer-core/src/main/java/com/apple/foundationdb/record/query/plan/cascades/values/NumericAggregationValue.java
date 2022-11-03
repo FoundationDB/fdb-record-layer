@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -50,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -60,7 +62,7 @@ import static java.util.function.UnaryOperator.identity;
  * Aggregation over numeric values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NumericAggregationValue implements ValueWithChild, StreamableAggregateValue {
+public abstract class NumericAggregationValue implements ValueWithChild, AggregateValue {
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
     @Nonnull
@@ -68,11 +70,11 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
             Suppliers.memoize(NumericAggregationValue::computeOperatorMap);
 
     @Nonnull
-    private final PhysicalOperator operator;
+    protected final PhysicalOperator operator;
     @Nonnull
     private final Value child;
     
-    public NumericAggregationValue(@Nonnull PhysicalOperator operator,
+    protected NumericAggregationValue(@Nonnull PhysicalOperator operator,
                                    @Nonnull Value child) {
         this.operator = operator;
         this.child = child;
@@ -82,6 +84,108 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
+    }
+
+    /**
+     * Sum aggregation {@code Value}.
+     */
+    public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+
+        public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexName() {
+            return IndexTypes.SUM;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Sum(operator, newChild);
+        }
+    }
+
+    /**
+     * Average aggregation {@code Value}.
+     */
+    public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Avg(operator, newChild);
+        }
+    }
+
+    /**
+     * Min aggregation {@code Value}.
+     */
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Min(operator, newChild);
+        }
+    }
+
+    /**
+     * Max aggregation {@code Value}.
+     */
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
+                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Max(operator, newChild);
+        }
     }
 
     @Nullable
@@ -110,20 +214,8 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
 
     @Nonnull
     @Override
-    public String getOperatorName() {
-        return operator.logicalOperator.name();
-    }
-
-    @Nonnull
-    @Override
     public Value getChild() {
         return child;
-    }
-
-    @Nonnull
-    @Override
-    public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-        return new NumericAggregationValue(this.operator, newChild);
     }
 
     @Override
@@ -159,15 +251,9 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                              @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                              @Nonnull final List<Typed> arguments) {
-        return encapsulate(builtInFunction.getFunctionName(), arguments);
-    }
-
-    @Nonnull
-    private static AggregateValue encapsulate(@Nonnull final String functionName, @Nonnull final List<Typed> arguments) {
+    private static AggregateValue encapsulate(@Nonnull final String functionName,
+                                              @Nonnull final List<Typed> arguments,
+                                              @Nonnull final BiFunction<PhysicalOperator, Value, NumericAggregationValue> valueSupplier) {
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
@@ -182,7 +268,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate aggregate operation due to type mismatch(es)");
 
-        return new NumericAggregationValue(physicalOperator, (Value)arg0);
+        return valueSupplier.apply(physicalOperator, (Value)arg0);
     }
 
     private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -200,7 +286,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     public static class SumFn extends BuiltInFunction<AggregateValue> {
         public SumFn() {
             super("sum",
-                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+                    ImmutableList.of(new Type.Any()), Sum::encapsulate);
         }
     }
 
@@ -211,7 +297,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     public static class AvgFn extends BuiltInFunction<AggregateValue> {
         public AvgFn() {
             super("avg",
-                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+                    ImmutableList.of(new Type.Any()), Avg::encapsulate);
         }
     }
 
@@ -222,7 +308,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     public static class MinFn extends BuiltInFunction<AggregateValue> {
         public MinFn() {
             super("min",
-                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+                    ImmutableList.of(new Type.Any()), Min::encapsulate);
         }
     }
 
@@ -233,7 +319,7 @@ public class NumericAggregationValue implements ValueWithChild, StreamableAggreg
     public static class MaxFn extends BuiltInFunction<AggregateValue> {
         public MaxFn() {
             super("max",
-                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+                    ImmutableList.of(new Type.Any()), Max::encapsulate);
         }
     }
 

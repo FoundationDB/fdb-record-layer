@@ -78,98 +78,98 @@ class AggregateValueTest {
 
     @Test
     void testSum() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), ints, 21);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longs, 21L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floats, 21F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doubles, 21D);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_I, ofScalar(1)), ints, 21);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_L, ofScalar(1L)), longs, 21L);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_F, ofScalar(1F)), floats, 21F);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_D, ofScalar(1D)), doubles, 21D);
     }
 
     @Test
     void testSumWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), intsWithNulls, 18);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longsWithNulls, 18L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floatsWithNulls, 18F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doublesWithNulls, 18D);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_I, ofScalar(1)), intsWithNulls, 18);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_L, ofScalar(1L)), longsWithNulls, 18L);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_F, ofScalar(1F)), floatsWithNulls, 18F);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_D, ofScalar(1D)), doublesWithNulls, 18D);
     }
 
     @Test
     void testSumOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)), intsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_L, ofScalar(1L)), longsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.SUM_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
     void testMin() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), ints, 1);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longs, 1L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floats, 1F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doubles, 1D);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_I, ofScalar(1)), ints, 1);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_L, ofScalar(1L)), longs, 1L);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_F, ofScalar(1F)), floats, 1F);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_D, ofScalar(1D)), doubles, 1D);
     }
 
     @Test
     void testMinWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), intsWithNulls, 1);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longsWithNulls, 1L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floatsWithNulls, 1F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doublesWithNulls, 1D);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_I, ofScalar(1)), intsWithNulls, 1);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_L, ofScalar(1L)), longsWithNulls, 1L);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_F, ofScalar(1F)), floatsWithNulls, 1F);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_D, ofScalar(1D)), doublesWithNulls, 1D);
     }
 
     @Test
     void testMinOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_I, ofScalar(1)), intsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_L, ofScalar(1L)), longsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MIN_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
     void testMax() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), ints, 6);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longs, 6L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floats, 6F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doubles, 6D);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_I, ofScalar(1)), ints, 6);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_L, ofScalar(1L)), longs, 6L);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_F, ofScalar(1F)), floats, 6F);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_D, ofScalar(1D)), doubles, 6D);
     }
 
     @Test
     void testMaxWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), intsWithNulls, 6);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longsWithNulls, 6L);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floatsWithNulls, 6F);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doublesWithNulls, 6D);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_I, ofScalar(1)), intsWithNulls, 6);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_L, ofScalar(1L)), longsWithNulls, 6L);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_F, ofScalar(1F)), floatsWithNulls, 6F);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_D, ofScalar(1D)), doublesWithNulls, 6D);
     }
 
     @Test
     void testMaxOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_I, ofScalar(1)), intsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_L, ofScalar(1L)), longsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.MAX_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Max(PhysicalOperator.MAX_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
     void testAvg() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(ints), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longs), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floats), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doubles), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(ints), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longs), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floats), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doubles), 3.5D);
     }
 
     @Test
     void testAvgWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesWithNulls), 3.6D);
     }
 
     @Test
     void testAvgOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
     }
 
     private Object[] pairsForAvg(Object[] objects) {
@@ -187,7 +187,7 @@ class AggregateValueTest {
 
         final var recordConstructorValue =
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                        new NumericAggregationValue(PhysicalOperator.SUM_I, ofScalar(1)),
+                        new NumericAggregationValue.Sum(PhysicalOperator.SUM_I, ofScalar(1)),
                         new CountValue(CountValue.PhysicalOperator.COUNT, ofScalar(1))
                 ));
 

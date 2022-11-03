@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 /**
  * A query plan that reconstructs records from the entries in an aggregate index.
@@ -65,7 +66,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
     @Nonnull
-    private final RecordQueryPlanWithIndex indexPlan;
+    private final RecordQueryIndexPlan indexPlan;
     @Nonnull
     private final String recordTypeName;
     @Nonnull
@@ -86,7 +87,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
      * @param partialRecordDescriptor The descriptor of the resulting record.
      * @param resultValue The result value.
      */
-    public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryPlanWithIndex indexPlan,
+    public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
                                          @Nonnull final String recordTypeName,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
                                          @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
@@ -118,8 +119,17 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Nonnull
-    public RecordQueryPlanWithIndex getIndexPlan() {
+    public RecordQueryIndexPlan getIndexPlan() {
         return indexPlan;
+    }
+
+    public Optional<Value> getGroupingValueMaybe() {
+        final var hasGroupingValue = StreamSupport.stream(resultValue.getChildren().spliterator(), false).count() > 1;
+        if (hasGroupingValue) {
+            return Optional.of(resultValue.getChildren().iterator().next());
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Nonnull
@@ -170,7 +180,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public RecordQueryAggregateIndexPlan strictlySorted() {
-        return new RecordQueryAggregateIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
+        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
     }
 
     @Nonnull

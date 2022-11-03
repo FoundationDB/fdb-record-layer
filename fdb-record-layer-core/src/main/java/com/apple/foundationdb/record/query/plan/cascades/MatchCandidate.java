@@ -240,6 +240,10 @@ public interface MatchCandidate {
     @Nonnull
     List<RecordType> getQueriedRecordTypes();
 
+    int getColumnSize();
+
+    boolean isUnique();
+
     @Nonnull
     default Set<String> getQueriedRecordTypeNames() {
         return getQueriedRecordTypes().stream()

@@ -1,5 +1,5 @@
 /*
- * WithNamedPhysicalOperation.java
+ * IndexableAggregationValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,19 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 
 /**
- * trait that allows a class, typically a {@link Value} to return the name of the underlying physical operator.
+ * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
  */
-public interface WithNamedOperator {
+@API(API.Status.EXPERIMENTAL)
+public interface IndexableAggregateValue {
 
     @Nonnull
-    String getOperatorName();
-
-    /**
-     * create index mv1 as select sum(x) from t group by y;
-     *
-     */
+    String getIndexName();
 
 }

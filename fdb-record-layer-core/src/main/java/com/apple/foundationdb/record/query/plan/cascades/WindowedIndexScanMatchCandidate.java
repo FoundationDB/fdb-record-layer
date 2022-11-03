@@ -158,10 +158,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
-    @Nonnull
     @Override
-    public Index getIndex() {
-        return index;
+    public int getColumnSize() {
+        return index.getColumnSize();
+    }
+
+    @Override
+    public boolean isUnique() {
+        return index.isUnique();
     }
 
     @Nonnull
