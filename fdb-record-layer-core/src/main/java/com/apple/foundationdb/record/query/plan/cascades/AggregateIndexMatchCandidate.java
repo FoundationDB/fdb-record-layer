@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
@@ -167,7 +168,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
         final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
-                ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey().normalizeKeyForPositions();
+                getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
@@ -217,7 +218,15 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
-        final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
+        final var groupingKey = ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey();
+
+        if (groupingKey instanceof EmptyKeyExpression) {
+            // TODO this should be something like anything-order.
+            return Ordering.emptyOrder();
+        }
+
+        // TODO include the aggregate Value itself in the ordering.
+        final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
