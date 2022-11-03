@@ -1120,6 +1120,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Void visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
         if (ctx.structOrTableDefinition() != null) {
             ctx.structOrTableDefinition().accept(this);
+        } else if (ctx.enumDefinition() != null) {
+            ctx.enumDefinition().accept(this);
         } else {
             typingContext.addAllToTypeRepository();
             // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
@@ -1201,6 +1203,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             return Optional.empty();
         }
         return Optional.of(ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(Collectors.toList()));
+    }
+
+    @Override
+    public Void visitEnumDefinition(RelationalParser.EnumDefinitionContext ctx) {
+        final var name = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
+        final List<String> values = ctx.STRING_LITERAL().stream()
+                .map(node -> ParserUtils.normalizeString(node.getText()))
+                .collect(Collectors.toList());
+        typingContext.addEnum(new TypingContext.EnumDefinition(name, values));
+        return null;
     }
 
     @Override

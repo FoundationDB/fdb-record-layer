@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.api.catalog.EnumInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
@@ -51,6 +52,7 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     @SuppressWarnings("PMD.LooseCoupling")
     private final LinkedHashSet<TableInfo> tables;
     private final Set<TypeInfo> customTypes;
+    private final Set<EnumInfo> enums;
     private final long version;
     private final RecordMetaDataProto.MetaData metaData;
 
@@ -58,10 +60,12 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
     public SchemaTemplateDescriptor(String name,
                                     LinkedHashSet<TableInfo> tables,
                                     Set<TypeInfo> customTypes,
+                                    Set<EnumInfo> enums,
                                     long version) {
         this.name = name;
         this.tables = tables;
         this.customTypes = customTypes;
+        this.enums = enums;
         this.version = version;
         this.metaData = null;
     }
@@ -75,6 +79,9 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
         for (RecordType recordType : recordTypeMap.values()) {
             this.tables.add(TableInfo.fromRecordType(recordType));
         }
+        this.enums = recordMetaData.getRecordsDescriptor().getEnumTypes().stream()
+                .map(eType -> new EnumInfo(eType.getName(), eType.toProto()))
+                .collect(Collectors.toSet());
         this.customTypes = recordMetaData.getRecordsDescriptor().getMessageTypes().stream().filter(mType -> !recordTypeMap.containsKey(mType.getName())).map(mType -> new TypeInfo(mType.toProto())).collect(Collectors.toSet());
         this.version = version;
     }
@@ -127,6 +134,10 @@ public class SchemaTemplateDescriptor implements SchemaTemplate {
                 .setName(name);
         for (TypeInfo customType : customTypes) {
             fileBuilder.addMessageType(customType.getDescriptor());
+        }
+
+        for (EnumInfo enumInfo : enums) {
+            fileBuilder.addEnumType(enumInfo.toDescriptor());
         }
 
         DescriptorProtos.DescriptorProto.Builder unionDescriptor = DescriptorProtos.DescriptorProto.newBuilder()

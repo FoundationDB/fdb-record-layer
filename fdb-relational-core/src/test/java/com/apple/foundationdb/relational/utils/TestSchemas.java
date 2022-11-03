@@ -47,4 +47,13 @@ public final class TestSchemas {
     public static String restaurantWithCoveringIndex() {
         return RESTAURANT_SCHEMA + " " + "CREATE INDEX record_type_covering as select rest_no, name from restaurant order by rest_no";
     }
+
+    private static String PLAYING_CARD =
+            "CREATE ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
+                    "CREATE TABLE card (id int64, suit suit, rank int64, PRIMARY KEY(id))" +
+                    "CREATE INDEX suit_idx AS SELECT suit FROM card ORDER BY suit";
+
+    public static String playingCard() {
+        return PLAYING_CARD;
+    }
 }

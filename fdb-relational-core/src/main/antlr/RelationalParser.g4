@@ -112,7 +112,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structOrTableDefinition | indexDefinition )
+        CREATE ( structOrTableDefinition | enumDefinition | indexDefinition )
     ;
 
 createStatement
@@ -147,6 +147,10 @@ columnConstraint
 primaryKeyDefinition
     : PRIMARY KEY '(' uid (COMMA uid)* ')'
     | SINGLE ROW ONLY
+    ;
+
+enumDefinition
+    : ENUM uid '(' STRING_LITERAL (COMMA STRING_LITERAL)* ')'
     ;
 
 indexDefinition

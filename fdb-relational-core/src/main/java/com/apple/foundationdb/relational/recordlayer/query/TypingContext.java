@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.catalog.EnumInfo;
 import com.apple.foundationdb.relational.api.catalog.TypeInfo;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
@@ -42,6 +43,8 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -69,12 +72,15 @@ public final class TypingContext {
     @Nonnull
     private final Set<TypeDefinition> types;
 
+    private final Set<EnumDefinition> enums;
+
     @Nonnull
     private final Multimap<String, Pair<RecordMetaDataProto.Index, List<String>>> indexes;
 
     private TypingContext() {
         typeRepositoryBuilder = TypeRepository.newBuilder();
         types = new LinkedHashSet<>();
+        enums = new LinkedHashSet<>();
         indexes = LinkedHashMultimap.create();
     }
 
@@ -84,6 +90,10 @@ public final class TypingContext {
 
     public void addType(@Nonnull final TypeDefinition typeDefinition) {
         this.types.add(typeDefinition);
+    }
+
+    public void addEnum(@Nonnull final EnumDefinition enumDefinition) {
+        this.enums.add(enumDefinition);
     }
 
     @SuppressWarnings("PMD.LooseCoupling")
@@ -106,7 +116,10 @@ public final class TypingContext {
                         .noneMatch(included -> included.equals(type)))
                 .map(t -> new TypeInfo(repository.getMessageDescriptor(t).toProto()));
         final var allTypeInfos = Streams.concat(typeInfos.stream(), residualTypeInfos).collect(Collectors.toSet());
-        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, version);
+        final var enumInfos = repository.getEnumTypes().stream()
+                .map(enumName -> new EnumInfo(enumName, repository.getEnumDescriptor(enumName).toProto()))
+                .collect(Collectors.toSet());
+        return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, enumInfos, version);
     }
 
     private KeyExpression createKeyExpression(TypeDefinition typeDef) {
@@ -125,6 +138,19 @@ public final class TypingContext {
 
     public void addAllToTypeRepository() {
         verify();
+        for (EnumDefinition enumDefinition : enums) {
+            List<Type.Enum.EnumValue> enumValues = new ArrayList<>(enumDefinition.values.size());
+            // Start counting enums at 1. In proto3 syntax, there must be a default enum value at position 0,
+            // but this value ends up being easy to confuse with an unset enum value. In the future, if we
+            // want to switch schema templates to use proto3 syntax, we can introduce an "UNSET" value
+            // at position 0 that we treat as null/unset and preserve compatibility with data on disk.
+            int valueCounter = 1;
+            for (String enumValue : enumDefinition.values) {
+                enumValues.add(new Type.Enum.EnumValue(enumValue, valueCounter++));
+            }
+            Type.Enum enumType = new ReferentialEnum(false, enumValues, enumDefinition.getName());
+            typeRepositoryBuilder.addTypeIfNeeded(enumType);
+        }
         if (types.isEmpty()) {
             return;
         }
@@ -162,19 +188,32 @@ public final class TypingContext {
     private Map<TypeDefinition, Set<TypeDefinition>> generateTypeDependencyGraph() {
         ImmutableMap.Builder<TypeDefinition, Set<TypeDefinition>> result = ImmutableMap.builder();
         for (var type : types) {
-            final var dependencyTypes = type.getDependencies()
-                    .stream().map(dep -> types.stream()
-                    .filter(t -> t.name.equals(dep))
-                    .findFirst().orElseThrow())
-                    .collect(Collectors.toSet());
+            final Set<TypeDefinition> dependencyTypes = new LinkedHashSet<>();
+            for (String dep : type.getDependencies()) {
+                if (enums.stream().anyMatch(e -> dep.equals(e.name))) {
+                    continue;
+                }
+                dependencyTypes.add(types.stream()
+                        .filter(t -> dep.equals(t.name))
+                        .findFirst()
+                        .orElseThrow());
+            }
             result.put(type, dependencyTypes);
         }
         return result.build();
     }
 
     private void verify() {
+        // check that types and enums have unique names
+        Set<String> names = new HashSet<>();
+        Streams.concat(types.stream().map(t -> t.name), enums.stream().map(e -> e.name))
+                .forEach(name -> {
+                    if (!names.add(name)) {
+                        Assert.failUnchecked("name " + name + " cannot be used for multiple types", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+                    }
+                });
         // type dependencies are self-contained here.
-        types.forEach(type -> type.getDependencies().forEach(dep -> Assert.thatUnchecked(types.stream().anyMatch(t -> dep.equals(t.name)), String.format("could not find type %s", dep))));
+        types.forEach(type -> type.getDependencies().forEach(dep -> Assert.thatUnchecked(enums.stream().anyMatch(e -> dep.equals(e.name)) || types.stream().anyMatch(t -> dep.equals(t.name)), String.format("could not find type %s", dep))));
         // check that indexes have unique names.
         final var duplicateIndexNames = indexes.values().stream().map(pair -> pair.getLeft().getName())
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
@@ -303,7 +342,45 @@ public final class TypingContext {
         private boolean isPrimitive() {
             return pbType.isPrimitive();
         }
+    }
 
+    public static class EnumDefinition {
+        @Nonnull
+        final String name;
+        @Nonnull
+        final List<String> values;
+
+        public EnumDefinition(String name, @Nonnull List<String> values) {
+            this.name = name;
+            this.values = values;
+        }
+
+        @Nonnull
+        public String getName() {
+            return name;
+        }
+
+        @Nonnull
+        public List<String> getValues() {
+            return values;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            EnumDefinition that = (EnumDefinition) o;
+            return name.equals(that.name) && values.equals(that.values);
+        }
     }
 
     @Nonnull

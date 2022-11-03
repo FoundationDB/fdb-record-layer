@@ -178,6 +178,10 @@ public abstract class RowStruct implements RelationalStruct {
         } else if (o instanceof URI) {
             //special case for database URI fields
             return o.toString();
+        } else if (o instanceof Enum<?>) {
+            return ((Enum<?>) o).name();
+        } else if (o instanceof Descriptors.EnumValueDescriptor) {
+            return ((Descriptors.EnumValueDescriptor) o).getName();
         } else {
             throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }

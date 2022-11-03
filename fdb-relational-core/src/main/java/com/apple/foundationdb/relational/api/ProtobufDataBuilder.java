@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -34,7 +35,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
-
 
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
     private final Descriptors.Descriptor typeDescriptor;
@@ -92,7 +92,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     }
 
     private DynamicMessageBuilder setFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
-        data.setField(field, coerceObject(value, field.getJavaType()));
+        data.setField(field, coerceObject(value, field));
         return this;
     }
 
@@ -123,7 +123,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
 
     @Nonnull
     private DynamicMessageBuilder addRepeatedFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
-        data.addRepeatedField(field, coerceObject(value, field.getJavaType()));
+        data.addRepeatedField(field, coerceObject(value, field));
         return this;
     }
 
@@ -247,12 +247,12 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
             } else {
                 if (field.isRepeated()) {
                     for (int i = 0; i < m.getRepeatedFieldCount(messageField); i++) {
-                        final Object coerced = coerceObject(m.getRepeatedField(messageField, i), field.getJavaType());
+                        final Object coerced = coerceObject(m.getRepeatedField(messageField, i), field);
                         newMessage.addRepeatedField(field, coerced);
                     }
                 } else {
                     if (m.hasField(messageField)) {
-                        Object coerced = coerceObject(m.getField(messageField), field.getJavaType());
+                        Object coerced = coerceObject(m.getField(messageField), field);
                         newMessage.setField(field, coerced);
                     }
                 }
@@ -262,7 +262,8 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return newMessage.build();
     }
 
-    private Object coerceObject(Object value, Descriptors.FieldDescriptor.JavaType destType) {
+    private Object coerceObject(Object value, Descriptors.FieldDescriptor fieldDescriptor) throws RelationalException {
+        var destType = fieldDescriptor.getJavaType();
         if (value instanceof Number) {
             Number n = (Number) value;
             switch (destType) {
@@ -281,6 +282,8 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
                 case STRING:
                     value = n.toString();
                     break;
+                case ENUM:
+                    throw new InvalidTypeException("Invalid enum value " + n);
                 default:
                 //don't coerce, this shouldn't happen
             }
@@ -298,6 +301,12 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
                     break;
                 case DOUBLE:
                     value = Double.parseDouble(str);
+                    break;
+                case ENUM:
+                    value = fieldDescriptor.getEnumType().findValueByName(str);
+                    if (value == null) {
+                        throw new InvalidTypeException("Invalid enum value '" + str + "'");
+                    }
                     break;
                 default:
                 //don't coerce -- this is pointless, but it's here to make checkstyle happy

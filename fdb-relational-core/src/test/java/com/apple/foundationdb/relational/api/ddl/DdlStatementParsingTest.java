@@ -39,6 +39,8 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
+
+import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,8 +49,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +56,9 @@ import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
@@ -147,6 +150,52 @@ public class DdlStatementParsingTest {
     }
 
     @Test
+    void enumFailsWithNoOptions() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE ENUM foo () " +
+                "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
+        ;
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void enumFailsWithUnquotedOptions() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE ENUM foo (OPTION_1, OPTION_2) " +
+                "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
+        ;
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void basicEnumParsedCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE ENUM my_enum ('VAL_1', 'VAL_2') " +
+                "CREATE TABLE my_table (id int64, enum_field my_enum, PRIMARY KEY(id))"
+        ;
+
+        shouldWorkWithInjectedFactory(stmt, new AbstractConstantActionFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+                Assertions.assertEquals(1, template.getTables().size(), "should have only 1 table");
+
+                DescriptorProtos.FileDescriptorProto fileDescriptorProto = template.toProtobufDescriptor();
+                Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
+                fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
+                    Assertions.assertEquals("MY_ENUM", enumDescriptorProto.getName());
+                    Assertions.assertEquals(2, enumDescriptorProto.getValueCount());
+                    Assertions.assertEquals(List.of("VAL_1", "VAL_2"), enumDescriptorProto.getValueList().stream()
+                            .map(DescriptorProtos.EnumValueDescriptorProto::getName)
+                            .collect(Collectors.toList()));
+                });
+
+                return txn -> { };
+            }
+        });
+    }
+
+    @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
         //empty template statements are invalid, and can be rejected in the parser
         final String stmt = "CREATE SCHEMA TEMPLATE test_template ";
@@ -201,7 +250,6 @@ public class DdlStatementParsingTest {
             }
         });
     }
-
 
     /*Schema Template tests*/
     @ParameterizedTest

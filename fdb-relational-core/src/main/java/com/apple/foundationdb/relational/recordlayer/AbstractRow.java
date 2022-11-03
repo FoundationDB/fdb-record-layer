@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import java.util.Arrays;
@@ -88,7 +89,11 @@ public abstract class AbstractRow implements Row {
         }
 
         Object o = getObject(position);
-        if (!(o instanceof String)) {
+        if (o instanceof Enum<?>) {
+            return ((Enum<?>) o).name();
+        } else if (o instanceof Descriptors.EnumValueDescriptor) {
+            return ((Descriptors.EnumValueDescriptor) o).getName();
+        } else if (!(o instanceof String)) {
             throw new InvalidTypeException("Value <" + o + "> cannot be cast to a String");
         }
         return (String) o;

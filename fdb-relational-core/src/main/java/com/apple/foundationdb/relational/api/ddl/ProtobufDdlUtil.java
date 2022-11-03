@@ -88,10 +88,9 @@ public final class ProtobufDdlUtil {
                 type += "BYTES";
                 break;
             case TYPE_MESSAGE:
-                type +=  descriptor.getTypeName();
-                break;
             case TYPE_ENUM:
-            //TODO(Bfines) figure this one out
+                type += descriptor.getTypeName();
+                break;
             default:
                 throw new IllegalStateException("Unexpected descriptor java type <" + descriptor.getType());
         }
@@ -125,6 +124,9 @@ public final class ProtobufDdlUtil {
                 break;
             case MESSAGE:
                 type += descriptor.getMessageType().getName();
+                break;
+            case ENUM:
+                type += descriptor.getEnumType().getName();
                 break;
             default:
                 throw new IllegalStateException("Unexpected java type :" + descriptor.getJavaType());

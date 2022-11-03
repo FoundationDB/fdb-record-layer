@@ -101,6 +101,13 @@ public final class DdlPermutationGenerator {
             return columnStatement.append(")").toString();
         }
 
+        @Override
+        public String toString() {
+            return "NamedPermutation{" +
+                    "name='" + name + '\'' +
+                    ", columnTypes=" + columnTypes +
+                    '}';
+        }
     }
 
     private DdlPermutationGenerator() {

@@ -41,6 +41,7 @@ import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.function.ThrowingConsumer;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -49,7 +50,6 @@ import java.net.URI;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.HashSet;
@@ -71,32 +71,41 @@ public class DdlSchemaTemplateTest {
                 .map(Arguments::of);
     }
 
+    private void run(ThrowingConsumer<? super RelationalStatement> operation) throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            conn.setSchema("CATALOG");
+            try (RelationalStatement statement = conn.createStatement()) {
+                operation.accept(statement);
+            } catch (RelationalException | SQLException | RuntimeException err) {
+                throw err;
+            } catch (Throwable throwable) {
+                Assertions.fail("unexpected error type", throwable);
+            }
+        }
+    }
+
     @Test
     void canDropSchemaTemplates() throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template " +
                 "CREATE STRUCT FOO_TYPE (a int64)" +
                 " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate(createColumnStatement);
+        run(statement -> {
+            statement.executeUpdate(createColumnStatement);
 
-                //verify that it's there
-                try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
-                    Assertions.assertTrue(rs.next(), "Didn't find created template!");
-                    Assertions.assertEquals("DROP_TEMPLATE", rs.getString(1));
-                    Assertions.assertFalse(rs.next(), "too many schema templates!");
-                }
-                //now drop it
-                statement.executeUpdate("DROP SCHEMA TEMPLATE drop_template");
-
-                //verify it's not there, and that means that there is an error trying to describe it
-                SQLException ve = Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template"));
-                Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE.getErrorCode(), ve.getSQLState(), "Incorrect error code");
+            //verify that it's there
+            try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
+                Assertions.assertTrue(rs.next(), "Didn't find created template!");
+                Assertions.assertEquals("DROP_TEMPLATE", rs.getString(1));
+                Assertions.assertFalse(rs.next(), "too many schema templates!");
             }
+            //now drop it
+            statement.executeUpdate("DROP SCHEMA TEMPLATE drop_template");
 
-        }
+            //verify it's not there, and that means that there is an error trying to describe it
+            SQLException ve = Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template"));
+            Assertions.assertEquals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE.getErrorCode(), ve.getSQLState(), "Incorrect error code");
+        });
     }
 
     @ParameterizedTest
@@ -105,40 +114,38 @@ public class DdlSchemaTemplateTest {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE " + table.getName() + "  " +
                 "CREATE STRUCT " + table.getTypeDefinition("TYP") +
                 " CREATE TABLE " + table.getTableDefinition("TBL");
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (RelationalStatement statement = conn.createStatement()) {
-                statement.executeUpdate(createColumnStatement);
 
-                try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
-                    Collection<Row> expectedTables = List.of(table.getPermutationAsRow("TBL"));
-                    StructMetaData expectedTableMetaData = new RelationalStructMetaData(
-                            FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
-                            FieldDescription.array("COLUMNS", false,
-                                    new RelationalStructMetaData(
-                                            FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                            FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
-                                    ))
-                    );
-                    Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
-                    Collection<Row> expectedTypes = List.of(table.getPermutationAsRow("TYP"));
-                    StructMetaData expectedTypeMetaData = new RelationalStructMetaData(
-                            FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
-                            FieldDescription.array("COLUMNS", false,
-                                    new RelationalStructMetaData(
-                                            FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                            FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
-                                    ))
-                    );
-                    Array expectedTypesArr = new RowArray(expectedTypes, expectedTypeMetaData);
+        run(statement -> {
+            statement.executeUpdate(createColumnStatement);
 
-                    ResultSetAssert.assertThat(rs)
-                            .hasNextRow()
-                            .hasRowExactly(table.getName(), expectedTypesArr, expectedTablesArr)
-                            .hasNoNextRow();
-                }
+            try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
+                Collection<Row> expectedTables = List.of(table.getPermutationAsRow("TBL"));
+                StructMetaData expectedTableMetaData = new RelationalStructMetaData(
+                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
+                        FieldDescription.array("COLUMNS", false,
+                                new RelationalStructMetaData(
+                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                                ))
+                );
+                Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
+                Collection<Row> expectedTypes = List.of(table.getPermutationAsRow("TYP"));
+                StructMetaData expectedTypeMetaData = new RelationalStructMetaData(
+                        FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
+                        FieldDescription.array("COLUMNS", false,
+                                new RelationalStructMetaData(
+                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
+                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                                ))
+                );
+                Array expectedTypesArr = new RowArray(expectedTypes, expectedTypeMetaData);
+
+                ResultSetAssert.assertThat(rs)
+                        .hasNextRow()
+                        .hasRowExactly(table.getName(), expectedTypesArr, expectedTablesArr)
+                        .hasNoNextRow();
             }
-        }
+        });
     }
 
     @ParameterizedTest
@@ -148,39 +155,36 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT " + table.getTypeDefinition("FOO") +
                 " CREATE TABLE the_table(col0 int64, col1 foo, PRIMARY KEY(col0))";
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                //do a scan of template names first, to see if there are any in there. This is mostly a protection
-                // against test contamination
-                Set<String> oldTemplateNames = new HashSet<>();
-                try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
-                    while (rs.next()) {
-                        oldTemplateNames.add(rs.getString(1));
-                    }
+        run(statement -> {
+            //do a scan of template names first, to see if there are any in there. This is mostly a protection
+            // against test contamination
+            Set<String> oldTemplateNames = new HashSet<>();
+            try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+                while (rs.next()) {
+                    oldTemplateNames.add(rs.getString(1));
                 }
-                //now find ourselves a nice template name to use.
-                //apply Gödel's diagnolisation
-                final var namesAsList = oldTemplateNames
-                        .stream().map(s -> s.length() < oldTemplateNames.size() ? s = s + Strings.repeat(" ", oldTemplateNames.size() - s.length() + 1) : s)
-                        .collect(Collectors.toList());
-                final var unique = IntStream.range(0, namesAsList.size())
-                        .mapToObj(i -> namesAsList.get(i).charAt(i) == Character.MAX_VALUE ? (char) i : (char) (namesAsList.get(i).charAt(i) + 1))
-                        .map(Object::toString)
-                        .collect(Collectors.joining()).concat("NEW_TEMPLATE");
-                columnStatement = columnStatement.replace("<TEST_TEMPLATE>", unique);
-                statement.executeUpdate(columnStatement);
-                Set<String> templateNames = new HashSet<>();
-                try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
-                    while (rs.next()) {
-                        templateNames.add(rs.getString(1));
-                    }
-                }
-
-                oldTemplateNames.add(unique);
-                Assertions.assertEquals(oldTemplateNames, templateNames, "Incorrect returned Schema template list!");
             }
-        }
+            //now find ourselves a nice template name to use.
+            //apply Cantor's diagnolisation
+            final var namesAsList = oldTemplateNames
+                    .stream().map(s -> s.length() < oldTemplateNames.size() ? s = s + Strings.repeat(" ", oldTemplateNames.size() - s.length() + 1) : s)
+                    .collect(Collectors.toList());
+            final var uniqueName = IntStream.range(0, namesAsList.size())
+                    .mapToObj(i -> namesAsList.get(i).charAt(i) == Character.MAX_VALUE ? (char) i : (char) (namesAsList.get(i).charAt(i) + 1))
+                    .map(Object::toString)
+                    .collect(Collectors.joining()).concat("NEW_TEMPLATE");
+            String uniqueStatement = columnStatement.replace("<TEST_TEMPLATE>", uniqueName);
+            statement.executeUpdate(uniqueStatement);
+            Set<String> templateNames = new HashSet<>();
+            try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+                while (rs.next()) {
+                    templateNames.add(rs.getString(1));
+                }
+            }
+
+            oldTemplateNames.add(uniqueName);
+            Assertions.assertEquals(oldTemplateNames, templateNames, "Incorrect returned Schema template list!");
+        });
     }
 
     @Test
@@ -188,13 +192,8 @@ public class DdlSchemaTemplateTest {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
                 "CREATE STRUCT not_a_table(a int64);";
 
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
-                        .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
-            }
-        }
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
+                .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE));
     }
 
     @Test
@@ -203,13 +202,10 @@ public class DdlSchemaTemplateTest {
                 "CREATE STRUCT s1 (a s2) " +
                 "CREATE STRUCT s2 (a s1) " +
                 "CREATE TABLE t1 (id int64, a s1, b s2, PRIMARY KEY(id))";
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
-            try (Statement statement = conn.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
-                        .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                        .hasMessageContaining("cyclic");
-            }
-        }
+
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                .hasMessageContaining("cyclic"));
     }
 
     @Test
@@ -223,19 +219,132 @@ public class DdlSchemaTemplateTest {
             template.append("c").append(i).append(" s").append(i).append(",");
         }
         template.append(" PRIMARY KEY(id))");
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
-            try (RelationalStatement statement = conn.createStatement()) {
-                statement.executeUpdate(template.toString());
-                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow();
-                    try (RelationalResultSet types = resultSet.getArray("TYPES").getResultSet()) {
-                        int count;
-                        for (count = 0; types.next(); count++) {
-                        }
-                        Assertions.assertEquals(100, count);
+
+        run(statement -> {
+            statement.executeUpdate(template.toString());
+            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
+                ResultSetAssert.assertThat(resultSet).hasNextRow();
+                try (RelationalResultSet types = resultSet.getArray("TYPES").getResultSet()) {
+                    int count;
+                    for (count = 0; types.next(); count++) {
                     }
+                    Assertions.assertEquals(100, count);
                 }
             }
-        }
+        });
+    }
+
+    @Test
+    void missingTypeTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE missing_type " +
+                "CREATE TABLE t1 (id int64, val unknown_type, PRIMARY KEY(id))";
+
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.INTERNAL_ERROR) // todo: this seems like it should be INVALID_SCHEMA_TEMPLATE
+                .hasMessageContaining("could not find type UNKNOWN_TYPE"));
+    }
+
+    @Test
+    void basicEnumTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE basic_enum_template " +
+                "CREATE ENUM basic_enum ('FOO', 'BAR', 'BAZ') " +
+                "CREATE TABLE t1 (id int64, val basic_enum, PRIMARY KEY(id))";
+
+        run(statement -> {
+            statement.executeUpdate(template);
+
+            //verify that it's there
+            try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE basic_enum_template")) {
+                Assertions.assertTrue(rs.next(), "Didn't find created template!");
+            }
+        });
+    }
+
+    /**
+     * This appears to be a bug, as the DDL should not allow multiple types to share the same name
+     * in the same schema template. Filed TODO (DDL appears to allow creating multiple types with the same name).
+     * Once addressed, this test should be modified to reject the schema template.
+     *
+     * @throws RelationalException from calls under test
+     * @throws SQLException from calls under test
+     */
+    @Test
+    void twoTypesSameNameTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE same_name " +
+                "CREATE TABLE t1 (id int64, foo string, PRIMARY KEY(id)) " +
+                "CREATE TABLE t1 (id int64, bar string, PRIMARY KEY(id))";
+
+        run(statement -> {
+            statement.executeUpdate(template);
+
+            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE same_name")) {
+                ResultSetAssert.assertThat(resultSet).hasNextRow();
+                try (RelationalResultSet tables = resultSet.getArray("TABLES").getResultSet()) {
+                    int count;
+                    for (count = 0; tables.next(); count++) {
+                        Assertions.assertEquals("T1", tables.getString("TABLE_NAME"));
+                        try (RelationalResultSet columns = tables.getArray("COLUMNS").getResultSet()) {
+                            while (columns.next()) {
+                                String columnName = columns.getString("COLUMN_NAME");
+                                // Only the first gets added because of how the .equals method on TypeDefinition
+                                // is written, which could be a bug
+                                Assertions.assertTrue("ID".equals(columnName) || "FOO".equals(columnName),
+                                        () -> String.format("unexpected column name %s", columnName));
+                            }
+                        }
+                    }
+                    Assertions.assertEquals(1, count);
+                }
+            }
+        });
+    }
+
+    /**
+     * This should be disallowed like {@link #twoTypesSameNameTest()}. This appears to be the same problem as alluded
+     * to in TODO (DDL appears to allow creating multiple types with the same name).
+     *
+     * @throws RelationalException from calls under test
+     * @throws SQLException from calls under test
+     */
+    @Test
+    void twoTypesSameNameMixedCase() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE same_name_mixed_case " +
+                "CREATE TABLE aTypeName (id int64, foo string, PRIMARY KEY(id)) " +
+                "CREATE TABLE AtYPEnAME (id int64, bar string, PRIMARY KEY(id))";
+
+        run(statement -> {
+            statement.executeUpdate(template);
+
+            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE same_name_mixed_case")) {
+                ResultSetAssert.assertThat(resultSet).hasNextRow();
+                try (RelationalResultSet tables = resultSet.getArray("TABLES").getResultSet()) {
+                    int count;
+                    for (count = 0; tables.next(); count++) {
+                        Assertions.assertEquals("ATYPENAME", tables.getString("TABLE_NAME"));
+                        try (RelationalResultSet columns = tables.getArray("COLUMNS").getResultSet()) {
+                            while (columns.next()) {
+                                String columnName = columns.getString("COLUMN_NAME");
+                                // Only the first gets added because of how the .equals method on TypeDefinition
+                                // is written, which could be a bug
+                                Assertions.assertTrue("ID".equals(columnName) || "FOO".equals(columnName),
+                                        () -> String.format("unexpected column name %s", columnName));
+                            }
+                        }
+                    }
+                    Assertions.assertEquals(1, count);
+                }
+            }
+        });
+    }
+
+    @Test
+    void typeAndEnumSameNameTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE same_name " +
+                "CREATE TABLE foo (id int64, foo string, PRIMARY KEY(id)) " +
+                "CREATE ENUM foo ('A', 'B', 'C')";
+
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                .hasMessageContaining("name FOO cannot be used for multiple types"));
     }
 }

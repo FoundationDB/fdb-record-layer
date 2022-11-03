@@ -103,7 +103,7 @@ public final class SqlTypeSupport {
 
     private static FieldDescription fieldToDescription(Type.Record.Field field) throws RelationalException {
         final Type fieldType = field.getFieldType();
-        if (fieldType.isPrimitive()) {
+        if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
             return FieldDescription.primitive(field.getFieldName(),
                     SqlTypeSupport.recordTypeToSqlType(fieldType.getTypeCode()),
                     fieldType.isNullable(), KNOWN_PHANTOM_COLUMNS.contains(field.getFieldName())

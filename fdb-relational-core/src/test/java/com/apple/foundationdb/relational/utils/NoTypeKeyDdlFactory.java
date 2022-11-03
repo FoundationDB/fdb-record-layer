@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,7 @@ public class NoTypeKeyDdlFactory {
                                 template.getUniqueId(),
                                 newTables,
                                 template.getTypes(),
+                                Collections.emptySet(),
                                 template.getVersion()
                         );
                         return new CreateSchemaTemplateConstantAction(template, templateCatalog);
