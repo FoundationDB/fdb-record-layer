@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFie
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectExistentialRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
@@ -120,6 +121,7 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughSelectRule(),
             new PushRequestedOrderingThroughSelectExistentialRule(),
             new PushRequestedOrderingThroughGroupByRule(),
+            new PushRequestedOrderingThroughInsertRule(),
             new PushRequestedOrderingThroughUpdateRule()
     );
 

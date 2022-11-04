@@ -89,6 +89,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
+    private final Type innerFlowedType;
+    @Nonnull
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
@@ -129,6 +131,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                       @Nullable final TrieNode promotionsTrie,
                                                       @Nonnull final Value computationValue) {
         this.inner = inner;
+        this.innerFlowedType = inner.getFlowedObjectType();
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
@@ -164,6 +167,12 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     @Override
+    public Set<Type> getDynamicTypes() {
+        return computationValue.getDynamicTypes();
+    }
+
+    @Nonnull
+    @Override
     @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
@@ -190,7 +199,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @SuppressWarnings("unchecked")
     public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)transformMessage(store, context, transformationsTrie, promotionsTrie, getResultValue().getResultType(), targetDescriptor, targetType, inRecord);
+        return (M)transformMessage(store, context, transformationsTrie, promotionsTrie, targetType, targetDescriptor, innerFlowedType, inRecord);
     }
 
     public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
@@ -478,6 +487,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         Verify.verify(value == null);
 
         targetDescriptor = Verify.verifyNotNull(targetDescriptor);
+        final var targetDescriptorFields = targetDescriptor.getFields();
         final var targetRecordType = (Type.Record)targetType;
         final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
         final var currentRecordType = (Type.Record)currentType;
@@ -493,7 +503,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         final var messageDescriptor = subRecord.getDescriptorForType();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
             final var transformationField = transformationsFieldNameToFieldMap == null ? null : transformationsFieldNameToFieldMap.get(messageFieldDescriptor.getName());
-            final var targetFieldDescriptor = targetDescriptor.findFieldByName(messageFieldDescriptor.getName());
+            final var targetFieldDescriptor = targetDescriptorFields.get(messageFieldDescriptor.getIndex());
             final var promotionField = promotionsFieldIndexToFieldMap == null ? null : promotionsFieldIndexToFieldMap.get(messageFieldDescriptor.getName());
             final var promotionFieldTrie = (promotionsChildrenMap == null || promotionField == null) ? null : promotionsChildrenMap.get(promotionField);
             if (transformationField != null) {
@@ -525,8 +535,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             } else {
                 var fieldResult = MessageValue.getFieldOnMessage(subRecord, messageFieldDescriptor);
                 if (fieldResult != null) {
-                    final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                    final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                    final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
+                    //final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                    //final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
+                    final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
                     fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
                     resultMessageBuilder.setField(targetFieldDescriptor, coerceField(store, context, promotionFieldTrie, targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult));
                 }
@@ -560,6 +572,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
                 wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), current);
                 return wrapperBuilder.build();
+            } else {
+                return current;
             }
         }
 

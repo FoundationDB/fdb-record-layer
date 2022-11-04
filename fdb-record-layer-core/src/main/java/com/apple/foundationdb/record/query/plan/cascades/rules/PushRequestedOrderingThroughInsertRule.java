@@ -29,11 +29,12 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRul
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -41,17 +42,17 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 
 /**
- * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link UpdateExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link InsertExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughInsertRule extends CascadesRule<InsertExpression> implements PreOrderRule {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    private static final BindingMatcher<UpdateExpression> root =
-            RelationalExpressionMatchers.updateExpression(innerQuantifierMatcher);
+    private static final BindingMatcher<InsertExpression> root =
+            RelationalExpressionMatchers.insertExpression(innerQuantifierMatcher);
 
-    public PushRequestedOrderingThroughUpdateRule() {
+    public PushRequestedOrderingThroughInsertRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
@@ -65,7 +66,7 @@ public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateE
 
         final var bindings = call.getBindings();
 
-        final var updateExpression = bindings.get(root);
+        final var insertExpression = bindings.get(root);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
         final var lowerRef = bindings.get(lowerRefMatcher);
 
@@ -76,10 +77,10 @@ public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateE
                 pushedRequestedOrderingsBuilder.add(requestedOrdering);
             } else {
                 pushedRequestedOrderingsBuilder.add(
-                        requestedOrdering.pushDown(UpdateExpression.makeComputationValue(innerQuantifier, updateExpression.getTargetType()),
+                        requestedOrdering.pushDown(QuantifiedObjectValue.of(innerQuantifier),
                                 innerQuantifier.getAlias(),
                                 AliasMap.emptyMap(),
-                                updateExpression.getCorrelatedTo()));
+                                insertExpression.getCorrelatedTo()));
             }
         }
 

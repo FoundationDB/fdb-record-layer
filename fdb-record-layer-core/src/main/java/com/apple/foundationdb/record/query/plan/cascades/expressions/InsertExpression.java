@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +52,7 @@ import java.util.Set;
 /**
  * A logical version of {@link RecordQueryInsertPlan}.
  *
- * @see ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
  */
 public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 
@@ -195,7 +196,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
         final var oldColumn =
                 Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), new NullValue(inner.getFlowedObjectType()));
         final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(Quantifier.CURRENT, targetType));
+                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.CURRENT_MODIFIED_RECORD, targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 }

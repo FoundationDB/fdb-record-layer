@@ -453,7 +453,7 @@ class MessageTransformationTest {
     }
 
     private static Value makeRecordConstructor() {
-        final var aaType = Type.Record.fromFields(ImmutableList.of(
+        final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
@@ -467,7 +467,7 @@ class MessageTransformationTest {
                         ));
         Verify.verify(aaType.equals(aaValue.getResultType()));
 
-        final var aType = Type.Record.fromFields(ImmutableList.of(
+        final var aType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(aaType, Optional.of("aa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
@@ -481,7 +481,7 @@ class MessageTransformationTest {
                         ));
         Verify.verify(aType.equals(aValue.getResultType()));
 
-        final var xType = Type.Record.fromFields(ImmutableList.of(
+        final var xType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("xb")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xc"))));
@@ -496,7 +496,7 @@ class MessageTransformationTest {
         Verify.verify(xType.equals(xValue.getResultType()));
 
         final var returnType =
-                Type.Record.fromFields(ImmutableList.of(
+                Type.Record.fromFields(false, ImmutableList.of(
                         Type.Record.Field.of(aType, Optional.of("a")),
                         Type.Record.Field.of(xType, Optional.of("x")),
                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
@@ -512,7 +512,7 @@ class MessageTransformationTest {
     }
 
     private static Value makeSparseRecordConstructor() {
-        final var aaType = Type.Record.fromFields(ImmutableList.of(
+        final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
@@ -520,7 +520,7 @@ class MessageTransformationTest {
         final var aaValue = new NullValue(aaType);
         Verify.verify(aaType.equals(aaValue.getResultType()));
 
-        final var aType = Type.Record.fromFields(ImmutableList.of(
+        final var aType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(aaType, Optional.of("aa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
@@ -534,7 +534,7 @@ class MessageTransformationTest {
                         ));
         Verify.verify(aType.equals(aValue.getResultType()));
 
-        final var xType = Type.Record.fromFields(ImmutableList.of(
+        final var xType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("xb")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xc"))));
@@ -549,7 +549,7 @@ class MessageTransformationTest {
         Verify.verify(xType.equals(xValue.getResultType()));
 
         final var returnType =
-                Type.Record.fromFields(ImmutableList.of(
+                Type.Record.fromFields(false, ImmutableList.of(
                         Type.Record.Field.of(aType, Optional.of("a")),
                         Type.Record.Field.of(xType, Optional.of("x")),
                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));

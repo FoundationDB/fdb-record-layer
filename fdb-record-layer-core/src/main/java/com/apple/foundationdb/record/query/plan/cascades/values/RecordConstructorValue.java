@@ -279,7 +279,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 .stream()
                 .map(Column::getField)
                 .collect(ImmutableList.toImmutableList());
-        return Type.Record.fromFields(fields);
+        return Type.Record.fromFields(false, fields);
     }
 
     @Nonnull
