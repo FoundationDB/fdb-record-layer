@@ -551,7 +551,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
         Index bestIndex = null;
-        if (planContext.commonPrimaryKey != null) {
+        if (planContext.commonPrimaryKey != null && !avoidScanPlan(planContext)) {
             bestPlan = planIndex(planContext, filter, null, planContext.commonPrimaryKey, intersectionCandidates);
         }
         for (Index index : planContext.indexes) {
@@ -1430,8 +1430,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
             
-            if (!queriedRecordTypes.isEmpty() && // ok if user queried all record types which excludes synthetic ones
-                    queriedRecordTypes.stream().anyMatch(syntheticRecordTypes::contains)) {
+            if (avoidScanPlan(candidateScan.planContext)) {
                 throw new RecordCoreException("cannot create scan plan for a synthetic record type");
             }
 
@@ -1450,6 +1449,14 @@ public class RecordQueryPlanner implements QueryPlanner {
         // Add a type filter if the query plan might return records of more types than the query specified
         plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
         return plan;
+    }
+
+    private boolean avoidScanPlan(@Nonnull PlanContext planContext) {
+        final var queriedRecordTypes = planContext.query.getRecordTypes();
+        final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
+
+        return !queriedRecordTypes.isEmpty() && // ok if user queried all record types which excludes synthetic ones
+               queriedRecordTypes.stream().anyMatch(syntheticRecordTypes::contains);
     }
 
     /**
