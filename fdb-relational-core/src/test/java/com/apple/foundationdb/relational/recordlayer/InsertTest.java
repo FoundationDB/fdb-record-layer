@@ -221,10 +221,10 @@ public class InsertTest {
             customers.add("A");
             customers.add(null);
             try (RelationalStatement s = conn.createStatement()) {
-                Assertions.assertThrows(NullPointerException.class, () -> s.getDataBuilder("RESTAURANT")
+                RelationalAssertions.assertThrows(() -> s.getDataBuilder("RESTAURANT")
                         .setField("REST_NO", 0)
                         .addRepeatedFields("CUSTOMER", customers)
-                        .build());
+                        .build()).hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
             }
         }
     }

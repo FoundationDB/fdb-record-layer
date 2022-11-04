@@ -78,6 +78,7 @@ public enum ErrorCode {
 
 
     // Class 23 - Integrity Constraint Violation
+    NOT_NULL_VIOLATION("23502"),
     UNIQUE_CONSTRAINT_VIOLATION("23505"),
 
     // Class 24 - Invalid Cursor State

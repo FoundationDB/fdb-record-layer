@@ -135,6 +135,9 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
             setField(fieldName, builder.build());
         } else {
             for (Object value : values) {
+                if (value == null) {
+                    throw new RelationalException("Cannot add a null value to a non-nullable array", ErrorCode.NOT_NULL_VIOLATION);
+                }
                 addRepeatedField(fieldName, value);
             }
         }
