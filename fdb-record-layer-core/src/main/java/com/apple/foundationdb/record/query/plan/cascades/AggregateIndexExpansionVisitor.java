@@ -258,16 +258,4 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         return mapBuilder.build();
     }
-
-    public static boolean isAggregateIndex(@Nonnull final String indexType, final KeyExpression rootExpression) {
-        // todo: we currently can not handle COUNT(*) aggregate indexes.
-        if (!(rootExpression instanceof GroupingKeyExpression)) {
-            return false;
-        }
-        final var groupingKeyExpression = (GroupingKeyExpression)rootExpression;
-        if (groupingKeyExpression.getWholeKey() instanceof EmptyKeyExpression) {
-            return false; // TODO: the case for COUNT(*)
-        }
-        return allowedIndexTypes.get().contains(indexType);
-    }
 }

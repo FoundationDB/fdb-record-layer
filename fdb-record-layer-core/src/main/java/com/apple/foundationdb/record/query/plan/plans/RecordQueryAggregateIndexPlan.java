@@ -263,7 +263,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexPlan, recordTypeName, toRecord);
+        return Objects.hash(indexPlan, recordTypeName, toRecord, resultValue);
     }
 
     @Override
@@ -291,7 +291,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return indexPlan.createIndexPlannerGraph(this,
-                NodeInfo.AGGREGATE_INDEX_SCAN_OPERATOR,
+                NodeInfo.INDEX_SCAN_OPERATOR,
                 ImmutableList.of(),
                 ImmutableMap.of());
     }

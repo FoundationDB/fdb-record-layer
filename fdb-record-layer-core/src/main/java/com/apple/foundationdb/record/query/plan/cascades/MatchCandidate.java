@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -32,6 +34,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -269,10 +274,11 @@ public interface MatchCandidate {
         final var availableRecordTypeNames = recordTypeMap.keySet();
         final var availableRecordTypes = recordTypeMap.values();
 
-        final var type = index.getType();
+        final var indexType = index.getType();
 
-        if (IndexTypes.VALUE.equals(type)) {
-            expandIndexMatchCandidate(index,
+        switch (indexType) {
+            case IndexTypes.VALUE:
+                expandIndexMatchCandidate(index,
                     availableRecordTypeNames,
                     availableRecordTypes,
                     queriedRecordTypeNames,
@@ -280,42 +286,49 @@ public interface MatchCandidate {
                     isReverse,
                     commonPrimaryKeyForIndex,
                     new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+                break;
+            case IndexTypes.RANK:
+                // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
+                expandIndexMatchCandidate(index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex,
+                        new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+
+                expandIndexMatchCandidate(index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex,
+                        new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
+                        .ifPresent(resultBuilder::add);
+                break;
+            case IndexTypes.MAX_EVER_LONG: // fallthrough
+            case IndexTypes.MIN_EVER_LONG: // fallthrough
+            case IndexTypes.SUM: // fallthrough
+            case IndexTypes.COUNT:
+                final var rootExpression = index.getRootExpression();
+                if (!(rootExpression instanceof GroupingKeyExpression) || ((GroupingKeyExpression)rootExpression).getWholeKey() instanceof EmptyKeyExpression) {
+                    break;
+                }
+                expandIndexMatchCandidate(index,
+                            availableRecordTypeNames,
+                            availableRecordTypes,
+                            queriedRecordTypeNames,
+                            queriedRecordTypes,
+                            isReverse,
+                            null,
+                            new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
+                            .ifPresent(resultBuilder::add);
+                break;
+            default:
+                break;
         }
-
-        if (IndexTypes.RANK.equals(type)) {
-            // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-            expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    commonPrimaryKeyForIndex,
-                    new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
-
-            expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    commonPrimaryKeyForIndex,
-                    new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
-                    .ifPresent(resultBuilder::add);
-        }
-
-        if (AggregateIndexExpansionVisitor.isAggregateIndex(type, index.getRootExpression())) {
-            expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    null,
-                    new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
-                    .ifPresent(resultBuilder::add);
-        }
-
         return resultBuilder.build();
     }
 

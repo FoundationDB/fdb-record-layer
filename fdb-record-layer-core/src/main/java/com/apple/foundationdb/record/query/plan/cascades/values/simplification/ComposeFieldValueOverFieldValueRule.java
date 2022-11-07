@@ -76,16 +76,18 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var innerChild = bindings.get(innerChildMatcher);
+        final var grandChild = bindings.get(innerChildMatcher);
         final var innerFieldPathOrdinals = bindings.get(innerFieldPathOrdinalsMatcher);
         final var innerFieldPathTypes = bindings.get(innerFieldPathTypesMatcher);
         Verify.verify(!innerFieldPathOrdinals.isEmpty());
         Verify.verify(!innerFieldPathTypes.isEmpty());
         final var outer = bindings.get(rootMatcher);
+        final var child = outer.getChild();
         final var outerFieldPathOrdinals = bindings.get(outerFieldPathOrdinalsMatcher);
         final var outerFieldPathTypes = bindings.get(outerFieldPathTypesMatcher);
+        Verify.verify(child instanceof FieldValue);
         Verify.verify(!outerFieldPathOrdinals.isEmpty());
         Verify.verify(!outerFieldPathTypes.isEmpty());
-        call.yield(FieldValue.ofFields(innerChild, ((FieldValue)innerChild).getFieldPath().withSuffix(outer.getFieldPath())));
+        call.yield(FieldValue.ofFields(grandChild, ((FieldValue)(child)).getFieldPath().withSuffix(outer.getFieldPath())));
     }
 }

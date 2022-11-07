@@ -563,7 +563,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return true;
         }
 
-        if (!equalsWithoutChildren(other, aliasMap)) {
+        if (!subsumedByWithoutChildren(other, aliasMap)) {
             return false;
         }
 
@@ -581,5 +581,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         return !otherChildren.hasNext();
+    }
+
+    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
+    default boolean subsumedByWithoutChildren(@Nonnull final Value other,
+                                              @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        return other.getClass() == getClass();
     }
 }

@@ -159,7 +159,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Override
     public int getColumnSize() {
-        return primaryKey.getColumnSize(); // not sure this is correct.
+        return primaryKey.getColumnSize();
     }
 
     @Override

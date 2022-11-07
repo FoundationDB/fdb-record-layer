@@ -378,7 +378,7 @@ public class FieldValue implements ValueWithChild {
 
         @Nonnull
         public FieldPath getFieldPrefix() {
-            Preconditions.checkArgument(size() > 1);
+            Preconditions.checkArgument(!isEmpty());
             return subList(0, size() - 1);
         }
 
