@@ -217,6 +217,7 @@ public class MatchInfo {
         }
     }
 
+    @Nonnull
     public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,

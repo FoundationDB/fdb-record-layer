@@ -23,8 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -46,6 +52,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -247,6 +254,42 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     public Value getRuntimeValue() {
         return computeRuntimeResultSupplier.get();
+    }
+
+    @Override
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        // subsumedBy() is based on equality, thus we return empty here as
+        // if there is a match, it's exact
+        return Compensation.noCompensation();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+
+        // the candidate must be a GROUP-BY expression.
+        if (candidateExpression.getClass() != this.getClass()) {
+            return ImmutableList.of();
+        }
+
+        final var otherGroupByExpression = (GroupByExpression)candidateExpression;
+
+        // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
+        // grouping values had exact match so we don't need to check them.
+
+
+        // check that aggregate value is the same.
+        final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
+        if (aggregateValue.subsumedBy(otherAggregateValue, aliasMap)) {
+            // placeholder for information needed for later compensation.
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+        }
+        return ImmutableList.of();
     }
 
     @Nonnull

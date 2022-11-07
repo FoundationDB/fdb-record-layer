@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -119,6 +120,31 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         return  new Cardinalities(
                 Cardinality.ofCardinality(valuesSize).times(childCardinalities.getMinCardinality()),
                 Cardinality.ofCardinality(valuesSize).times(childCardinalities.getMaxCardinality()));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+        final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
+        if (groupingValueMaybe.isEmpty()) {
+            return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+        }
+        final var groupingValue = groupingValueMaybe.get();
+        final var indexScanPlan = aggregateIndexPlan.getIndexPlan();
+        final var primaryMatchCandidate = indexScanPlan.getMatchCandidateMaybe();
+        if (primaryMatchCandidate.isEmpty()) {
+            return Cardinalities.unknownCardinalities();
+        }
+        final var ordering = primaryMatchCandidate.get()
+                .computeOrderingFromScanComparisons(
+                        indexScanPlan.getComparisons(),
+                        indexScanPlan.isReverse(),
+                        false);
+        if (ordering.getEqualityBoundValues().contains(groupingValue)) {
+            return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
+        } else {
+            return Cardinalities.unknownCardinalities();
+        }
     }
 
     @Nonnull

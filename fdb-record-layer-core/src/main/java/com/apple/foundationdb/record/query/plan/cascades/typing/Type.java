@@ -48,6 +48,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
@@ -322,7 +323,7 @@ public interface Type extends Narrowable<Type> {
             return new Array(isNullable, enumType);
         } else {
             if (isNullable) {
-                Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)descriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
+                Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                 Objects.requireNonNull(wrappedDescriptor);
                 return new Array(isNullable, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
             } else {
@@ -791,6 +792,12 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         private final Supplier<Map<String, Field>> fieldNameFieldMapSupplier;
 
+        @Nonnull
+        private final Supplier<Map<String, Integer>> fieldNameToOrdinalSupplier;
+
+        @Nonnull
+        private final Supplier<Map<Integer, Integer>> fieldIndexToOrdinalSupplier;
+
         /**
          * function that returns a list of {@link Field} types.
          */
@@ -827,6 +834,8 @@ public interface Type extends Narrowable<Type> {
             this.isNullable = isNullable;
             this.fields = fields == null ? null : normalizeFields(fields);
             this.fieldNameFieldMapSupplier = Suppliers.memoize(this::computeFieldNameFieldMap);
+            this.fieldNameToOrdinalSupplier = Suppliers.memoize(this::computeFieldNameToOrdinalMap);
+            this.fieldIndexToOrdinalSupplier = Suppliers.memoize(this::computeFieldIndexToOrdinal);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
 
@@ -858,6 +867,16 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public List<Field> getFields() {
             return Objects.requireNonNull(fields);
+        }
+
+        @Nonnull
+        public Map<String, Integer> getFieldNameToOrdinalMap() {
+            return fieldNameToOrdinalSupplier.get();
+        }
+
+        @Nonnull
+        public Map<Integer, Integer> getFieldIndexToOrdinalMap() {
+            return fieldIndexToOrdinalSupplier.get();
         }
 
         /**
@@ -898,6 +917,32 @@ public interface Type extends Narrowable<Type> {
             return Objects.requireNonNull(fields)
                     .stream()
                     .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Function.identity()));
+        }
+
+        /**
+         * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         */
+        @Nonnull
+        @SuppressWarnings("OptionalGetWithoutIsPresent")
+        private Map<String, Integer> computeFieldNameToOrdinalMap() {
+            return IntStream
+                    .range(0, Objects.requireNonNull(fields).size())
+                    .boxed()
+                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldNameOptional().get(), Function.identity()));
+        }
+
+        /**
+         * Compute a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         * @return a mapping from {@link Field} to their ordinal positions in their {@link Type}.
+         */
+        @Nonnull
+        @SuppressWarnings("OptionalGetWithoutIsPresent")
+        private Map<Integer, Integer> computeFieldIndexToOrdinal() {
+            return IntStream
+                    .range(0, Objects.requireNonNull(fields).size())
+                    .boxed()
+                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldIndexOptional().get(), Function.identity()));
         }
 
         /**
@@ -1263,6 +1308,7 @@ public interface Type extends Narrowable<Type> {
             public static Field unnamedOf(@Nonnull final Type fieldType) {
                 return new Field(fieldType, Optional.empty(), Optional.empty());
             }
+
         }
     }
 

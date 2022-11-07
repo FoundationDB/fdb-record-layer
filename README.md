@@ -23,7 +23,7 @@ The Record Layer is a Java API providing a record-oriented store on top of Found
   across one or more record types, and a query planner capable of
   automatic selection of indexes.
 * **Many record stores, shared schema** - The Record Layer provides the
-  the ability to support many discrete record store instances, all with
+  ability to support many discrete record store instances, all with
   a shared (and evolving) schema. For example, rather than modeling a
   single database in which to store all users' data, each user can be
   given their own record store, perhaps sharded across different FDB

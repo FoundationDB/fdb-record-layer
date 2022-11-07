@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -81,6 +82,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
@@ -131,9 +133,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 }
 
                                 final var fieldValue = (FieldValue)valuePredicate.getValue();
-                                if (fieldValue.getFields()
+                                if (fieldValue.getFieldPathNamesMaybe()
                                         .stream()
-                                        .anyMatch(field -> field.getFieldNameOptional().isEmpty())) {
+                                        .anyMatch(Optional::isEmpty)) {
                                     return Stream.of();
                                 }
 
@@ -174,6 +176,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+            return visit(aggregateIndexPlan.getIndexPlan());
         }
 
         @Nonnull

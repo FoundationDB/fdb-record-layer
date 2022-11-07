@@ -43,11 +43,16 @@ import java.util.Optional;
 /**
  * A rule that attempts to improve an existing {@link PartialMatch} by <em>absorbing</em> an expression on the
  * candidate side.
- *
+ * This rule delegates the actual adjustment legwork to the {@link RelationalExpression} on the candidate-side
+ * that is:
+ * <ul>
+ *     <li>referencing the {@link MatchCandidate}'s traversal w.r.t. the (partially) matched query.</li>
+ *     <li>does not have a corresponding match on the query side.</li>
+ * </ul>
+ * For more information, see {@link RelationalExpression#adjustMatch(PartialMatch)}.
  * Currently the only such expression that can be absorbed is
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression}.
- * TODO Maybe that expression should just be a generic property-defining expression or properties should be kept
- *      on quantifiers.
+ * TODO Maybe that expression should just be a generic property-defining expression or properties should be kept on quantifiers.
  * It is special in a way that there is no corresponding expression on the query side that is subsumed by that
  * expression. Absorbing such a candidate-side-only expression into the match allows us to fine-tune interesting
  * provided properties guaranteed by the candidate side.

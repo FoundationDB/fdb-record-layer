@@ -552,4 +552,44 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
         }
     }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap aliasMap) {
+        if (other == null) {
+            return false;
+        }
+
+        if (this == other) {
+            return true;
+        }
+
+        if (!subsumedByWithoutChildren(other, aliasMap)) {
+            return false;
+        }
+
+        final Iterator<? extends Value> children = getChildren().iterator();
+        final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
+
+        while (children.hasNext()) {
+            if (!otherChildren.hasNext()) {
+                return false;
+            }
+
+            if (!children.next().subsumedBy(otherChildren.next(), aliasMap)) {
+                return false;
+            }
+        }
+
+        return !otherChildren.hasNext();
+    }
+
+    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
+    default boolean subsumedByWithoutChildren(@Nonnull final Value other,
+                                              @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        return other.getClass() == getClass();
+    }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -42,12 +43,17 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.groupByExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.streamableAggregateValue;
 
 /**
  * Rule for implementing logical {@code GROUP BY} into a physical streaming aggregate operator {@link RecordQueryStreamingAggregationPlan}.
  */
+@API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpression> {
 
     @Nonnull
@@ -56,7 +62,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<GroupByExpression> root =
-            groupByExpression(any(innerQuantifierMatcher));
+            groupByExpression(recordConstructorValue(all(streamableAggregateValue())), any(innerQuantifierMatcher));
 
     public ImplementStreamingAggregationRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -71,14 +77,16 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
 
         final var groupingValue = groupByExpression.getGroupingValue();
+
         final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
 
-        final var requiredOrderingKeyValues =
-                currentGroupingValue == null || currentGroupingValue.isConstant()
-                ? null
-                : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
-                        .stream()
-                        .collect(ImmutableSet.toImmutableSet());
+        // TODO: isConstant is not implemented correctly.
+        // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
+        final var requiredOrderingKeyValues = currentGroupingValue == null
+                                              ? null
+                                              : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                                                      .stream()
+                                                      .collect(ImmutableSet.toImmutableSet());
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);

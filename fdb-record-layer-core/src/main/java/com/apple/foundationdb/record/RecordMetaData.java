@@ -38,7 +38,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -690,9 +692,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     private static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
+        // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
         return recordTypeStream
+                .sorted(Comparator.comparing(RecordType::getName))
                 .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
                 .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        LinkedHashMap::new,
                         Collectors.reducing(null,
                                 (fieldDescriptor, fieldDescriptor2) -> {
                                     Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);

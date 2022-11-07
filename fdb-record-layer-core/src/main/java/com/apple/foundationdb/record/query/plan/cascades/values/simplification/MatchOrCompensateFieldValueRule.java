@@ -28,10 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -47,11 +45,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, FieldValue> {
     @Nonnull
-    private static final CollectionMatcher<Type.Record.Field> fieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
+
+    @Nonnull
+    private static final CollectionMatcher<Type> fieldPathTypesMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
-            ValueMatchers.fieldValueWithFieldPath(anyValue(), fieldPathMatcher);
+            ValueMatchers.fieldValueWithFieldPath(anyValue(), fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
 
     public MatchOrCompensateFieldValueRule() {
         super(rootMatcher);
@@ -80,7 +81,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                     // $b.z
                     //
                     if (fieldValue.getChild().semanticEquals(toBePulledUpFieldValue.getChild(), call.getEquivalenceMap())) {
-                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFields(), fieldValue.getFields());
+                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {
                                 newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
@@ -94,7 +95,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                     final var compensation = matchedValuesMap.get(toBePulledUpValue);
                     if (compensation instanceof FieldValueCompensation) {
                         final var fieldValueCompensation = (FieldValueCompensation)compensation;
-                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFields());
+                        final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(fieldValueCompensation.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> newMatchedValuesMap.put(toBePulledUpValue, fieldValueCompensation.withSuffix(pathSuffix)));
                     }
                 }
@@ -108,22 +109,23 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
      */
     public static class FieldValueCompensation implements Function<Value, Value> {
         @Nonnull
-        private final List<Type.Record.Field> fieldPath;
+        private final FieldValue.FieldPath fieldPath;
 
         @Nonnull
         private final Function<Value, Value> downstreamCompensation;
 
-        public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath) {
+        public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath) {
             this(fieldPath, Function.identity());
         }
 
-        public FieldValueCompensation(@Nonnull final List<Type.Record.Field> fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
-            this.fieldPath = ImmutableList.copyOf(fieldPath);
+        public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
+            this.fieldPath = fieldPath;
             this.downstreamCompensation = downstreamCompensation;
         }
 
+
         @Nonnull
-        public List<Type.Record.Field> getFieldPath() {
+        public FieldValue.FieldPath getFieldPath() {
             return fieldPath;
         }
 
@@ -133,7 +135,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
             return downstreamCompensation.apply(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
         }
 
-        public Function<Value, Value> withSuffix(@Nonnull final List<Type.Record.Field> suffixFieldPath) {
+        public Function<Value, Value> withSuffix(@Nonnull final FieldValue.FieldPath suffixFieldPath) {
             if (suffixFieldPath.isEmpty()) {
                 return downstreamCompensation;
             }

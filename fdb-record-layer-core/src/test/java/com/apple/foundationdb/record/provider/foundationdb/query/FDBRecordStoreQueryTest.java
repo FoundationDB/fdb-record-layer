@@ -266,8 +266,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
                 assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(1023430112, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(1023430112, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             byte[] continuation = null;
             List<TestRecords1Proto.MySimpleRecord> retrieved = new ArrayList<>(100);

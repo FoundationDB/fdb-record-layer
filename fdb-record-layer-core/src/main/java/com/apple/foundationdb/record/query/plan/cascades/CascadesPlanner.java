@@ -973,7 +973,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     /**
-     * Adjust Match Task. Attempts to improve an existing partial partial match on a (group, expression) pair
+     * Adjust Match Task. Attempts to improve an existing partial match on a (group, expression) pair
      * to a better one by enqueuing rules defined on {@link PartialMatch}.
      *
      * Simplified enqueue/execute overview:

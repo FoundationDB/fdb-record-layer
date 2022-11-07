@@ -216,7 +216,6 @@ public class AndOrValue implements BooleanValue {
                 Iterables.get(newChildren, 1));
     }
 
-
     /**
      * The {@code and} function.
      */

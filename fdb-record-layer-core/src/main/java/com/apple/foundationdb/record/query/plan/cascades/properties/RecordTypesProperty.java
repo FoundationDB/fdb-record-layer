@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
-import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
@@ -77,7 +77,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
             return ((FullUnorderedScanExpression)expression).getRecordTypes();
         } else if (expression instanceof RecordQueryIndexPlan) {
             return ((RecordQueryIndexPlan)expression).getMatchCandidateMaybe()
-                    .map(WithPrimaryKeyMatchCandidate::getQueriedRecordTypeNames)
+                    .map(MatchCandidate::getQueriedRecordTypeNames)
                     .orElse(ImmutableSet.of());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);

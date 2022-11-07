@@ -1,9 +1,9 @@
 /*
- * ScanWithFetchMatchCandidate.java
+ * IndexableAggregationValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,19 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.values;
 
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 /**
- * Interface to represent a candidate that replaces with an index scan.
+ * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
  */
-public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidate {
+@API(API.Status.EXPERIMENTAL)
+public interface IndexableAggregateValue extends Value {
 
     @Nonnull
-    Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                          @Nonnull CorrelationIdentifier sourceAlias,
-                                          @Nonnull CorrelationIdentifier targetAlias);
+    String getIndexName();
+
 }

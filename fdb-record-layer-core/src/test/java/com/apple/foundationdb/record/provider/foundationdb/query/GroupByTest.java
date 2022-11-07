@@ -64,8 +64,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.numericAggregationValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
 
 /**
  * test suite for {@code GROUP BY} expression planning and execution.
@@ -90,7 +90,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 mapPlan(
                                         indexPlan()
                                                 .where(scanComparisons(range("<,>")))
-                                )).where(aggregations(recordConstructorValue(exactly(numericAggregationValue("SUM"))))
+                                )).where(aggregations(recordConstructorValue(exactly(sumAggregationValue())))
                                 .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
     }
 
@@ -149,7 +149,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // 2.1. construct aggregate expression.
             final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
-                    new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
+                    new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.

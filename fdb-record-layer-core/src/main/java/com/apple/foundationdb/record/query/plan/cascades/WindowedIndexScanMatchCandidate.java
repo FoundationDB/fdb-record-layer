@@ -158,10 +158,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
-    @Nonnull
     @Override
-    public Index getIndex() {
-        return index;
+    public int getColumnSize() {
+        return index.getColumnSize();
+    }
+
+    @Override
+    public boolean isUnique() {
+        return index.isUnique();
     }
 
     @Nonnull
@@ -452,20 +456,21 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                             @Nonnull FieldValue fieldValue,
                                             @Nonnull AvailableFields.FieldData fieldData) {
-        for (final Type.Record.Field field : fieldValue.getFieldPrefix()) {
-            if (field.getFieldNameOptional().isEmpty()) {
+        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
+        for (final var maybeFieldName : fieldValue.getFieldPrefix().getFieldNamesMaybe()) {
+            if (maybeFieldName.isEmpty()) {
                 return false;
             }
-            builder = builder.getFieldBuilder(field.getFieldName());
+            builder = builder.getFieldBuilder(maybeFieldName.get());
         }
 
         // TODO not sure what to do with the null standing requirement
 
-        final Type.Record.Field field = fieldValue.getLastField();
-        if (field.getFieldNameOptional().isEmpty()) {
+        final var maybeFieldName = fieldValue.getLastFieldName();
+        if (maybeFieldName.isEmpty()) {
             return false;
         }
-        final String fieldName = field.getFieldName();
+        final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), t -> true, fieldData.getOrdinalPath());
         }

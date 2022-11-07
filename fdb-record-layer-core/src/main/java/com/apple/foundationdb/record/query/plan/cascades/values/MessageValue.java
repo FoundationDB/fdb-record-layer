@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
@@ -91,6 +92,24 @@ public class MessageValue {
         return getFieldOnMessage(current, fields.get(fields.size() - 1).getFieldIndex());
     }
 
+    @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
+    @Nullable
+    public static Object getFieldValueForFieldOrdinals(@Nonnull MessageOrBuilder message, @Nonnull ImmutableIntArray fieldOrdinals) {
+        if (fieldOrdinals.isEmpty()) {
+            throw new RecordCoreException("empty list of fields");
+        }
+        MessageOrBuilder current = message;
+        int fieldOrdinal;
+        // Notice that up to fieldOrdinals.length() - 2 are calling getFieldMessageOnMessageByOrdinal, and fieldOrdinals.length() - 1 is calling getFieldOnMessageByOrdinal
+        for (fieldOrdinal = 0; fieldOrdinal < fieldOrdinals.length() - 1; fieldOrdinal++) {
+            current = getFieldMessageOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinal));
+            if (current == null) {
+                return null;
+            }
+        }
+        return getFieldOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinals.length() - 1));
+    }
+
 
     /**
      * Get the value of the field with the given field name on the given message.
@@ -107,7 +126,7 @@ public class MessageValue {
     }
 
     /**
-     * Get the value of the field with the given field name on the given message.
+     * Get the value of the field with the given field number on the given message.
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
      * @param message a message or builder to extract the field from
@@ -142,6 +161,12 @@ public class MessageValue {
         }
     }
 
+    @Nullable
+    public static Object getFieldOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
+        return getFieldOnMessage(message, field);
+    }
+
     @Nonnull
     public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
@@ -158,6 +183,14 @@ public class MessageValue {
             throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
         }
         return field;
+    }
+
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        if (fieldOrdinal < 0 || fieldOrdinal >= message.getDescriptorForType().getFields().size()) {
+            throw new Query.InvalidExpressionException("Missing field (#ord=" + fieldOrdinal + ")");
+        }
+        return message.getDescriptorForType().getFields().get(fieldOrdinal);
     }
 
     @Nullable
@@ -180,6 +213,12 @@ public class MessageValue {
             return (Message)message.getField(field);
         }
         return null;
+    }
+
+    @Nullable
+    private static Message getFieldMessageOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
+        return getFieldMessageOnMessage(message, field);
     }
 
     private MessageValue() {

@@ -217,7 +217,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -360,16 +360,16 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // FROM R r, S s
         // WHERE r.a < 5 AND s.b = 10 AND r.x = s.y
         //
-        // The predicate 'r.x = r.y' can be used as a predicate for matching an index on R(x, a) or for
+        // The predicate 'r.x = s.y' can be used as a predicate for matching an index on R(x, a) or for
         // matching an index on S(b, y). In fact the predicate needs to be shared in some way such that the planner
         // can later on make the right decision based on cost, etc.
         //
         // The way this is implemented is to create two matches one where the predicate is repossessed to the match
         // at hand. When we match R(x, a) we repossess r.x = r.y to be subsumed by r.x = ? on
-        // the candidate side. Vica versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
+        // the candidate side. Vice versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
         // candidate side.
         //
-        // Using this approach we create a problem that these two matches cannot coexist in a way that they cannot
+        // Using this approach we create a problem that these two matches can coexist in a way that they cannot
         // be realized, that is planned together at all as both matches provide the other's placeholder value. In fact,
         // we have forced the match to (if it were to be planned) become the inner of a join. It would be beneficial,
         // however, to also create a version of the match that does not consider the join predicate at all.

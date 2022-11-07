@@ -22,17 +22,15 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -54,11 +52,14 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             recordConstructorValue(all(anyValue()));
 
     @Nonnull
-    private static final CollectionMatcher<Field> fieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
+
+    @Nonnull
+    private static final CollectionMatcher<Type> fieldPathTypesMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
-            ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathMatcher);
+            ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
 
     public ComposeFieldValueOverRecordConstructorRule() {
         super(rootMatcher);
@@ -69,31 +70,29 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var fieldPath = bindings.get(fieldPathMatcher);
-        Verify.verify(!fieldPath.isEmpty());
+        final var fieldPathOrdinals = bindings.get(fieldPathOrdinalsMatcher);
+        Verify.verify(!fieldPathOrdinals.isEmpty());
+        final var fieldPathTypes = bindings.get(fieldPathTypesMatcher);
+        Verify.verify(!fieldPathTypes.isEmpty());
         final var recordConstructor = bindings.get(recordConstructorMatcher);
 
-        final var firstField = Objects.requireNonNull(Iterables.getFirst(fieldPath, null));
-        final var column = findColumn(recordConstructor, firstField);
-        if (fieldPath.size() == 1) {
+        final var firstFieldOrdinal = Objects.requireNonNull(Iterables.getFirst(fieldPathOrdinals, null));
+        final var fieldFieldType = Objects.requireNonNull(Iterables.getFirst(fieldPathTypes, null));
+        final var column = findColumn(recordConstructor, firstFieldOrdinal, fieldFieldType);
+
+        final var root = bindings.get(rootMatcher);
+        if (fieldPathOrdinals.size() == 1) {
             // just return the child
             call.yield(column.getValue());
         } else {
-            call.yield(FieldValue.ofFields(column.getValue(),
-                    fieldPath.stream()
-                            .skip(1L)
-                            .collect(ImmutableList.toImmutableList())));
+            call.yield(FieldValue.ofFields(column.getValue(), root.getFieldPath().skip(1)));
         }
     }
 
     @Nonnull
-    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, @Nonnull final Field field) {
-        for (final var column : recordConstructorValue.getColumns()) {
-            if (field.getFieldIndex() == column.getField().getFieldIndex()) {
-                Verify.verify(field.getFieldNameOptional().equals(column.getField().getFieldNameOptional()));
-                return column;
-            }
-        }
-        throw new RecordCoreException("should have found field by field name");
+    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, final int fieldOrdinal, @Nonnull Type fieldType) {
+        final var result = recordConstructorValue.getColumns().get(fieldOrdinal);
+        Verify.verify(result.getField().getFieldType().equals(fieldType));
+        return result;
     }
 }

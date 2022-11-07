@@ -259,6 +259,12 @@ public class Index {
         return name;
     }
 
+    /**
+     * Returns the type of the index.
+     *
+     * @return the type of the index.
+     * @see IndexTypes
+     */
     @Nonnull
     public String getType() {
         return type;

@@ -151,8 +151,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             final var matchCandidateOptional = indexPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isPresent()) {
                 final var matchCandidate = matchCandidateOptional.get();
-                final var index = matchCandidate.getIndex();
-                return index.isUnique() && nkeys >= index.getColumnSize();
+                return matchCandidate.isUnique() && nkeys >= matchCandidate.getColumnSize();
             }
         }
         return false;

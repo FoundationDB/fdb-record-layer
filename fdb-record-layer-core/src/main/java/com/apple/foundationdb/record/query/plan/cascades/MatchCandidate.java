@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -160,7 +162,7 @@ public interface MatchCandidate {
      * Compute a list of {@link MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
      * {@link QueryPredicate}s.
      * @param matchInfo a pre-existing match info structure
-     * @param sortParameterIds the query should be ordered by
+     * @param sortParameterIds the parameter IDs which the query should be ordered by
      * @param isReverse reversed-ness of the order
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
@@ -207,7 +209,7 @@ public interface MatchCandidate {
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
      * to be implemented by specific implementations of {@link MatchCandidate}.
-     * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
+     * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
      * @param planContext the plan context for the query
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
      * @return a new {@link RelationalExpression}
@@ -238,6 +240,20 @@ public interface MatchCandidate {
     }
 
     @Nonnull
+    List<RecordType> getQueriedRecordTypes();
+
+    int getColumnSize();
+
+    boolean isUnique();
+
+    @Nonnull
+    default Set<String> getQueriedRecordTypeNames() {
+        return getQueriedRecordTypes().stream()
+                .map(RecordType::getName)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
     static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {
@@ -255,10 +271,11 @@ public interface MatchCandidate {
         final var availableRecordTypeNames = recordTypeMap.keySet();
         final var availableRecordTypes = recordTypeMap.values();
 
-        final var type = index.getType();
+        final var indexType = index.getType();
 
-        if (IndexTypes.VALUE.equals(type)) {
-            expandIndexMatchCandidate(index,
+        switch (indexType) {
+            case IndexTypes.VALUE:
+                expandIndexMatchCandidate(index,
                     availableRecordTypeNames,
                     availableRecordTypes,
                     queriedRecordTypeNames,
@@ -266,30 +283,49 @@ public interface MatchCandidate {
                     isReverse,
                     commonPrimaryKeyForIndex,
                     new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+                break;
+            case IndexTypes.RANK:
+                // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
+                expandIndexMatchCandidate(index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex,
+                        new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+
+                expandIndexMatchCandidate(index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex,
+                        new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
+                        .ifPresent(resultBuilder::add);
+                break;
+            case IndexTypes.MAX_EVER_LONG: // fallthrough
+            case IndexTypes.MIN_EVER_LONG: // fallthrough
+            case IndexTypes.SUM: // fallthrough
+            case IndexTypes.COUNT:
+                final var rootExpression = index.getRootExpression();
+                if (!(rootExpression instanceof GroupingKeyExpression) || ((GroupingKeyExpression)rootExpression).getWholeKey() instanceof EmptyKeyExpression) {
+                    break;
+                }
+                expandIndexMatchCandidate(index,
+                            availableRecordTypeNames,
+                            availableRecordTypes,
+                            queriedRecordTypeNames,
+                            queriedRecordTypes,
+                            isReverse,
+                            null,
+                            new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
+                            .ifPresent(resultBuilder::add);
+                break;
+            default:
+                break;
         }
-
-        if (IndexTypes.RANK.equals(type)) {
-            // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-            expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    commonPrimaryKeyForIndex,
-                    new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
-
-            expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    commonPrimaryKeyForIndex,
-                    new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
-                    .ifPresent(resultBuilder::add);
-        }
-
         return resultBuilder.build();
     }
 

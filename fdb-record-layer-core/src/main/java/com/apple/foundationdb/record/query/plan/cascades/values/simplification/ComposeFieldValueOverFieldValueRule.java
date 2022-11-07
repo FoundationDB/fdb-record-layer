@@ -24,11 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -48,18 +47,24 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
     @Nonnull
     private static final BindingMatcher<Value> innerChildMatcher = anyValue();
     @Nonnull
-    private static final CollectionMatcher<Field> innerFieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<Integer> innerFieldPathOrdinalsMatcher = all(anyObject());
+
+    @Nonnull
+    private static final CollectionMatcher<Type> innerFieldPathTypesMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> innerFieldValueMatcher =
-            ValueMatchers.fieldValueWithFieldPath(innerChildMatcher, innerFieldPathMatcher);
+            ValueMatchers.fieldValueWithFieldPath(innerChildMatcher, innerFieldPathOrdinalsMatcher, innerFieldPathTypesMatcher);
 
     @Nonnull
-    private static final CollectionMatcher<Field> outerFieldPathMatcher = all(anyObject());
+    private static final CollectionMatcher<Integer> outerFieldPathOrdinalsMatcher = all(anyObject());
+
+    @Nonnull
+    private static final CollectionMatcher<Type> outerFieldPathTypesMatcher = all(anyObject());
 
     @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
-            ValueMatchers.fieldValueWithFieldPath(innerFieldValueMatcher, outerFieldPathMatcher);
+            ValueMatchers.fieldValueWithFieldPath(innerFieldValueMatcher, outerFieldPathOrdinalsMatcher, outerFieldPathTypesMatcher);
 
     public ComposeFieldValueOverFieldValueRule() {
         super(rootMatcher);
@@ -69,12 +74,18 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var innerChild = bindings.get(innerChildMatcher);
-        final var innerFieldPath = bindings.get(innerFieldPathMatcher);
-        Verify.verify(!innerFieldPath.isEmpty());
-        final var outerFieldPath = bindings.get(outerFieldPathMatcher);
-        Verify.verify(!outerFieldPath.isEmpty());
-
-        call.yield(FieldValue.ofFields(innerChild, ImmutableList.<Field>builder().addAll(innerFieldPath).addAll(outerFieldPath).build()));
+        final var grandChild = bindings.get(innerChildMatcher);
+        final var innerFieldPathOrdinals = bindings.get(innerFieldPathOrdinalsMatcher);
+        final var innerFieldPathTypes = bindings.get(innerFieldPathTypesMatcher);
+        Verify.verify(!innerFieldPathOrdinals.isEmpty());
+        Verify.verify(!innerFieldPathTypes.isEmpty());
+        final var outer = bindings.get(rootMatcher);
+        final var child = outer.getChild();
+        final var outerFieldPathOrdinals = bindings.get(outerFieldPathOrdinalsMatcher);
+        final var outerFieldPathTypes = bindings.get(outerFieldPathTypesMatcher);
+        Verify.verify(child instanceof FieldValue);
+        Verify.verify(!outerFieldPathOrdinals.isEmpty());
+        Verify.verify(!outerFieldPathTypes.isEmpty());
+        call.yield(FieldValue.ofFields(grandChild, ((FieldValue)(child)).getFieldPath().withSuffix(outer.getFieldPath())));
     }
 }

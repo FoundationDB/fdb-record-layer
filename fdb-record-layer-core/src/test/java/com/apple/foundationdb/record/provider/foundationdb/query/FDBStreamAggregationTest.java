@@ -115,7 +115,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .build(useNestedResult);
 
@@ -132,7 +132,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .build(useNestedResult);
 
             final var result = executePlan(plan);
@@ -164,7 +164,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .build(useNestedResult);
@@ -182,8 +182,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .build(useNestedResult);
@@ -201,9 +201,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .build(useNestedResult);
@@ -221,9 +221,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .build(useNestedResult);
 
@@ -239,9 +239,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan = new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.MIN_I, value))
-                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
+                    .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                     .build(useNestedResult);
 
             final var result = executePlan(plan);
