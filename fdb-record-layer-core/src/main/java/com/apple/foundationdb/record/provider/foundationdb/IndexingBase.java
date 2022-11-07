@@ -590,11 +590,13 @@ public abstract class IndexingBase {
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            LOGGER.info(KeyValueLogMessage.build("Built Range",
+            LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.DELAY, toWait)
+                    LogMessageKeys.DELAY, toWait,
+                    LogMessageKeys.RECORDS_PER_SECOND, recordsPerSecond)
                     .addKeysAndValues(additionalLogMessageKeyValues)
+                    .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .toString());
         }
@@ -622,7 +624,7 @@ public abstract class IndexingBase {
     private boolean shouldLogBuildProgress() {
         long interval = common.config.getProgressLogIntervalMillis();
         long now = System.currentTimeMillis();
-        if (interval == 0 || interval < (now - timeOfLastProgressLogMillis)) {
+        if (interval == 0 || interval > (now - timeOfLastProgressLogMillis)) {
             return false;
         }
         timeOfLastProgressLogMillis = now;
@@ -811,7 +813,7 @@ public abstract class IndexingBase {
                                         // all done
                                         return AsyncUtil.READY_FALSE;
                                     }
-                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
+                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, additionalLogMessageKeyValues);
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {

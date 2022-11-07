@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -1049,6 +1050,43 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 .build()) {
             IndexingBase.TimeLimitException e = assertThrows(IndexingBase.TimeLimitException.class, indexer::buildIndex);
             assertTrue(e.getMessage().contains("Time Limit Exceeded"));
+        }
+    }
+
+    @Test
+    public void testLogInterval() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setProgressLogIntervalMillis(10)
+                .setLimit(20)
+                .setConfigLoader(old -> {
+                    // Ensure that time limit is exceeded
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        fail("The test was interrupted");
+                    }
+                    return old;
+                })
+                .build()) {
+            TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
+                    () -> {
+                        indexer.buildIndex();
+                        return null;
+                    });
         }
     }
 }
