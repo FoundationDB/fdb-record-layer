@@ -372,7 +372,6 @@ public class CascadesPlanner implements QueryPlanner {
 
     private void planPartial(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier, @Nonnull Function<GroupExpressionRef<RelationalExpression>, PlanContext> contextCreatorFunction) {
         currentRoot = expressionRefSupplier.get();
-        currentRoot.show(false);
         final var context = contextCreatorFunction.apply(currentRoot);
 
         final RelationalExpression expression = currentRoot.get();

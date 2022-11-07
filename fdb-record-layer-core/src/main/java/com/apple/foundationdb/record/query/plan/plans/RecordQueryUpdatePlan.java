@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -62,10 +63,10 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final TrieNode transformationsTrie,
-                                  @Nullable final TrieNode promotionsTrie,
+                                  @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
+                                  @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, promotionsTrie, computationValue);
+        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
     }
 
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
@@ -82,7 +83,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 getTargetDescriptor(),
                 translateTransformationsTrie(translationMap),
-                getPromotionsTrie(),
+                getCoercionTrie(),
                 getComputationValue().translateCorrelations(translationMap));
     }
 
@@ -94,7 +95,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 getTargetDescriptor(),
                 getTransformationsTrie(),
-                getPromotionsTrie(),
+                getCoercionTrie(),
                 getComputationValue());
     }
 

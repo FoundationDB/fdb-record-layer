@@ -147,7 +147,7 @@ public class PromoteValue implements ValueWithChild {
     }
 
     @Nullable
-    private static Function<Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static Function<Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
         return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 

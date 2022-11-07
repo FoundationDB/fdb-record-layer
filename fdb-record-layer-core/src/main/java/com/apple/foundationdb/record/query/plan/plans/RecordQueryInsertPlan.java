@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,9 +60,9 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final TrieNode promotionsTrie,
+                                  @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, recordType, targetType, targetDescriptor, null, promotionsTrie, computationValue);
+        super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue);
     }
 
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
@@ -77,7 +78,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getPromotionsTrie(),
+                getCoercionTrie(),
                 getComputationValue());
     }
 
@@ -88,7 +89,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
-                getPromotionsTrie(),
+                getCoercionTrie(),
                 getComputationValue());
     }
 

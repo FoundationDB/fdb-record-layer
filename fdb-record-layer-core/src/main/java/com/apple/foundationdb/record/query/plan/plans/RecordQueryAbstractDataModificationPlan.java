@@ -33,18 +33,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
@@ -57,9 +55,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -73,9 +69,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
@@ -101,10 +95,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
      */
     @Nullable
-    private final TrieNode transformationsTrie;
+    private final MessageHelpers.TransformationTrieNode transformationsTrie;
 
     @Nullable
-    private final TrieNode promotionsTrie;
+    private final MessageHelpers.CoercionTrieNode coercionTrie;
 
     @Nonnull
     private final Value computationValue;
@@ -127,8 +121,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                       @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
                                                       @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                      @Nullable final TrieNode transformationsTrie,
-                                                      @Nullable final TrieNode promotionsTrie,
+                                                      @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
+                                                      @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
                                                       @Nonnull final Value computationValue) {
         this.inner = inner;
         this.innerFlowedType = inner.getFlowedObjectType();
@@ -136,7 +130,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
         this.transformationsTrie = transformationsTrie;
-        this.promotionsTrie = promotionsTrie;
+        this.coercionTrie = coercionTrie;
         this.computationValue = computationValue;
         this.resultValue = new QueriedValue(computationValue.getResultType());
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
@@ -156,13 +150,13 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nullable
-    public TrieNode getTransformationsTrie() {
+    public MessageHelpers.TransformationTrieNode getTransformationsTrie() {
         return transformationsTrie;
     }
 
     @Nullable
-    public TrieNode getPromotionsTrie() {
-        return promotionsTrie;
+    public MessageHelpers.CoercionTrieNode getCoercionTrie() {
+        return coercionTrie;
     }
 
     @Nonnull
@@ -173,7 +167,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -192,14 +186,14 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                     final var result = computationValue.eval(store, nestedContext);
                                     return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
                                 }),
-                                store.getPipelineSize(PipelineOperation.UPDATE));
+                        store.getPipelineSize(PipelineOperation.UPDATE));
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
     public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)transformMessage(store, context, transformationsTrie, promotionsTrie, targetType, targetDescriptor, innerFlowedType, inRecord);
+        return (M)MessageHelpers.transformMessage(store, context, transformationsTrie, coercionTrie, targetType, targetDescriptor, innerFlowedType, inRecord);
     }
 
     public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
@@ -239,27 +233,27 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nullable
-    protected TrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+    protected MessageHelpers.TransformationTrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
         final var transformationsTrie = getTransformationsTrie();
         if (transformationsTrie == null) {
             return null;
         }
 
-        return transformationsTrie.<TrieNode>mapMaybe((current, childrenTries) -> {
+        return transformationsTrie.<MessageHelpers.TransformationTrieNode>mapMaybe((current, childrenTries) -> {
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new TrieNode(value.translateCorrelations(translationMap), null);
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
             } else {
-                final var oldChildrenMap = current.getChildrenMap();
+                final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();
-                final var resultBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+                final var resultBuilder = ImmutableMap.<Field, MessageHelpers.TransformationTrieNode>builder();
                 for (final var oldEntry : oldChildrenMap.entrySet()) {
                     Verify.verify(childrenTriesIterator.hasNext());
                     final var childTrie = childrenTriesIterator.next();
                     resultBuilder.put(oldEntry.getKey(), childTrie);
                 }
-                return new TrieNode(null, resultBuilder.build());
+                return new MessageHelpers.TransformationTrieNode(null, resultBuilder.build());
             }
         }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
@@ -302,7 +296,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         if (!Objects.equals(getTransformationsTrie(), otherUpdatePlan.getTransformationsTrie())) {
             return false;
         }
-        return Objects.equals(getPromotionsTrie(), otherUpdatePlan.getPromotionsTrie());
+        return Objects.equals(getCoercionTrie(), otherUpdatePlan.getCoercionTrie());
     }
 
     @Override
@@ -316,7 +310,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, promotionsTrie, computationValue);
+        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, coercionTrie, computationValue);
     }
 
     @Override
@@ -332,11 +326,11 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computePlanHashForContinuation() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, promotionsTrie);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
     }
 
     private int computeRegularPlanHashWithoutLiterals() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, promotionsTrie);
+        return PlanHashable.objectsPlanHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
     }
 
     @Nonnull
@@ -386,25 +380,27 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     /**
      * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
      * instantiation time (planning time). It serves to transform the input value in one pass.
+     *
      * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
      * @param transformMap a map of transformations
-     * @return a {@link TrieNode}
+     *
+     * @return a {@link MessageHelpers.TransformationTrieNode}
      */
     @Nonnull
-    public static TrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                    @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+    public static MessageHelpers.TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                                                 @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
     @Nonnull
-    private static TrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                     @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                     @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
+    private static MessageHelpers.TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
+                                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                                  @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (transformMap.containsKey(prefix)) {
             orderedFieldPathIterator.next();
-            return new TrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
+            return new MessageHelpers.TransformationTrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
         }
-        final var childrenMapBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+        final var childrenMapBuilder = ImmutableMap.<Field, MessageHelpers.TransformationTrieNode>builder();
         while (orderedFieldPathIterator.hasNext()) {
             final var fieldPath = orderedFieldPathIterator.peek();
             if (!prefix.isPrefixOf(fieldPath)) {
@@ -413,7 +409,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
             final var prefixFields = prefix.getFields();
             final var currentField = fieldPath.getFields().get(prefixFields.size());
-            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<Type.Record.Field>builder()
+            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<Field>builder()
                     .addAll(prefixFields)
                     .add(currentField)
                     .build());
@@ -422,13 +418,13 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             childrenMapBuilder.put(currentField, currentTrie);
         }
 
-        return new TrieNode(null, childrenMapBuilder.build());
+        return new MessageHelpers.TransformationTrieNode(null, childrenMapBuilder.build());
     }
 
     @Nullable
-    public static TrieNode computePromotionsTrie(@Nonnull final Type targetType,
-                                                 @Nonnull Type currentType,
-                                                 @Nullable final TrieNode transformationsTrie) {
+    public static MessageHelpers.CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
+                                                                        @Nonnull Type currentType,
+                                                                        @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
         if (transformationsTrie != null && transformationsTrie.getValue() != null) {
             currentType = transformationsTrie.getValue().getResultType();
         }
@@ -439,7 +435,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 return null;
             }
             // this is definitely a leaf; and we need to promote
-            return new TrieNode(PromoteValue.inject(ObjectValue.of(Quantifier.CURRENT, currentType), targetType), null);
+            final var promotionFunction = PromoteValue.resolvePromotionFunction(currentType, targetType);
+            SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return new MessageHelpers.CoercionTrieNode(promotionFunction, null);
         }
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
@@ -459,10 +457,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         final var currentFields = currentRecordType.getFields();
 
         final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
-        final var childrenMapBuilder = ImmutableMap.<Type.Record.Field, TrieNode>builder();
+        final var childrenMapBuilder = ImmutableMap.<Field, MessageHelpers.CoercionTrieNode>builder();
         for (int i = 0; i < targetFields.size(); i++) {
-            final Type.Record.Field targetField = targetFields.get(i);
-            final Type.Record.Field currentField = currentFields.get(i);
+            final Field targetField = targetFields.get(i);
+            final Field currentField = currentFields.get(i);
             final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(currentField);
             final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentField.getFieldType(), transformationsFieldTrie);
             if (fieldTrie != null) {
@@ -470,301 +468,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             }
         }
         final var childrenMap = childrenMapBuilder.build();
-        return childrenMap.isEmpty() ? null : new TrieNode(null, childrenMap);
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
-                                                              @Nonnull final EvaluationContext context,
-                                                              @Nullable final TrieNode transformationsTrie,
-                                                              @Nullable final TrieNode promotionsTrie,
-                                                              @Nonnull final Type targetType,
-                                                              @Nullable Descriptors.Descriptor targetDescriptor,
-                                                              @Nonnull final Type currentType,
-                                                              @Nullable final Object current) {
-        final var value = transformationsTrie == null ? null : transformationsTrie.getValue();
-        Verify.verify(value == null);
-
-        targetDescriptor = Verify.verifyNotNull(targetDescriptor);
-        final var targetDescriptorFields = targetDescriptor.getFields();
-        final var targetRecordType = (Type.Record)targetType;
-        final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
-        final var currentRecordType = (Type.Record)currentType;
-        final var currentNameToFieldMap = Verify.verifyNotNull(currentRecordType.getFieldNameFieldMap());
-
-        final var transformationsFieldNameToFieldMap = transformationsTrie == null ? null : transformationsTrie.getFieldNameToFieldMap();
-        final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
-        final var promotionsFieldIndexToFieldMap = promotionsTrie == null ? null : promotionsTrie.getFieldNameToFieldMap();
-        final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
-        final var subRecord = (M)Verify.verifyNotNull(current);
-
-        final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
-        final var messageDescriptor = subRecord.getDescriptorForType();
-        for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            final var transformationField = transformationsFieldNameToFieldMap == null ? null : transformationsFieldNameToFieldMap.get(messageFieldDescriptor.getName());
-            final var targetFieldDescriptor = targetDescriptorFields.get(messageFieldDescriptor.getIndex());
-            final var promotionField = promotionsFieldIndexToFieldMap == null ? null : promotionsFieldIndexToFieldMap.get(messageFieldDescriptor.getName());
-            final var promotionFieldTrie = (promotionsChildrenMap == null || promotionField == null) ? null : promotionsChildrenMap.get(promotionField);
-            if (transformationField != null) {
-                final var transformationFieldTrie = Verify.verifyNotNull(Verify.verifyNotNull(transformationsChildrenMap).get(transformationField));
-                final var targetFieldType = targetNameToFieldMap.get(transformationField.getFieldName()).getFieldType();
-                final var currentFieldType = transformationField.getFieldType();
-                Object fieldResult;
-                if (transformationFieldTrie.getValue() == null) {
-                    fieldResult =
-                            transformMessage(store,
-                                    context,
-                                    transformationFieldTrie,
-                                    promotionFieldTrie,
-                                    targetFieldType,
-                                    targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
-                                    currentFieldType,
-                                    subRecord.getField(messageFieldDescriptor));
-                } else {
-                    final var transformationValue = transformationFieldTrie.getValue();
-                    fieldResult = transformationValue.eval(store, context);
-                    if (fieldResult !=  null) {
-                        fieldResult = coerceField(store, context, promotionFieldTrie, targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult);
-                    }
-                }
-                Verify.verify(fieldResult != null || (currentFieldType.isNullable() && targetFieldType.isNullable()));
-                if (fieldResult != null) {
-                    resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
-                }
-            } else {
-                var fieldResult = MessageValue.getFieldOnMessage(subRecord, messageFieldDescriptor);
-                if (fieldResult != null) {
-                    final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                    //final var targetFieldType = Verify.verifyNotNull(targetNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                    //final var currentFieldType = Verify.verifyNotNull(currentNameToFieldMap.get(messageFieldDescriptor.getName())).getFieldType();
-                    final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                    fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
-                    resultMessageBuilder.setField(targetFieldDescriptor, coerceField(store, context, promotionFieldTrie, targetFieldType, targetFieldDescriptor, currentFieldType, fieldResult));
-                }
-            }
-        }
-        return resultMessageBuilder.build();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Nonnull
-    public static <M extends Message> Object coerceField(@Nonnull final FDBRecordStoreBase<M> store,
-                                                         @Nonnull final EvaluationContext context,
-                                                         @Nullable final TrieNode promotionsTrie,
-                                                         @Nonnull final Type targetFieldType,
-                                                         @Nonnull final Descriptors.FieldDescriptor targetFieldDescriptor,
-                                                         @Nonnull final Type currentFieldType,
-                                                         @Nonnull Object current) {
-        if (currentFieldType.getTypeCode() == Type.TypeCode.ARRAY) {
-            SemanticException.check(targetFieldType.getTypeCode() == Type.TypeCode.ARRAY, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetFieldType).getElementType());
-            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentFieldType).getElementType());
-            final var currentObjects = (List<?>)current;
-            final var coercedObjectsBuilder = ImmutableList.builder();
-            for (final var currentObject : currentObjects) {
-                coercedObjectsBuilder.add(coerceField(store, context, promotionsTrie, targetElementType, targetFieldDescriptor, currentElementType, currentObject));
-            }
-            current = coercedObjectsBuilder.build();
-
-            if (currentFieldType.isNullable()) {
-                final var wrappedDescriptor = targetFieldDescriptor.getMessageType();
-                final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-                wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), current);
-                return wrapperBuilder.build();
-            } else {
-                return current;
-            }
-        }
-
-        switch (targetFieldDescriptor.getJavaType()) {
-            case INT:
-            case LONG:
-            case FLOAT:
-            case DOUBLE:
-            case BOOLEAN:
-            case STRING:
-            case BYTE_STRING:
-            case ENUM:
-                if (promotionsTrie == null) {
-                    return current;
-                }
-
-                final var promoteValue = Verify.verifyNotNull(promotionsTrie.getValue());
-                return Verify.verifyNotNull(promoteValue.eval(store, context.withBinding(Quantifier.CURRENT, current)));
-            case MESSAGE:
-                return coerceMessage(store, context, promotionsTrie, targetFieldType, targetFieldDescriptor.getMessageType(), currentFieldType, (M)current);
-            default:
-                throw new IllegalStateException("unsupported java type for record field");
-        }
-    }
-
-    @Nonnull
-    public static <M extends Message> Message coerceMessage(@Nonnull final FDBRecordStoreBase<M> store,
-                                                            @Nonnull final EvaluationContext context,
-                                                            @Nullable final TrieNode promotionsTrie,
-                                                            @Nonnull final Type targetType,
-                                                            @Nonnull Descriptors.Descriptor targetDescriptor,
-                                                            @Nonnull final Type currentType,
-                                                            @Nonnull final M currentMessage) {
-        targetDescriptor = Verify.verifyNotNull(targetDescriptor);
-        final var promotionsChildrenMap = promotionsTrie == null ? null : promotionsTrie.getChildrenMap();
-        final var targetRecordType = (Type.Record)targetType;
-        final var currentRecordType = (Type.Record)currentType;
-        final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
-        final var messageDescriptor = currentMessage.getDescriptorForType();
-        final var targetFieldsFromDescriptor = targetDescriptor.getFields();
-        for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            if (currentMessage.hasField(messageFieldDescriptor)) {
-                final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(messageFieldDescriptor.getIndex()));
-                final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                final var currentField = currentRecordType.getField(messageFieldDescriptor.getIndex());
-                final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
-
-                resultMessageBuilder.setField(targetFieldDescriptor,
-                        coerceField(store,
-                                context,
-                                promotionsChildrenMap == null ? null : promotionsChildrenMap.get(currentField),
-                                targetFieldType,
-                                targetFieldDescriptor,
-                                currentFieldType,
-                                currentMessage.getField(messageFieldDescriptor)));
-            }
-        }
-        return resultMessageBuilder.build();
-    }
-
-    /**
-     * Bare-bone implementation of a trie data structure.
-     */
-    public static class TrieNode implements TreeLike<TrieNode> {
-        @Nullable
-        private final Value value;
-        @Nullable
-        private final Map<Type.Record.Field, TrieNode> childrenMap;
-
-        /**
-         * Map to track fieldName -> field associations in order to find transformations by name quicker.
-         */
-        @Nullable
-        private final Map<String, Type.Record.Field> fieldNameToFieldMap;
-
-        public TrieNode(@Nullable final Value value, @Nullable final Map<Type.Record.Field, TrieNode> childrenMap) {
-            this.value = value;
-            this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-            this.fieldNameToFieldMap = childrenMap == null ? null : computeFieldNameToFieldMap(this.childrenMap);
-        }
-
-        @Nullable
-        public Value getValue() {
-            return value;
-        }
-
-        @Nullable
-        public Map<Type.Record.Field, TrieNode> getChildrenMap() {
-            return childrenMap;
-        }
-
-        @Nullable
-        public Map<String, Type.Record.Field> getFieldNameToFieldMap() {
-            return fieldNameToFieldMap;
-        }
-
-        @Nonnull
-        @Override
-        public TrieNode getThis() {
-            return this;
-        }
-
-        @Nonnull
-        @Override
-        public Iterable<? extends TrieNode> getChildren() {
-            return childrenMap == null ? ImmutableList.of() : childrenMap.values();
-        }
-
-        @Nonnull
-        @Override
-        public TrieNode withChildren(final Iterable<? extends TrieNode> newChildren) {
-            throw new UnsupportedOperationException("trie does not define order among children");
-        }
-
-        @Nonnull
-        public Collection<Value> values() {
-            return Streams.stream(inPreOrder())
-                    .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
-                    .collect(ImmutableList.toImmutableList());
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof TrieNode)) {
-                return false;
-            }
-            final TrieNode trieNode = (TrieNode)o;
-            return Objects.equals(getValue(), trieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), trieNode.getChildrenMap()) &&
-                   Objects.equals(getFieldNameToFieldMap(), trieNode.getFieldNameToFieldMap());
-        }
-
-        public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof TrieNode)) {
-                return false;
-            }
-            final TrieNode otherTrieNode = (TrieNode)other;
-
-            return equalsNullable(getValue(), otherTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
-                   equalsNullable(getChildrenMap(), otherTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap)) &&
-                   Objects.equals(getFieldNameToFieldMap(), otherTrieNode.getFieldNameToFieldMap());
-        }
-
-        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Type.Record.Field, TrieNode> self,
-                                                            @Nonnull final Map<Type.Record.Field, TrieNode> other,
-                                                            @Nonnull final AliasMap equivalencesMap) {
-            if (self.size() != other.size()) {
-                return false;
-            }
-
-            for (final var fieldPath : self.keySet()) {
-                final var selfNestedTrie = self.get(fieldPath);
-                final var otherNestedTrie = self.get(fieldPath);
-                if (!selfNestedTrie.semanticEquals(otherNestedTrie, equivalencesMap)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private static <T> boolean equalsNullable(@Nullable final T self,
-                                                  @Nullable final T other,
-                                                  @Nonnull final BiFunction<T, T, Boolean> nonNullableTest) {
-            if (self == null && other == null) {
-                return true;
-            }
-            if (self == null) {
-                return false;
-            }
-            return nonNullableTest.apply(self, other);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap(), getFieldNameToFieldMap());
-        }
-
-        @Nonnull
-        private static Map<String, Type.Record.Field> computeFieldNameToFieldMap(@Nonnull final Map<Type.Record.Field, TrieNode> childrenMap) {
-            final var resultBuilder = ImmutableMap.<String, Type.Record.Field>builder();
-            for (final var entry : childrenMap.entrySet()) {
-                final var field = entry.getKey();
-                field.getFieldNameOptional().ifPresent(fieldName -> resultBuilder.put(fieldName, field));
-            }
-            return resultBuilder.build();
-        }
+        return childrenMap.isEmpty() ? null : new MessageHelpers.CoercionTrieNode(null, childrenMap);
     }
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -153,7 +154,7 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var result = RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
@@ -218,7 +219,7 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var result = RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
@@ -269,7 +270,7 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var result = RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
@@ -329,7 +330,7 @@ class MessageTransformationTest {
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
-        final var result = (Message)Verify.verifyNotNull(RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
@@ -373,7 +374,7 @@ class MessageTransformationTest {
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
-        final var result = (Message)RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = (Message)MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
@@ -411,7 +412,7 @@ class MessageTransformationTest {
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = inValue.eval(null, evaluationContext);
-        final var result = (Message)Verify.verifyNotNull(RecordQueryAbstractDataModificationPlan.transformMessage(null,
+        final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
                 transformationsTrie,
                 promotionsTrie,
