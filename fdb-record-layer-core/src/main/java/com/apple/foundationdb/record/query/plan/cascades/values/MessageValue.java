@@ -99,10 +99,10 @@ public class MessageValue {
             throw new RecordCoreException("empty list of fields");
         }
         MessageOrBuilder current = message;
-        int fieldOrdinalIndex;
+        int fieldOrdinal;
         // Notice that up to fieldOrdinals.length() - 2 are calling getFieldMessageOnMessageByOrdinal, and fieldOrdinals.length() - 1 is calling getFieldOnMessageByOrdinal
-        for (fieldOrdinalIndex = 0; fieldOrdinalIndex < fieldOrdinals.length() - 1; fieldOrdinalIndex++) {
-            current = getFieldMessageOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinalIndex));
+        for (fieldOrdinal = 0; fieldOrdinal < fieldOrdinals.length() - 1; fieldOrdinal++) {
+            current = getFieldMessageOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinal));
             if (current == null) {
                 return null;
             }

@@ -353,17 +353,18 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
     private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                          @Nonnull FieldValue fieldValue,
                                          @Nonnull AvailableFields.FieldData fieldData) {
+        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
         final var simplifiedFieldValue = (FieldValue)fieldValue.simplify(AliasMap.emptyMap(), ImmutableSet.of());
-        for (final Type.Record.Field field : simplifiedFieldValue.getFieldPrefix()) {
-            Verify.verify(field.getFieldNameOptional().isPresent());
-            builder = builder.getFieldBuilder(field.getFieldName());
+        for (final var maybeFieldName : simplifiedFieldValue.getFieldPrefix().getFieldNames()) {
+            Verify.verify(maybeFieldName.isPresent());
+            builder = builder.getFieldBuilder(maybeFieldName.get());
         }
 
         // TODO not sure what to do with the null standing requirement
 
-        final Type.Record.Field field = simplifiedFieldValue.getLastField();
-        Verify.verify(field.getFieldNameOptional().isPresent());
-        final String fieldName = field.getFieldName();
+        final var maybeFieldName = simplifiedFieldValue.getLastFieldName();
+        Verify.verify(maybeFieldName.isPresent());
+        final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
         }

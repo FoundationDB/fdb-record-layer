@@ -54,11 +54,13 @@ public class ValueMatchers {
         return typed(Value.class);
     }
 
+    @Deprecated // should access fields by ordinals
     @Nonnull
     public static BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final String fieldPathAsString) {
         return fieldValueWithFieldNames(anyValue(), fieldPathAsString);
     }
 
+    @Deprecated // should access fields by ordinals
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final String fieldPathAsString) {
@@ -69,6 +71,7 @@ public class ValueMatchers {
         return fieldValueWithFieldNames(downstreamValue, exactly(fieldPathMatchers));
     }
 
+    @Deprecated // should access fields by ordinals
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
@@ -86,21 +89,27 @@ public class ValueMatchers {
                 matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                       @Nonnull final CollectionMatcher<Type.Record.Field> downstreamFieldPath) {
+                                                                                       @Nonnull final CollectionMatcher<Integer> downstreamFieldPathOrdinals,
+                                                                                       @Nonnull final CollectionMatcher<Type> downstreamFieldPathTypes) {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
                 typedWithDownstream(FieldValue.class,
                         Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
                         downstreamValue);
-        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathOrdinalsMatcher =
                 typedWithDownstream(FieldValue.class,
-                        Extractor.of(FieldValue::getFields, name -> "fieldPath(" + name + ")"),
-                        downstreamFieldPath);
+                        Extractor.of(f -> f.getFieldPathOrdinals().asList(), name -> "fieldPathOrdinals(" + name + ")"),
+                        downstreamFieldPathOrdinals);
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathTypesMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getFieldPathTypes, name -> "fieldPathTypes(" + name + ")"),
+                        downstreamFieldPathTypes);
 
         return typedWithDownstream(FieldValue.class,
                 Extractor.identity(),
-                matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+                matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathOrdinalsMatcher, downstreamFieldPathTypesMatcher)));
     }
 
     public static <V extends Value> BindingMatcher<NumericAggregationValue.Sum> sumAggregationValue() {
@@ -144,6 +153,13 @@ public class ValueMatchers {
 
     @Nonnull
     public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue() {
-        return typed(StreamableAggregateValue.class);
+        return streamableAggregateValue(exactly(ImmutableList.of(anyValue())));
+    }
+
+    @Nonnull
+    public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(StreamableAggregateValue.class,
+                Extractor.of(StreamableAggregateValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
     }
 }

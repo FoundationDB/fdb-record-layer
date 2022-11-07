@@ -121,6 +121,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Tests related to planning queries with an IN clause.
  */
+@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**

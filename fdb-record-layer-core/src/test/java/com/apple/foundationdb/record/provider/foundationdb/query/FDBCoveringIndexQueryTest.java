@@ -89,6 +89,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests related to planning queries that can use covering indexes.
  */
+@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**

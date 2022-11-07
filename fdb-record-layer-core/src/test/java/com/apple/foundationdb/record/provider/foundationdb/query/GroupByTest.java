@@ -70,6 +70,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * test suite for {@code GROUP BY} expression planning and execution.
  */
+@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 public class GroupByTest extends FDBRecordStoreQueryTestBase {
 

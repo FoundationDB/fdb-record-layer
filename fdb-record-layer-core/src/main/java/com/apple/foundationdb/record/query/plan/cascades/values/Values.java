@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -27,12 +28,15 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.D
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 /**
  * Helper class for dealing with {@link Value}s.
@@ -91,10 +95,13 @@ public class Values {
         final var recordType = (Type.Record)type;
         final var fields = recordType.getFields();
 
+        int i = 0;
         for (final var field : fields) {
-            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), ImmutableList.of(field)), constantAliases).stream()
+            final int finalI1 = i;
+            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), FieldValue.FieldPath.flat(field.getFieldNameOptional(), field.getFieldType(), finalI1)), constantAliases).stream()
                     .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
                     .forEach(orderingValuesBuilder::add);
+            i++;
         }
 
         return orderingValuesBuilder.build();

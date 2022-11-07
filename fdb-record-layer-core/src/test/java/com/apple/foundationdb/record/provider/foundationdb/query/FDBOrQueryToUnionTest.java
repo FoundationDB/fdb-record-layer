@@ -111,6 +111,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests related to planning a query with an OR clause into a union plan.
  */
+@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**

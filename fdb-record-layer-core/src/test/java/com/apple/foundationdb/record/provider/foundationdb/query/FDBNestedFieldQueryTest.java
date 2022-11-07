@@ -93,6 +93,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests of the planner's ability to handle nested fields.
  */
+@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 
 /**
  * Tag interface used to mark {@link AggregateValue} implementations that can be calculated by a
@@ -28,5 +29,5 @@ import com.apple.foundationdb.annotation.API;
  * This is mainly used for matching.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface StreamableAggregateValue {
+public interface StreamableAggregateValue extends Value {
 }

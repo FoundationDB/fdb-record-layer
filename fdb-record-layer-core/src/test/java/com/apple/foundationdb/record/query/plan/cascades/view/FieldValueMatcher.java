@@ -44,10 +44,11 @@ public class FieldValueMatcher extends ValueMatcher {
         this(Collections.singletonList(fieldName));
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     protected boolean matchesSafely(final Value element) {
         return element instanceof FieldValue &&
-               ((FieldValue)element).getFields().equals(fieldPath);
+               ((FieldValue)element).getFieldPathNames().equals(fieldPath);
     }
 
     @Override

@@ -82,6 +82,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
@@ -110,6 +111,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
+        @SuppressWarnings("deprecation")
         @Nonnull
         @Override
         public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
@@ -132,9 +134,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 }
 
                                 final var fieldValue = (FieldValue)valuePredicate.getValue();
-                                if (fieldValue.getFields()
+                                if (fieldValue.getFieldPathNamesMaybe()
                                         .stream()
-                                        .anyMatch(field -> field.getFieldNameOptional().isEmpty())) {
+                                        .anyMatch(Optional::isEmpty)) {
                                     return Stream.of();
                                 }
 

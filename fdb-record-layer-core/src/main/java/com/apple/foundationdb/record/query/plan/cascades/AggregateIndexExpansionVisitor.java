@@ -163,7 +163,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // add an RCV column representing the grouping columns as the first result set column
         final var groupingValue = RecordConstructorValue.ofColumns(groupingValues
                 .stream()
-                .map(v -> Column.of(((FieldValue)v).getLastField(), v))
+                .map(Column::unnamedOf) // REMOVE: name is important?
                 .collect(Collectors.toList()));
 
         // flow all underlying quantifiers in their own QOV columns.
@@ -184,6 +184,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect()));
     }
 
+    @SuppressWarnings("deprecation")
     @Nonnull
     private Quantifier constructGroupBy(@Nonnull final CorrelationIdentifier baseQuantifierCorrelationIdentifier,
                                         @Nonnull final List<? extends Value> groupedValue,
@@ -229,12 +230,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueComparisonRangePredicate.Placeholder.class));
                 placeholderAliases.add(placeholder.getAlias());
                 selectHavingGraphExpansionBuilder
-                        .addResultColumn(Column.of(field.getLastField(), field))
+                        .addResultColumn(Column.unnamedOf(field))
                         .addPlaceholder(placeholder)
                         .addPredicate(placeholder);
             });
         }
-        selectHavingGraphExpansionBuilder.addResultColumn(Column.of(aggregateValueReference.getLastField(), aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
+        selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder? // REMOVE: name is important?
         return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
     }
 

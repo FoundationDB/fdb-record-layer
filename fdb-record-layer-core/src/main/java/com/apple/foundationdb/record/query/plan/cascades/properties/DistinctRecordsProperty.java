@@ -119,7 +119,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-            return visitIndexPlan(aggregateIndexPlan.getIndexPlan());
+            return true;
         }
 
         @Nonnull

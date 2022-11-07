@@ -247,7 +247,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
                recordTypeName.equals(other.recordTypeName) &&
                toRecord.equals(other.toRecord) &&
-               resultValue.equalsWithoutChildren(other.resultValue, equivalencesMap);
+               resultValue.semanticEquals(other.resultValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -279,20 +279,12 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
-            case LEGACY:
-                return indexPlan.planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexPlan);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexPlan, resultValue);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
-    }
-
-    @Nonnull
-    @Override
-    public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of();
     }
 
     @Nonnull

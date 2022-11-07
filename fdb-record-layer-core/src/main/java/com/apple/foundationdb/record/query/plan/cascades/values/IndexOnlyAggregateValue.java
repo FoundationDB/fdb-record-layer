@@ -1,5 +1,5 @@
 /*
- * IndexBackedAggregateValue.java
+ * IndexOnlyAggregateValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -49,9 +49,9 @@ import java.util.Locale;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class IndexOnlyAggregateValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild {
+public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
 
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Backed-Aggregate-Value");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 
     enum PhysicalOperator {
         MAX_EVER_LONG,
@@ -136,7 +136,7 @@ public abstract class IndexOnlyAggregateValue implements AggregateValue, Value.C
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    static class MinEverLong extends IndexOnlyAggregateValue implements IndexableAggregateValue {
+    static class MinEverLong extends IndexOnlyAggregateValue {
 
         /**
          * Creates a new instance of {@link MinEverLong}.
@@ -172,7 +172,7 @@ public abstract class IndexOnlyAggregateValue implements AggregateValue, Value.C
         }
     }
 
-    static class MaxEverLong extends IndexOnlyAggregateValue implements IndexableAggregateValue {
+    static class MaxEverLong extends IndexOnlyAggregateValue {
 
         /**
          * Creates a new instance of {@link MaxEverLong}.
