@@ -27,15 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MatchOrCompensateFieldValueRule.FieldValueCompensation;
-import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
@@ -60,43 +55,31 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
         super(rootMatcher);
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
     public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
+        final var mergedMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
-        final var mergedMatchedValuesMap =
-                Streams.zip(recordConstructorValue.getColumns().stream(), IntStream.range(0, recordConstructorValue.getColumns().size()).boxed(), Pair::of)
-                        .flatMap(columnOrdinalPair -> {
-                            final var childResult = call.getResult(columnOrdinalPair.getLeft().getValue());
-                            return childResult != null ? Stream.of(Pair.of(columnOrdinalPair, childResult.getResult())) : Stream.empty();
-                        })
-                        .map(columnWithResult -> {
-                            final var columnOrdinalPair = columnWithResult.getLeft();
-                            final var column = columnOrdinalPair.getLeft();
-                            final var ordinal = columnOrdinalPair.getRight();
-                            final var matchedValuesMap = columnWithResult.getRight();
+        for (int i = 0; i < recordConstructorValue.getColumns().size(); ++i) {
+            final var column = recordConstructorValue.getColumns().get(i);
+            final var childResult = call.getResult(column.getValue());
+            if (childResult == null) {
+                continue;
+            }
 
-                            //
-                            // Now we have a column and the result we computed for all columns that do have results associated with them,
-                            // i.e. the columns flowing results of values we care about.
-                            //
-                            final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
-
-                            for (final var childValueEntry : matchedValuesMap.entrySet()) {
-                                final var argumentValue = childValueEntry.getKey();
-                                final var argumentValueCompensation = childValueEntry.getValue();
-                                final var field = column.getField();
-                                newMatchedValuesMap.put(argumentValue, new FieldValueCompensation(FieldValue.FieldPath.flat(field.getFieldNameOptional(), field.getFieldType(), ordinal), argumentValueCompensation));
-                            }
-                            return newMatchedValuesMap;
-                        })
-                        .flatMap(map -> map.entrySet().stream())
-                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                Map.Entry::getValue,
-                                (l, r) -> l,
-                                LinkedIdentityMap::new));
+            //
+            // No we have a column and the result we computed for all columns that do have results associated with them,
+            // i.e. the columns flowing results of values we care about.
+            //
+            for (final var childValueEntry : childResult.getResult().entrySet()) {
+                final var argumentValue = childValueEntry.getKey();
+                final var argumentValueCompensation = childValueEntry.getValue();
+                final var field = column.getField();
+                mergedMatchedValuesMap.putIfAbsent(argumentValue,
+                        new FieldValueCompensation(FieldValue.FieldPath.flat(field.getFieldNameOptional(), field.getFieldType(), i), argumentValueCompensation));
+            }
+        }
 
         call.yield(recordConstructorValue, mergedMatchedValuesMap);
     }

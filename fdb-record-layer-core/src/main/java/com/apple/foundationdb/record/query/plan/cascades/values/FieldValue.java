@@ -34,6 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
@@ -62,9 +64,17 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     private final FieldPath fieldPath;
 
+    @Nonnull
+    private final Supplier<List<String>> fieldNamesSupplier;
+
     private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
+        fieldNamesSupplier = Suppliers.memoize(() ->
+                fieldPath.getFieldNamesMaybe()
+                        .stream()
+                        .map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set")))
+                        .collect(Collectors.toList()));
     }
 
     @Nonnull
@@ -74,7 +84,7 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     public List<String> getFieldPathNames() {
-        return fieldPath.getFieldNamesMaybe().stream().map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set"))).collect(Collectors.toList());
+        return fieldNamesSupplier.get();
     }
 
     @Nonnull
