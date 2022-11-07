@@ -317,7 +317,7 @@ public class TransformValue implements Value {
             }
 
             final var prefixLength = prefix.size();
-            final var currentField = FieldPath.flat(fieldPath.getFieldNames().get(prefixLength), fieldPath.getFieldTypes().get(prefixLength), fieldPath.getFieldOrdinals().get(prefixLength));
+            final var currentField = FieldPath.flat(fieldPath.getFieldNamesMaybe().get(prefixLength), fieldPath.getFieldTypes().get(prefixLength), fieldPath.getFieldOrdinals().get(prefixLength));
             final var nestedPrefix = prefix.withSuffix(currentField);
 
             final var currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator);

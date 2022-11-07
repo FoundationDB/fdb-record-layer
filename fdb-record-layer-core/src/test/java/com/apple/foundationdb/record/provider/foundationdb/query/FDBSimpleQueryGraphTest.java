@@ -85,7 +85,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * Tests of query planning and execution for queries on records with repeated fields.
  */
-@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

@@ -157,7 +157,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Tests for {@code RANK} type indexes.
  */
-@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 class RankIndexTest extends FDBRecordStoreQueryTestBase {
 

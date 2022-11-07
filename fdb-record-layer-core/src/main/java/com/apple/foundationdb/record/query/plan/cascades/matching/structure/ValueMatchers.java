@@ -54,13 +54,11 @@ public class ValueMatchers {
         return typed(Value.class);
     }
 
-    @Deprecated // should access fields by ordinals
     @Nonnull
     public static BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final String fieldPathAsString) {
         return fieldValueWithFieldNames(anyValue(), fieldPathAsString);
     }
 
-    @Deprecated // should access fields by ordinals
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final String fieldPathAsString) {
@@ -71,7 +69,6 @@ public class ValueMatchers {
         return fieldValueWithFieldNames(downstreamValue, exactly(fieldPathMatchers));
     }
 
-    @Deprecated // should access fields by ordinals
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldNames(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                         @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
@@ -126,12 +123,12 @@ public class ValueMatchers {
     @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static <T> BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final BindingMatcher<T>... downstreamValues) {
+    public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final BindingMatcher<? extends Value>... downstreamValues) {
         return recordConstructorValue(exactly(Arrays.asList(downstreamValues)));
     }
 
     @Nonnull
-    public static <T> BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final CollectionMatcher<T> downstreamValues) {
+    public static BindingMatcher<RecordConstructorValue> recordConstructorValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
         return typedWithDownstream(RecordConstructorValue.class,
                 Extractor.of(RecordConstructorValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);

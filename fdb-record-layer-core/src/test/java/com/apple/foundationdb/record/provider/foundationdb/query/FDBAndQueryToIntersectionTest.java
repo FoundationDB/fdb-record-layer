@@ -106,7 +106,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests related to planning a query with an AND clause into an intersection plan.
  */
-@SuppressWarnings("deprecation")
 @Tag(Tags.RequiresFDB)
 public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     /**

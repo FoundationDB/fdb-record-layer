@@ -74,8 +74,8 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
     @Nonnull
     private final Value child;
     
-    protected NumericAggregationValue(@Nonnull PhysicalOperator operator,
-                                   @Nonnull Value child) {
+    protected NumericAggregationValue(@Nonnull final PhysicalOperator operator,
+                                      @Nonnull final Value child) {
         this.operator = operator;
         this.child = child;
     }

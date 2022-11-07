@@ -237,7 +237,6 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that simple queries execute properly with continuations.
      */
-    @SuppressWarnings("deprecation")
     @DualPlannerTest
     void queryWithContinuation() throws Exception {
         setupSimpleRecordStore(null, (i, builder) -> {

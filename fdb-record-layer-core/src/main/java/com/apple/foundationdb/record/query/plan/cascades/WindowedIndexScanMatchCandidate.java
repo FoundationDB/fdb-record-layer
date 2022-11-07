@@ -457,7 +457,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                             @Nonnull FieldValue fieldValue,
                                             @Nonnull AvailableFields.FieldData fieldData) {
         // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        for (final var maybeFieldName : fieldValue.getFieldPrefix().getFieldNames()) {
+        for (final var maybeFieldName : fieldValue.getFieldPrefix().getFieldNamesMaybe()) {
             if (maybeFieldName.isEmpty()) {
                 return false;
             }

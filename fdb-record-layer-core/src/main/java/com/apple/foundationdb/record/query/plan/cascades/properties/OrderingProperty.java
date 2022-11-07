@@ -111,7 +111,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
-        @SuppressWarnings("deprecation")
         @Nonnull
         @Override
         public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {

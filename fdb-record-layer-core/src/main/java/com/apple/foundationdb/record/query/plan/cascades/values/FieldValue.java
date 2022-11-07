@@ -72,10 +72,9 @@ public class FieldValue implements ValueWithChild {
         return fieldPath;
     }
 
-    @Deprecated // should access fields by ordinals
     @Nonnull
     public List<String> getFieldPathNames() {
-        return fieldPath.getFieldNames().stream().map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set"))).collect(Collectors.toList());
+        return fieldPath.getFieldNamesMaybe().stream().map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set"))).collect(Collectors.toList());
     }
 
     @Nonnull
@@ -88,10 +87,9 @@ public class FieldValue implements ValueWithChild {
         return fieldPath.fieldOrdinals;
     }
 
-    @Deprecated // should access fields by ordinals
     @Nonnull
     public List<Optional<String>> getFieldPathNamesMaybe() {
-        return fieldPath.getFieldNames();
+        return fieldPath.getFieldNamesMaybe();
     }
 
     @Nonnull
@@ -258,6 +256,7 @@ public class FieldValue implements ValueWithChild {
         return new FieldValue(childValue, resolved);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     public static Optional<FieldPath> stripFieldPrefixMaybe(@Nonnull FieldPath fieldPath,
                                                               @Nonnull FieldPath potentialPrefixPath) {
@@ -372,7 +371,7 @@ public class FieldValue implements ValueWithChild {
         }
 
         @Nonnull
-        public List<Optional<String>> getFieldNames() {
+        public List<Optional<String>> getFieldNamesMaybe() {
             return fieldNames;
         }
 
