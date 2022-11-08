@@ -85,7 +85,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             // just return the child
             call.yield(column.getValue());
         } else {
-            call.yield(FieldValue.ofFields(column.getValue(), root.getFieldPath().skip(1)));
+            call.yield(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)));
         }
     }
 

@@ -97,7 +97,7 @@ public class ValueMatchers {
                         downstreamValue);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathOrdinalsMatcher =
                 typedWithDownstream(FieldValue.class,
-                        Extractor.of(f -> f.getFieldPathOrdinals().asList(), name -> "fieldPathOrdinals(" + name + ")"),
+                        Extractor.of(f -> f.getFieldOrdinals().asList(), name -> "fieldPathOrdinals(" + name + ")"),
                         downstreamFieldPathOrdinals);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathTypesMatcher =
                 typedWithDownstream(FieldValue.class,

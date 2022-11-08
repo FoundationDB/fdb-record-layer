@@ -77,7 +77,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
                 final var argumentValueCompensation = childValueEntry.getValue();
                 final var field = column.getField();
                 mergedMatchedValuesMap.putIfAbsent(argumentValue,
-                        new FieldValueCompensation(FieldValue.FieldPath.flat(field.getFieldNameOptional(), field.getFieldType(), i), argumentValueCompensation));
+                        new FieldValueCompensation(FieldValue.FieldPath.ofSingle(field.getFieldNameOptional().orElse(null), field.getFieldType(), i), argumentValueCompensation));
             }
         }
 

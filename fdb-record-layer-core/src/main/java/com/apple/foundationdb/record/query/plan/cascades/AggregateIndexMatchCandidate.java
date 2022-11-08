@@ -355,7 +355,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
                                          @Nonnull AvailableFields.FieldData fieldData) {
         // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
         final var simplifiedFieldValue = (FieldValue)fieldValue.simplify(AliasMap.emptyMap(), ImmutableSet.of());
-        for (final var maybeFieldName : simplifiedFieldValue.getFieldPrefix().getFieldNamesMaybe()) {
+        for (final var maybeFieldName : simplifiedFieldValue.getFieldPrefix().getOptionalFieldNames()) {
             Verify.verify(maybeFieldName.isPresent());
             builder = builder.getFieldBuilder(maybeFieldName.get());
         }
