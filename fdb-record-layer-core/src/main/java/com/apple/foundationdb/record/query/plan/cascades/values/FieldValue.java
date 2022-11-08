@@ -34,12 +34,10 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
@@ -49,6 +47,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -71,7 +70,7 @@ public class FieldValue implements ValueWithChild {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
         fieldNamesSupplier = Suppliers.memoize(() ->
-                fieldPath.getFieldNamesMaybe()
+                fieldPath.getOptionalFieldNames()
                         .stream()
                         .map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set")))
                         .collect(Collectors.toList()));
@@ -93,13 +92,13 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
-    public ImmutableIntArray getFieldPathOrdinals() {
-        return fieldPath.fieldOrdinals;
+    public ImmutableIntArray getFieldOrdinals() {
+        return fieldPath.getFieldOrdinals();
     }
 
     @Nonnull
     public List<Optional<String>> getFieldPathNamesMaybe() {
-        return fieldPath.getFieldNamesMaybe();
+        return fieldPath.getOptionalFieldNames();
     }
 
     @Nonnull
@@ -209,32 +208,32 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     private static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
-        final var accessorPathBuilder = ImmutableList.<Field>builder();
-        final var fieldOrdinals = ImmutableIntArray.builder();
+        final var accessorPathBuilder = ImmutableList.<ResolvedAccessor>builder();
         var currentType = inputType;
         for (final var accessor : accessors) {
-            final var fieldName = accessor.getFieldName();
+            final var fieldName = accessor.getName();
             SemanticException.check(currentType.getTypeCode() == Type.TypeCode.RECORD, SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
-                    String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinalFieldNumber() : fieldName));
+                    String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinal() : fieldName));
             final var recordType = (Type.Record)currentType;
             final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
             final Field field;
+            final int ordinal;
             if (fieldName != null) {
                 SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
                 field = fieldNameFieldMap.get(fieldName);
                 final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
                 SemanticException.check(fieldOrdinalsMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-                fieldOrdinals.add(fieldOrdinalsMap.get(fieldName));
+                ordinal = fieldOrdinalsMap.get(fieldName);
             } else {
                 // field is not accessed by field but by ordinal number
-                Verify.verify(accessor.getOrdinalFieldNumber() >= 0);
-                field = recordType.getFields().get(accessor.getOrdinalFieldNumber());
-                fieldOrdinals.add(accessor.getOrdinalFieldNumber());
+                Verify.verify(accessor.getOrdinal() >= 0);
+                field = recordType.getFields().get(accessor.getOrdinal());
+                ordinal = accessor.getOrdinal();
             }
-            accessorPathBuilder.add(field);
             currentType = field.getFieldType();
+            accessorPathBuilder.add(ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), ordinal, currentType));
         }
-        return new FieldPath(accessorPathBuilder.build(), fieldOrdinals.build());
+        return new FieldPath(accessorPathBuilder.build());
     }
 
     @Nonnull
@@ -291,40 +290,113 @@ public class FieldValue implements ValueWithChild {
      */
     public static class Accessor {
         @Nullable
-        final String fieldName;
+        final String name;
 
-        final int ordinalFieldNumber;
+        final int ordinal;
 
-        public Accessor(@Nullable final String fieldName, final int ordinalFieldNumber) {
-            this.fieldName = fieldName;
-            this.ordinalFieldNumber = ordinalFieldNumber;
+        public Accessor(@Nullable final String name, final int ordinal) {
+            this.name = name;
+            this.ordinal = ordinal;
         }
 
         @Nullable
-        public String getFieldName() {
-            return fieldName;
+        public String getName() {
+            return name;
         }
 
-        public int getOrdinalFieldNumber() {
-            return ordinalFieldNumber;
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Accessor)) {
+                return false;
+            }
+            final Accessor accessor = (Accessor)o;
+            return ordinal == accessor.ordinal && Objects.equals(name, accessor.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, ordinal);
+        }
+    }
+
+    /**
+     * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
+     */
+    public static class ResolvedAccessor {
+        @Nullable
+        final String name;
+
+        final int ordinal;
+
+        @Nonnull
+        private final Type type;
+
+        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+            this.name = name;
+            this.ordinal = ordinal;
+            this.type = type;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
+        }
+
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ResolvedAccessor)) {
+                return false;
+            }
+            final ResolvedAccessor that = (ResolvedAccessor)o;
+            return Objects.equals(getName(), that.getName()) &&
+                   getOrdinal() == that.getOrdinal() &&
+                   getType().equals(that.getType());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getName(), getOrdinal(), getType());
+        }
+
+        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
+            Preconditions.checkArgument(ordinalFieldNumber >= 0);
+            return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
         }
     }
 
     /**
      * A list of fields forming a path.
      */
-    @SuppressWarnings("UnstableApiUsage")
     public static class FieldPath {
-        private static final FieldPath EMPTY = new FieldPath(ImmutableList.of(), ImmutableIntArray.of());
+        private static final FieldPath EMPTY = new FieldPath(ImmutableList.of());
 
         private static final Comparator<FieldPath> COMPARATOR =
-                Comparator.comparing(f -> f.fieldOrdinals.asList(), Comparators.lexicographical(Comparator.<Integer>naturalOrder()));
+                Comparator.comparing(f -> f.getFieldOrdinals().asList(), Comparators.lexicographical(Comparator.<Integer>naturalOrder()));
 
         @Nonnull
-        private final List<Optional<String>> fieldNames;
+        private final List<ResolvedAccessor> fieldAccessors;
 
         @Nonnull
-        private final List<Type> fieldTypes;
+        private final Supplier<List<Optional<String>>> fieldNamesSupplier;
 
         /**
          * This encapsulates the ordinals of the field path encoded by this {@link FieldValue}. It serves two purposes:
@@ -334,23 +406,22 @@ public class FieldValue implements ValueWithChild {
          * </ul>
          */
         @Nonnull
-        private final ImmutableIntArray fieldOrdinals;
+        private final Supplier<ImmutableIntArray> fieldOrdinalsSupplier;
 
-        FieldPath(@Nonnull final List<Field> fields, @Nonnull final ImmutableIntArray fieldOrdinals) {
-            Preconditions.checkArgument(fieldOrdinals.length() == fields.size());
-            Preconditions.checkArgument(fieldOrdinals.stream().allMatch(f -> f >= 0));
-            this.fieldNames = fields.stream().map(Field::getFieldNameOptional).collect(Collectors.toList());
-            this.fieldTypes = fields.stream().map(Field::getFieldType).collect(Collectors.toList());
-            this.fieldOrdinals = fieldOrdinals;
+        @Nonnull
+        private final Supplier<List<Type>> fieldTypesSupplier;
+
+        public FieldPath(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+            this.fieldAccessors = ImmutableList.copyOf(fieldAccessors);
+
+            this.fieldNamesSupplier = Suppliers.memoize(() -> computeFieldNames(fieldAccessors));
+            this.fieldOrdinalsSupplier = Suppliers.memoize(() -> computeOrdinals(fieldAccessors));
+            this.fieldTypesSupplier = Suppliers.memoize(() -> computeFieldTypes(fieldAccessors));
         }
 
-        public FieldPath(@Nonnull final List<Optional<String>> fieldNames, @Nonnull final List<Type> fieldTypes, @Nonnull final ImmutableIntArray fieldOrdinals) {
-            Preconditions.checkArgument(fieldNames.size() == fieldTypes.size());
-            Preconditions.checkArgument(fieldTypes.size() == fieldOrdinals.length());
-            Preconditions.checkArgument(fieldOrdinals.stream().allMatch(f -> f >= 0));
-            this.fieldNames = ImmutableList.copyOf(fieldNames);
-            this.fieldTypes = ImmutableList.copyOf(fieldTypes);
-            this.fieldOrdinals = fieldOrdinals; // already immutable.
+        @Nonnull
+        public List<ResolvedAccessor> getFieldAccessors() {
+            return fieldAccessors;
         }
 
         @Override
@@ -362,27 +433,35 @@ public class FieldValue implements ValueWithChild {
                 return false;
             }
             final FieldPath otherFieldPath = (FieldPath)o;
-            return fieldNames.equals(otherFieldPath.fieldNames)
-                    && fieldTypes.equals(otherFieldPath.fieldTypes)
-                    && fieldOrdinals.equals(otherFieldPath.getFieldOrdinals());
+            return fieldAccessors.equals(otherFieldPath.fieldAccessors);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(fieldNames, fieldOrdinals, fieldTypes);
+            return Objects.hash(fieldAccessors);
         }
 
         @Override
         @Nonnull
         public String toString() {
-            return Streams.zip(fieldNames.stream(), fieldOrdinals.stream().boxed(),
-                    (maybeFieldName, fieldOrdinal) -> maybeFieldName.map(s -> "." + s).orElseGet(() -> "#" + fieldOrdinal))
+            return fieldAccessors.stream()
+                    .map(fieldAccessor -> fieldAccessor.getName() == null ? "#" + fieldAccessor.getOrdinal() : "." + fieldAccessor.getName())
                     .collect(Collectors.joining());
         }
 
         @Nonnull
-        public List<Optional<String>> getFieldNamesMaybe() {
-            return fieldNames;
+        public List<Optional<String>> getOptionalFieldNames() {
+            return fieldNamesSupplier.get();
+        }
+
+        @Nonnull
+        public ImmutableIntArray getFieldOrdinals() {
+            return fieldOrdinalsSupplier.get();
+        }
+
+        @Nonnull
+        public List<Type> getFieldTypes() {
+            return fieldTypesSupplier.get();
         }
 
         @Nonnull
@@ -394,42 +473,35 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         public Optional<String> getLastFieldName() {
             Preconditions.checkArgument(!isEmpty());
-            return fieldNames.get(size() - 1);
+            return getOptionalFieldNames().get(size() - 1);
         }
 
         public int getLastFieldOrdinal() {
             Preconditions.checkArgument(!isEmpty());
-            return fieldOrdinals.get(size() - 1);
+            return getFieldOrdinals().get(size() - 1);
         }
 
         @Nonnull
         public Type getLastFieldType() {
             Preconditions.checkArgument(!isEmpty());
-            return fieldTypes.get(size() - 1);
-        }
-
-        @Nonnull
-        public ImmutableIntArray getFieldOrdinals() {
-            return fieldOrdinals;
+            return getFieldTypes().get(size() - 1);
         }
 
         public int size() {
-            return fieldTypes.size();
+            return fieldAccessors.size();
         }
 
         public boolean isEmpty() {
-            return fieldTypes.isEmpty();
+            return fieldAccessors.isEmpty();
         }
 
         @Nonnull
         public FieldPath subList(int fromIndex, int toIndex) {
-            return new FieldPath(fieldNames.subList(fromIndex, toIndex),
-                    fieldTypes.subList(fromIndex, toIndex),
-                    fieldOrdinals.subArray(fromIndex, toIndex));
+            return new FieldPath(fieldAccessors.subList(fromIndex, toIndex));
         }
 
         @Nonnull
-        public FieldPath skip(int count) {
+        public FieldPath subList(int count) {
             Preconditions.checkArgument(count >= 0);
             Preconditions.checkArgument(count <= size());
 
@@ -442,17 +514,13 @@ public class FieldValue implements ValueWithChild {
             return subList(count, size());
         }
 
-        @Nonnull
-        public List<Type> getFieldTypes() {
-            return fieldTypes;
-        }
-
         public boolean isPrefixOf(@Nonnull final FieldPath otherFieldPath) {
             if (otherFieldPath.size() < size()) {
                 return false;
             }
             for (int i = 0; i < size(); i++) {
-                if (otherFieldPath.fieldOrdinals.get(i) != fieldOrdinals.get(i) || !otherFieldPath.fieldTypes.get(i).equals(fieldTypes.get(i))) {
+                if (otherFieldPath.getFieldOrdinals().get(i) != getFieldOrdinals().get(i) ||
+                        !otherFieldPath.getFieldTypes().get(i).equals(getFieldTypes().get(i))) {
                     return false;
                 }
             }
@@ -468,9 +536,7 @@ public class FieldValue implements ValueWithChild {
             } else if (this.isEmpty()) {
                 return suffix;
             }
-            return new FieldPath(ImmutableList.<Optional<String>>builder().addAll(fieldNames).addAll(suffix.fieldNames).build(),
-                    ImmutableList.<Type>builder().addAll(fieldTypes).addAll(suffix.fieldTypes).build(),
-                    ImmutableIntArray.builder().addAll(fieldOrdinals).addAll(suffix.fieldOrdinals).build());
+            return new FieldPath(ImmutableList.<ResolvedAccessor>builder().addAll(fieldAccessors).addAll(suffix.fieldAccessors).build());
         }
 
         @Nonnull
@@ -478,10 +544,35 @@ public class FieldValue implements ValueWithChild {
             return EMPTY;
         }
 
-        @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         @Nonnull
-        public static FieldPath flat(@Nonnull final Optional<String> fieldName, @Nonnull final Type fieldType, @Nonnull final Integer fieldOrdinal) {
-            return new FieldPath(ImmutableList.of(fieldName), ImmutableList.of(fieldType), ImmutableIntArray.of(fieldOrdinal));
+        private static List<Optional<String>> computeFieldNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+            return fieldAccessors.stream()
+                    .map(accessor -> Optional.ofNullable(accessor.getName()))
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        @Nonnull
+        private static ImmutableIntArray computeOrdinals(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+            final var resultBuilder = ImmutableIntArray.builder();
+            fieldAccessors.forEach(accessor -> resultBuilder.add(accessor.getOrdinal()));
+            return resultBuilder.build();
+        }
+
+        @Nonnull
+        private static List<Type> computeFieldTypes(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
+            return fieldAccessors.stream()
+                    .map(ResolvedAccessor::getType)
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        @Nonnull
+        public static FieldPath ofSingle(@Nullable final String fieldName, @Nonnull final Type fieldType, @Nonnull final Integer fieldOrdinal) {
+            return new FieldPath(ImmutableList.of(ResolvedAccessor.of(fieldName, fieldOrdinal, fieldType)));
+        }
+
+        @Nonnull
+        public static FieldPath ofSingle(@Nonnull final ResolvedAccessor accessor) {
+            return new FieldPath(ImmutableList.of(accessor));
         }
 
         @Nonnull

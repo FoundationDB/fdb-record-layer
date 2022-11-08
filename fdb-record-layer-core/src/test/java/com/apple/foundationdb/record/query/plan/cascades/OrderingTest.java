@@ -43,9 +43,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class OrderingTest {
     @Test
     void testOrdering() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -64,9 +65,10 @@ class OrderingTest {
 
     @Test
     void testOrdering2() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -86,9 +88,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -108,9 +111,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys2() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -129,9 +133,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys3() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -148,11 +153,12 @@ class OrderingTest {
 
     @Test
     void testMergePartialOrdersNAry() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
-        final var d = of(field("d"));
-        final var e = of(field("e"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var d = of(field(rcv, "d"));
+        final var e = of(field(rcv, "e"));
 
         final var one =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
@@ -180,11 +186,12 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
-        final var d = of(field("d"));
-        final var e = of(field("e"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var d = of(field(rcv, "d"));
+        final var e = of(field(rcv, "e"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -223,10 +230,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering2() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
-        final var x = of(field("x"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var x = of(field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -254,10 +262,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering3() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
-        final var x = of(field("x"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var x = of(field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -285,10 +294,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering4() {
-        final var a = of(field("a"));
-        final var b = of(field("b"));
-        final var c = of(field("c"));
-        final var x = of(field("x"));
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var x = of(field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -311,11 +321,26 @@ class OrderingTest {
     }
 
     @Nonnull
-    private static Value field(@Nonnull final String fieldName) {
+    private static Value field(@Nonnull final RecordConstructorValue rcv, @Nonnull final String fieldName) {
+        return FieldValue.ofFieldName(rcv, fieldName);
+    }
+
+    @Nonnull
+    private static RecordConstructorValue rcv() {
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(fieldName)),
-                                LiteralValue.ofScalar("fieldValue")));
-        return FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), fieldName);
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
+                                LiteralValue.ofScalar("fieldValueA")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b")),
+                                LiteralValue.ofScalar("fieldValueB")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
+                                LiteralValue.ofScalar("fieldValueC")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("d")),
+                                LiteralValue.ofScalar("fieldValueD")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("e")),
+                                LiteralValue.ofScalar("fieldValueE")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("x")),
+                                LiteralValue.ofScalar("fieldValueX")));
+        return RecordConstructorValue.ofColumns(columns);
     }
 }
