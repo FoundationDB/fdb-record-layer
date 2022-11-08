@@ -1088,5 +1088,59 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         return null;
                     });
         }
+
+        // test with zero interval (always log)
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexDisabled(index).join();
+            context.commit();
+        }
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setProgressLogIntervalMillis(0)
+                .setLimit(20)
+                .setConfigLoader(old -> {
+                    // Ensure that time limit is exceeded
+                    try {
+                        Thread.sleep(1);
+                    } catch (InterruptedException e) {
+                        fail("The test was interrupted");
+                    }
+                    return old;
+                })
+                .build()) {
+            TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
+                    () -> {
+                        indexer.buildIndex();
+                        return null;
+                    });
+        }
+
+        // test with negative interval (never log)
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexDisabled(index).join();
+            context.commit();
+        }
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setProgressLogIntervalMillis(-1)
+                .setLimit(20)
+                .setConfigLoader(old -> {
+                    // Ensure that time limit is exceeded
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        fail("The test was interrupted");
+                    }
+                    return old;
+                })
+                .build()) {
+            TestHelpers.assertDidNotLog(IndexingBase.class, "Indexer: Built Range",
+                    () -> {
+                        indexer.buildIndex();
+                        return null;
+                    });
+        }
     }
 }

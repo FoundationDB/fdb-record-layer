@@ -624,7 +624,7 @@ public abstract class IndexingBase {
     private boolean shouldLogBuildProgress() {
         long interval = common.config.getProgressLogIntervalMillis();
         long now = System.currentTimeMillis();
-        if (interval == 0 || interval > (now - timeOfLastProgressLogMillis)) {
+        if (interval < 0 || (interval != 0 && interval > (now - timeOfLastProgressLogMillis))) {
             return false;
         }
         timeOfLastProgressLogMillis = now;
