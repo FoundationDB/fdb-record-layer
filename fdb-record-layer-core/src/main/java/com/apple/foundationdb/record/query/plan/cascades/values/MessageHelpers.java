@@ -33,6 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -42,6 +45,7 @@ import com.google.protobuf.MessageOrBuilder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -297,7 +301,7 @@ public class MessageHelpers {
     @SuppressWarnings("unchecked")
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
                                                               @Nonnull final EvaluationContext context,
-                                                              @Nullable final TransformationTrieNode transformationsTrie,
+                                                              @Nullable final TransformationTrieNode<Integer> transformationsTrie,
                                                               @Nullable final CoercionTrieNode coercionsTrie,
                                                               @Nonnull final Type targetType,
                                                               @Nullable Descriptors.Descriptor targetDescriptor,
@@ -481,16 +485,18 @@ public class MessageHelpers {
 
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
+     *
+     * @param <D> The type of the key.
      */
-    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
+    public static class TransformationTrieNode<D> extends TrieNode<D, Value, TransformationTrieNode<D>> {
 
-        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
+        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<D, TransformationTrieNode<D>> childrenMap) {
             super(value, childrenMap);
         }
 
         @Nonnull
         @Override
-        public TransformationTrieNode getThis() {
+        public TransformationTrieNode<D> getThis() {
             return this;
         }
 
@@ -502,7 +508,7 @@ public class MessageHelpers {
             if (!(o instanceof TransformationTrieNode)) {
                 return false;
             }
-            final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
+            final TransformationTrieNode<?> transformationTrieNode = (TransformationTrieNode<?>)o;
             return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
                    Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
         }
@@ -515,15 +521,15 @@ public class MessageHelpers {
             if (!(other instanceof TransformationTrieNode)) {
                 return false;
             }
-            final TransformationTrieNode otherTransformationTrieNode = (TransformationTrieNode)other;
+            final TransformationTrieNode<?> otherTransformationTrieNode = (TransformationTrieNode<?>)other;
 
             return equalsNullable(getValue(), otherTransformationTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
                    equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));
         }
 
-        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Integer, TransformationTrieNode> self,
-                                                            @Nonnull final Map<Integer, TransformationTrieNode> other,
-                                                            @Nonnull final AliasMap equivalencesMap) {
+        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<?, ? extends TransformationTrieNode<?>> self,
+                                                                @Nonnull final Map<?, ? extends TransformationTrieNode<?>> other,
+                                                                @Nonnull final AliasMap equivalencesMap) {
             if (self.size() != other.size()) {
                 return false;
             }
@@ -554,6 +560,84 @@ public class MessageHelpers {
         @Override
         public int hashCode() {
             return Objects.hash(getValue(), getChildrenMap());
+        }
+
+        @Nonnull
+        public static <V> List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, V> transformMap) {
+            // this brings together all paths that share the same prefixes
+            final var orderedFieldPaths =
+                    transformMap.keySet()
+                            .stream()
+                            .sorted(FieldValue.FieldPath.comparator())
+                            .collect(ImmutableList.toImmutableList());
+
+            FieldValue.FieldPath currentFieldPath = null;
+            for (final var fieldPath : orderedFieldPaths) {
+                SemanticException.check(currentFieldPath == null || !currentFieldPath.isPrefixOf(fieldPath), SemanticException.ErrorCode.UPDATE_TRANSFORM_AMBIGUOUS);
+                currentFieldPath = fieldPath;
+            }
+            return orderedFieldPaths;
+        }
+
+        /**
+         * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
+         * instantiation time (planning time). It serves to transform the input value in one pass.
+         *
+         * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
+         * @param transformMap a map of transformations
+         *
+         * @return a {@link TransformationTrieNode}
+         */
+        @Nonnull
+        public static TransformationTrieNode<Integer> computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                                               @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+            return computeTrieForFieldPaths(orderedFieldPaths, transformMap, FieldValue.ResolvedAccessor::getOrdinal);
+        }
+
+        /**
+         * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
+         * instantiation time (planning time). It serves to transform the input value in one pass.
+         *
+         * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
+         * @param transformMap a map of transformations
+         *
+         * @return a {@link TransformationTrieNode}
+         */
+        @Nonnull
+        public static <D> TransformationTrieNode<D> computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                                             @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                             @Nonnull final Function<FieldValue.ResolvedAccessor, D> keyProvider) {
+            return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()), keyProvider);
+        }
+
+        @Nonnull
+        private static <D> TransformationTrieNode<D> computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
+                                                                              @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                              @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator,
+                                                                              @Nonnull final Function<FieldValue.ResolvedAccessor, D> keyProvider) {
+            if (transformMap.containsKey(prefix)) {
+                orderedFieldPathIterator.next();
+                return new TransformationTrieNode<>(Verify.verifyNotNull(transformMap.get(prefix)), null);
+            }
+            final var childrenMapBuilder = ImmutableMap.<D, TransformationTrieNode<D>>builder();
+            while (orderedFieldPathIterator.hasNext()) {
+                final var fieldPath = orderedFieldPathIterator.peek();
+                if (!prefix.isPrefixOf(fieldPath)) {
+                    break;
+                }
+
+                final var prefixAccessors = prefix.getFieldAccessors();
+                final var currentAccessor = fieldPath.getFieldAccessors().get(prefixAccessors.size());
+                final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<FieldValue.ResolvedAccessor>builder()
+                        .addAll(prefixAccessors)
+                        .add(currentAccessor)
+                        .build());
+
+                final TransformationTrieNode<D> currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator, keyProvider);
+                childrenMapBuilder.put(keyProvider.apply(currentAccessor), currentTrie);
+            }
+
+            return new TransformationTrieNode<D>(null, childrenMapBuilder.build());
         }
     }
 

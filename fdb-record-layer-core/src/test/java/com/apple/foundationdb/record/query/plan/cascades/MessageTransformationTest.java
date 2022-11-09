@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,7 +60,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var transformTrie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
         Assertions.assertNull(transformTrie.getValue());
         var childrenMap = transformTrie.getChildrenMap();
@@ -108,7 +107,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var transformationsTrie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                 transformMap);
         Assertions.assertThrows(SemanticException.class,
                 () -> RecordQueryAbstractDataModificationPlan.computePromotionsTrie(inValue.getResultType(), inValue.getResultType(), transformationsTrie));
@@ -125,7 +124,7 @@ class MessageTransformationTest {
                         a_aa_aab.getFieldPath(), new LiteralValue<>(2));
 
         Assertions.assertThrows(SemanticException.class,
-                () -> RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                () -> MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap));
     }
 
@@ -142,7 +141,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var trie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
@@ -208,7 +207,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var trie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
@@ -260,7 +259,7 @@ class MessageTransformationTest {
                         a_aa_aab.getFieldPath(), new LiteralValue<>(2),
                         a_ab.getFieldPath(), new LiteralValue<>(3));
         final var trie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
         final var aaValue =
@@ -321,7 +320,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var trie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
@@ -366,7 +365,7 @@ class MessageTransformationTest {
                         a_ab.getFieldPath(), new LiteralValue<>(3));
 
         final var trie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
@@ -405,7 +404,7 @@ class MessageTransformationTest {
 
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor());
         final var transformationsTrie =
-                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
         final var promotionsTrie = RecordQueryAbstractDataModificationPlan.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
 

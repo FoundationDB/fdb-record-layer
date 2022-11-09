@@ -71,7 +71,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final TransformationTrieNode transformationsTrie,
+                                  @Nullable final TransformationTrieNode<Integer> transformationsTrie,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
         super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
@@ -209,7 +209,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                                    @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                    @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
                                                    @Nonnull final Value computationValue) {
-        final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
+        final var transformationsTrie = MessageHelpers.TransformationTrieNode.computeTrieForFieldPaths(
+                MessageHelpers.TransformationTrieNode.checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
                 targetRecordType,
                 targetType,
@@ -219,64 +220,5 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 computationValue);
     }
 
-    @Nonnull
-    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        // this brings together all paths that share the same prefixes
-        final var orderedFieldPaths =
-                transformMap.keySet()
-                        .stream()
-                        .sorted(FieldValue.FieldPath.comparator())
-                        .collect(ImmutableList.toImmutableList());
 
-        FieldValue.FieldPath currentFieldPath = null;
-        for (final var fieldPath : orderedFieldPaths) {
-            SemanticException.check(currentFieldPath == null || !currentFieldPath.isPrefixOf(fieldPath), SemanticException.ErrorCode.UPDATE_TRANSFORM_AMBIGUOUS);
-            currentFieldPath = fieldPath;
-        }
-        return orderedFieldPaths;
-    }
-
-    /**
-     * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
-     * instantiation time (planning time). It serves to transform the input value in one pass.
-     *
-     * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
-     * @param transformMap a map of transformations
-     *
-     * @return a {@link TransformationTrieNode}
-     */
-    @Nonnull
-    public static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
-    }
-
-    @Nonnull
-    private static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                                   @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
-        if (transformMap.containsKey(prefix)) {
-            orderedFieldPathIterator.next();
-            return new TransformationTrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
-        }
-        final var childrenMapBuilder = ImmutableMap.<Integer, TransformationTrieNode>builder();
-        while (orderedFieldPathIterator.hasNext()) {
-            final var fieldPath = orderedFieldPathIterator.peek();
-            if (!prefix.isPrefixOf(fieldPath)) {
-                break;
-            }
-
-            final var prefixAccessors = prefix.getFieldAccessors();
-            final var currentAccessor = fieldPath.getFieldAccessors().get(prefixAccessors.size());
-            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<FieldValue.ResolvedAccessor>builder()
-                    .addAll(prefixAccessors)
-                    .add(currentAccessor)
-                    .build());
-
-            final var currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator);
-            childrenMapBuilder.put(currentAccessor.getOrdinal(), currentTrie);
-        }
-
-        return new TransformationTrieNode(null, childrenMapBuilder.build());
-    }
 }

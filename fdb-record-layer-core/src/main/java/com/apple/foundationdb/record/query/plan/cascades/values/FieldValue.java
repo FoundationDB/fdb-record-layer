@@ -537,7 +537,7 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         private final Type type;
 
-        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
             this.name = name;
             this.ordinal = ordinal;
             this.type = type;

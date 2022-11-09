@@ -106,7 +106,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
      */
     @Nullable
-    private final MessageHelpers.TransformationTrieNode transformationsTrie;
+    private final MessageHelpers.TransformationTrieNode<Integer> transformationsTrie;
 
     @Nullable
     private final MessageHelpers.CoercionTrieNode coercionTrie;
@@ -135,7 +135,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                       @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
                                                       @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                                      @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
+                                                      @Nullable final MessageHelpers.TransformationTrieNode<Integer> transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
                                                       @Nonnull final Value computationValue) {
         this.inner = inner;
@@ -165,7 +165,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nullable
-    public MessageHelpers.TransformationTrieNode getTransformationsTrie() {
+    public MessageHelpers.TransformationTrieNode<Integer> getTransformationsTrie() {
         return transformationsTrie;
     }
 
@@ -254,6 +254,32 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         } else {
             return resultValueCorrelatedTo;
         }
+    }
+
+    @Nullable
+    protected MessageHelpers.TransformationTrieNode<Integer> translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+        final var transformationsTrie = getTransformationsTrie();
+        if (transformationsTrie == null) {
+            return null;
+        }
+
+        return transformationsTrie.<MessageHelpers.TransformationTrieNode<Integer>>mapMaybe((current, childrenTries) -> {
+            final var value = current.getValue();
+            if (value != null) {
+                Verify.verify(Iterables.isEmpty(childrenTries));
+                return new MessageHelpers.TransformationTrieNode<>(value.translateCorrelations(translationMap), null);
+            } else {
+                final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
+                final var childrenTriesIterator = childrenTries.iterator();
+                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode<Integer>>builder();
+                for (final var oldEntry : oldChildrenMap.entrySet()) {
+                    Verify.verify(childrenTriesIterator.hasNext());
+                    final var childTrie = childrenTriesIterator.next();
+                    resultBuilder.put(oldEntry.getKey(), childTrie);
+                }
+                return new MessageHelpers.TransformationTrieNode<>(null, resultBuilder.build());
+            }
+        }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
 
     @Nonnull
@@ -362,7 +388,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nullable
     public static MessageHelpers.CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
                                                                         @Nonnull Type currentType,
-                                                                        @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
+                                                                        @Nullable final MessageHelpers.TransformationTrieNode<Integer> transformationsTrie) {
         if (transformationsTrie != null && transformationsTrie.getValue() != null) {
             currentType = transformationsTrie.getValue().getResultType();
         }
