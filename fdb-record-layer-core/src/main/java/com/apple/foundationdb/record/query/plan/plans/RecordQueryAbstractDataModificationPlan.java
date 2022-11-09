@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -51,8 +50,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -62,9 +59,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -246,7 +241,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();
-                final var resultBuilder = ImmutableMap.<MessageHelpers.ResolvedAccessor, MessageHelpers.TransformationTrieNode>builder();
+                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode>builder();
                 for (final var oldEntry : oldChildrenMap.entrySet()) {
                     Verify.verify(childrenTriesIterator.hasNext());
                     final var childTrie = childrenTriesIterator.next();
@@ -359,67 +354,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         return 1 + getInnerPlan().getComplexity();
     }
 
-    @Nonnull
-    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        // this brings together all paths that share the same prefixes
-        final var orderedFieldPaths =
-                transformMap.keySet()
-                        .stream()
-                        .sorted(FieldValue.FieldPath.comparator())
-                        .collect(ImmutableList.toImmutableList());
-
-        FieldValue.FieldPath currentFieldPath = null;
-        for (final var fieldPath : orderedFieldPaths) {
-            SemanticException.check(currentFieldPath == null || !currentFieldPath.isPrefixOf(fieldPath), SemanticException.ErrorCode.UPDATE_TRANSFORM_AMBIGUOUS);
-            currentFieldPath = fieldPath;
-        }
-        return orderedFieldPaths;
-    }
-
-    /**
-     * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
-     * instantiation time (planning time). It serves to transform the input value in one pass.
-     *
-     * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
-     * @param transformMap a map of transformations
-     *
-     * @return a {@link MessageHelpers.TransformationTrieNode}
-     */
-    @Nonnull
-    public static MessageHelpers.TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                                                 @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
-        return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
-    }
-
-    @Nonnull
-    private static MessageHelpers.TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                                                  @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
-        if (transformMap.containsKey(prefix)) {
-            orderedFieldPathIterator.next();
-            return new MessageHelpers.TransformationTrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
-        }
-        final var childrenMapBuilder = ImmutableMap.<MessageHelpers.ResolvedAccessor, MessageHelpers.TransformationTrieNode>builder();
-        while (orderedFieldPathIterator.hasNext()) {
-            final var fieldPath = orderedFieldPathIterator.peek();
-            if (!prefix.isPrefixOf(fieldPath)) {
-                break;
-            }
-
-            final var prefixAccessors = prefix.getFieldAccessors();
-            final var currentAccessor = fieldPath.getFieldAccessors().get(prefixAccessors.size());
-            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<MessageHelpers.ResolvedAccessor>builder()
-                    .addAll(prefixAccessors)
-                    .add(currentAccessor)
-                    .build());
-
-            final var currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator);
-            childrenMapBuilder.put(currentAccessor, currentTrie);
-        }
-
-        return new MessageHelpers.TransformationTrieNode(null, childrenMapBuilder.build());
-    }
-
     @Nullable
     public static MessageHelpers.CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
                                                                         @Nonnull Type currentType,
@@ -456,15 +390,15 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         final var currentFields = currentRecordType.getFields();
 
         final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
-        final var childrenMapBuilder = ImmutableMap.<MessageHelpers.ResolvedAccessor, MessageHelpers.CoercionTrieNode>builder();
+        final var childrenMapBuilder = ImmutableMap.<Integer, MessageHelpers.CoercionTrieNode>builder();
         for (int i = 0; i < targetFields.size(); i++) {
             final var targetField = targetFields.get(i);
-            final var currentAccessor = MessageHelpers.ResolvedAccessor.of(currentFields.get(i), i);
+            final var currentField = currentFields.get(i);
 
-            final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(currentAccessor);
-            final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentAccessor.getType(), transformationsFieldTrie);
+            final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(i);
+            final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentField.getFieldType(), transformationsFieldTrie);
             if (fieldTrie != null) {
-                childrenMapBuilder.put(currentAccessor, fieldTrie);
+                childrenMapBuilder.put(i, fieldTrie);
             }
         }
         final var childrenMap = childrenMapBuilder.build();

@@ -93,7 +93,7 @@ public class Values {
 
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
-            final var singleStepPath = FieldValue.FieldPath.ofSingle(MessageHelpers.ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
+            final var singleStepPath = FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
             primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath), constantAliases).stream()
                     .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
                     .forEach(orderingValuesBuilder::add);

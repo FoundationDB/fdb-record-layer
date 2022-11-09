@@ -171,14 +171,6 @@ public class ImplementExistentialNestedLoopJoinRule extends CascadesRule<SelectE
             if (isEligible) {
                 final var residualPredicate = predicate.toResidualPredicate();
                 if (localCorrelatedTo.contains(innerAlias)) {
-//                    if (!(predicate instanceof ExistsPredicate)) {
-//                        if (logger.isWarnEnabled()) {
-//                            logger.warn(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()"));
-//                        }
-//                        Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("predicate depends on existential but it is not an exist()",
-//                                "joinedTables", "JOIN:" + joinName)));
-//                        return;
-//                    }
                     outerInnerPredicatesBuilder.add(residualPredicate);
                 } else {
                     Verify.verify(localCorrelatedTo.contains(outerAlias) || localCorrelatedTo.isEmpty());

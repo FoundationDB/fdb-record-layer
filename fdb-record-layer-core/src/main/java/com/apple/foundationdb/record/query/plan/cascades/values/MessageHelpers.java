@@ -31,10 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -264,14 +262,14 @@ public class MessageHelpers {
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
         final var messageDescriptor = subRecord.getDescriptorForType();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            final var accessorForField = ResolvedAccessor.of(currentRecordType.getField(messageFieldDescriptor.getIndex()), messageDescriptor.getIndex());
-            final var transformationTrieForField = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(accessorForField);
+            final var index = messageFieldDescriptor.getIndex();
+            final var transformationTrieForField = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(index);
             final var targetFieldDescriptor = targetDescriptorFields.get(messageFieldDescriptor.getIndex());
             final var targetDescriptorForField = targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null;
-            final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(accessorForField);
+            final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(index);
             if (transformationTrieForField != null) {
-                final var targetFieldType = targetRecordType.getField(accessorForField.getOrdinal()).getFieldType();
-                final var currentFieldType = currentRecordType.getField(accessorForField.getOrdinal()).getFieldType();
+                final var targetFieldType = targetRecordType.getField(index).getFieldType();
+                final var currentFieldType = currentRecordType.getField(index).getFieldType();
                 Object fieldResult;
                 if (transformationTrieForField.getValue() == null) {
                     fieldResult =
@@ -405,17 +403,17 @@ public class MessageHelpers {
         final var targetFieldsFromDescriptor = targetDescriptor.getFields();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
             if (currentMessage.hasField(messageFieldDescriptor)) {
-                final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(messageFieldDescriptor.getIndex()));
-                final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                final var currentField = currentRecordType.getField(messageFieldDescriptor.getIndex());
-                final var accessorForCurrentField = ResolvedAccessor.of(currentField, messageFieldDescriptor.getIndex());
+                final var index = messageFieldDescriptor.getIndex();
+                final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(index));
+                final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(index)).getFieldType();
+                final var currentField = currentRecordType.getField(index);
                 final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
 
                 // coerced object can only be NULL if passed-in object is NULL which cannot happen here
                 final var coercedObject =
                         Verify.verifyNotNull(
                                 coerceObject(
-                                        promotionsChildrenMap == null ? null : promotionsChildrenMap.get(accessorForCurrentField),
+                                        promotionsChildrenMap == null ? null : promotionsChildrenMap.get(index),
                                         targetFieldType,
                                         targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
                                         currentFieldType,
@@ -427,126 +425,12 @@ public class MessageHelpers {
     }
 
     /**
-     * Helper class to hold information about a particular field access.
-     */
-    public static class Accessor {
-        @Nullable
-        final String name;
-
-        final int ordinal;
-
-        public Accessor(@Nullable final String name, final int ordinal) {
-            this.name = name;
-            this.ordinal = ordinal;
-        }
-
-        @Nullable
-        public String getName() {
-            return name;
-        }
-
-        public int getOrdinal() {
-            return ordinal;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof Accessor)) {
-                return false;
-            }
-            final Accessor accessor = (Accessor)o;
-            return ordinal == accessor.ordinal && Objects.equals(name, accessor.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(name, ordinal);
-        }
-    }
-
-    /**
-     * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
-     */
-    public static class ResolvedAccessor {
-        @Nullable
-        final String name;
-
-        final int ordinal;
-
-        @Nonnull
-        private final Type type;
-
-        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
-            this.name = name;
-            this.ordinal = ordinal;
-            this.type = type;
-        }
-
-        @Nullable
-        public String getName() {
-            return name;
-        }
-
-        public int getOrdinal() {
-            return ordinal;
-        }
-
-        @Nonnull
-        public Type getType() {
-            return type;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof ResolvedAccessor)) {
-                return false;
-            }
-            final ResolvedAccessor that = (ResolvedAccessor)o;
-            return getOrdinal() == that.getOrdinal() &&
-                   getType().equals(that.getType());
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getOrdinal(), getType());
-        }
-
-        @Nonnull
-        public static ResolvedAccessor of(@Nonnull final Type.Record.Field field, final int ordinal) {
-            return of(field.getFieldNameOptional().orElse(null), ordinal, field.getFieldType());
-        }
-
-        @Nonnull
-        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
-            Preconditions.checkArgument(ordinalFieldNumber >= 0);
-            return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
-        }
-    }
-
-    /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<ResolvedAccessor, Value, TransformationTrieNode> {
-        /**
-         * Map to track fieldName -> field associations in order to find transformations by name quicker.
-         */
-        @Nullable
-        private final Map<Integer, ResolvedAccessor> ordinalToAccessorMap;
+    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
 
-        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<ResolvedAccessor, TransformationTrieNode> childrenMap) {
+        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
-            this.ordinalToAccessorMap = childrenMap == null ? null : computeFieldNameToFieldMap(childrenMap);
-        }
-
-        @Nullable
-        public Map<Integer, ResolvedAccessor> getOrdinalToAccessorMap() {
-            return ordinalToAccessorMap;
         }
 
         @Nonnull
@@ -565,8 +449,7 @@ public class MessageHelpers {
             }
             final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
             return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap()) &&
-                   Objects.equals(getOrdinalToAccessorMap(), transformationTrieNode.getOrdinalToAccessorMap());
+                   Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
         }
 
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
@@ -579,12 +462,11 @@ public class MessageHelpers {
             final TransformationTrieNode otherTransformationTrieNode = (TransformationTrieNode)other;
 
             return equalsNullable(getValue(), otherTransformationTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
-                   equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap)) &&
-                   Objects.equals(getOrdinalToAccessorMap(), otherTransformationTrieNode.getOrdinalToAccessorMap());
+                   equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));
         }
 
-        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<ResolvedAccessor, TransformationTrieNode> self,
-                                                            @Nonnull final Map<ResolvedAccessor, TransformationTrieNode> other,
+        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Integer, TransformationTrieNode> self,
+                                                            @Nonnull final Map<Integer, TransformationTrieNode> other,
                                                             @Nonnull final AliasMap equivalencesMap) {
             if (self.size() != other.size()) {
                 return false;
@@ -614,17 +496,7 @@ public class MessageHelpers {
 
         @Override
         public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap(), getOrdinalToAccessorMap());
-        }
-
-        @Nonnull
-        private static Map<Integer, ResolvedAccessor> computeFieldNameToFieldMap(@Nonnull final Map<ResolvedAccessor, TransformationTrieNode> childrenMap) {
-            final var resultBuilder = ImmutableMap.<Integer, ResolvedAccessor>builder();
-            for (final var entry : childrenMap.entrySet()) {
-                final var accessor = entry.getKey();
-                resultBuilder.put(accessor.getOrdinal(), accessor);
-            }
-            return resultBuilder.build();
+            return Objects.hash(getValue(), getChildrenMap());
         }
     }
 
@@ -632,8 +504,8 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<ResolvedAccessor, Function<Object, Object>, CoercionTrieNode> {
-        public CoercionTrieNode(@Nullable final Function<Object, Object> value, @Nullable final Map<ResolvedAccessor, CoercionTrieNode> childrenMap) {
+    public static class CoercionTrieNode extends TrieNode<Integer, Function<Object, Object>, CoercionTrieNode> {
+        public CoercionTrieNode(@Nullable final Function<Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
 

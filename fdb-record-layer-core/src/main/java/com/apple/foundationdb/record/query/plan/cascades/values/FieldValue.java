@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.ResolvedAccessor;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -208,7 +208,8 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
-    private static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<MessageHelpers.Accessor> accessors) {
+    @VisibleForTesting
+    public static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
         final var accessorPathBuilder = ImmutableList.<ResolvedAccessor>builder();
         var currentType = inputType;
         for (final var accessor : accessors) {
@@ -239,12 +240,12 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     public static FieldValue ofFieldName(@Nonnull Value childValue, @Nonnull final String fieldName) {
-        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new MessageHelpers.Accessor(fieldName, -1)));
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(fieldName, -1)));
         return new FieldValue(childValue, resolved);
     }
 
     public static FieldValue ofFieldNames(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
-        final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new MessageHelpers.Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
+        final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
         return new FieldValue(childValue, resolved);
     }
 
@@ -262,7 +263,7 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     public static FieldValue ofOrdinalNumber(@Nonnull Value childValue, final int ordinalNumber) {
-        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new MessageHelpers.Accessor(null, ordinalNumber)));
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
         return new FieldValue(childValue, resolved);
     }
 
@@ -480,6 +481,109 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         public static Comparator<FieldPath> comparator() {
             return COMPARATOR;
+        }
+    }
+
+    /**
+     * Helper class to hold information about a particular field access.
+     */
+    public static class Accessor {
+        @Nullable
+        final String name;
+
+        final int ordinal;
+
+        public Accessor(@Nullable final String name, final int ordinal) {
+            this.name = name;
+            this.ordinal = ordinal;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
+        }
+
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Accessor)) {
+                return false;
+            }
+            final Accessor accessor = (Accessor)o;
+            return ordinal == accessor.ordinal && Objects.equals(name, accessor.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, ordinal);
+        }
+    }
+
+    /**
+     * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
+     */
+    public static class ResolvedAccessor {
+        @Nullable
+        final String name;
+
+        final int ordinal;
+
+        @Nonnull
+        private final Type type;
+
+        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+            this.name = name;
+            this.ordinal = ordinal;
+            this.type = type;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
+        }
+
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ResolvedAccessor)) {
+                return false;
+            }
+            final ResolvedAccessor that = (ResolvedAccessor)o;
+            return getOrdinal() == that.getOrdinal() &&
+                   getType().equals(that.getType());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getOrdinal(), getType());
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nonnull final Field field, final int ordinal) {
+            return of(field.getFieldNameOptional().orElse(null), ordinal, field.getFieldType());
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
+            Preconditions.checkArgument(ordinalFieldNumber >= 0);
+            return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
         }
     }
 }

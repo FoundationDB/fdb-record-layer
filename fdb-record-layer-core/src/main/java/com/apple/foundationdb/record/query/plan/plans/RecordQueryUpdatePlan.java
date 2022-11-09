@@ -27,17 +27,21 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -45,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,7 +68,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
-                                  @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
+                                  @Nullable final TransformationTrieNode transformationsTrie,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
         super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
@@ -186,5 +191,66 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 transformationsTrie,
                 computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
                 computationValue);
+    }
+
+    @Nonnull
+    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+        // this brings together all paths that share the same prefixes
+        final var orderedFieldPaths =
+                transformMap.keySet()
+                        .stream()
+                        .sorted(FieldValue.FieldPath.comparator())
+                        .collect(ImmutableList.toImmutableList());
+
+        FieldValue.FieldPath currentFieldPath = null;
+        for (final var fieldPath : orderedFieldPaths) {
+            SemanticException.check(currentFieldPath == null || !currentFieldPath.isPrefixOf(fieldPath), SemanticException.ErrorCode.UPDATE_TRANSFORM_AMBIGUOUS);
+            currentFieldPath = fieldPath;
+        }
+        return orderedFieldPaths;
+    }
+
+    /**
+     * Method to compute a trie from a collection of lexicographically-ordered field paths. The trie is computed at
+     * instantiation time (planning time). It serves to transform the input value in one pass.
+     *
+     * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
+     * @param transformMap a map of transformations
+     *
+     * @return a {@link TransformationTrieNode}
+     */
+    @Nonnull
+    public static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+        return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
+    }
+
+    @Nonnull
+    private static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
+                                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                   @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
+        if (transformMap.containsKey(prefix)) {
+            orderedFieldPathIterator.next();
+            return new TransformationTrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
+        }
+        final var childrenMapBuilder = ImmutableMap.<Integer, TransformationTrieNode>builder();
+        while (orderedFieldPathIterator.hasNext()) {
+            final var fieldPath = orderedFieldPathIterator.peek();
+            if (!prefix.isPrefixOf(fieldPath)) {
+                break;
+            }
+
+            final var prefixAccessors = prefix.getFieldAccessors();
+            final var currentAccessor = fieldPath.getFieldAccessors().get(prefixAccessors.size());
+            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<FieldValue.ResolvedAccessor>builder()
+                    .addAll(prefixAccessors)
+                    .add(currentAccessor)
+                    .build());
+
+            final var currentTrie = computeTrieForFieldPaths(nestedPrefix, transformMap, orderedFieldPathIterator);
+            childrenMapBuilder.put(currentAccessor.getOrdinal(), currentTrie);
+        }
+
+        return new TransformationTrieNode(null, childrenMapBuilder.build());
     }
 }
