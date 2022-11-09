@@ -177,7 +177,10 @@ public class PartiallyOrderedSet<T> {
             } else {
                 if (!elementsToMappedElementsMap.containsKey(value)) {
                     // key depends on value that does not exist -- do not insert the dependency and also remove key
-                    mappedElements.remove(key);
+                    final var mappedKey = elementsToMappedElementsMap.get(key);
+                    if (mappedKey != null) {
+                        mappedElements.remove(mappedKey);
+                    }
                 }
             }
         }

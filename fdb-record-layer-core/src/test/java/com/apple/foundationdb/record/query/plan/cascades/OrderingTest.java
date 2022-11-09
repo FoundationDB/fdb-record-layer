@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +35,11 @@ import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.OrderingPart.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -149,6 +154,82 @@ class OrderingTest {
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
         assertEquals(PartiallyOrderedSet.empty(), mergedPartialOrder);
+    }
+
+    @Test
+    void testPullUp1() {
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
+        final var rcv2 = rcvWrapper("a", "b", "c");
+        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var ap = of(field(qov, "ap"));
+        final var bp = of(field(qov, "bp"));
+        final var cp = of(field(qov, "cp"));
+        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
+        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        assertEquals(
+                PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
+                result.getOrderingSet());
+    }
+
+    @Test
+    void testPullUp2() {
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var d = of(field(rcv, "d"));
+        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
+        final var rcv2 = rcvWrapper("a", "b", "c");
+        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var ap = of(field(qov, "ap"));
+        final var bp = of(field(qov, "bp"));
+        final var cp = of(field(qov, "cp"));
+        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
+        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        assertEquals(
+                PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
+                result.getOrderingSet());
+    }
+
+    @Test
+    void testPullUp3() {
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c")); // a <- b <- c
+        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
+        final var rcv2 = rcvWrapper("b", "c");
+        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
+        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        assertEquals(
+                PartiallyOrderedSet.of(ImmutableSet.of(), ImmutableSetMultimap.of()),
+                result.getOrderingSet());
+    }
+
+    @Test
+    void testPullUp4() {
+        final var rcv = rcv();
+        final var a = of(field(rcv, "a"));
+        final var b = of(field(rcv, "b"));
+        final var c = of(field(rcv, "c"));
+        final var d = of(field(rcv, "d"));
+        // a <- b <- c
+        //   <- d
+        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b, d, a));
+        final var rcv2 = rcvWrapper("a", "d");
+        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var ap = of(field(qov, "ap"));
+        final var dp = of(field(qov, "dp"));
+        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
+        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        assertEquals(
+                PartiallyOrderedSet.of(ImmutableSet.of(ap, dp), ImmutableSetMultimap.of(dp, ap)),
+                result.getOrderingSet());
     }
 
     @Test
@@ -321,8 +402,8 @@ class OrderingTest {
     }
 
     @Nonnull
-    private static Value field(@Nonnull final RecordConstructorValue rcv, @Nonnull final String fieldName) {
-        return FieldValue.ofFieldName(rcv, fieldName);
+    private static Value field(@Nonnull final Value value, @Nonnull final String fieldName) {
+        return FieldValue.ofFieldName(value, fieldName);
     }
 
     @Nonnull
@@ -341,6 +422,18 @@ class OrderingTest {
                                 LiteralValue.ofScalar("fieldValueE")),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("x")),
                                 LiteralValue.ofScalar("fieldValueX")));
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Nonnull
+    private static RecordConstructorValue rcvWrapper(@Nonnull final String... projection) {
+
+        final var rcv = rcv();
+        final List<Column<? extends Value>> columns = Arrays.stream(projection)
+                .map(field -> FieldValue.ofFieldName(rcv, field))
+                .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getLastFieldName().orElseThrow() + "p")), field))
+                .collect(Collectors.toList());
+        // create a bunch of aliases
         return RecordConstructorValue.ofColumns(columns);
     }
 }
