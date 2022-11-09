@@ -31,9 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -109,6 +111,23 @@ public class MessageHelpers {
         return getFieldOnMessage(current, fields.get(fields.size() - 1).getFieldIndex());
     }
 
+    @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
+    @Nullable
+    public static Object getFieldValueForFieldOrdinals(@Nonnull MessageOrBuilder message, @Nonnull ImmutableIntArray fieldOrdinals) {
+        if (fieldOrdinals.isEmpty()) {
+            throw new RecordCoreException("empty list of fields");
+        }
+        MessageOrBuilder current = message;
+        int fieldOrdinal;
+        // Notice that up to fieldOrdinals.length() - 2 are calling getFieldMessageOnMessageByOrdinal, and fieldOrdinals.length() - 1 is calling getFieldOnMessageByOrdinal
+        for (fieldOrdinal = 0; fieldOrdinal < fieldOrdinals.length() - 1; fieldOrdinal++) {
+            current = getFieldMessageOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinal));
+            if (current == null) {
+                return null;
+            }
+        }
+        return getFieldOnMessageByOrdinal(current, fieldOrdinals.get(fieldOrdinals.length() - 1));
+    }
 
     /**
      * Get the value of the field with the given field name on the given message.
@@ -160,6 +179,12 @@ public class MessageHelpers {
         }
     }
 
+    @Nullable
+    public static Object getFieldOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
+        return getFieldOnMessage(message, field);
+    }
+
     @Nonnull
     public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
@@ -176,6 +201,14 @@ public class MessageHelpers {
             throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
         }
         return field;
+    }
+
+    @Nonnull
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        if (fieldOrdinal < 0 || fieldOrdinal >= message.getDescriptorForType().getFields().size()) {
+            throw new Query.InvalidExpressionException("Missing field (#ord=" + fieldOrdinal + ")");
+        }
+        return message.getDescriptorForType().getFields().get(fieldOrdinal);
     }
 
     @Nullable
@@ -200,6 +233,12 @@ public class MessageHelpers {
         return null;
     }
 
+    @Nullable
+    private static Message getFieldMessageOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
+        return getFieldMessageOnMessage(message, field);
+    }
+
     @Nonnull
     @SuppressWarnings("unchecked")
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
@@ -216,10 +255,8 @@ public class MessageHelpers {
         targetDescriptor = Verify.verifyNotNull(targetDescriptor);
         final var targetDescriptorFields = targetDescriptor.getFields();
         final var targetRecordType = (Type.Record)targetType;
-        final var targetNameToFieldMap = Verify.verifyNotNull(targetRecordType.getFieldNameFieldMap());
         final var currentRecordType = (Type.Record)currentType;
 
-        final var transformationsFieldNameToFieldMap = transformationsTrie == null ? null : transformationsTrie.getFieldNameToFieldMap();
         final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
         final var coercionsChildrenMap = coercionsTrie == null ? null : coercionsTrie.getChildrenMap();
         final var subRecord = (M)Verify.verifyNotNull(current);
@@ -227,27 +264,27 @@ public class MessageHelpers {
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
         final var messageDescriptor = subRecord.getDescriptorForType();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            final var transformationField = transformationsFieldNameToFieldMap == null ? null : transformationsFieldNameToFieldMap.get(messageFieldDescriptor.getName());
+            final var accessorForField = ResolvedAccessor.of(currentRecordType.getField(messageFieldDescriptor.getIndex()), messageDescriptor.getIndex());
+            final var transformationTrieForField = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(accessorForField);
             final var targetFieldDescriptor = targetDescriptorFields.get(messageFieldDescriptor.getIndex());
             final var targetDescriptorForField = targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null;
-            final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(currentRecordType.getField(messageFieldDescriptor.getIndex()));
-            if (transformationField != null) {
-                final var transformationFieldTrie = Verify.verifyNotNull(Verify.verifyNotNull(transformationsChildrenMap).get(transformationField));
-                final var targetFieldType = targetNameToFieldMap.get(transformationField.getFieldName()).getFieldType();
-                final var currentFieldType = transformationField.getFieldType();
+            final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(accessorForField);
+            if (transformationTrieForField != null) {
+                final var targetFieldType = targetRecordType.getField(accessorForField.getOrdinal()).getFieldType();
+                final var currentFieldType = currentRecordType.getField(accessorForField.getOrdinal()).getFieldType();
                 Object fieldResult;
-                if (transformationFieldTrie.getValue() == null) {
+                if (transformationTrieForField.getValue() == null) {
                     fieldResult =
                             transformMessage(store,
                                     context,
-                                    transformationFieldTrie,
+                                    transformationTrieForField,
                                     promotionTrieForField,
                                     targetFieldType,
                                     targetDescriptorForField,
                                     currentFieldType,
                                     subRecord.getField(messageFieldDescriptor));
                 } else {
-                    final var transformationValue = transformationFieldTrie.getValue();
+                    final var transformationValue = transformationTrieForField.getValue();
                     fieldResult = coerceObject(promotionTrieForField,
                             targetFieldType,
                             targetDescriptorForField,
@@ -371,13 +408,14 @@ public class MessageHelpers {
                 final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(messageFieldDescriptor.getIndex()));
                 final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
                 final var currentField = currentRecordType.getField(messageFieldDescriptor.getIndex());
+                final var accessorForCurrentField = ResolvedAccessor.of(currentField, messageFieldDescriptor.getIndex());
                 final var currentFieldType = Verify.verifyNotNull(currentField).getFieldType();
 
                 // coerced object can only be NULL if passed-in object is NULL which cannot happen here
                 final var coercedObject =
                         Verify.verifyNotNull(
                                 coerceObject(
-                                        promotionsChildrenMap == null ? null : promotionsChildrenMap.get(currentField),
+                                        promotionsChildrenMap == null ? null : promotionsChildrenMap.get(accessorForCurrentField),
                                         targetFieldType,
                                         targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null,
                                         currentFieldType,
@@ -389,23 +427,126 @@ public class MessageHelpers {
     }
 
     /**
+     * Helper class to hold information about a particular field access.
+     */
+    public static class Accessor {
+        @Nullable
+        final String name;
+
+        final int ordinal;
+
+        public Accessor(@Nullable final String name, final int ordinal) {
+            this.name = name;
+            this.ordinal = ordinal;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
+        }
+
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Accessor)) {
+                return false;
+            }
+            final Accessor accessor = (Accessor)o;
+            return ordinal == accessor.ordinal && Objects.equals(name, accessor.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, ordinal);
+        }
+    }
+
+    /**
+     * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
+     */
+    public static class ResolvedAccessor {
+        @Nullable
+        final String name;
+
+        final int ordinal;
+
+        @Nonnull
+        private final Type type;
+
+        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+            this.name = name;
+            this.ordinal = ordinal;
+            this.type = type;
+        }
+
+        @Nullable
+        public String getName() {
+            return name;
+        }
+
+        public int getOrdinal() {
+            return ordinal;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ResolvedAccessor)) {
+                return false;
+            }
+            final ResolvedAccessor that = (ResolvedAccessor)o;
+            return getOrdinal() == that.getOrdinal() &&
+                   getType().equals(that.getType());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getOrdinal(), getType());
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nonnull final Type.Record.Field field, final int ordinal) {
+            return of(field.getFieldNameOptional().orElse(null), ordinal, field.getFieldType());
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
+            Preconditions.checkArgument(ordinalFieldNumber >= 0);
+            return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+        }
+    }
+
+    /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<Type.Record.Field, Value, TransformationTrieNode> {
+    public static class TransformationTrieNode extends TrieNode<ResolvedAccessor, Value, TransformationTrieNode> {
         /**
          * Map to track fieldName -> field associations in order to find transformations by name quicker.
          */
         @Nullable
-        private final Map<String, Type.Record.Field> fieldNameToFieldMap;
+        private final Map<Integer, ResolvedAccessor> ordinalToAccessorMap;
 
-        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Type.Record.Field, TransformationTrieNode> childrenMap) {
+        public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<ResolvedAccessor, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
-            this.fieldNameToFieldMap = childrenMap == null ? null : computeFieldNameToFieldMap(childrenMap);
+            this.ordinalToAccessorMap = childrenMap == null ? null : computeFieldNameToFieldMap(childrenMap);
         }
 
         @Nullable
-        public Map<String, Type.Record.Field> getFieldNameToFieldMap() {
-            return fieldNameToFieldMap;
+        public Map<Integer, ResolvedAccessor> getOrdinalToAccessorMap() {
+            return ordinalToAccessorMap;
         }
 
         @Nonnull
@@ -425,7 +566,7 @@ public class MessageHelpers {
             final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
             return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
                    Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap()) &&
-                   Objects.equals(getFieldNameToFieldMap(), transformationTrieNode.getFieldNameToFieldMap());
+                   Objects.equals(getOrdinalToAccessorMap(), transformationTrieNode.getOrdinalToAccessorMap());
         }
 
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
@@ -439,11 +580,11 @@ public class MessageHelpers {
 
             return equalsNullable(getValue(), otherTransformationTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
                    equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap)) &&
-                   Objects.equals(getFieldNameToFieldMap(), otherTransformationTrieNode.getFieldNameToFieldMap());
+                   Objects.equals(getOrdinalToAccessorMap(), otherTransformationTrieNode.getOrdinalToAccessorMap());
         }
 
-        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Type.Record.Field, TransformationTrieNode> self,
-                                                            @Nonnull final Map<Type.Record.Field, TransformationTrieNode> other,
+        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<ResolvedAccessor, TransformationTrieNode> self,
+                                                            @Nonnull final Map<ResolvedAccessor, TransformationTrieNode> other,
                                                             @Nonnull final AliasMap equivalencesMap) {
             if (self.size() != other.size()) {
                 return false;
@@ -473,15 +614,15 @@ public class MessageHelpers {
 
         @Override
         public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap(), getFieldNameToFieldMap());
+            return Objects.hash(getValue(), getChildrenMap(), getOrdinalToAccessorMap());
         }
 
         @Nonnull
-        private static Map<String, Type.Record.Field> computeFieldNameToFieldMap(@Nonnull final Map<Type.Record.Field, TransformationTrieNode> childrenMap) {
-            final var resultBuilder = ImmutableMap.<String, Type.Record.Field>builder();
+        private static Map<Integer, ResolvedAccessor> computeFieldNameToFieldMap(@Nonnull final Map<ResolvedAccessor, TransformationTrieNode> childrenMap) {
+            final var resultBuilder = ImmutableMap.<Integer, ResolvedAccessor>builder();
             for (final var entry : childrenMap.entrySet()) {
-                final var field = entry.getKey();
-                field.getFieldNameOptional().ifPresent(fieldName -> resultBuilder.put(fieldName, field));
+                final var accessor = entry.getKey();
+                resultBuilder.put(accessor.getOrdinal(), accessor);
             }
             return resultBuilder.build();
         }
@@ -491,8 +632,8 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Type.Record.Field, Function<Object, Object>, CoercionTrieNode> {
-        public CoercionTrieNode(@Nullable final Function<Object, Object> value, @Nullable final Map<Type.Record.Field, CoercionTrieNode> childrenMap) {
+    public static class CoercionTrieNode extends TrieNode<ResolvedAccessor, Function<Object, Object>, CoercionTrieNode> {
+        public CoercionTrieNode(@Nullable final Function<Object, Object> value, @Nullable final Map<ResolvedAccessor, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
 
