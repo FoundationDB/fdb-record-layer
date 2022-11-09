@@ -74,6 +74,13 @@
 - query: select * from t1 where id > 15;
 - result: [{!l 30, !dc dc}, {!l 50, !dc dc}]
 ---
+# Having multiple `result` configs for the `query` command checks the result sets
+# (in order of appearance) with consecutive continuations of the query.
+- query: select * from t1 limit 1;
+- result: [{10, 20}]
+- result: [{30, 40}]
+- result: [{50, 60}]
+---
 # Here is a more complex schema template with nesting to show how to deal with nested
 # data.
 - query: create schema template test_template_nested

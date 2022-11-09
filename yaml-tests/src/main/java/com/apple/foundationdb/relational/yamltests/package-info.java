@@ -22,4 +22,4 @@
  * Ingredients of the YAML test framework are kept in this package.
  */
 
-package com.apple.foundationdb.relational;
+package com.apple.foundationdb.relational.yamltests;

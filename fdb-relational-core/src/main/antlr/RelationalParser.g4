@@ -349,7 +349,7 @@ singleDeleteStatement
     FROM tableName
       (PARTITION '(' uidList ')' )?
       (WHERE expression)?
-      orderByClause? (LIMIT limitClauseAtom)?
+      orderByClause? (LIMIT limitClause)?
     ;
 
 multipleDeleteStatement
@@ -374,12 +374,12 @@ handlerReadIndexStatement
         comparisonOperator '(' constants ')'
         | moveOrder=(FIRST | NEXT | PREV | LAST)
       )
-      (WHERE expression)? (LIMIT limitClauseAtom)?
+      (WHERE expression)? (LIMIT limitClause)?
     ;
 
 handlerReadStatement
     : HANDLER tableName READ moveOrder=(FIRST | NEXT)
-      (WHERE expression)? (LIMIT limitClauseAtom)?
+      (WHERE expression)? (LIMIT limitClause)?
     ;
 
 handlerCloseStatement
@@ -562,18 +562,15 @@ groupByItem
     : expression (AS? uid)? order=(ASC | DESC)? // in Relational we support named grouping columns.
     ;
 
+// done
 limitClause
     : LIMIT
-    (
-      (offset=limitClauseAtom ',')? limit=limitClauseAtom
-      | limit=limitClauseAtom OFFSET offset=limitClauseAtom
-    )
+    limit=limitClauseAtom (OFFSET offset=limitClauseAtom)?
     ;
 
 limitClauseAtom
-	: decimalLiteral | mysqlVariable | simpleId
-	;
-
+    : DECIMAL_LITERAL | ZERO_DECIMAL | ONE_DECIMAL | TWO_DECIMAL
+    ;
 
 // Transaction's Statements
 

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational;
+package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -36,7 +36,7 @@ import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.apple.foundationdb.relational.Matchers.*;
+import static com.apple.foundationdb.relational.yamltests.Matchers.*;
 import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
 
 public class Generators {

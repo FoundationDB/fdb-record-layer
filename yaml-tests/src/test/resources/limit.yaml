@@ -1,0 +1,141 @@
+#
+# limit.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template limit_tests_schema_template
+---
+- query: create schema template limit_tests_schema_template
+    create table ta(a int64, b int64, primary key(a))
+---
+- query: drop database /LIMIT_YAML
+---
+- query: create database /LIMIT_YAML
+---
+- query: create schema /LIMIT_YAML/LIMIT_SCHEMA with template limit_tests_schema_template
+---
+- connect: "jdbc:embed:/LIMIT_YAML?schema=LIMIT_SCHEMA"
+---
+- insert: [{A: 1, 2},
+           {A: 3, 4},
+           {A: 5, 6},
+           {A: 7, 8},
+           {A: 9, 10},
+           {A: 11, 12},
+           {A: 13, 14},
+           {A: 15, 16},
+           {A: 17, 18},
+           {A: 19, 20}]
+- table: TA
+---
+# limit value is not of type Long
+- query: select ta.* from ta LIMIT 2.3;
+- error: "42601"
+---
+# limit value is 0
+- query: select ta.* from ta LIMIT 0;
+- error: "XX000"
+---
+# limit value > MAX_INTEGER
+- query: select ta.* from ta LIMIT 2325325245245;
+- error: "XXXXX"
+---
+# limit value is negative
+- query: select ta.* from ta LIMIT -27525;
+- error: "42601"
+---
+# limit value < number of candidate records to be returned
+- query: select ta.* from ta limit 5;
+- result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}]
+---
+# limit value > number of candidate records to be returned (all records returned)
+- query: select ta.* from ta limit 15;
+- result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
+---
+# offset value is not of type Long
+- query: select ta.* from ta LIMIT 2 OFFSET 2.3;
+- error: "42601"
+---
+# offset value is negative
+- query: select ta.* from ta LIMIT 2 OFFSET -27525;
+- error: "42601"
+---
+# offset value > MAX_INTEGER
+- query: select ta.* from ta LIMIT 1 OFFSET 2325325245245;
+- error: "XXXXX"
+---
+# offset value < number of candidate records to be returned, limit 1
+- query: select ta.* from ta limit 1 OFFSET 5;
+- result: [{11, 12}]
+---
+# offset value < number of candidate records to be returned, limit > num candidate records
+- query: select ta.* from ta limit 1000 OFFSET 5;
+- result: [{11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
+---
+# limit with simple filter
+- query: select ta.* from ta where a % 3 = 0 limit 2;
+- result: [{3, 4}, {9, 10}]
+---
+# offset value = 0, limit 1
+- query: select ta.* from ta limit 1 OFFSET 0;
+- result: [{1, 2}]
+---
+# offset value = 0, limit > num candidate records
+- query: select ta.* from ta limit 1000 OFFSET 0;
+- result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
+---
+# offset value > number of candidate records to be returned, limit 1
+- query: select ta.* from ta limit 1 OFFSET 1000;
+- result: []
+---
+# offset value > number of candidate records to be returned, limit > num candidate records
+- query: select ta.* from ta limit 1000 OFFSET 1000;
+- result: []
+---
+# limit clause when from has a nested statement
+- query: select p.* from (select ta.* from ta where ta.a > 5 limit 1) as p;
+- error: "0A000"
+---
+# limit clause when where has existential statement
+- query: select p.* FROM ta as p where exists (select * from ta where ta.a = p.a limit 1);
+- error: "0A000"
+---
+# limit clause with continuation
+- query: select ta.* from ta limit 2;
+- result: [{1, 2}, {3, 4}]
+- result: [{5, 6}, {7, 8}]
+- result: [{9, 10}, {11, 12}]
+- result: [{13, 14}, {15, 16}]
+- result: [{17, 18}, {19, 20}]
+- result: []
+---
+# limit and offset values with continuation
+- query: select ta.* FROM ta LIMIT 2 OFFSET 1;
+- result: [{3, 4}, {5, 6}]
+- error: "XX000"
+---
+# Limit clause in case of multiple from elements.
+- query: select * FROM ta as t1, ta as t2 LIMIT 1000;
+- error: "0A000"
+---
+- query: drop schema template limit_tests_schema_template
+---
+- query: drop database /LIMIT_YAML
+...

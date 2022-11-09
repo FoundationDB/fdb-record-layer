@@ -20,7 +20,7 @@
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
-import com.apple.foundationdb.relational.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -86,5 +86,10 @@ public class YamlIntegrationTests {
     @Test
     public void selectAStar() throws Exception {
         doRun("select-a-star.yaml");
+    }
+
+    @Test
+    public void limit() throws Exception {
+        doRun("limit.yaml");
     }
 }

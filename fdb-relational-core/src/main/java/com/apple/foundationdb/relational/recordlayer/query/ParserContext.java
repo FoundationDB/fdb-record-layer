@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -28,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Context for query parsing, including meta-data, generated types, and the state of available indexes.
@@ -35,6 +37,13 @@ import javax.annotation.Nonnull;
 public class ParserContext {
     @Nonnull
     private final Scopes scopes;
+
+    @Nullable
+    private int limit;
+
+    @Nullable
+    private int offset;
+
     @Nonnull
     private final TypeRepository.Builder typeRepositoryBuilder;
 
@@ -42,6 +51,8 @@ public class ParserContext {
                          @Nonnull TypeRepository.Builder typeRepositoryBuilder) {
         this.scopes = scopes;
         this.typeRepositoryBuilder = typeRepositoryBuilder;
+        this.limit = ReadTransaction.ROW_LIMIT_UNLIMITED;
+        this.offset = 0;
     }
 
     @Nonnull
@@ -75,6 +86,22 @@ public class ParserContext {
     @Nonnull
     public Optional<Quantifier> resolveQuantifier(@Nonnull final CorrelationIdentifier identifier, boolean lookIntoSiblings) {
         return scopes.resolveQuantifier(identifier, lookIntoSiblings);
+    }
+
+    public void setLimit(@Nonnull Integer limit) {
+        this.limit = limit;
+    }
+
+    public void setOffset(@Nonnull Integer offset) {
+        this.offset = offset;
+    }
+
+    public Integer getLimit() {
+        return limit;
+    }
+
+    public Integer getOffset() {
+        return offset;
     }
 
     @Nonnull

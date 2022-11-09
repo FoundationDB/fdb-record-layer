@@ -166,6 +166,18 @@ public final class ParserUtils {
         }
     }
 
+    public static int parseBoundInteger(@Nonnull final String valueAsString,
+                                        @Nullable Integer lowerbound, @Nullable Integer upperbound) {
+        int value = Integer.parseInt(valueAsString);
+        if (lowerbound != null) {
+            Assert.thatUnchecked(value >= lowerbound, String.format("Parsed Integer cannot be less than %d", lowerbound));
+        }
+        if (upperbound != null) {
+            Assert.thatUnchecked(value <= upperbound, String.format("Parsed Integer cannot be greater than %d", upperbound));
+        }
+        return value;
+    }
+
     public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
         Assert.thatUnchecked(!fieldPath.isEmpty());
         final var isUnderlyingSelectWhere = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);

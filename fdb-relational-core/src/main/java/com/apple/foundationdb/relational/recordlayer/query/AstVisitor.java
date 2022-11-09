@@ -173,10 +173,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         if (ctx.CONTINUATION() != null) {
             final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
-            Assert.notNullUnchecked(continuationStr, "continuation can not be null");
-            return QueryPlan.QpQueryplan.of(result, query, Base64.getDecoder().decode(continuationStr));
+            Assert.notNullUnchecked(continuationStr, "continuation can not be null.");
+            Assert.thatUnchecked(parserContext.getOffset() == 0, "Offset cannot be specified with continuation.");
+            return QueryPlan.QpQueryplan.of(result, query, parserContext.getLimit(), parserContext.getOffset(),
+                    Base64.getDecoder().decode(continuationStr));
         } else {
-            return QueryPlan.QpQueryplan.of(result, query);
+            return QueryPlan.QpQueryplan.of(result, query, parserContext.getLimit(), parserContext.getOffset());
         }
     }
 
@@ -185,7 +187,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         Assert.thatUnchecked(query.stripLeading().toUpperCase(Locale.ROOT).startsWith("EXPLAIN"));
-        return new QueryPlan.ExplainPlan(QueryPlan.QpQueryplan.of(result, query.stripLeading().substring(7)));
+        return new QueryPlan.ExplainPlan(QueryPlan.QpQueryplan.of(result, query.stripLeading().substring(7),
+                parserContext.getLimit(), parserContext.getOffset()));
     }
 
     @Override
@@ -224,10 +227,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.limitClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
     }
 
     @Override
@@ -236,24 +238,27 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         //Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.limitClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
     }
 
     private RelationalExpression handleSelectInternal(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                       @Nonnull final RelationalParser.FromClauseContext fromClause,
                                                       @Nullable final RelationalParser.GroupByClauseContext groupByClause,
-                                                      @Nullable final RelationalParser.OrderByClauseContext orderByClause) {
+                                                      @Nullable final RelationalParser.OrderByClauseContext orderByClause,
+                                                      @Nullable final RelationalParser.LimitClauseContext limitClause) {
         if (groupByClause != null || ParserUtils.hasAggregation(selectElements)) {
-            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause, orderByClause);
+            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause, orderByClause, limitClause);
         } else {
             parserContext.siblingScope();
             fromClause.accept(this); // includes checking predicates
             selectElements.accept(this); // potentially sets explicit result columns on top-level select expression.
             if (orderByClause != null) {
                 visit(orderByClause);
+            }
+            if (limitClause != null) {
+                visit(limitClause);
             }
             return parserContext.popScope().convertToRelationalExpression();
         }
@@ -263,7 +268,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     private RelationalExpression handleSelectWithGroupBy(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                          @Nonnull final RelationalParser.FromClauseContext fromClause,
                                                          @Nullable final RelationalParser.GroupByClauseContext groupByClause,
-                                                         @Nullable final RelationalParser.OrderByClauseContext orderByClause) {
+                                                         @Nullable final RelationalParser.OrderByClauseContext orderByClause,
+                                                         @Nullable final RelationalParser.LimitClauseContext limitClause) {
         /*
          * planning GROUP BY is relatively complex, we do not end up generating a single QP node, but rather
      * three:
@@ -351,6 +357,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             visit(selectElements);
             if (orderByClause != null) {
                 visit(orderByClause);
+            }
+            if (limitClause != null) {
+                visit(limitClause);
             }
             return parserContext.popScope().convertToRelationalExpression();
         }
@@ -548,6 +557,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             return ParserUtils.toColumn((Value) ctx.expression().accept(this));
         }
+    }
+
+    @Override
+    public Void visitLimitClause(RelationalParser.LimitClauseContext ctx) {
+        var parentScope = parserContext.getCurrentScope().getParent();
+        var siblingScope = parserContext.getCurrentScope().getSibling();
+        Assert.thatUnchecked(parentScope == null && siblingScope == null,
+                "LIMIT clause can only be specified with top-level SQL query.", ErrorCode.UNSUPPORTED_OPERATION);
+        parserContext.setLimit(ParserUtils.parseBoundInteger(ctx.limit.getText(), 1, null));
+        if (ctx.offset != null) {
+            parserContext.setOffset(ParserUtils.parseBoundInteger(ctx.offset.getText(), 0, null));
+        }
+        // Owing to TODO
+        if (parserContext.getCurrentScope().getAllQuantifiers().size() > 1) {
+            Assert.thatUnchecked(parserContext.getLimit() == 0 && parserContext.getOffset() == 0,
+                    "LIMIT / OFFSET with multiple FROM elements is not supported.", ErrorCode.UNSUPPORTED_OPERATION);
+        }
+        return null;
     }
 
     @Override
@@ -1124,7 +1151,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             ctx.enumDefinition().accept(this);
         } else {
             typingContext.addAllToTypeRepository();
-            // reset metadata such that we can use it to resolve identifiers in subsequent materialized view definition(s).
+            // reset metadata such that we can use it to resolvae identifiers in subsequent materialized view definition(s).
             parserContext = parserContext.withTypeRepositoryBuilder(typingContext.getTypeRepositoryBuilder())
                     .withScannableRecordTypes(typingContext.getTableNames(), typingContext.getFieldDescriptorMap())
                     .withIndexNames(typingContext.getIndexNames());

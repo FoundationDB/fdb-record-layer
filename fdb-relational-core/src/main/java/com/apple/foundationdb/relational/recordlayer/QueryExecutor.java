@@ -62,12 +62,13 @@ public class QueryExecutor {
     }
 
     @Nonnull
-    public ResumableIterator<Row> execute(@Nullable Continuation continuation) throws RelationalException {
+    public ResumableIterator<Row> execute(@Nullable Continuation continuation,
+                                          @Nonnull ExecuteProperties executeProperties) throws RelationalException {
         if (!isExplain) {
             final FDBRecordStore fdbRecordStore = Assert.notNull(schema.loadStore());
             final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                     evaluationContext,
-                    continuation == null ? null : continuation.getBytes(), ExecuteProperties.newBuilder().build());
+                    continuation == null ? null : continuation.getBytes(), executeProperties);
 
             return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
         } else {

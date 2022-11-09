@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -57,10 +59,12 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.Types;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
+import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -74,16 +78,22 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         private final RelationalExpression relationalExpression;
 
+        private final int limit;
+
+        private final int offset;
+
         @Nonnull
         private final String query;
 
         @Nullable
         byte[] continuation;
 
-        private QpQueryplan(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, @Nullable byte[] continuation) {
+        private QpQueryplan(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, int limit, int offset, @Nullable byte[] continuation) {
             this.relationalExpression = relationalExpression;
             this.query = query;
             this.continuation = continuation;
+            this.limit = limit;
+            this.offset = offset;
         }
 
         /**
@@ -144,9 +154,9 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 final QueryExecutor queryExecutor = new QueryExecutor(recordQueryPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), recordLayerSchema, false /* get this information from the query plan */);
                 Type type = queryExecutor.getQueryResultType();
                 StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
+                var executeProperties = ExecuteProperties.newBuilder().setSkip(offset).setReturnedRowLimit(limit).build();
                 return new RecordLayerResultSet(metaData,
-                        queryExecutor.execute(ContinuationImpl.fromBytes(continuation)),
-                        conn);
+                        queryExecutor.execute(ContinuationImpl.fromBytes(continuation), executeProperties), conn);
             }
         }
 
@@ -157,13 +167,13 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Nonnull
-        public static QpQueryplan of(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query) {
-            return new QpQueryplan(relationalExpression, query, null);
+        public static QpQueryplan of(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, int limit, int offset) {
+            return new QpQueryplan(relationalExpression, query, limit, offset, null);
         }
 
         @Nonnull
-        public static QpQueryplan of(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, @Nonnull final byte[] continuation) {
-            return new QpQueryplan(relationalExpression, query, continuation);
+        public static QpQueryplan of(@Nonnull final RelationalExpression relationalExpression, @Nonnull final String query, int limit, int offset, @Nonnull final byte[] continuation) {
+            return new QpQueryplan(relationalExpression, query, limit, offset, continuation);
         }
 
     }
@@ -234,7 +244,15 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                         .fromRecordStore(store)
                         .build();
                 RecordQueryPlan physicalPlan = QpQueryplan.generatePhysicalPlan(qpQueryPlan.query, planContext);
-                Row printablePlan = new ValueTuple(physicalPlan.toString());
+                List<String> explainComponents = new ArrayList<>();
+                explainComponents.add(physicalPlan.toString());
+                if (qpQueryPlan.limit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
+                    explainComponents.add(String.format("(limit=%d)", qpQueryPlan.limit));
+                }
+                if (qpQueryPlan.offset != 0) {
+                    explainComponents.add(String.format("(offset=%d)", qpQueryPlan.offset));
+                }
+                Row printablePlan = new ValueTuple(String.join(" ", explainComponents));
                 StructMetaData metaData = new RelationalStructMetaData(
                         FieldDescription.primitive("PLAN", Types.VARCHAR, false)
                 );
