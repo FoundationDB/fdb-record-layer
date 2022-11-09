@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -401,35 +400,32 @@ public abstract class IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
-        Transaction transaction = store.getContext().ensureActive();
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
 
-        return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, transaction, index, indexingTypeStamp));
+        return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp));
     }
 
     @Nonnull
-    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Transaction transaction, Index index, IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
-        byte[] stampKey = indexBuildTypeSubspace(store, index).getKey();
+    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
-            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            store.saveIndexBuildStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
-        return transaction.get(stampKey)
-                .thenCompose(bytes -> {
-                    if (bytes == null) {
+        return store.loadIndexBuildStampAsync(index)
+                .thenCompose(savedStamp -> {
+                    if (savedStamp == null) {
                         if (continuedBuild && indexingTypeStamp.getMethod() !=
                                               IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
                             return isWriteOnlyButNoRecordScanned(store, index)
-                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, transaction, index, stampKey, indexingTypeStamp));
+                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp));
                         }
                         // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
-                        transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                        store.saveIndexBuildStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }
                     // Here: has non-null type stamp
-                    IndexBuildProto.IndexBuildIndexingStamp savedStamp = parseTypeStampOrThrow(bytes);
                     if (indexingTypeStamp.equals(savedStamp)) {
                         // A matching stamp is already there - One less thing to worry about
                         return AsyncUtil.DONE;
@@ -438,14 +434,14 @@ public abstract class IndexingBase {
                             indexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
                             savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
                         // Special case: partly built with multi target, but may be continued indexing on its own
-                        transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                        store.saveIndexBuildStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
                                 .thenCompose(noRecordScanned ->
-                                throwUnlessNoRecordWasScanned(noRecordScanned, transaction, index, stampKey, indexingTypeStamp,
+                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp,
                                         savedStamp, continuedBuild));
                     }
                     // fall down to exception
@@ -454,8 +450,9 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<Void> throwAsByRecordsUnlessNoRecordWasScanned(boolean noRecordScanned, Transaction transaction,
-                                                                             Index index, byte[] stampKey,
+    private CompletableFuture<Void> throwAsByRecordsUnlessNoRecordWasScanned(boolean noRecordScanned,
+                                                                             FDBRecordStore store,
+                                                                             Index index,
                                                                              IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
         // A complicated way to reduce complexity.
         if (noRecordScanned) {
@@ -465,7 +462,7 @@ public abstract class IndexingBase {
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
-            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            store.saveIndexBuildStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
         // Here: there is no type stamp, but indexing is ongoing. For backward compatibility reasons, we'll consider it a BY_RECORDS stamp
@@ -479,15 +476,16 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<Void> throwUnlessNoRecordWasScanned(boolean noRecordScanned, Transaction transaction,
-                                                                  Index index, byte[] stampKey,
+    private CompletableFuture<Void> throwUnlessNoRecordWasScanned(boolean noRecordScanned,
+                                                                  FDBRecordStore store,
+                                                                  Index index,
                                                                   IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp,
                                                                   IndexBuildProto.IndexBuildIndexingStamp savedStamp,
                                                                   boolean continuedBuild) {
         // Ditto (a complicated way to reduce complexity)
         if (noRecordScanned) {
             // we can safely overwrite the previous type stamp
-            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            store.saveIndexBuildStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
         // A force overwrite cannot be allowed when partly built
@@ -542,19 +540,6 @@ public abstract class IndexingBase {
     abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store);
 
     abstract CompletableFuture<Void> buildIndexInternalAsync();
-
-    private IndexBuildProto.IndexBuildIndexingStamp parseTypeStampOrThrow(byte[] bytes) {
-        try {
-            return IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
-        } catch (InvalidProtocolBufferException ex) {
-            RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
-                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid(),
-                    LogMessageKeys.ACTUAL, bytes);
-            protoEx.initCause(ex);
-            throw protoEx;
-        }
-    }
 
     private CompletableFuture<Boolean> isWriteOnlyButNoRecordScanned(FDBRecordStore store, Index index) {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));

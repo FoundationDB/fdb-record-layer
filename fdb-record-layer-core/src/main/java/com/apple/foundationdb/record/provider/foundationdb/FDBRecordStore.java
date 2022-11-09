@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
@@ -605,22 +606,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         for (Index index : indexes) {
             final IndexMaintainer maintainer = getIndexMaintainer(index);
             final CompletableFuture<Void> future;
-            if (!maintainer.isIdempotent() && isIndexWriteOnly(index)) {
-                // In this case, the index is still being built, so we are not
-                // going to update the record unless the rebuild job has already
-                // gotten to this range.
-                final Tuple primaryKey = newRecord == null ? oldRecord.getPrimaryKey() : newRecord.getPrimaryKey();
-                future = maintainer.addedRangeWithKey(primaryKey)
-                        .thenCompose(present -> {
-                            if (present) {
-                                return maintainer.update(oldRecord, newRecord);
-                            } else {
-                                return AsyncUtil.DONE;
-                            }
-                        });
-                if (!MoreAsyncUtil.isCompletedNormally(future)) {
-                    futures.add(future);
-                }
+            if (isIndexWriteOnly(index)) {
+                // In this case, the index is still being built. For some index
+                // types, the index update needs to check whether indexing
+                // process has already built the relevant ranges, and it
+                // may adjust the way the index is built in response.
+                future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
             } else {
                 future = maintainer.update(oldRecord, newRecord);
             }
@@ -3497,6 +3488,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
         return IndexBuildState.loadIndexBuildStateAsync(this, index);
+    }
+
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexBuildStampAsync(Index index) {
+        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
+            if (serializedStamp == null) {
+                return null;
+            }
+            try {
+                return IndexBuildProto.IndexBuildIndexingStamp.parseFrom(serializedStamp);
+            } catch (InvalidProtocolBufferException ex) {
+                RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.ACTUAL, ByteArrayUtil2.loggable(serializedStamp));
+                protoEx.initCause(ex);
+                throw protoEx;
+            }
+        });
+    }
+
+    @API(API.Status.INTERNAL)
+    public void saveIndexBuildStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        ensureContextActive().set(stampKey, stamp.toByteArray());
     }
 
     // Remove any indexes that do not match the filter.

@@ -224,10 +224,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .build()) {
 
-            assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            indexBuilder.buildIndex(true);
         }
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
     @Test

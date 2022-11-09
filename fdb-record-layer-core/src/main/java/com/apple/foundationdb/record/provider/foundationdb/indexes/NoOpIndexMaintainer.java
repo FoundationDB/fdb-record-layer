@@ -75,6 +75,12 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return RecordCursor.empty();
     }

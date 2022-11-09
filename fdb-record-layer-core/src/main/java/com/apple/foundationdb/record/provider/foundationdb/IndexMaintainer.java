@@ -121,6 +121,10 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                        @Nullable FDBIndexableRecord<M> newRecord);
 
+    @Nonnull
+    public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                                     @Nullable FDBIndexableRecord<M> newRecord);
+
 
     /**
      * Scans through the list of uniqueness violations within the database.

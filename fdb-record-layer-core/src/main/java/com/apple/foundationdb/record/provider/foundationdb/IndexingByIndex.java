@@ -151,7 +151,7 @@ public class IndexingByIndex extends IndexingBase {
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
         // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
-        validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
+        // validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
@@ -160,7 +160,7 @@ public class IndexingByIndex extends IndexingBase {
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE)
                 .setReturnedRowLimit(getLimit() + 1); // respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
@@ -179,10 +179,9 @@ public class IndexingByIndex extends IndexingBase {
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
 
-            final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, isIdempotent)
+                    lastResult, hasMore, recordsScanned, maintainer.isIdempotent())
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
