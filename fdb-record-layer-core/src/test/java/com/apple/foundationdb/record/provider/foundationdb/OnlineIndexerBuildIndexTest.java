@@ -53,6 +53,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -312,13 +316,14 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
 
-            /*
-            assertThat(indexBuilder.getTotalRecordsScanned(),
-                    allOf(
-                            greaterThanOrEqualTo((long)records.size()),
-                            lessThanOrEqualTo((long)records.size() + additionalScans)
-                    ));
-             */
+            int deletedRecordCount = deleteWhileBuilding == null ? 0 : deleteWhileBuilding.size();
+            if (sourceIndex == null || getIndexMaintenanceFilter().equals(IndexMaintenanceFilter.NORMAL)) {
+                assertThat(indexBuilder.getTotalRecordsScanned(),
+                        allOf(
+                                greaterThanOrEqualTo((long)(records.size() - deletedRecordCount)),
+                                lessThanOrEqualTo((long)records.size() + additionalScans)
+                        ));
+            }
         }
         KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
         msg.addKeysAndValues(timer.getKeysAndValues());
