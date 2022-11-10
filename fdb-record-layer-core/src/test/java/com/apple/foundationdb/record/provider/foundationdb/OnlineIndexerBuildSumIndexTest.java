@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRestrictedIndexQueryTest;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -61,36 +62,33 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         super(safeBuild);
     }
 
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
-                            @Nullable Index sourceIndex, int agents, boolean overlap) {
+    @SuppressWarnings("try")
+    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+                            @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+                            @Nullable List<Long> deletedIds,
+                            @Nullable Index sourceIndex,
+                            int agents,
+                            boolean overlap) {
         Index index = new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
 
-        Runnable beforeBuild = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    metaData.getIndex(index.getName());
-                } catch (MetaDataException e) {
-                    assertEquals("Index newSumIndex not defined", e.getMessage());
-                }
+        Runnable beforeBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                metaData.getIndex(index.getName());
+            } catch (MetaDataException e) {
+                assertEquals("Index newSumIndex not defined", e.getMessage());
             }
         };
 
-        Runnable afterBuild = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                metaData.getIndex(index.getName());
-                try (FDBRecordContext context = openContext()) {
-                    FDBRestrictedIndexQueryTest.assertThrowsAggregateFunctionNotSupported(() ->
-                                    recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
-                                            aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT),
-                            "newSumIndex.sum(Field { 'num_value_2' None} group 1)");
-                } catch (Exception e) {
-                    fail();
-                }
+        Runnable afterBuild = () -> {
+            metaData.getIndex(index.getName());
+            try (FDBRecordContext context = openContext()) {
+                FDBRestrictedIndexQueryTest.assertThrowsAggregateFunctionNotSupported(() ->
+                                recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                        aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT),
+                        "newSumIndex.sum(Field { 'num_value_2' None} group 1)");
+            } catch (Exception e) {
+                fail();
             }
         };
 
@@ -101,24 +99,33 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             updatedRecords = updated(records, recordsWhileBuilding);
         }
 
-        Runnable afterReadable = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    long sum = recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"), aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0);
-                    long expected = updatedRecords.stream().mapToInt(msg -> msg.hasNumValue2() ? msg.getNumValue2() : 0).sum();
-                    assertEquals(expected, sum);
-                }
+        final List<Tuple> deletePrimaryKeys;
+        if (deletedIds != null && !deletedIds.isEmpty()) {
+            updatedRecords = updatedRecords.stream()
+                    .filter(rec -> !deletedIds.contains(rec.getRecNo()))
+                    .collect(Collectors.toList());
+            deletePrimaryKeys = deletedIds.stream()
+                    .map(Tuple::from)
+                    .collect(Collectors.toList());
+        } else {
+            deletePrimaryKeys = null;
+        }
+        long expected = updatedRecords.stream().mapToLong(TestRecords1Proto.MySimpleRecord::getNumValue2).sum();
+
+        Runnable afterReadable = () -> {
+            try (FDBRecordContext context = openContext()) {
+                long sum = recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"), aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0);
+                assertEquals(expected, sum);
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, agents, overlap, false, index, sourceIndex, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(records, recordsWhileBuilding, deletePrimaryKeys, agents, overlap, false, index, sourceIndex, beforeBuild, afterBuild, afterReadable);
     }
 
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+                            @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                             @Nullable Index sourceIndex) {
-        sumRebuild(records, recordsWhileBuilding, sourceIndex, 1, false);
+        sumRebuild(records, recordsWhileBuilding, null, sourceIndex, 1, false);
     }
 
     private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
@@ -166,7 +173,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, null, null, 5, false);
+        sumRebuild(records, null, null, null, 5, false);
     }
 
     @Test
@@ -176,7 +183,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, null, null, 5, true);
+        sumRebuild(records, null, null, null, 5, true);
     }
 
     @ParameterizedTest(name = "addWhileBuildingSum[sourceIndex={0}]")
@@ -203,7 +210,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(200).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding, null, 5, false);
+        sumRebuild(records, recordsWhileBuilding, null, null, 5, false);
     }
 
     @ParameterizedTest(name = "somePreloadedSum[sourceIndex={0}]")
@@ -257,8 +264,58 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextInt(100)).setNumValue2(r.nextInt(20) + 20).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding, null, 5, false);
+        sumRebuild(records, recordsWhileBuilding, null, null, 5, false);
     }
+
+    @ParameterizedTest(name = "updateRecordsWhileBuildingSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
+    @Tag(Tags.Slow)
+    public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
+        Random r = new Random();
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(20)).build()
+        ).collect(Collectors.toList());
+        List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = records.stream()
+                .filter(rec -> r.nextBoolean())
+                .map(rec -> rec.toBuilder().setNumValue2(r.nextInt(20)).build())
+                .collect(Collectors.toList());
+        sumRebuild(records, recordsWhileBuilding, sourceIndex);
+    }
+
+    @ParameterizedTest(name = "deleteRecordsWhileBuildingSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
+    @Tag(Tags.Slow)
+    public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
+        Random r = new Random();
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(50)).build()
+        ).collect(Collectors.toList());
+        List<Long> toDelete = records.stream()
+                .filter(rec -> r.nextBoolean())
+                .map(TestRecords1Proto.MySimpleRecord::getRecNo)
+                .collect(Collectors.toList());
+        sumRebuild(records, null, toDelete, sourceIndex, 1, false);
+    }
+
+    @ParameterizedTest(name = "updateAndDeleteRecordsWhileBuildingSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
+    @Tag(Tags.Slow)
+    public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
+        Random r = new Random();
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(50)).build()
+        ).collect(Collectors.toList());
+        List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = records.stream()
+                .filter(rec -> r.nextBoolean())
+                .map(rec -> rec.toBuilder().setNumValue2(r.nextInt(20)).build())
+                .collect(Collectors.toList());
+        List<Long> toDelete = records.stream()
+                .filter(rec -> r.nextBoolean())
+                .map(TestRecords1Proto.MySimpleRecord::getRecNo)
+                .collect(Collectors.toList());
+        sumRebuild(records, recordsWhileBuilding, toDelete, sourceIndex, 1, false);
+    }
+
 
     /**
      * Build indexes with the unchecked index build interfaces.

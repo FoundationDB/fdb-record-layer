@@ -72,7 +72,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     }
 
     @SuppressWarnings("deprecation")
-    void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+                       @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+                       @Nullable List<Tuple> deleteWhileBuilding,
                        int agents, boolean overlap, boolean splitLongRecords,
                        @Nonnull Index index, @Nullable Index sourceIndex, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
@@ -259,7 +261,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         fdb::mapAsyncToSyncException);
             }
 
-            if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
+            if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
                 int i = 0;
                 while (i < recordsWhileBuilding.size()) {
                     List<TestRecords1Proto.MySimpleRecord> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
@@ -269,6 +271,19 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         return null;
                     });
                     i += 30;
+                }
+            }
+
+            if (deleteWhileBuilding != null && !deleteWhileBuilding.isEmpty()) {
+                int i = 0;
+                while (i < deleteWhileBuilding.size()) {
+                    List<Tuple> thisBatch = deleteWhileBuilding.subList(i, Math.min(i + 10, deleteWhileBuilding.size()));
+                    fdb.run(context -> {
+                        FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
+                        thisBatch.forEach(store::deleteRecord);
+                        return null;
+                    });
+                    i += 10;
                 }
             }
 

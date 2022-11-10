@@ -146,7 +146,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,

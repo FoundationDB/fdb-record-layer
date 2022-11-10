@@ -206,7 +206,7 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
