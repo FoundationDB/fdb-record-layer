@@ -32,6 +32,9 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRestrictedIn
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,13 +54,15 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Test building sum indexes.
  */
 public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
+    private static final Index REC_NO_INDEX = new Index("simple$rec_no", "rec_no");
+    private static final Index NUM_VALUE_2_INDEX = new Index("simple$num_value_2", "num_value_2");
 
     private OnlineIndexerBuildSumIndexTest(boolean safeBuild) {
         super(safeBuild);
     }
 
     private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
-                            int agents, boolean overlap) {
+                            @Nullable Index sourceIndex, int agents, boolean overlap) {
         Index index = new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
 
@@ -108,17 +113,26 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, agents, overlap, false, index, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(records, recordsWhileBuilding, agents, overlap, false, index, sourceIndex, beforeBuild, afterBuild, afterReadable);
+    }
+
+    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+                            @Nullable Index sourceIndex) {
+        sumRebuild(records, recordsWhileBuilding, sourceIndex, 1, false);
     }
 
     private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
-        sumRebuild(records, recordsWhileBuilding, 1, false);
+        sumRebuild(records, recordsWhileBuilding, null);
     }
 
     private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
         sumRebuild(records, null);
     }
 
+    static Stream<Arguments> sourceIndexes() {
+        return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
+                .map(Arguments::of);
+    }
 
     @Test
     public void emptyRangeSum() {
@@ -134,14 +148,15 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(Collections.singletonList(record));
     }
 
-    @Test
+    @ParameterizedTest(name = "oneHundredElementsSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void oneHundredElementsSum() {
+    public void oneHundredElementsSum(@Nullable Index sourceIndex) {
         Random r = new Random(0x5ca1ab1e);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records);
+        sumRebuild(records, null, sourceIndex);
     }
 
     @Test
@@ -151,7 +166,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, null, 5, false);
+        sumRebuild(records, null, null, 5, false);
     }
 
     @Test
@@ -161,12 +176,13 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, null, 5, true);
+        sumRebuild(records, null, null, 5, true);
     }
 
-    @Test
+    @ParameterizedTest(name = "addWhileBuildingSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void addWhileBuildingSum() {
+    public void addWhileBuildingSum(Index sourceIndex) {
         Random r = new Random(0xdeadc0de);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
@@ -174,7 +190,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding);
+        sumRebuild(records, recordsWhileBuilding, sourceIndex);
     }
 
     @Test
@@ -187,17 +203,21 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(200).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding, 5, false);
+        sumRebuild(records, recordsWhileBuilding, null, 5, false);
     }
 
-    @Test
+    @ParameterizedTest(name = "somePreloadedSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void somePreloadedSum() {
+    public void somePreloadedSum(Index sourceIndex) {
         Random r = new Random(0x5ca1ab1e);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         openSimpleMetaData(metaDataBuilder -> {
+            if (sourceIndex != null) {
+                metaDataBuilder.addIndex("MySimpleRecord", sourceIndex);
+            }
             Index index = new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
             metaDataBuilder.addIndex("MySimpleRecord", index);
         });
@@ -210,12 +230,13 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             recordStore.uncheckedMarkIndexReadable("newSumIndex").join();
             context.commit();
         }
-        sumRebuild(records);
+        sumRebuild(records, null, sourceIndex);
     }
 
-    @Test
+    @ParameterizedTest(name = "addSequentialWhileBuildingSum[sourceIndex={0}]")
+    @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingSum() {
+    public void addSequentialWhileBuildingSum(Index sourceIndex) {
         Random r = new Random(0xba5eba11);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
@@ -223,7 +244,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextInt(100)).setNumValue2(r.nextInt(20) + 20).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding);
+        sumRebuild(records, recordsWhileBuilding, sourceIndex);
     }
 
     @Test
@@ -236,7 +257,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextInt(100)).setNumValue2(r.nextInt(20) + 20).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
-        sumRebuild(records, recordsWhileBuilding, 5, false);
+        sumRebuild(records, recordsWhileBuilding, null, 5, false);
     }
 
     /**

@@ -47,12 +47,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     private void populateData(final long numRecords) {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
+        populateData(numRecords, 0);
+    }
+
+    private void populateData(final long numRecords, final long numOtherRecords) {
+        List<TestRecords1Proto.MySimpleRecord> simpleRecords = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).build()
+        ).collect(Collectors.toList());
+        List<TestRecords1Proto.MyOtherRecord> otherRecords = LongStream.range(0, numOtherRecords).mapToObj(val ->
+                TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(numRecords + val).setNumValue2((int) val).build()
         ).collect(Collectors.toList());
 
         try (FDBRecordContext context = openContext())  {
-            records.forEach(recordStore::saveRecord);
+            simpleRecords.forEach(recordStore::saveRecord);
+            otherRecords.forEach(recordStore::saveRecord);
             context.commit();
         }
     }
