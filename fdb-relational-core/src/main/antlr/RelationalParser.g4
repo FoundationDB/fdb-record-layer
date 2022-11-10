@@ -414,7 +414,6 @@ tableSources // done
 
 tableSource // done
     : tableSourceItem joinPart*                                     #tableSourceBase // done
-    | '(' tableSourceItem joinPart* ')'                             #tableSourceNested // done
     ;
 
 tableSourceItem // done
@@ -426,7 +425,6 @@ tableSourceItem // done
       | '(' parenthesisSubquery=selectStatement ')'
       )
       AS? alias=uid                                                 #subqueryTableItem // done
-    | '(' tableSources ')'                                          #tableSourcesItem // done
     ;
 
 indexHint

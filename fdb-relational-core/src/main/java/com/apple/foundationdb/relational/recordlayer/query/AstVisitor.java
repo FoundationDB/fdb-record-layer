@@ -591,14 +591,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
-    @ExcludeFromJacocoGeneratedReport // not reachable for now.
-    @Override
-    public Void visitTableSourceNested(RelationalParser.TableSourceNestedContext ctx) {
-        Assert.thatUnchecked(ctx.joinPart().isEmpty(), UNSUPPORTED_QUERY);
-        ctx.tableSourceItem().accept(this);
-        return null;
-    }
-
     @Override
     public Void visitAtomTableItem(RelationalParser.AtomTableItemContext ctx) {
         Assert.isNullUnchecked(ctx.PARTITION(), UNSUPPORTED_QUERY);
