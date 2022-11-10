@@ -124,6 +124,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     .setMetaData(metaData)
                     .setDatabase(fdb)
                     .setSubspace(subspace)
+                    .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                     .build()) {
                 indexer.buildIndex(true);
             }
@@ -161,6 +162,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 .setMetaData(metaData)
                 .setIndex(index)
                 .setSubspace(subspace)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                 .setConfigLoader(old -> {
                     OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
                             .setMaxLimit(20)

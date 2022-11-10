@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +55,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
     FDBRecordStore recordStore;
     FDBDatabase fdb;
     Subspace subspace;
+    private IndexMaintenanceFilter indexMaintenanceFilter;
 
     private static long oldMaxDelayMillis;
     private static long oldInitialDelayMillis;
@@ -74,6 +76,19 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         FDBDatabaseFactory.instance().setMaxDelayMillis(oldMaxDelayMillis);
         FDBDatabaseFactory.instance().setInitialDelayMillis(oldInitialDelayMillis);
         FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
+    }
+
+    public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
+        this.indexMaintenanceFilter = indexMaintenanceFilter;
+    }
+
+    @Nonnull
+    public IndexMaintenanceFilter getIndexMaintenanceFilter() {
+        if (indexMaintenanceFilter == null) {
+            return IndexMaintenanceFilter.NORMAL;
+        } else {
+            return indexMaintenanceFilter;
+        }
     }
 
     @BeforeEach
@@ -126,7 +141,8 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setMetaDataProvider(metaData)
                 .setContext(context)
                 .setFormatVersion(FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION)
-                .setSubspace(subspace);
+                .setSubspace(subspace)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
