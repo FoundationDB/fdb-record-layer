@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +54,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,7 +65,6 @@ import java.util.stream.Stream;
  */
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-
     @Nonnull
     private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
@@ -103,7 +102,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final java.util.function.Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
@@ -187,20 +186,20 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var baseQuantifierReference = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 1);
         final var arguments = groupedValue.map(value -> {
             if (value instanceof EmptyValue) {
-                return RecordConstructorValue.ofColumns(List.of());
+                return RecordConstructorValue.ofColumns(ImmutableList.of());
             } else {
                 return FieldValue.ofFields(selectWhereQun.getFlowedObjectValue(), baseQuantifierReference.getFieldPath().withSuffix(((FieldValue)value).getFieldPath()));
             }
-        }).orElse(RecordConstructorValue.ofColumns(List.of()));
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(TypeRepository.newBuilder(), List.of(arguments));
+        }).orElse(RecordConstructorValue.ofColumns(ImmutableList.of()));
+        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(TypeRepository.newBuilder(), ImmutableList.of(arguments));
 
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
 
         if (groupingColsValue.getResultType() instanceof Type.Record && ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(aggregateValue)), null, selectWhereQun)));
+            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), null, selectWhereQun)));
         } else {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(aggregateValue)), groupingColsValue, selectWhereQun)));
+            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), groupingColsValue, selectWhereQun)));
         }
     }
 
