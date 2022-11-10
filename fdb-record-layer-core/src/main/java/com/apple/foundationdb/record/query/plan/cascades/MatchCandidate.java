@@ -308,11 +308,8 @@ public interface MatchCandidate {
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
             case IndexTypes.SUM: // fallthrough
-            case IndexTypes.COUNT:
-                final var rootExpression = index.getRootExpression();
-                if (!(rootExpression instanceof GroupingKeyExpression) || ((GroupingKeyExpression)rootExpression).getWholeKey() instanceof EmptyKeyExpression) {
-                    break;
-                }
+            case IndexTypes.COUNT: // fallthrough
+            case IndexTypes.COUNT_NOT_NULL:
                 expandIndexMatchCandidate(index,
                             availableRecordTypeNames,
                             availableRecordTypes,
