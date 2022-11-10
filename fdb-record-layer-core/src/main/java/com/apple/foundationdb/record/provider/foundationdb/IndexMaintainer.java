@@ -115,12 +115,26 @@ public abstract class IndexMaintainer {
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @param <M> type of message
-     * @return a future that is complete when the record update is done
+     * @return a future that is complete when the index update is done
      */
     @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                        @Nullable FDBIndexableRecord<M> newRecord);
 
+    /**
+     * Update the associated index for a changed record while the index is in
+     * {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY} mode. For most indexes, this should do the
+     * same thing that a normal update does, but if the index is not {@linkplain #isIdempotent() idempotent},
+     * then during an index build, it may need to perform additional checks to make sure each record is only
+     * added to the index once. In particular, it can check the {@link com.apple.foundationdb.async.RangeSet}
+     * associated with the index build to check to see if the record has already been indexed, and then decide
+     * to update (or not update) the index as appropriate.
+     *
+     * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
+     * @param newRecord the new record or <code>null</code> if an old record is being deleted
+     * @param <M> type of message
+     * @return a future that is complete when the index update is done
+     */
     @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);

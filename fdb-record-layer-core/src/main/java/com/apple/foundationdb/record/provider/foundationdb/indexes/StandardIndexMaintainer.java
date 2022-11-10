@@ -253,18 +253,22 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
+    @Nonnull
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         if (isIdempotent()) {
+            // Idempotent indexes can just update the index data structures directly
             return update(oldRecord, newRecord);
         }
         return state.store.loadIndexBuildStampAsync(state.index).thenCompose(stamp -> {
             if (stamp == null) {
-                // The index build has not begun, so the entire range is unbuilt, and thus
-                // the index update should be skipped
+                // Either the index build has not started (in which case the record should not be
+                // indexed) or this is a by-records build that did not write the stamp, which can
+                // happen with certain kinds of segmented index builds.
                 return updateWriteOnlyByRecords(oldRecord, newRecord);
             }
             switch (stamp.getMethod()) {
                 case BY_RECORDS:
+                case MULTI_TARGET_BY_RECORDS:
                     return updateWriteOnlyByRecords(oldRecord, newRecord);
                 case BY_INDEX:
                     Object sourceIndexKey = Tuple.fromBytes(stamp.getSourceIndexSubspaceKey().toByteArray()).get(0);
@@ -278,6 +282,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyByRecords(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // Check if the record has been built be checking its primary key in the range set. Update the index
+        // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return addedRangeWithKey(primaryKey).thenCompose(inRange ->
                 inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
@@ -289,9 +295,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
         if (oldEntryKey != null && newEntryKey != null) {
             if (oldEntryKey.equals(newEntryKey)) {
+                // The old and new record use the same key in the source index, so check if it has been
+                // built, and update the index if so
                 return addedRangeWithKey(oldEntryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             } else {
+                // The old and new record use different keys in the source index. Check each one individually,
+                // and then simulate deleting the old record (if needed) and adding the new record (if needed)
                 return addedRangeWithKey(oldEntryKey)
                         .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
                         .thenCompose(ignore -> addedRangeWithKey(newEntryKey))
@@ -300,8 +310,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         } else {
             Tuple entryKey = oldEntryKey == null ? newEntryKey : oldEntryKey;
             if (entryKey == null) {
+                // Both the old and new entries are null. This can happen if there is an index maintenance filter
+                // results in one (or both) of the records being excluded from indexing. If the record(s) is/are
+                // excluded by the filter from the source index, then they must also be excluded from this index,
+                // so it is safe to just do nothing
                 return AsyncUtil.DONE;
             } else {
+                // One of the entry keys is not null. Check if that one has been built, and then update if it
+                // is in the built range
                 return addedRangeWithKey(entryKey).thenCompose(inRange ->
                         inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
             }
@@ -315,11 +331,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
         List<IndexEntry> entries = maintainer.filteredIndexEntries(record);
         if (entries == null || entries.isEmpty()) {
+            // If there is an IndexMaintenanceFilter on the index, this can return null/an empty list even if the
+            // index key expression always returns a single value. In this case, the record is excluded from the index
             return null;
         } else if (entries.size() != 1) {
             throw new RecordCoreException("index produced incorrect number of entries for use as source index");
         }
         IndexEntry entry = entries.get(0);
+        // Make sure the primary key is included in the key
         return FDBRecordStoreBase.indexEntryKey(index, entry.getKey(), record.getPrimaryKey());
     }
 
