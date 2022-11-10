@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -308,11 +306,8 @@ public interface MatchCandidate {
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
             case IndexTypes.SUM: // fallthrough
-            case IndexTypes.COUNT:
-                final var rootExpression = index.getRootExpression();
-                if (!(rootExpression instanceof GroupingKeyExpression) || ((GroupingKeyExpression)rootExpression).getWholeKey() instanceof EmptyKeyExpression) {
-                    break;
-                }
+            case IndexTypes.COUNT: // fallthrough
+            case IndexTypes.COUNT_NOT_NULL:
                 expandIndexMatchCandidate(index,
                             availableRecordTypeNames,
                             availableRecordTypes,
