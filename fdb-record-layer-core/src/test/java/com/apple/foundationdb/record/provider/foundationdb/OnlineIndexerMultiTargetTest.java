@@ -91,7 +91,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     private void buildIndexAndCrashHalfway(int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.Builder builder) {
         final AtomicLong counter = new AtomicLong(0);
         try (OnlineIndexer indexBuilder = builder
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setLimit(chunkSize)
                 .setTimer(timer)
                 .setConfigLoader(old -> {
@@ -148,8 +147,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .build()) {
@@ -173,8 +171,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // Test building non-idempotent + force
         timer.reset();
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -199,8 +196,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // Now use an arbitrary primary index
         timer.reset();
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -245,8 +241,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setLimit(chunkSize)
@@ -281,14 +276,13 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // built one index
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(indexes.get(1)).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(indexes.get(1))
                 .build()) {
             indexer.buildIndex(false);
         }
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .build()) {
@@ -303,8 +297,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // Now finish with REBUILD
         timer.reset();
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -340,17 +333,16 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 2, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
                 .setTargetIndexes(indexes));
 
         // 2. let one index continue ahead
         timer.reset();
-        buildIndexAndCrashHalfway(chunkSize, 2, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
                 .setIndex(indexes.get(2)));
 
         // 3. assert mismatch type stamp
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setLimit(chunkSize)
@@ -386,15 +378,14 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 2, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
                 .setTargetIndexes(indexes));
 
         // 2. Change indexes set
         indexes.remove(2);
 
         // 3. assert mismatch type stamp
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setLimit(chunkSize)
@@ -430,12 +421,11 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 5, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 5, timer, newIndexerBuilder()
                 .setTargetIndexes(indexes));
 
         // 2. continue and done
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .setLimit(chunkSize)
@@ -481,13 +471,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 3, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder()
                 .setTargetIndexes(indexes));
 
         // 2. continue each index to done
         for (Index index: indexes) {
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setLimit(chunkSize)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -533,12 +522,11 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
 
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 3, timer, OnlineIndexer.newBuilder()
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder()
                 .setTargetIndexes(indexes));
 
         // 2. Finish building "num_value_3_indexed", to be used as a source index
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(indexes.get(0))
                 .setLimit(chunkSize)
                 .build()) {
@@ -550,8 +538,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         // 3. Build "num_value_2" by index, forbid fallback to by-record
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(indexes.get(1))
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(indexes.get(0).getName())
@@ -564,8 +551,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         // 4. Build "num_value_2" by index, allow fallback to by-record
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(indexes.get(1))
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(indexes.get(0).getName())
@@ -600,8 +586,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(indexes)
                     .setTimer(timer)
                     .build()) {
@@ -645,8 +630,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             metaDataBuilder.addIndex("MyOtherRecord", indexOtherB);
         };
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .addTargetIndex(indexMyA)
                 .addTargetIndex(indexOtherA)
                 .addTargetIndex(indexMyB)
@@ -682,8 +666,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         final AtomicLong counter = new AtomicLong(0);
         final String testThrowMsg = "Intentionally crash during test";
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setLimit(chunkSize)
                 .setTimer(timer)
                 .setIndex(indexes.get(0))
@@ -703,8 +686,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // Here: the index should be partially built by the single target module
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .build()) {
@@ -735,8 +717,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         for (long i = 0; (i + 1) * 10 < numRecords; i ++) {
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTimer(timer)
                     .setIndex(indexes.get(0))
                     .build()) {
@@ -750,8 +731,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // Here: the index has multiple built chunks
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)
                 .build()) {
@@ -784,8 +764,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         long startSingle = System.currentTimeMillis();
         for (Index index : indexes) {
             openSimpleMetaData(hook);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTimer(singleTimer)
                     .setIndex(index)
                     .build()) {
@@ -798,8 +777,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         long startMulti =  System.currentTimeMillis();
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(multiTimer)
                 .build()) {

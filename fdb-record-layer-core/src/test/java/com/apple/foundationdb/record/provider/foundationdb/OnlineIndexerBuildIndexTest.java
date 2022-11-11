@@ -123,12 +123,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (sourceIndex != null) {
             LOGGER.info(KeyValueLogMessage.of("building source index",
                     LogMessageKeys.INDEX_NAME, sourceIndex.getName()));
-            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+            try (OnlineIndexer indexer = newIndexerBuilder()
                     .setIndex(sourceIndex)
-                    .setMetaData(metaData)
-                    .setDatabase(fdb)
-                    .setSubspace(subspace)
-                    .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                     .build()) {
                 indexer.buildIndex(true);
             }
@@ -161,12 +157,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                 LogMessageKeys.LIMIT, 20,
                 TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
-        final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb)
-                .setMetaData(metaData)
+        final OnlineIndexer.Builder builder = newIndexerBuilder()
                 .setIndex(index)
-                .setSubspace(subspace)
-                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                 .setConfigLoader(old -> {
                     OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
                             .setMaxLimit(20)

@@ -135,12 +135,30 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 
+    OnlineIndexer.Builder newIndexerBuilder() {
+        return OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setMetaData(metaData)
+                .setSubspace(subspace)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
+                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+    }
+
+    OnlineIndexScrubber.Builder newScrubberBuilder() {
+        return OnlineIndexScrubber.newBuilder()
+                .setDatabase(fdb)
+                .setMetaData(metaData)
+                .setSubspace(subspace)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
+                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+    }
+
     FDBRecordContext openContext(boolean checked) {
         FDBRecordContext context = fdb.openContext();
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setContext(context)
-                .setFormatVersion(FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION)
+                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                 .setSubspace(subspace)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
         if (checked) {
