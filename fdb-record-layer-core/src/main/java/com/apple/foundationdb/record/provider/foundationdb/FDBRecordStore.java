@@ -190,11 +190,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
     // 8 - add custom fields to store header
     public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
-
+    // 9 - add READABLE_UNIQUE_PENDING index state
     public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = 9;
+    // 10 - check index build type during update
+    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = 10;
 
     // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION;
 
     // By default, record stores attempt to upgrade to this version
     // NOTE: Updating this can break certain users during upgrades.

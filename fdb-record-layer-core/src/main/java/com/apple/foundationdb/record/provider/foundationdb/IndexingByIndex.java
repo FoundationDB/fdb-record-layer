@@ -93,7 +93,6 @@ public class IndexingByIndex extends IndexingBase {
         );
     }
 
-
     @Nonnull
     private Index getSourceIndex(RecordMetaData metaData) {
         if (policy.getSourceIndexSubspaceKey() != null) {
@@ -149,9 +148,8 @@ public class IndexingByIndex extends IndexingBase {
         validateSameMetadataOrThrow(store);
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        validateIdempotenceIfNecessary(store, maintainer);
 
-        // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
-        // validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
@@ -195,7 +193,7 @@ public class IndexingByIndex extends IndexingBase {
     @SuppressWarnings("unused")
     private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
         FDBIndexedRecord<Message> indexResult = cursorResult.get();
-        FDBStoredRecord<Message> rec =  indexResult == null ? null : indexResult.getStoredRecord();
+        FDBStoredRecord<Message> rec = indexResult == null ? null : indexResult.getStoredRecord();
         return recordIfInIndexedTypes(rec);
     }
 
@@ -218,20 +216,17 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
-
         validateSameMetadataOrThrow(store);
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-
-        // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
-        validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
+        validateIdempotenceIfNecessary(store, maintainer);
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         final Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT);
+                .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE);
 
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final TupleRange tupleRange = TupleRange.between(cont, null);
@@ -242,12 +237,22 @@ public class IndexingByIndex extends IndexingBase {
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
-        final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
-                lastResult, hasMore, recordsScanned, isIdempotent
+                lastResult, hasMore, recordsScanned, maintainer.isIdempotent()
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );
+    }
+
+    private void validateIdempotenceIfNecessary(@Nonnull FDBRecordStore store, @Nonnull IndexMaintainer maintainer) {
+        // idempotence - Non-idempotent indexes can only be built from a source if the store format version supports it
+        // Prior to this format version, record updates to non-idempotent indexes would check to see if the record
+        // had been built already by looking for its primary key in the range set, which is incorrect for most source
+        // indexes. After this format version, we are assured that all updates will check the index type first and
+        // respond appropriately
+        if (store.getFormatVersion() < FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION) {
+            validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
+        }
     }
 }

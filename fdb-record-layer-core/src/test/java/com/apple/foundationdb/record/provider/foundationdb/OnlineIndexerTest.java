@@ -56,6 +56,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
     FDBDatabase fdb;
     Subspace subspace;
     private IndexMaintenanceFilter indexMaintenanceFilter;
+    int formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
 
     private static long oldMaxDelayMillis;
     private static long oldInitialDelayMillis;
@@ -141,7 +142,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setMetaData(metaData)
                 .setSubspace(subspace)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+                .setFormatVersion(formatVersion);
     }
 
     OnlineIndexScrubber.Builder newScrubberBuilder() {
@@ -150,7 +151,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setMetaData(metaData)
                 .setSubspace(subspace)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+                .setFormatVersion(formatVersion);
     }
 
     FDBRecordContext openContext(boolean checked) {
@@ -158,7 +159,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setContext(context)
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                .setFormatVersion(formatVersion)
                 .setSubspace(subspace)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
         if (checked) {

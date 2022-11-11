@@ -139,7 +139,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexContinuation() {
-
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
         final int chunkSize  = 17;
@@ -170,22 +169,22 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(numChunks, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
     @Test
-    public void testIndexFromIndexFallback() {
-        // Let target index be a non-idempotent index
-
+    public void testNonIdempotentIndexFromIndex() {
+        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final long numRecords = 6;
+        final long numRecords = 8;
+        final long otherRecords = 4;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
         openSimpleMetaData();
-        populateData(numRecords);
+        populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildSrcIndex(srcIndex);
@@ -206,18 +205,88 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexNoFallback() {
-        // Let target index be a non-idempotent index
-
+    public void testCanBuildNonIdempotentIndexFromIndexOnNewStoreWithOldFormatVersionInIndexer() {
+        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final long numRecords = 7;
+        final long numRecords = 8;
+        final long otherRecords = 4;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
         openSimpleMetaData();
-        populateData(numRecords);
+        populateData(numRecords, otherRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(tgtIndex)
+                // Set a format version on the store that does not allow index-from-index builds
+                // Because the store already has this format version, though it should be allowed
+                .setFormatVersion(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            indexBuilder.buildIndex(true);
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testNonIdempotentIndexFromIndexOldFormatFallback() {
+        // Attempt to build a non-idempotent index at an older format version. This should fall back to a full record scan
+        this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 6;
+        final long otherRecords = 5;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords, otherRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(tgtIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            indexBuilder.buildIndex(true);
+        }
+        assertEquals(numRecords + otherRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
+        // Attempt to build a non-idempotent index at old format version where this is not supported. This should
+        // error as falling back to a record scan is not enabled
+        this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 7;
+        final long otherRecords = 8;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
         buildSrcIndex(srcIndex);
@@ -232,10 +301,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .build()) {
 
-            indexBuilder.buildIndex(true);
+            assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
         }
-        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
     @Test
