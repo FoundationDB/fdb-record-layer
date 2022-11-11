@@ -55,12 +55,13 @@ import java.util.stream.Collectors;
 // TODO: Fix the JDBCRelationalStatement on the jdbc-side. Currently they let out RExceptions (because they implement
 // RelationalStatement. I don't think we want this. Discuss.'
 // TODO: Allow setting schema and option on connect to database as in jdbc:relational://localhost:1234/DATABASE?schema=XYZ&option=NONE, etc.
+// TODO: Add remote 'safe' shutdown of server (or via signal?).
 // Revisit signal handling (to load config and to do 'safe' shutdown?)
+// It looks like CTRL-C is caught and we run the shutdown handler. What else is caught?
 // https://www.programcreek.com/java-api-examples/?api=sun.misc.SignalHandler
 // https://dzone.com/articles/basics-signal-handling
 // https://github.com/dmarkwat/java8-signalhandler
 // https://www.dclausen.net/javahacks/signal.html
-// TODO: Add remote 'safe' shutdown of server (or via signal?).
 // Clients https://github.com/ktr0731/evans and grpc-client-cli or the c++ grpc grpc-cli
 // which use the reflections service.
 // TODO: Read config from json/yaml file: e.g:  Get default features file from classpath with:
@@ -68,7 +69,7 @@ import java.util.stream.Collectors;
 // An example reading config as json
 // https://github.com/grpc/grpc-java/blob/b118e00cf99c26da4665257ddcf11e666f6912b6/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideUtil.java#L51
 // 
-// TODO: Update health service state as we go
+// TODO: Update health service state as we go; i.e. make it 'live'.
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
 public class RelationalServer implements Closeable {
     // GRPC uses JUL.
@@ -131,6 +132,7 @@ public class RelationalServer implements Closeable {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 System.err.println(Instant.now() + " Waiting on Server termination");
                 try {
+                    RelationalServer.this.server.shutdown();
                     RelationalServer.this.awaitTermination();
                 } catch (InterruptedIOException e) {
                     throw new RuntimeException(e);
@@ -145,6 +147,7 @@ public class RelationalServer implements Closeable {
     void awaitTermination() throws InterruptedIOException {
         try {
             if (this.server != null) {
+                // Server waits here while working.
                 this.server.awaitTermination();
             }
         } catch (InterruptedException ioe) {

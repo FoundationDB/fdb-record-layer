@@ -120,15 +120,11 @@ public class FRL implements AutoCloseable {
         return new KeySpace(dbDirectory, catalogDir);
     }
 
-    /**
-     * Execute 'sql' against 'database'.
-     * @return Returns null ResultSet if execute had no results.
-     */
     @Nullable
-    public ResultSet execute(String database, String catalog, String sql) throws SQLException {
+    public ResultSet execute(String database, String schema, String sql) throws SQLException {
         try (RelationalConnection connection =
                 Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(catalog);
+            connection.setSchema(schema);
             try (RelationalStatement relationalStatement = connection.createStatement()) {
                 return relationalStatement.execute(sql) ? relationalStatement.getResultSet() : null;
             }
@@ -137,14 +133,10 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    /**
-     * Execute update 'sql' against 'database'.
-     * @return Returns number of rows affected.
-     */
-    public int update(String database, String catalog, String sql) throws SQLException {
+    public int update(String database, String schema, String sql) throws SQLException {
         try (RelationalConnection connection =
                 Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(catalog);
+            connection.setSchema(schema);
             try (RelationalStatement relationalStatement = connection.createStatement()) {
                 return relationalStatement.executeUpdate(sql);
             }
