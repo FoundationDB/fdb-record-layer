@@ -1,5 +1,5 @@
 /*
- * JDBCConstants.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,15 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.jdbc;
-
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 /**
- * Constants shared across classes in this package.
+ * Interfaces differently implemented upstream by relational-core and
+ * fdb-relational-jdbc.
  */
-@ExcludeFromJacocoGeneratedReport
-class JDBCConstants {
-    static final String JDBC_URL_PREFIX = "jdbc:";
-    static final String JDBC_URL_SCHEME = "relational";
-}
+package com.apple.foundationdb.relational.api;

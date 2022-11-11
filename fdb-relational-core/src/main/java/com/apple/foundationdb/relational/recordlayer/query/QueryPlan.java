@@ -59,12 +59,12 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.Types;
-import java.util.List;
-import java.util.Objects;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 

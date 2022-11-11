@@ -1,5 +1,5 @@
 /*
- * JDBCConstants.java
+ * GrpcConstants.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,15 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.jdbc;
-
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+package com.apple.foundationdb.relational.grpc;
 
 /**
- * Constants shared across classes in this package.
+ * Constants for consumers of GRPC such as the default port
+ * the Relational server listens for connections on.
  */
-@ExcludeFromJacocoGeneratedReport
-class JDBCConstants {
-    static final String JDBC_URL_PREFIX = "jdbc:";
-    static final String JDBC_URL_SCHEME = "relational";
+public class GrpcConstants {
+    /**
+     * Default port the GRPC server listens on.
+     */
+    public static final int DEFAULT_SERVER_PORT = 1111;
 }

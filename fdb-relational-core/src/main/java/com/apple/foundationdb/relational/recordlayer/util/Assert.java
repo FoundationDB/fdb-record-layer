@@ -28,120 +28,114 @@ import javax.annotation.Nonnull;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
+ * TODO: Remove. Use com.apple.foundationdb.relational.util.Assert.that instead. This class
+ * delegates to it (com.apple.foundationdb.relational.util.Assert is a copy of this class.
+ * For now we just do a delegation to com.apple.foundationdb.relational.util.Assert. In
+ * a follow-up PR, we'll have all references to this class point to
+ * com.apple.foundationdb.relational.util.Assert after fdb-relational-api gets committed).
  */
 @ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 public final class Assert {
 
     public static void that(boolean mustBeTrue) throws RelationalException {
-        that(mustBeTrue, "condition is not met!");
+        com.apple.foundationdb.relational.util.Assert.that(mustBeTrue);
     }
 
     public static void that(boolean mustBeTrue, @Nonnull final String messageIfNotTrue) throws RelationalException {
-        that(mustBeTrue, messageIfNotTrue, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.that(mustBeTrue, messageIfNotTrue);
     }
 
-    public static void that(boolean mustBeTrue, @Nonnull final String messageIfNotTrue, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
-        if (!mustBeTrue) {
-            throw new RelationalException(messageIfNotTrue, errorCodeIfNotTrue);
-        }
+    public static void that(boolean mustBeTrue, @Nonnull final String messageIfNotTrue,
+                            @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
+        com.apple.foundationdb.relational.util.Assert.that(mustBeTrue, messageIfNotTrue, errorCodeIfNotTrue);
     }
 
     public static <T> T notNull(T object) throws RelationalException {
-        return notNull(object, "unexpected null object");
+        return com.apple.foundationdb.relational.util.Assert.notNull(object);
     }
 
     public static <T> T notNull(T object, @Nonnull final String messageIfNull) throws RelationalException {
-        return notNull(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        return com.apple.foundationdb.relational.util.Assert.notNull(object, messageIfNull);
     }
 
-    public static <T> T notNull(T object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
-        if (object == null) {
-            throw new RelationalException(messageIfNull, errorCodeIfNotTrue);
-        } else {
-            return object;
-        }
+    public static <T> T notNull(T object, @Nonnull final String messageIfNull,
+                                @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
+        return com.apple.foundationdb.relational.util.Assert.notNull(object, messageIfNull, errorCodeIfNotTrue);
     }
 
     public static void isNull(Object object) throws RelationalException {
-        isNull(object, "expected object to be null");
+        com.apple.foundationdb.relational.util.Assert.isNull(object);
     }
 
     public static void isNull(Object object, @Nonnull final String messageIfNull) throws RelationalException {
-        isNull(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.isNull(object, messageIfNull);
     }
 
     public static void isNull(Object object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
-        if (object != null) {
-            throw new RelationalException(messageIfNull, errorCodeIfNotTrue);
-        }
+        com.apple.foundationdb.relational.util.Assert.isNull(object, messageIfNull, errorCodeIfNotTrue);
     }
 
     public static void fail() throws RelationalException {
-        fail("unexpected error");
+        com.apple.foundationdb.relational.util.Assert.fail();
     }
 
     public static void fail(@Nonnull final String failMessage) throws RelationalException {
-        fail(failMessage, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.fail(failMessage);
     }
 
     public static void fail(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) throws RelationalException {
-        throw new RelationalException(failMessage, failErrorCode);
+        com.apple.foundationdb.relational.util.Assert.fail(failMessage, failErrorCode);
     }
 
     public static void thatUnchecked(boolean mustBeTrue) {
-        thatUnchecked(mustBeTrue, "condition is not met!");
+        com.apple.foundationdb.relational.util.Assert.thatUnchecked(mustBeTrue);
     }
 
     public static void thatUnchecked(boolean mustBeTrue, @Nonnull final String messageIfNotTrue) {
-        thatUnchecked(mustBeTrue, messageIfNotTrue, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.thatUnchecked(mustBeTrue, messageIfNotTrue);
     }
 
-    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final String messageIfNotTrue, @Nonnull final ErrorCode errorCodeIfNotTrue) {
-        if (!mustBeTrue) {
-            throw new RelationalException(messageIfNotTrue, errorCodeIfNotTrue).toUncheckedWrappedException();
-        }
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final String messageIfNotTrue,
+                                     @Nonnull final ErrorCode errorCodeIfNotTrue) {
+        com.apple.foundationdb.relational.util.Assert.thatUnchecked(mustBeTrue, messageIfNotTrue, errorCodeIfNotTrue);
     }
 
     public static <T> T notNullUnchecked(T object) {
-        return notNullUnchecked(object, "unexpected null object");
+        return com.apple.foundationdb.relational.util.Assert.notNullUnchecked(object);
     }
 
     public static <T> T notNullUnchecked(T object, @Nonnull final String messageIfNull) {
-        return notNullUnchecked(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        return com.apple.foundationdb.relational.util.Assert.notNullUnchecked(object, messageIfNull);
     }
 
-    public static <T> T notNullUnchecked(T object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNull) {
-        if (object == null) {
-            throw new RelationalException(messageIfNull, errorCodeIfNull).toUncheckedWrappedException();
-        } else {
-            return object;
-        }
+    public static <T> T notNullUnchecked(T object, @Nonnull final String messageIfNull,
+                                         @Nonnull final ErrorCode errorCodeIfNull) {
+        return com.apple.foundationdb.relational.util.Assert.notNullUnchecked(object, messageIfNull, errorCodeIfNull);
     }
 
     public static void isNullUnchecked(Object object) {
-        isNullUnchecked(object, "expected object to be null");
+        com.apple.foundationdb.relational.util.Assert.isNullUnchecked(object);
     }
 
     public static void isNullUnchecked(Object object, @Nonnull final String messageIfNotNull) {
-        isNullUnchecked(object, messageIfNotNull, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.isNullUnchecked(object, messageIfNotNull);
     }
 
-    public static void isNullUnchecked(Object object, @Nonnull final String messageIfNotNull, @Nonnull final ErrorCode errorCodeIfNotNull) {
-        if (object != null) {
-            throw new RelationalException(messageIfNotNull, errorCodeIfNotNull).toUncheckedWrappedException();
-        }
+    public static void isNullUnchecked(Object object, @Nonnull final String messageIfNotNull,
+                                       @Nonnull final ErrorCode errorCodeIfNotNull) {
+        com.apple.foundationdb.relational.util.Assert.isNullUnchecked(object, messageIfNotNull, errorCodeIfNotNull);
     }
 
     public static void failUnchecked() {
-        failUnchecked("unexpected error");
+        com.apple.foundationdb.relational.util.Assert.failUnchecked();
     }
 
     public static void failUnchecked(@Nonnull final String failMessage) {
-        failUnchecked(failMessage, ErrorCode.INTERNAL_ERROR);
+        com.apple.foundationdb.relational.util.Assert.failUnchecked(failMessage);
     }
 
     public static void failUnchecked(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) {
-        throw new RelationalException(failMessage, failErrorCode).toUncheckedWrappedException();
+        com.apple.foundationdb.relational.util.Assert.failUnchecked(failMessage, failErrorCode);
     }
 
     private Assert() {

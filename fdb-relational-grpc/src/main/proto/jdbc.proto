@@ -20,6 +20,8 @@
 
 syntax = "proto3";
 
+import "google/spanner/v1/result_set.proto";
+
 option java_multiple_files = true;
 // Put the generated classes into grpc subpackage so I can exclude
 // these classes from checkstyle and spotbug checks.
@@ -29,27 +31,38 @@ option java_outer_classname = "RelationalJDBCService";
 package grpc.relational.jdbc.v1;
 
 service JDBCService {
-  rpc executeStatement(StatementRequest) returns (StatementResponse) {}
   rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
+  rpc execute(StatementRequest) returns (StatementResponse) {}
+  rpc update(StatementRequest) returns (StatementResponse) {}
+}
+
+/**
+ * Message to carry a SQLException over rpc.
+ */
+message SQLException {
+  string name = 1;
+  int32 error_code = 2;
+  string message = 3;
+  string sql_state = 4;
+  string cause = 5;
 }
 
 message StatementRequest {
   string sql = 1;
+  string database = 2;
+  string schema = 3;
 }
 
 // FYI: RS from Spanner https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/result_set.proto
-message StatementResponse {}
+message StatementResponse {
+  int32 row_count = 1;
+  google.spanner.v1.ResultSet result_set = 2;
+}
+
 message DatabaseMetaDataRequest {}
 message DatabaseMetaDataResponse {
   string url = 1;
-  string user_name = 2;
-  bool read_only = 3;
-  string database_product_name = 4;
-  string database_product_version = 5;
-  string driver_name = 6;
-  string driver_version = 7;
-  int32 driver_major_version = 8;
-  int32 driver_minor_version = 9;
+  string database_product_version = 2;
 
       // From https://docs.oracle.com/en/java/javase/12/docs/api/java.sql/java/sql/DatabaseMetaData.html
       // 

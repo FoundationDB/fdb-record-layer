@@ -40,20 +40,7 @@ public final class SqlTypeSupport {
     }
 
     public static String getSqlTypeName(int sqlTypeCode) {
-        switch (sqlTypeCode) {
-            case Types.BIGINT:
-                return "LONG";
-            case Types.DOUBLE:
-                return "DOUBLE";
-            case Types.VARCHAR:
-                return "STRING";
-            case Types.STRUCT:
-                return "STRUCT";
-            case Types.ARRAY:
-                return "ARRAY";
-            default:
-                throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
-        }
+        return SqlTypeNamesSupport.getSqlTypeName(sqlTypeCode);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch") //intentional duplicates for readability

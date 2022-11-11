@@ -20,16 +20,21 @@
 
 package com.apple.foundationdb.relational.server;
 
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
+import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 
+import com.google.protobuf.Any;
+import com.google.protobuf.TextFormat;
+import com.google.spanner.v1.ResultSet;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.health.v1.HealthCheckRequest;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
-import org.apple.relational.grpc.GrpcConstants;
+import io.grpc.protobuf.StatusProto;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,14 +42,17 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+
+import javax.annotation.Nullable;
 
 public class RelationalServerTest {
+    private static final Logger logger = Logger.getLogger(RelationalServerTest.class.getName());
     private static RelationalServer relationalServer;
 
     @BeforeAll
-    public static void beforerAll() throws IOException {
-        relationalServer =
-                ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
+    public static void beforeAll() throws IOException {
+        relationalServer = ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
     }
 
     @AfterAll
@@ -52,6 +60,25 @@ public class RelationalServerTest {
         if (relationalServer != null) {
             relationalServer.close();
         }
+    }
+
+    private static void update(JDBCServiceGrpc.JDBCServiceBlockingStub stub, String database, String schema, String sql) {
+        // TODO: Do I have to supply the database and the schema each time or can I rely on database metadata?
+        // Maybe I do. Then its easy on the client-side changing which database to go against? Connection stays open
+        // and we just change the target db on the server-side that we go against?
+        StatementRequest statementRequest = StatementRequest.newBuilder().setSql(sql)
+                .setDatabase(database).setSchema(schema).build();
+        StatementResponse statementResponse = stub.update(statementRequest);
+        // TODO: Make server-side return a row_count; doens't currently.
+        Assertions.assertTrue(statementResponse.getRowCount() == 0);
+    }
+
+    @Nullable
+    private static ResultSet execute(JDBCServiceGrpc.JDBCServiceBlockingStub stub, String database, String schema, String sql) {
+        StatementRequest statementRequest = StatementRequest.newBuilder().setSql(sql)
+                .setDatabase(database).setSchema(schema).build();
+        StatementResponse statementResponse = stub.execute(statementRequest);
+        return statementResponse.hasResultSet() ? statementResponse.getResultSet() : null;
     }
 
     /**
@@ -64,18 +91,44 @@ public class RelationalServerTest {
         ManagedChannel managedChannel = ManagedChannelBuilder
                 .forTarget("localhost:" + relationalServer.getPort())
                 .usePlaintext().build();
+        JDBCServiceGrpc.JDBCServiceBlockingStub stub =
+                JDBCServiceGrpc.newBlockingStub(managedChannel);
+        String sysdb = "/__SYS";
+        String schema = "CATALOG";
+        String testdb = "/test_db";
         try {
-            JDBCServiceGrpc.JDBCServiceBlockingStub stub =
-                    JDBCServiceGrpc.newBlockingStub(managedChannel);
-            StatementRequest statementRequest =
-                    StatementRequest.newBuilder().setSql("hello").build();
-            // Anemic test for now until we fill in some functionaliity.
-            Assertions.assertNotNull(stub.executeStatement(statementRequest));
-            DatabaseMetaDataRequest metaDataRequest =
-                    DatabaseMetaDataRequest.newBuilder().build();
-            Assertions.assertNotNull(stub.getMetaData(metaDataRequest));
+            update(stub, sysdb, schema, "Drop database \"" + testdb + "\"");
+            update(stub, sysdb, schema,
+                    "CREATE SCHEMA TEMPLATE test_template " +
+                            "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no))");
+            update(stub, sysdb, schema, "create database \"" + testdb + "\"");
+            update(stub, sysdb, schema, "create schema \"" + testdb + "/test_schema\" with template test_template");
+            ResultSet resultSet = execute(stub, sysdb, schema, "select * from databases;");
+            Assertions.assertEquals(2, resultSet.getRowsCount());
+            Assertions.assertEquals(1, resultSet.getRowsList().get(0).getValuesCount());
+            Assertions.assertEquals(1, resultSet.getRowsList().get(1).getValuesCount());
+            Assertions.assertTrue(resultSet.getRows(0).getValues(0).hasStringValue());
+            Assertions.assertTrue(resultSet.getRows(1).getValues(0).hasStringValue());
+            Assertions.assertEquals(sysdb, resultSet.getRows(0).getValues(0).getStringValue());
+            Assertions.assertEquals(testdb, resultSet.getRows(1).getValues(0).getStringValue());
+        } catch (Throwable t) {
+            com.google.rpc.Status status = StatusProto.fromThrowable(t);
+            if (status != null) {
+                SQLException sqlException = null;
+                for (Any any : status.getDetailsList()) {
+                    if (!any.is(SQLException.class)) {
+                        continue;
+                    }
+                    sqlException = any.unpack(SQLException.class);
+                    break;
+                }
+                logger.severe(sqlException.getMessage());
+                logger.severe(t + ", " + TextFormat.shortDebugString(sqlException));
+            }
+            throw t;
         } finally {
-            managedChannel.awaitTermination(10, TimeUnit.SECONDS);
+            update(stub, sysdb, schema, "Drop database \"/test_db\"");
+            managedChannel.shutdownNow();
         }
     }
 
@@ -98,8 +151,10 @@ public class RelationalServerTest {
             healthCheckResponse = stub.check(healthCheckRequest);
             Assertions.assertEquals(HealthCheckResponse.ServingStatus.SERVING,
                     healthCheckResponse.getStatus());
+            managedChannel.shutdownNow();
         } finally {
-            managedChannel.awaitTermination(10, TimeUnit.SECONDS);
+            boolean timedout = managedChannel.awaitTermination(10, TimeUnit.SECONDS);
+            logger.info(() -> "awaitTermination timedout=" + timedout);
         }
     }
 }

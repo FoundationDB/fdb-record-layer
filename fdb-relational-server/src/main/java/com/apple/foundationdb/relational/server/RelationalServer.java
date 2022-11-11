@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 
@@ -37,7 +39,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apple.relational.grpc.GrpcConstants;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -50,6 +51,10 @@ import java.util.stream.Collectors;
  * Relational Server.
  * Hosts the JDBC GRPC Service.
  */
+// TODO: NEXT. Exceptions over RPC. Currently they do not come out nicely.
+// TODO: Fix the JDBCRelationalStatement on the jdbc-side. Currently they let out RExceptions (because they implement
+// RelationalStatement. I don't think we want this. Discuss.'
+// TODO: Allow setting schema and option on connect to database as in jdbc:relational://localhost:1234/DATABASE?schema=XYZ&option=NONE, etc.
 // Revisit signal handling (to load config and to do 'safe' shutdown?)
 // https://www.programcreek.com/java-api-examples/?api=sun.misc.SignalHandler
 // https://dzone.com/articles/basics-signal-handling
@@ -62,33 +67,23 @@ import java.util.stream.Collectors;
 //  return Server.class.getResource("server.json");
 // An example reading config as json
 // https://github.com/grpc/grpc-java/blob/b118e00cf99c26da4665257ddcf11e666f6912b6/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideUtil.java#L51
-// TODO: Update health service state as we go.
+// 
+// TODO: Update health service state as we go
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
 public class RelationalServer implements Closeable {
     // GRPC uses JUL.
     private static final Logger logger = Logger.getLogger(RelationalServer.class.getName());
 
-    private final Server server;
+    private Server server;
+    private final int port;
+    private FRL frl;
 
     public RelationalServer() {
         this(GrpcConstants.DEFAULT_SERVER_PORT);
     }
 
     public RelationalServer(int port) {
-        HealthStatusManager healthStatusManager = new HealthStatusManager();
-        // Get SERVICE_NAME from the wrapping from the generated Grpc class.
-        healthStatusManager.setStatus(HealthGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
-        healthStatusManager.setStatus(ServerReflectionGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
-        healthStatusManager.setStatus(JDBCServiceGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
-        // Build Server with Services.
-        this.server = ServerBuilder.forPort(port)
-                .addService(healthStatusManager.getHealthService())
-                .addService(ProtoReflectionService.newInstance())
-                .addService(new JDBCService())
-                .build();
+        this.port = port;
     }
 
     /**
@@ -101,6 +96,28 @@ public class RelationalServer implements Closeable {
     }
 
     RelationalServer start() throws IOException {
+        // Create access to backing database.
+        // TODO: Make this multi-query/-tenant/-database!
+        FRL frl;
+        try {
+            frl = new FRL();
+        } catch (RelationalException ve) {
+            throw new IOException(ve);
+        }
+        HealthStatusManager healthStatusManager = new HealthStatusManager();
+        // Get SERVICE_NAME from the wrapping from the generated Grpc class.
+        healthStatusManager.setStatus(HealthGrpc.SERVICE_NAME,
+                HealthCheckResponse.ServingStatus.SERVING);
+        healthStatusManager.setStatus(ServerReflectionGrpc.SERVICE_NAME,
+                HealthCheckResponse.ServingStatus.SERVING);
+        healthStatusManager.setStatus(JDBCServiceGrpc.SERVICE_NAME,
+                HealthCheckResponse.ServingStatus.SERVING);
+        // Build Server with Services.
+        this.server = ServerBuilder.forPort(port)
+                .addService(healthStatusManager.getHealthService())
+                .addService(ProtoReflectionService.newInstance())
+                .addService(new JDBCService(frl))
+                .build();
         this.server.start();
         String services = this.server.getServices().stream()
                 .map(p -> p.getServiceDescriptor().getName())
@@ -121,6 +138,7 @@ public class RelationalServer implements Closeable {
                 System.err.println(Instant.now() + " Server shutdown");
             }
         });
+        // This is what is used on the cli. It is overkill for here but easy for now.
         return this;
     }
 
@@ -138,9 +156,22 @@ public class RelationalServer implements Closeable {
 
     @Override
     public void close() throws IOException {
+        IOException ioe = null;
+        if (this.frl != null) {
+            try {
+                this.frl.close();
+            } catch (IOException e) {
+                ioe = e;
+            } catch (Exception e) {
+                ioe = new IOException(e);
+            }
+        }
         if (this.server != null) {
             this.server.shutdown();
             awaitTermination();
+        }
+        if (ioe != null) {
+            throw ioe;
         }
     }
 

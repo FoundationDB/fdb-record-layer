@@ -221,9 +221,9 @@ class CommandQuery extends Command {
             var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
             if (continuation != null && continuation.atEnd() && queryConfigWithValue.config == QueryConfig.RESULT) {
                 Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "%s%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                        "%s%n" +
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                         queryConfigWithValue)
                 );
             }

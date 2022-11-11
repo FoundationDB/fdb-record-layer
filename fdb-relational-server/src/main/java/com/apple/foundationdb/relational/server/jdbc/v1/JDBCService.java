@@ -20,33 +20,206 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
+import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.util.BuildVersion;
 
+import com.google.protobuf.Any;
+import com.google.protobuf.ListValue;
+import com.google.protobuf.Value;
+import com.google.rpc.Code;
+import com.google.spanner.v1.ResultSetMetadata;
+import com.google.spanner.v1.StructType;
+import com.google.spanner.v1.Type;
+import com.google.spanner.v1.TypeCode;
+import io.grpc.Status;
+import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
-import org.apple.relational.grpc.GrpcConstants;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
 
 // TODO: Read version and product name from elsewhere.
 // TODO: Fill out JDBC functionality. Float Relational instance in here.
 public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
+    private final FRL frl;
+
+    private JDBCService() {
+        this(null);
+    }
+
+    public JDBCService(FRL frl) {
+        this.frl = frl;
+    }
+
     @Override
     public void getMetaData(DatabaseMetaDataRequest request,
                             StreamObserver<DatabaseMetaDataResponse> responseObserver) {
+        // Of note, there is no 'RelationalDatabaseMetaData' implementation on the server-side
+        // currently -- just an Interface -- and there probably won't be; it is not needed. An
+        // implementation is needed on the JDBC client-side. Here we are passing the client info
+        // that can be used on the client-side in its implementation of RelationalDatabaseMetaData.
+        // We'll pull from wherever we need to.
         DatabaseMetaDataResponse databaseMetaDataResponse = DatabaseMetaDataResponse.newBuilder()
-                .setDatabaseProductName(GrpcConstants.PRODUCT_NAME)
-                .setDatabaseProductVersion(GrpcConstants.PRODUCT_VERSION)
+                .setDatabaseProductVersion(BuildVersion.getInstance().getVersion())
+                .setUrl(BuildVersion.getInstance().getURL())
                 .build();
         responseObserver.onNext(databaseMetaDataResponse);
         responseObserver.onCompleted();
     }
 
+    static com.google.spanner.v1.ResultSet map(ResultSet resultSet) throws SQLException {
+        var relationalResultSet = (RelationalResultSet) resultSet;
+        var resultSetBuilder = com.google.spanner.v1.ResultSet.newBuilder();
+        // TODO: Presumes that the metadata does not change as we traverse rows. Is this ok assumption?
+        var relationalResultSetMetaData = relationalResultSet.getMetaData();
+        while (relationalResultSet.next()) {
+            var listValueBuilder = ListValue.newBuilder();
+            for (int i = 0; i < relationalResultSetMetaData.getColumnCount(); i++) {
+                int index = i + 1;
+                var columnType = relationalResultSetMetaData.getColumnType(index);
+                listValueBuilder.addValues(toValue(columnType, index, relationalResultSet));
+            }
+            resultSetBuilder.addRows(listValueBuilder.build());
+        }
+
+        var structTypeBuilder = StructType.newBuilder();
+        for (int i = 0; i < relationalResultSetMetaData.getColumnCount(); i++) {
+            int index = i + 1; /*JDBC is 1-based here!*/
+            var columnType = relationalResultSetMetaData.getColumnType(index);
+            var columName = relationalResultSetMetaData.getColumnName(index);
+            var field = StructType.Field.newBuilder().setName(columName)
+                    .setType(Type.newBuilder().setCode(toTypeCode(columnType)).build()).build();
+            structTypeBuilder.addFields(field);
+        }
+        resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setRowType(structTypeBuilder.build()).build());
+        return resultSetBuilder.build();
+    }
+
+    private static Value toValue(int columnType, int columnIndex, RelationalResultSet relationalResultSet) throws SQLException {
+        Value value = null;
+        switch (columnType) {
+            case Types.BOOLEAN:
+                value = Value.newBuilder().setBoolValue(relationalResultSet.getBoolean(columnIndex)).build();
+                break;
+            case Types.INTEGER:
+                value = Value.newBuilder().setNumberValue(relationalResultSet.getInt(columnIndex)).build();
+                break;
+            case Types.VARCHAR:
+                value = Value.newBuilder().setStringValue(relationalResultSet.getString(columnIndex)).build();
+                break;
+            default:
+                throw new SQLException("Type " + columnType + " not implemented ",
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+        return value;
+    }
+
+    private static TypeCode toTypeCode(int columnType) throws SQLException {
+        TypeCode typeCode = null;
+        switch (columnType) {
+            case Types.BOOLEAN:
+                typeCode = TypeCode.BOOL;
+                break;
+            case Types.INTEGER:
+                typeCode = TypeCode.INT64;
+                break;
+            case Types.VARCHAR:
+                typeCode = TypeCode.STRING;
+                break;
+            default:
+                throw new SQLException("Type " + columnType + " not implemented ",
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+        return typeCode;
+    }
+
+    static com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException map(SQLException sqlException) {
+        // From https://techdozo.dev/getting-error-handling-right-in-grpc/
+        // and https://www.vinsguru.com/grpc-error-handling/
+        com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException.Builder sqlExceptionBuilder =
+                com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException.newBuilder();
+        sqlExceptionBuilder.setName(sqlException.getClass().getSimpleName());
+        sqlExceptionBuilder.setErrorCode(sqlException.getErrorCode());
+        sqlExceptionBuilder.setMessage(sqlException.getMessage());
+        if (sqlException.getSQLState() != null) {
+            sqlExceptionBuilder.setSqlState(sqlException.getSQLState());
+        }
+        if (sqlException.getCause() != null) {
+            Throwable t = sqlException.getCause();
+            String cause = t.getClass().getSimpleName();
+            if (t.getMessage() != null) {
+                cause = cause + ": " + t.getMessage();
+            }
+            sqlExceptionBuilder.setCause(cause);
+        }
+        return sqlExceptionBuilder.build();
+    }
+
+    static com.google.rpc.Status toStatus(SQLException sqlException) {
+        // From https://techdozo.dev/getting-error-handling-right-in-grpc/
+        // and https://www.vinsguru.com/grpc-error-handling/
+        return com.google.rpc.Status.newBuilder()
+                .setCode(Code.INTERNAL.getNumber())
+                .setMessage(sqlException.getMessage() != null ?
+                        sqlException.getClass().getSimpleName() + ": " + sqlException.getMessage() : "")
+                .addDetails(Any.pack(map(sqlException))).build();
+    }
+
+    boolean checkStatementRequest(StatementRequest statementRequest,
+                                  StreamObserver<StatementResponse> responseObserver) {
+        if (statementRequest.getDatabase().isEmpty()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty database name")
+                    .asRuntimeException());
+            return false;
+        }
+        if (statementRequest.getSchema().isEmpty()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty schema name")
+                    .asRuntimeException());
+            return false;
+        }
+        if (statementRequest.getSql().isEmpty()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty sql")
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
+    }
+
     @Override
-    public void executeStatement(StatementRequest request,
-                                 StreamObserver<StatementResponse> responseObserver) {
-        responseObserver.onNext(StatementResponse.newBuilder().build());
-        responseObserver.onCompleted();
+    public void execute(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
+        if (!checkStatementRequest(request, responseObserver)) {
+            return;
+        }
+        try (ResultSet resultSet = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql())) {
+            StatementResponse statementResponse = resultSet == null ? StatementResponse.newBuilder().build() :
+                    StatementResponse.newBuilder().setResultSet(map(resultSet)).build();
+            responseObserver.onNext(statementResponse);
+            responseObserver.onCompleted();
+        } catch (SQLException e) {
+            responseObserver.onError(StatusProto.toStatusRuntimeException(toStatus(e)));
+        }
+    }
+
+    @Override
+    public void update(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
+        if (!checkStatementRequest(request, responseObserver)) {
+            return;
+        }
+        try {
+            int rowCount = this.frl.update(request.getDatabase(), request.getSchema(), request.getSql());
+            StatementResponse statementResponse = StatementResponse.newBuilder().setRowCount(rowCount).build();
+            responseObserver.onNext(statementResponse);
+            responseObserver.onCompleted();
+        } catch (SQLException e) {
+            responseObserver.onError(StatusProto.toStatusRuntimeException(toStatus(e)));
+        }
     }
 }

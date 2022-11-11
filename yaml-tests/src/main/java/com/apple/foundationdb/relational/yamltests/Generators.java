@@ -36,12 +36,11 @@ import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.apple.foundationdb.relational.yamltests.Matchers.*;
 import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
+import static com.apple.foundationdb.relational.yamltests.Matchers.*;
 
 public class Generators {
 
-    @Nonnull
     public static Collection<Message> yamlToDynamicMessage(@Nullable Object value, @Nonnull DynamicMessageBuilder dmBuilder) throws RelationalException {
         if (isNull(value)) {
             return Collections.emptySet();
