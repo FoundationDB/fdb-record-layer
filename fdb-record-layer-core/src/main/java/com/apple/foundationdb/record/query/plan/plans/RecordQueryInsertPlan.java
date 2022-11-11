@@ -146,7 +146,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param computationValue a value to be computed based on the {@code inner} and
-     *        {@link RecordQueryAbstractDataModificationPlan#CURRENT_MODIFIED_RECORD}
+     *        {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull

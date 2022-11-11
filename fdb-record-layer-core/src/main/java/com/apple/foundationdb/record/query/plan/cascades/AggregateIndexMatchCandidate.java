@@ -201,7 +201,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             // Compute a Value for this normalized key.
             //
             final var value =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             baseType);
 
             builder.add(
@@ -238,7 +238,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             }
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             baseType);
             equalityBoundValueMapBuilder.put(normalizedValue, comparison);
         }
@@ -258,7 +258,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             // I think that restriction can be relaxed.
             //
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             baseType);
 
             result.add(OrderingPart.of(normalizedValue, isReverse));

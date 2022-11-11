@@ -310,21 +310,27 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected <T> List<T> fetchResultValues(RecordQueryPlan plan, Opener opener, Function<Message, T> rowHandler,
                                             TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            opener.open(context);
+            return fetchResultValues(context, plan, rowHandler, checkDiscarded);
+        }
+    }
+
+    protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
+                                            TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         final var usedTypes = UsedTypesProperty.evaluate(plan);
 
         List<T> result = new ArrayList<>();
-        try (FDBRecordContext context = openContext()) {
-            opener.open(context);
-            final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
-            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
-                while (cursor.hasNext()) {
-                    Message message = Verify.verifyNotNull(cursor.next()).getMessage();
-                    result.add(rowHandler.apply(message));
-                }
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+            while (cursor.hasNext()) {
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                result.add(rowHandler.apply(message));
             }
-            checkDiscarded.accept(context);
-            clearStoreCounter(context); // TODO a hack until this gets refactored properly
         }
+        checkDiscarded.accept(context);
+        clearStoreCounter(context); // TODO a hack until this gets refactored properly
+
         return result;
     }
 

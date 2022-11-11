@@ -104,7 +104,7 @@ public class OrderingPart {
     private static Value checkValue(@Nonnull final Value value) {
         final var correlatedTo = value.getCorrelatedTo();
         Verify.verify(correlatedTo.size() <= 1);
-        Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.CURRENT));
+        Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.current()));
         return value;
     }
 }

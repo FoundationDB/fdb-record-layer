@@ -196,7 +196,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
         final var oldColumn =
                 Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), new NullValue(inner.getFlowedObjectType()));
         final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.CURRENT_MODIFIED_RECORD, targetType));
+                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 }

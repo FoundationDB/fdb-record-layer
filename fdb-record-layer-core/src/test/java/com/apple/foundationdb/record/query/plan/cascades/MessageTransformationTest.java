@@ -50,7 +50,7 @@ class MessageTransformationTest {
     @Test
     void testTransformTrie() {
         final var recordType = someRecordType();
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, recordType);
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), recordType);
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
@@ -97,7 +97,7 @@ class MessageTransformationTest {
 
     @Test
     void testTransformWrongReplacementType() {
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, someRecordType());
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), someRecordType());
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
@@ -116,7 +116,7 @@ class MessageTransformationTest {
 
     @Test
     void testTransformAmbiguousReplacement() {
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, someRecordType());
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), someRecordType());
         final var a_aa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
 

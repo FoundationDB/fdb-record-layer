@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.Cache;
+import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -55,10 +57,13 @@ public class DebuggerWithSymbolTables implements Debugger {
     private String queryAsString;
     @Nullable
     private PlanContext planContext;
+    @Nonnull
+    private final Map<Object, Integer> singletonToIndexMap;
 
     public DebuggerWithSymbolTables() {
         this.stateStack = new ArrayDeque<>();
         this.planContext = null;
+        this.singletonToIndexMap = Maps.newHashMap();
     }
 
     @Nonnull
@@ -99,6 +104,12 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
         getCurrentState().registerQuantifier(quantifier);
+    }
+
+    @Override
+    public int onGetOrRegisterSingleton(@Nonnull final Object singleton) {
+        final var size = singletonToIndexMap.size();
+        return singletonToIndexMap.computeIfAbsent(singleton, s -> size);
     }
 
     @Override

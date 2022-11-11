@@ -62,6 +62,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -72,8 +73,7 @@ import java.util.function.Supplier;
 public abstract class RecordQueryAbstractDataModificationPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryAbstractDataModificationPlan.class);
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Abstract-Data-Modification-Plan");
-    public static final CorrelationIdentifier CURRENT_MODIFIED_RECORD = CorrelationIdentifier.uniqueID(Quantifier.class);
-
+    private static final UUID CURRENT_MODIFIED_RECORD = UUID.randomUUID();
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
@@ -99,6 +99,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     private final Value resultValue;
+
+    @Nonnull
+    private final CorrelationIdentifier currentModifiedRecordAlias;
 
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
@@ -127,6 +130,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.coercionTrie = coercionTrie;
         this.computationValue = computationValue;
         this.resultValue = new QueriedValue(computationValue.getResultType());
+        this.currentModifiedRecordAlias = currentModifiedRecordAlias();
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
@@ -175,7 +179,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
-                                            .setBinding(CURRENT_MODIFIED_RECORD, storedRecord.getRecord()) // post-mutation
+                                            .setBinding(currentModifiedRecordAlias, storedRecord.getRecord()) // post-mutation
                                             .build(context.getTypeRepository());
                                     final var result = computationValue.eval(store, nestedContext);
                                     return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
@@ -213,7 +217,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
-                        alias -> !alias.equals(CURRENT_MODIFIED_RECORD));
+                        alias -> !alias.equals(currentModifiedRecordAlias));
         if (transformationsTrie != null) {
             final var aliasesFromTransformationsTrieIterator =
                     transformationsTrie.values()
@@ -403,5 +407,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         }
         final var childrenMap = childrenMapBuilder.build();
         return childrenMap.isEmpty() ? null : new MessageHelpers.CoercionTrieNode(null, childrenMap);
+    }
+
+    @Nonnull
+    public static CorrelationIdentifier currentModifiedRecordAlias() {
+        return CorrelationIdentifier.uniqueSingletonID(CURRENT_MODIFIED_RECORD, "𝓆");
     }
 }

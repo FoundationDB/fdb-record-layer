@@ -157,7 +157,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                     !fieldValueComparisonPair.getRight().getCorrelatedTo().contains(predicatesFilterPlan.getInner().getAlias()))
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.CURRENT);
+                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.current());
                                 return Pair.of(fieldValue.rebase(translationMap), valueComparisonPair.getRight());
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
@@ -219,7 +219,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var childOrdering = orderingFromSingleChild(mapPlan);
             final var resultValue = mapPlan.getResultValue();
 
-            return childOrdering.pullUp(resultValue, AliasMap.of(mapPlan.getInner().getAlias(), Quantifier.CURRENT), mapPlan.getCorrelatedTo());
+            return childOrdering.pullUp(resultValue, AliasMap.of(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -245,7 +245,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
             return Ordering.ofUnnormalized(ImmutableSetMultimap.of(),
                     PartiallyOrderedSet.of(
-                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.CURRENT, Type.primitiveType(Type.TypeCode.INT)))),
+                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT)))),
                             ImmutableSetMultimap.of()), true);
         }
 
@@ -411,13 +411,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
             var maxCardinality = outerCardinalities.getMaxCardinality();
             if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
-                return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
+                return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
             maxCardinality = innerCardinalities.getMaxCardinality();
             if (!innerOrdering.isDistinct() || (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L)) {
-                return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
+                return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             //
@@ -464,7 +464,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
 
-            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.of(streamingAggregationPlan.getInner().getAlias(), Quantifier.CURRENT), streamingAggregationPlan.getCorrelatedTo());
+            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.of(streamingAggregationPlan.getInner().getAlias(), Quantifier.current()), streamingAggregationPlan.getCorrelatedTo());
         }
 
         @Nonnull

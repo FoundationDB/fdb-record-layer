@@ -49,7 +49,7 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                                         final boolean reverse,
                                         final boolean showComparisonKey) {
         super(quantifiers,
-                new ComparisonKeyFunction.OnValues(Quantifier.CURRENT, comparisonKeyValues),
+                new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
                 reverse,
                 showComparisonKey);
     }
@@ -65,7 +65,7 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
         return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.CURRENT, newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
+                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
     }
 

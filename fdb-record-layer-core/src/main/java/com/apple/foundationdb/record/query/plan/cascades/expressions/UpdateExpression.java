@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -236,7 +237,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         final var oldColumn =
                 Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), inner.getFlowedObjectValue());
         final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(Quantifier.CURRENT, targetType));
+                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 
