@@ -111,9 +111,9 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         var i = 0;
         for (final var child : getChildren()) {
             var childResultElement = child.eval(store, context);
+            final var field = fields.get(i);
+            final var fieldType = field.getFieldType();
             if (childResultElement != null) {
-                final var field = fields.get(i);
-                final var fieldType = field.getFieldType();
                 final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
                 if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
                     final var wrappedDescriptor = fieldDescriptor.getMessageType();
@@ -122,6 +122,8 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                     childResultElement = wrapperBuilder.build();
                 }
                 resultMessageBuilder.setField(fieldDescriptor, childResultElement);
+            } else {
+                Verify.verify(fieldType.isNullable());
             }
             i++;
         }

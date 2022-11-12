@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -90,6 +91,32 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
                 getComputationValue().translateCorrelations(translationMap));
+    }
+
+    @Nullable
+    private MessageHelpers.TransformationTrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+        final var transformationsTrie = getTransformationsTrie();
+        if (transformationsTrie == null) {
+            return null;
+        }
+
+        return transformationsTrie.<MessageHelpers.TransformationTrieNode>mapMaybe((current, childrenTries) -> {
+            final var value = current.getValue();
+            if (value != null) {
+                Verify.verify(Iterables.isEmpty(childrenTries));
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
+            } else {
+                final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
+                final var childrenTriesIterator = childrenTries.iterator();
+                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode>builder();
+                for (final var oldEntry : oldChildrenMap.entrySet()) {
+                    Verify.verify(childrenTriesIterator.hasNext());
+                    final var childTrie = childrenTriesIterator.next();
+                    resultBuilder.put(oldEntry.getKey(), childTrie);
+                }
+                return new MessageHelpers.TransformationTrieNode(null, resultBuilder.build());
+            }
+        }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
 
     @Nonnull

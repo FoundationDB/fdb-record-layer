@@ -43,12 +43,8 @@ public class NullValue implements LeafValue {
     @Nonnull
     private final Type resultType;
 
-    public NullValue() {
-        this(new Type.Any());
-    }
-
     public NullValue(@Nonnull final Type resultType) {
-        this.resultType = resultType;
+        this.resultType = resultType.nullable();
     }
 
     @Nonnull

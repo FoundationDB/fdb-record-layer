@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -629,8 +630,47 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testPlanInsertExpressionBadNullAssignments() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        final var plan = cascadesPlanner.planGraph(
+                () -> {
+                    final var reviewsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor()));
+                    final var tagsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor()));
+                    final var customerType = new Type.Array(Type.primitiveType(Type.TypeCode.STRING));
+
+                    final var bananaRecord = RecordConstructorValue.ofUnnamed(
+                            ImmutableList.of(LiteralValue.ofScalar(100L),
+                                    LiteralValue.ofScalar("Burger King"),
+                                    new NullValue(reviewsType),
+                                    new NullValue(tagsType),
+                                    new NullValue(customerType)));
+                    final var bestRecord = RecordConstructorValue.ofUnnamed(
+                            ImmutableList.of(LiteralValue.ofScalar(200L),
+                                    LiteralValue.ofScalar("Heirloom Cafe"),
+                                    new NullValue(reviewsType),
+                                    new NullValue(tagsType),
+                                    new NullValue(customerType)));
+                    final var explodeExpression = new ExplodeExpression(new AbstractArrayConstructorValue.LightArrayConstructorValue(ImmutableList.of(bananaRecord, bestRecord)));
+                    var qun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
+                            "RestaurantRecord",
+                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
+                            TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(plan, this::openNestedRecordStore, Function.identity()));
+    }
+
     @Nonnull
-    private static GroupExpressionRef<RelationalExpression> selectAllRecordsGraph(@Nonnull final RecordMetaData metaData) {
+    private static GroupExpressionRef<RelationalExpression> selectRecordsGraph(@Nonnull final RecordMetaData metaData, Function<Quantifier.ForEach, QueryPredicate> predicateCreator) {
         final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
 
         final var allRecordTypes =
@@ -648,9 +688,21 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         var graphExpansionBuilder = GraphExpansion.builder();
         graphExpansionBuilder.addQuantifier(qun);
+        final var predicate = predicateCreator.apply(qun);
+        if (predicate != null) {
+            graphExpansionBuilder.addPredicate(predicate);
+        }
         final var selectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(qun.getFlowedObjectValue());
         qun = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+    }
+
+    @Nonnull
+    private static QueryPredicate whereReviewsIsNullGraph(@Nonnull Quantifier.ForEach qun) {
+        final var reviewsValue =
+                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "reviews");
+
+        return new ValuePredicate(reviewsValue, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -667,7 +719,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         // INSERT INTO Restaurants(rec_no, name)
         // VALUES (300, 'Burger King'),
-        //        (400, 'La Playa in Carmel')
+        //        (400, 'Bonita Burrito')
         // ON CONFLICT(name) SET name = 'duplicate';
         //
         // which is translated into
@@ -677,7 +729,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //                  WHERE v = r.name
         //                  SET name = 'duplicate')
         // FROM (VALUES (300, 'Burger King'),
-        //              (400, 'La Playa in Carmel')) v;
+        //              (400, 'Bonita Burrito')) v;
         //
         
         CascadesPlanner cascadesPlanner = setUp();
@@ -709,7 +761,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                         new NullValue(customerType)));
                         final var bestRecord = RecordConstructorValue.ofUnnamed(
                                 ImmutableList.of(LiteralValue.ofScalar(400L),
-                                        LiteralValue.ofScalar("La Playa in Carmel"),
+                                        LiteralValue.ofScalar("Bonita Burrito"),
                                         new NullValue(reviewsType),
                                         new NullValue(tagsType),
                                         new NullValue(customerType)));
@@ -732,16 +784,15 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         var graphExpansionBuilder = GraphExpansion.builder();
 
                         graphExpansionBuilder.addQuantifier(qun);
-                        final var restNoValue =
+                        final var nameValue =
                                 FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
 
                         final var comparandValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(outerQun), 1);
-                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, comparandValue)));
+                        graphExpansionBuilder.addPredicate(new ValuePredicate(nameValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, comparandValue)));
                         qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
 
                         // make accessors and resolve them
                         final var namePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("name", -1)));
-                        //final var customerPath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("customer", -1)));
 
                         final var innerQun = Quantifier.existential(GroupExpressionRef.of(new UpdateExpression(qun,
                                 "RestaurantRecord",
@@ -778,7 +829,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
             resultValues = fetchResultValues(context, plan, Function.identity(), c -> { });
             //System.out.println(resultValues);
 
-            plan = cascadesPlanner.planGraph(() -> selectAllRecordsGraph(cascadesPlanner.getRecordMetaData()),
+            plan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBSimpleQueryGraphTest::whereReviewsIsNullGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,

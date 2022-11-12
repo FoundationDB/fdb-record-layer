@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -36,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -49,7 +47,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -191,7 +188,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @SuppressWarnings("unchecked")
     public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)MessageHelpers.transformMessage(store, context, transformationsTrie, coercionTrie, targetType, targetDescriptor, innerFlowedType, inRecord);
+        return (M)MessageHelpers.transformMessage(store, context, transformationsTrie, coercionTrie, targetType, targetDescriptor, innerFlowedType, inRecord.getDescriptorForType(), inRecord);
     }
 
     public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
@@ -228,32 +225,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         } else {
             return resultValueCorrelatedTo;
         }
-    }
-
-    @Nullable
-    protected MessageHelpers.TransformationTrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
-        final var transformationsTrie = getTransformationsTrie();
-        if (transformationsTrie == null) {
-            return null;
-        }
-
-        return transformationsTrie.<MessageHelpers.TransformationTrieNode>mapMaybe((current, childrenTries) -> {
-            final var value = current.getValue();
-            if (value != null) {
-                Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
-            } else {
-                final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
-                final var childrenTriesIterator = childrenTries.iterator();
-                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode>builder();
-                for (final var oldEntry : oldChildrenMap.entrySet()) {
-                    Verify.verify(childrenTriesIterator.hasNext());
-                    final var childTrie = childrenTriesIterator.next();
-                    resultBuilder.put(oldEntry.getKey(), childTrie);
-                }
-                return new MessageHelpers.TransformationTrieNode(null, resultBuilder.build());
-            }
-        }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
 
     @Nonnull

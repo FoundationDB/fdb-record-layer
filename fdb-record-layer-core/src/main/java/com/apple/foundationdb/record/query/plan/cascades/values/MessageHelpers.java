@@ -246,6 +246,7 @@ public class MessageHelpers {
                                                               @Nonnull final Type targetType,
                                                               @Nullable Descriptors.Descriptor targetDescriptor,
                                                               @Nonnull final Type currentType,
+                                                              @Nonnull Descriptors.Descriptor currentDescriptor,
                                                               @Nullable final Object current) {
         final var value = transformationsTrie == null ? null : transformationsTrie.getValue();
         Verify.verify(value == null);
@@ -257,21 +258,25 @@ public class MessageHelpers {
 
         final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
         final var coercionsChildrenMap = coercionsTrie == null ? null : coercionsTrie.getChildrenMap();
-        final var subRecord = (M)Verify.verifyNotNull(current);
+        final var currentMessage = (M)current;
 
         final var resultMessageBuilder = DynamicMessage.newBuilder(targetDescriptor);
-        final var messageDescriptor = subRecord.getDescriptorForType();
-        for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
+        for (final var messageFieldDescriptor : currentDescriptor.getFields()) {
             final var index = messageFieldDescriptor.getIndex();
             final var transformationTrieForField = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(index);
-            final var targetFieldDescriptor = targetDescriptorFields.get(messageFieldDescriptor.getIndex());
+            final var targetFieldDescriptor = targetDescriptorFields.get(index);
             final var targetDescriptorForField = targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null;
             final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(index);
+            final var targetFieldType = targetRecordType.getField(index).getFieldType();
             if (transformationTrieForField != null) {
-                final var targetFieldType = targetRecordType.getField(index).getFieldType();
                 final var currentFieldType = currentRecordType.getField(index).getFieldType();
                 Object fieldResult;
                 if (transformationTrieForField.getValue() == null) {
+                    //
+                    // Note that this recursive call has to happen even if the field value is null,
+                    // as the transformations have to be done exhaustively, which then can create non-null values
+                    // that have to be integrated into the message.
+                    //
                     fieldResult =
                             transformMessage(store,
                                     context,
@@ -280,7 +285,8 @@ public class MessageHelpers {
                                     targetFieldType,
                                     targetDescriptorForField,
                                     currentFieldType,
-                                    subRecord.getField(messageFieldDescriptor));
+                                    Verify.verifyNotNull(messageFieldDescriptor.getMessageType()),
+                                    currentMessage == null ? null : currentMessage.getField(messageFieldDescriptor));
                 } else {
                     final var transformationValue = transformationTrieForField.getValue();
                     fieldResult = coerceObject(promotionTrieForField,
@@ -289,21 +295,18 @@ public class MessageHelpers {
                             currentFieldType,
                             transformationValue.eval(store, context));
                 }
-                Verify.verify(fieldResult != null || (currentFieldType.isNullable() && targetFieldType.isNullable()));
                 if (fieldResult != null) {
                     resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);
                 }
             } else {
-                var fieldResult = getFieldOnMessage(subRecord, messageFieldDescriptor);
-                if (fieldResult != null) {
-                    final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
+                if (currentMessage != null) {
                     final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                    fieldResult = Verify.verifyNotNull(NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType));
-                    // coercedObject can only be NULL if fieldResult was NULL which cannot happen
+                    final var fieldResult = NullableArrayTypeUtils.unwrapIfArray(getFieldOnMessage(currentMessage, messageFieldDescriptor), currentFieldType);
                     final var coercedObject =
-                            Verify.verifyNotNull(
-                                    coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult));
-                    resultMessageBuilder.setField(targetFieldDescriptor, coercedObject);
+                            coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult);
+                    if (coercedObject != null) {
+                        resultMessageBuilder.setField(targetFieldDescriptor, coercedObject);
+                    }
                 }
             }
         }
@@ -326,11 +329,7 @@ public class MessageHelpers {
                                       @Nullable final Descriptors.Descriptor targetDescriptor,
                                       @Nonnull final Type currentType,
                                       @Nullable final Object current) {
-        //
-        // This verify() is a not a semantic check, the condition we check for here should be impossible to reach, thus,
-        // if still reached, it's not a user error.
-        //
-        Verify.verify(current != null || targetType.isNullable());
+        SemanticException.check(current != null || targetType.isNullable(), SemanticException.ErrorCode.NULL_ASSIGNMENT);
 
         // In any case, a NULL returns a NULL
         if (current == null) {

@@ -39,6 +39,7 @@ public class SemanticException extends RecordCoreException {
 
         // generic
         INCOMPATIBLE_TYPE(1, "A value cannot be assigned to a variable because the type of the value does not match the type of the variable and cannot be promoted to the type of the variable."),
+        NULL_ASSIGNMENT(1, "A null value cannot be assigned to a variable that is of a non-nullable type."),
         FIELD_ACCESS_INPUT_NON_RECORD_TYPE(3, "A field is accessed on an input that is not of a record type."),
         RECORD_DOES_NOT_CONTAIN_FIELD(4, "A non-existing field is accessed in a record."),
         COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE(5, "The comparand to a comparison expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),

@@ -154,6 +154,7 @@ class MessageTransformationTest {
                 inValue.getResultType(),
                 evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inRecord);
 
         final var aaValue =
@@ -219,6 +220,7 @@ class MessageTransformationTest {
                 inValue.getResultType(),
                 evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
                 inRecord);
         
         final var aValue =
@@ -261,17 +263,6 @@ class MessageTransformationTest {
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = inValue.eval(null, evaluationContext);
-        final var result = MessageHelpers.transformMessage(null,
-                evaluationContext,
-                trie,
-                null,
-                inValue.getResultType(),
-                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
-                inValue.getResultType(),
-                inRecord);
-
         final var aaValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
@@ -300,6 +291,19 @@ class MessageTransformationTest {
                         Column.of(Type.Record.Field.of(xValue.getResultType(), Optional.of("x")), xValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z")), new LiteralValue<>("z"))
                 ));
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).addTypeIfNeeded(expectedValue.getResultType()).build());
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var result = MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                expectedValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(expectedValue.getResultType()),
+                inValue.getResultType(),
+                inRecord.getDescriptorForType(),
+                inRecord);
+
         final var expected = expectedValue.eval(null, evaluationContext);
         Assertions.assertEquals(expected, result);
     }
@@ -321,7 +325,7 @@ class MessageTransformationTest {
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
@@ -330,6 +334,7 @@ class MessageTransformationTest {
                 coercedType,
                 TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
                 inValue.getResultType(),
+                inRecord.getDescriptorForType(),
                 inRecord));
         Assertions.assertEquals(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
         final var resultSerialized = result.toByteString();
@@ -365,7 +370,7 @@ class MessageTransformationTest {
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)MessageHelpers.transformMessage(null,
                 evaluationContext,
@@ -374,6 +379,7 @@ class MessageTransformationTest {
                 coercedType,
                 TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
                 inValue.getResultType(),
+                inRecord.getDescriptorForType(),
                 inRecord);
         final var resultSerialized = result.toByteString();
         final var typedResult = TestRecordsTransformProto.DefaultTransformMessage.parseFrom(resultSerialized);
@@ -404,7 +410,7 @@ class MessageTransformationTest {
         final var promotionsTrie = RecordQueryAbstractDataModificationPlan.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
         final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
                 transformationsTrie,
@@ -412,6 +418,7 @@ class MessageTransformationTest {
                 coercedType,
                 TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor(),
                 inValue.getResultType(),
+                inRecord.getDescriptorForType(),
                 inRecord));
         Assertions.assertEquals(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
         final var resultSerialized = result.toByteString();
@@ -512,17 +519,17 @@ class MessageTransformationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
 
         final var aaValue = new NullValue(aaType);
-        Verify.verify(aaType.equals(aaValue.getResultType()));
+        Verify.verify(aaType.equals(aaValue.getResultType().notNullable()));
 
         final var aType = Type.Record.fromFields(false, ImmutableList.of(
-                Type.Record.Field.of(aaType, Optional.of("aa")),
+                Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
 
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(aaType, Optional.of("aa")), aaValue),
+                                Column.of(Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")), aaValue),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")), new LiteralValue<>(2)),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac")), new LiteralValue<>("ac"))
                         ));
