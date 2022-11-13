@@ -104,24 +104,26 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
+        final var typeRepository = context.getTypeRepository();
+        final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
+        final var fieldDescriptors = descriptorForType.getFields();
 
         final var fields = Objects.requireNonNull(getResultType().getFields());
         var i = 0;
         for (final var child : getChildren()) {
-            var childResultElement = child.eval(store, context);
             final var field = fields.get(i);
             final var fieldType = field.getFieldType();
-            if (childResultElement != null) {
-                final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
+            var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
+            if (childResult != null) {
+                final var fieldDescriptor = fieldDescriptors.get(i);
                 if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
                     final var wrappedDescriptor = fieldDescriptor.getMessageType();
                     final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-                    wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResultElement);
-                    childResultElement = wrapperBuilder.build();
+                    wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
+                    childResult = wrapperBuilder.build();
                 }
-                resultMessageBuilder.setField(fieldDescriptor, childResultElement);
+                resultMessageBuilder.setField(fieldDescriptor, childResult);
             } else {
                 Verify.verify(fieldType.isNullable());
             }
@@ -133,6 +135,42 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Nonnull
     private DynamicMessage.Builder newMessageBuilderForType(@Nonnull TypeRepository typeRepository) {
         return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
+    }
+
+    @Nullable
+    private Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
+                                    @Nonnull final Type fieldType,
+                                    @Nullable final Object field) {
+        if (field == null) {
+            return null;
+        }
+
+        if (fieldType.isPrimitive()) {
+            return field;
+        }
+
+        if (fieldType instanceof Type.Array) {
+            final var elementType = Verify.verifyNotNull(((Type.Array)fieldType).getElementType());
+            if (elementType.isPrimitive()) {
+                return field;
+            }
+            final var objects = (List<?>)field;
+            final var resultBuilder = ImmutableList.builder();
+            for (final var object : objects) {
+                resultBuilder.add(Verify.verifyNotNull(deepCopyIfNeeded(typeRepository, elementType, object)));
+            }
+            return resultBuilder.build();
+        }
+
+        Verify.verify(fieldType instanceof Type.Record);
+        final var message = (Message)field;
+        final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
+        final var actualDescriptor = message.getDescriptorForType();
+        if (actualDescriptor.getFullName().equals(declaredDescriptor.getFullName())) {
+            return field;
+        }
+
+        return MessageHelpers.deepCopy(declaredDescriptor, message);
     }
 
     @Override

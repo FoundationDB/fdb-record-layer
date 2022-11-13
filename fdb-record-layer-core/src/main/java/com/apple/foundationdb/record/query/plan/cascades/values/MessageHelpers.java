@@ -237,6 +237,53 @@ public class MessageHelpers {
         return getFieldMessageOnMessage(message, field);
     }
 
+    /**
+     * This method provides a structural deep copy of the {@link Message} passed in. This method was heavily inspired
+     * by {@link Message.Builder#mergeFrom(Message)}, however, this method allow to also pass in a descriptor of describing
+     * a compatible/equal message structure. In general, this method should always work (and work better), when
+     * {@code DynamicMessage.parseFrom(targetDescriptor, other.toByteArray()} is well-defined.
+     *
+     * @param targetDescriptor a descriptor that describes a structure that is wire-compatible with the {@code message}
+     *        passed in
+     * @param message a message
+     * @return a new message of {@code targetDescriptor} which is a copy of the message passed in
+     * @apiNote if {@code message.getDescriptorForType()} and {@code targetDescriptor} are incompatible in any way,
+     *          the behaviour/result of this method is undefined
+     */
+    @Nonnull
+    public static DynamicMessage deepCopy(@Nonnull final Descriptors.Descriptor targetDescriptor, @Nonnull final Message message) {
+        final var builder = DynamicMessage.newBuilder(targetDescriptor);
+        for (final var entry : message.getAllFields().entrySet()) {
+            final Descriptors.FieldDescriptor field = entry.getKey();
+
+            // find the field on the target side
+            final var targetField = targetDescriptor.findFieldByNumber(field.getNumber());
+
+            if (field.isRepeated()) {
+                for (final var element : (List<?>)entry.getValue()) {
+                    builder.addRepeatedField(targetField, element);
+                }
+            } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                final var existingValue = (Message)builder.getField(targetField);
+                if (existingValue == existingValue.getDefaultInstanceForType()) {
+                    builder.setField(field, entry.getValue());
+                } else {
+                    final var mergedObject =
+                            DynamicMessage.newBuilder(targetField.getMessageType())
+                                    .mergeFrom(existingValue)
+                                    .mergeFrom((Message)entry.getValue())
+                                    .build();
+                    builder.setField(targetField, mergedObject);
+                }
+            } else {
+                builder.setField(targetField, entry.getValue());
+            }
+        }
+        builder.mergeUnknownFields(message.getUnknownFields());
+
+        return builder.build();
+    }
+
     @Nonnull
     @SuppressWarnings("unchecked")
     public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,

@@ -50,7 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
@@ -62,6 +62,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
@@ -93,6 +94,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
+import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray;
 
 /**
  * Tests of query planning and execution for queries on records with repeated fields.
@@ -598,29 +600,53 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 //                                        .where(scanComparisons(range("([1],>")))))
 //                        .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
 
-        final var resultValues = fetchResultValues(plan, this::openNestedRecordStore, Function.identity());
-        System.out.println(resultValues);
+        final var resultValues = fetchResultValues(plan, this::openNestedRecordStore, record -> {
+//            final var x = record.toByteArray();
+//            try {
+//                record = DynamicMessage.parseFrom(record.getDescriptorForType(), x);
+//            } catch (InvalidProtocolBufferException e) {
+//                throw new RuntimeException(e);
+//            }
+            final var recordDescriptor = record.getDescriptorForType();
+            final var newRecordField = recordDescriptor.findFieldByName("new");
+            final var newRecordDescriptor = newRecordField.getMessageType();
+            final var newRecord = (Message)record.getField(newRecordField);
+            final var rest_no = newRecordDescriptor.findFieldByName("rest_no");
+            final var name = newRecordDescriptor.findFieldByName("name");
+            switch ((int)(long)newRecord.getField(rest_no)) {
+                case 100:
+                    Assertions.assertEquals("Burger King", newRecord.getField(name));
+                    break;
+                case 200:
+                    Assertions.assertEquals("Heirloom Cafe", newRecord.getField(name));
+                    break;
+                default:
+                    Assertions.fail("unexpected record");
+            }
+            return record;
+        });
+        Assertions.assertEquals(2, resultValues.size());
     }
 
     @Nonnull
     private static GroupExpressionRef<RelationalExpression> insertGraph() {
-        final var reviewsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor()));
-        final var tagsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor()));
-        final var customerType = new Type.Array(Type.primitiveType(Type.TypeCode.STRING));
+        final var reviewsType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor());
+        final var tagsType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor());
+        final var customerType = Type.primitiveType(Type.TypeCode.STRING);
 
         final var bananaRecord = RecordConstructorValue.ofUnnamed(
                 ImmutableList.of(LiteralValue.ofScalar(100L),
                         LiteralValue.ofScalar("Burger King"),
-                        new NullValue(reviewsType),
-                        new NullValue(tagsType),
-                        new NullValue(customerType)));
+                        emptyArray(reviewsType),
+                        emptyArray(tagsType),
+                        emptyArray(customerType)));
         final var bestRecord = RecordConstructorValue.ofUnnamed(
                 ImmutableList.of(LiteralValue.ofScalar(200L),
                         LiteralValue.ofScalar("Heirloom Cafe"),
-                        new NullValue(reviewsType),
-                        new NullValue(tagsType),
-                        new NullValue(customerType)));
-        final var explodeExpression = new ExplodeExpression(new AbstractArrayConstructorValue.LightArrayConstructorValue(ImmutableList.of(bananaRecord, bestRecord)));
+                        emptyArray(reviewsType), // empty array
+                        emptyArray(tagsType), // empty array
+                        emptyArray(customerType))); // empty array
+        final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
         var qun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
 
         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
@@ -630,6 +656,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
     }
 
+    /**
+     * Tests that an insert using NULLs for non-nullable columns fails.
+     * @throws Exception if test fails
+     */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testPlanInsertExpressionBadNullAssignments() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
@@ -652,7 +682,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                     new NullValue(reviewsType),
                                     new NullValue(tagsType),
                                     new NullValue(customerType)));
-                    final var explodeExpression = new ExplodeExpression(new AbstractArrayConstructorValue.LightArrayConstructorValue(ImmutableList.of(bananaRecord, bestRecord)));
+                    final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
                     var qun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
@@ -702,7 +732,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final var reviewsValue =
                 FieldValue.ofFieldName(qun.getFlowedObjectValue(), "reviews");
 
-        return new ValuePredicate(reviewsValue, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        return new ValuePredicate(reviewsValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, ImmutableList.of()));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -749,23 +779,23 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
             plan = cascadesPlanner.planGraph(
                     () -> {
                         final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
-                        final var reviewsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor()));
-                        final var tagsType = new Type.Array(Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor()));
-                        final var customerType = new Type.Array(Type.primitiveType(Type.TypeCode.STRING));
+                        final var reviewsType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReview.getDescriptor());
+                        final var tagsType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantTag.getDescriptor());
+                        final var customerType = Type.primitiveType(Type.TypeCode.STRING);
 
                         final var bananaRecord = RecordConstructorValue.ofUnnamed(
                                 ImmutableList.of(LiteralValue.ofScalar(300L),
                                         LiteralValue.ofScalar("Burger King"),
-                                        new NullValue(reviewsType),
-                                        new NullValue(tagsType),
-                                        new NullValue(customerType)));
+                                        emptyArray(reviewsType),
+                                        emptyArray(tagsType),
+                                        emptyArray(customerType)));
                         final var bestRecord = RecordConstructorValue.ofUnnamed(
                                 ImmutableList.of(LiteralValue.ofScalar(400L),
                                         LiteralValue.ofScalar("Bonita Burrito"),
-                                        new NullValue(reviewsType),
-                                        new NullValue(tagsType),
-                                        new NullValue(customerType)));
-                        final var explodeExpression = new ExplodeExpression(new AbstractArrayConstructorValue.LightArrayConstructorValue(ImmutableList.of(bananaRecord, bestRecord)));
+                                        emptyArray(reviewsType),
+                                        emptyArray(tagsType),
+                                        emptyArray(customerType)));
+                        final var explodeExpression = new ExplodeExpression(LightArrayConstructorValue.of(bananaRecord, bestRecord));
                         var outerQun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
 
                         final var allRecordTypes =

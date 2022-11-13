@@ -120,14 +120,17 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                     return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
-        final Type elementType = resolveElementType(arguments);
+        final Type elementType = resolveElementType(null, arguments);
         return new LightArrayConstructorValue(arguments, elementType);
     }
 
-    private static Type resolveElementType(@Nonnull final Iterable<? extends Typed> argumentTypeds) {
+    private static Type resolveElementType(@Nullable Type defaultType, @Nonnull final Iterable<? extends Typed> argumentTypeds) {
+        Verify.verifyNotNull(defaultType != null || !Iterables.isEmpty(argumentTypeds));
+        defaultType = defaultType == null ? new Type.Any() : defaultType;
+
         return StreamSupport.stream(argumentTypeds.spliterator(), false)
                 .map(Typed::getResultType)
-                .reduce(new Type.Any(), (l, r) -> {
+                .reduce(defaultType, (l, r) -> {
                     if (l instanceof Type.Any) {
                         return r;
                     }
@@ -148,12 +151,15 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
      */
     @SuppressWarnings("java:S2160")
     public static class LightArrayConstructorValue extends AbstractArrayConstructorValue {
-
-        public LightArrayConstructorValue(@Nonnull final List<? extends Value> children) {
-            super(children, AbstractArrayConstructorValue.resolveElementType(children));
+        private LightArrayConstructorValue(@Nonnull final List<? extends Value> children) {
+            this(children, AbstractArrayConstructorValue.resolveElementType(null, children));
         }
 
-        public LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
+        private LightArrayConstructorValue(@Nonnull final Type elementType) {
+            this(ImmutableList.of(), elementType);
+        }
+
+        private LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
             super(children, elementType);
         }
 
@@ -169,9 +175,28 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         @Nonnull
         @Override
         public LightArrayConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-            Verify.verify(!Iterables.isEmpty(newChildren));
-            Verify.verifyNotNull(resolveElementType(newChildren).equals(getElementType()));
+            if (Iterables.isEmpty(newChildren)) {
+                return this;
+            }
+            Verify.verify(resolveElementType(null, newChildren).equals(getElementType()));
             return new LightArrayConstructorValue(ImmutableList.copyOf(newChildren), getElementType());
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue of(@Nonnull final Value value1, @Nonnull final Value... valuesN) {
+            final var children = ImmutableList.<Value>builder().add(value1).add(valuesN).build();
+            return of(children);
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children) {
+            Verify.verify(!children.isEmpty());
+            return new LightArrayConstructorValue(children);
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue emptyArray(@Nonnull final Type elementType) {
+            return new LightArrayConstructorValue(elementType);
         }
     }
 
