@@ -186,6 +186,8 @@ public class LuceneEvents {
         LUCENE_SHARED_CACHE_HITS("lucene shared cache hits", false),
         /** Block to read came not in shared cache. **/
         LUCENE_SHARED_CACHE_MISSES("lucene shared cache misses", false),
+        /** Plan contains highlight operator. **/
+        PLAN_HIGHLIGHT_TERMS("lucene highlight plans", false),
         ;
 
         private final String title;

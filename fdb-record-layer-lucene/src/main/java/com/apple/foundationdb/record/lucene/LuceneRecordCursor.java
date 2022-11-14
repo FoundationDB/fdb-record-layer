@@ -38,12 +38,10 @@ import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
-import com.google.protobuf.Message;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
@@ -434,6 +432,22 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return scoreDoc;
         }
 
+        public Map<String, Set<String>> getTermMap() {
+            return termMap;
+        }
+
+        public LuceneAnalyzerCombinationProvider getAnalyzerSelector() {
+            return analyzerSelector;
+        }
+
+        public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
+            return luceneQueryHighlightParameters;
+        }
+
+        public KeyExpression getIndexKey() {
+            return indexKey;
+        }
+
         private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
                                    @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
                                    @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
@@ -446,19 +460,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             if (luceneQueryHighlightParameters.isHighlight()) {
                 getTerms(query, this.termMap);
             }
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        @Nonnull
-        public <M extends Message> FDBStoredRecord<M> rewriteStoredRecord(@Nonnull FDBStoredRecord<M> record) {
-            if (!luceneQueryHighlightParameters.isHighlight()) {
-                return super.rewriteStoredRecord(record);
-            }
-            M message = record.getRecord();
-            M.Builder builder = message.toBuilder();
-            LuceneDocumentFromRecord.highlightTermsInMessage(indexKey, builder, termMap, analyzerSelector, luceneQueryHighlightParameters);
-            return FDBStoredRecord.newBuilder(record).setRecord((M) builder.build()).build();
         }
 
         @Override

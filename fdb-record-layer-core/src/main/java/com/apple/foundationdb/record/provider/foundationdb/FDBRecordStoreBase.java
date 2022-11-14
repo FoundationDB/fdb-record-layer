@@ -1311,7 +1311,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }
             }
-            return new FDBIndexedRecord<>(entry, entry.rewriteStoredRecord(rec));
+            return new FDBIndexedRecord<>(entry, rec);
         });
     }
 

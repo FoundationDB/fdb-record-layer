@@ -24,10 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -228,17 +226,6 @@ public class IndexEntry {
             System.arraycopy(nullStandins, startIdx, subKey.nullStandins, 0, endIdx - startIdx);
         }
         return subKey;
-    }
-
-    /**
-     * Rewrite the fetched stored record if needed. The default behavior is to keep the original fetched record.
-     * @param record the fetched record to rewrite
-     * @param <M> type used to represent stored records
-     * @return the rewritten record
-     */
-    @Nonnull
-    public <M extends Message> FDBStoredRecord<M> rewriteStoredRecord(@Nonnull FDBStoredRecord<M> record) {
-        return record;
     }
 
     private void checkIfNullTypeAvailable() {

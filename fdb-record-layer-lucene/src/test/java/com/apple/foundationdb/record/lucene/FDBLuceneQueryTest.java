@@ -92,6 +92,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
+import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.highlight;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -460,6 +461,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI civil blood makes civil hands unclean")))));
+            if (withHighlight) {
+                matcher = highlight(matcher);
+            }
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, matcher);
             List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
@@ -617,21 +621,21 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(unorderedUnion(
-                    indexScan(allOf(indexScan("Complex$text_index"),
-                            indexScanType(LuceneScanTypes.BY_LUCENE),
-                            scanParams(query(hasToString("MULTI (\"civil blood makes civil hands unclean\")"))))),
-                    indexScan(allOf(indexScan("Complex$text_index"),
-                            indexScanType(LuceneScanTypes.BY_LUCENE),
-                            scanParams(query(hasToString("MULTI (\"was king from 966 to 1016\")")))))));
-            if (shouldDeferFetch) {
-                matcher = fetch(primaryKeyDistinct(unorderedUnion(
-                        coveringIndexScan(indexScan(allOf(indexScan("Complex$text_index"),
-                                indexScanType(LuceneScanTypes.BY_LUCENE),
-                                scanParams(query(hasToString("MULTI (\"civil blood makes civil hands unclean\")")))))),
-                        coveringIndexScan(indexScan(allOf(indexScan("Complex$text_index"),
-                                indexScanType(LuceneScanTypes.BY_LUCENE),
-                                scanParams(query(hasToString("MULTI (\"was king from 966 to 1016\")")))))))));
+            final Matcher<RecordQueryPlan> scan1 = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("MULTI (\"civil blood makes civil hands unclean\")")))));
+            final Matcher<RecordQueryPlan> scan2 = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    scanParams(query(hasToString("MULTI (\"was king from 966 to 1016\")")))));
+            Matcher<RecordQueryPlan> matcher;
+            if (withHighlight) {
+                // It would be possible to do the highlighting after the Fetch, as is done with filters, but there isn't
+                // a general-purpose version of that.
+                matcher = primaryKeyDistinct(unorderedUnion(highlight(scan1), highlight(scan2)));
+            } else if (shouldDeferFetch) {
+                matcher = fetch(primaryKeyDistinct(unorderedUnion(coveringIndexScan(scan1), coveringIndexScan(scan2))));
+            } else {
+                matcher = primaryKeyDistinct(unorderedUnion(scan1, scan2));
             }
             assertThat(plan, matcher);
             List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
@@ -674,6 +678,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" AND MULTI grudge")))));
+            if (withHighlight) {
+                matcher = highlight(matcher);
+            }
             assertThat(plan, matcher);
             List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
             Set<Long> primaryKeys = queriedRecordList.stream().map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());

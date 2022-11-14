@@ -59,6 +59,18 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
         this.protoRecord = protoRecord;
     }
 
+    public FDBStoredRecordBuilder(@Nonnull FDBStoredRecord<M> record) {
+        this.protoRecord = record.getRecord();
+        this.primaryKey = record.getPrimaryKey();
+        this.recordType = record.getRecordType();
+        this.keyCount = record.getKeyCount();
+        this.keySize = record.getKeySize();
+        this.valueSize = record.getValueSize();
+        this.split = record.isSplit();
+        this.recordVersion = record.getVersion();
+        this.versionedInline = record.isVersionedInline();
+    }
+
     @Override
     @Nonnull
     public Tuple getPrimaryKey() {
