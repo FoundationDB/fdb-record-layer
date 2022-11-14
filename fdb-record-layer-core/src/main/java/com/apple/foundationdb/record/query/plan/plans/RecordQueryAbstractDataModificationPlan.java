@@ -188,7 +188,15 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @SuppressWarnings("unchecked")
     public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
-        return (M)MessageHelpers.transformMessage(store, context, transformationsTrie, coercionTrie, targetType, targetDescriptor, innerFlowedType, inRecord.getDescriptorForType(), inRecord);
+        return (M)MessageHelpers.transformMessage(store,
+                context.withBinding(inner.getAlias(), queryResult),
+                transformationsTrie,
+                coercionTrie,
+                targetType,
+                targetDescriptor,
+                innerFlowedType,
+                inRecord.getDescriptorForType(),
+                inRecord);
     }
 
     public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);

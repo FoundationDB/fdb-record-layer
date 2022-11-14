@@ -176,7 +176,7 @@ public class FieldValue implements ValueWithChild {
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getFieldPathNames());
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldPath);
     }
 
     @Override

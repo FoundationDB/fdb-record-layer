@@ -142,7 +142,7 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-1244637277, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1434217392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -181,8 +181,8 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -221,8 +221,8 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             assertThat(plan, scan(unbounded()));
             assertEquals(2, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1564499645, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1564499645, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-690292541, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-690292541, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {

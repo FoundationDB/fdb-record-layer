@@ -178,9 +178,9 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         PickValue value = (PickValue)plan.getResultValue();
         List<Value> subValues = ImmutableList.copyOf(value.getChildren());
-        assertThat(subValues.size(), is(2));
-        assertThat(((QuantifiedObjectValue)subValues.get(0)).getAlias(), is(plan.getQuantifiers().get(0).getAlias()));
-        assertThat(((QuantifiedObjectValue)subValues.get(1)).getAlias(), is(plan.getQuantifiers().get(1).getAlias()));
+        assertThat(subValues.size(), is(3));
+        assertThat(((QuantifiedObjectValue)subValues.get(1)).getAlias(), is(plan.getQuantifiers().get(0).getAlias()));
+        assertThat(((QuantifiedObjectValue)subValues.get(2)).getAlias(), is(plan.getQuantifiers().get(1).getAlias()));
     }
 
     private PlanSelector mockSelector() {

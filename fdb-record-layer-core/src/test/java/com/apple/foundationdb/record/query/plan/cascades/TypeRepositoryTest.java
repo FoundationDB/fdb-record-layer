@@ -237,7 +237,7 @@ class TypeRepositoryTest {
         Assertions.assertTrue(value instanceof RecordConstructorValue);
         final RecordConstructorValue recordConstructorValue = (RecordConstructorValue)value;
         final Type resultType = recordConstructorValue.getResultType();
-        Assertions.assertEquals(Type.Record.fromFields(List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
+        Assertions.assertEquals(Type.Record.fromFields(false, List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
                 )), resultType);

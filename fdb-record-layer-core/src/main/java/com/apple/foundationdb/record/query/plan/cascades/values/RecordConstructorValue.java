@@ -137,6 +137,21 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
     }
 
+    /**
+     * Given the possible mix of messages originating from precompiled classes as well as messages that are instances of
+     * {@link DynamicMessage}, we need to make sure that we actually create a cohesive object structure when one message
+     * is integrated into the other when a new record is formed. All dynamic messages only ever depend on other dynamic
+     * messages that make up their fields, etc. That means that in the worst case we now lazily create a dynamic message
+     * from a regular message. Note that both messages are required (by their descriptors) to be wire-compatible.
+     * Note that we try to avoid making a copy if at all possible.
+     * TODO When https://github.com/FoundationDB/fdb-record-layer/issues/1910 gets addressed this code-path will become
+     *      obsolete and can be removed. In fact, leaving it in wouldn't hurt as a deep copy would be deemed unnecessary.
+     * @param typeRepository the type repository
+     * @param fieldType the type of the field
+     * @param field the object that may or may not be copied
+     * @return an object that is either {@code field} if a copy could be avoided or a new copy of {@code field} whose
+     *         constituent messages are {@link DynamicMessage}s based on dynamically-created descriptors.
+     */
     @Nullable
     private Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
                                     @Nonnull final Type fieldType,

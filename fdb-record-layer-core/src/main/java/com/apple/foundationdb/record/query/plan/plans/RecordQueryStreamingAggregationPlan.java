@@ -342,21 +342,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
     }
 
-    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
-                                                         @Nullable final Value groupingKeyValue,
-                                                         @Nonnull final AggregateValue aggregateValue,
-                                                         @Nonnull final CompleteResultValueSupplier completeResultValueSupplier) {
-        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        final var aggregateAlias = CorrelationIdentifier.uniqueID();
-
-        return RecordQueryStreamingAggregationPlan.of(inner,
-                groupingKeyValue,
-                aggregateValue,
-                groupingKeyAlias,
-                aggregateAlias,
-                completeResultValueSupplier.supply(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
-    }
-
     @Nonnull
     public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
                                                          @Nullable final Value groupingKeyValue,

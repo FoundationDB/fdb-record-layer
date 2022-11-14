@@ -33,7 +33,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
@@ -45,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
@@ -60,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpre
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -638,6 +643,50 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<RecordQueryStreamingAggregationPlan> groupings(@Nonnull BindingMatcher<? extends Value> downstream) {
         return typedWithDownstream(RecordQueryStreamingAggregationPlan.class,
                 Extractor.of(RecordQueryStreamingAggregationPlan::getGroupingValue, name -> "grouping(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryExplodePlan> explodePlan() {
+        return ofTypeOwning(RecordQueryExplodePlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <M extends RecordQueryExplodePlan> BindingMatcher<M> collectionValue(@Nonnull BindingMatcher<? extends Value> downstream) {
+        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryExplodePlan.class,
+                Extractor.of(RecordQueryExplodePlan::getCollectionValue, name -> "collectionValue(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryDeletePlan> deletePlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryDeletePlan.class, all(downstream));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <M extends RecordQueryDeletePlan> BindingMatcher<M> deleteTarget(@Nonnull BindingMatcher<? extends String> downstream) {
+        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryDeletePlan.class,
+                Extractor.of(RecordQueryDeletePlan::getTargetRecordType, name -> "target(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInsertPlan> insertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInsertPlan.class, exactlyPlans(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUpdatePlan> updatePlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryUpdatePlan.class, all(downstream));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <M extends RecordQueryAbstractDataModificationPlan> BindingMatcher<M> target(@Nonnull BindingMatcher<? extends String> downstream) {
+        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryAbstractDataModificationPlan.class,
+                Extractor.of(RecordQueryAbstractDataModificationPlan::getTargetRecordType, name -> "target(" + name + ")"),
                 downstream);
     }
 }
