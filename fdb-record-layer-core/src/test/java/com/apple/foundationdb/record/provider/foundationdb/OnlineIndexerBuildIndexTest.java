@@ -308,11 +308,15 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
 
+            // With a non-null source index, updated records aren't necessarily scanned. In particular, if a record is
+            // deleted from a range that has not been built and placed into a range that has already been built, the
+            // record might not be scanned
+            int updateRecordMargin = (sourceIndex == null || recordsWhileBuilding == null) ? 0 : recordsWhileBuilding.size();
             int deletedRecordCount = deleteWhileBuilding == null ? 0 : deleteWhileBuilding.size();
             if (sourceIndex == null || getIndexMaintenanceFilter().equals(IndexMaintenanceFilter.NORMAL)) {
                 assertThat(indexBuilder.getTotalRecordsScanned(),
                         allOf(
-                                greaterThanOrEqualTo((long)(records.size() - deletedRecordCount)),
+                                greaterThanOrEqualTo((long)(records.size() - deletedRecordCount - updateRecordMargin)),
                                 lessThanOrEqualTo((long)records.size() + additionalScans)
                         ));
             }
