@@ -3492,9 +3492,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return IndexBuildState.loadIndexBuildStateAsync(this, index);
     }
 
+    /**
+     * Load the indexing type stamp for an index. This stamp contains information about the kind of
+     * index build being used to construct a new index. This method is {@link API.Status#INTERNAL}.
+     *
+     * @param index the index being built
+     * @return the indexing type stamp for the index's current build
+     * @see #saveIndexingTypeStamp(Index, IndexBuildProto.IndexBuildIndexingStamp)
+     */
     @API(API.Status.INTERNAL)
     @Nonnull
-    public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexBuildStampAsync(Index index) {
+    public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
         byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
         return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
             if (serializedStamp == null) {
@@ -3512,8 +3520,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    /**
+     * Update the indexing type stamp for the given index. This is used by the {@link OnlineIndexer}
+     * to document what kind of indexing procedure is being used to build the given index. This method
+     * is {@link API.Status#INTERNAL}.
+     *
+     * @param index the index being built
+     * @param stamp the new value of the index's indexing type stamp
+     * @see #loadIndexingTypeStampAsync(Index)
+     */
     @API(API.Status.INTERNAL)
-    public void saveIndexBuildStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
+    public void saveIndexingTypeStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
         byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
         ensureContextActive().set(stampKey, stamp.toByteArray());
     }

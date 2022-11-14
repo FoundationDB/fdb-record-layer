@@ -409,10 +409,10 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
-            store.saveIndexBuildStamp(index, indexingTypeStamp);
+            store.saveIndexingTypeStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
-        return store.loadIndexBuildStampAsync(index)
+        return store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
                     if (savedStamp == null) {
                         if (continuedBuild && indexingTypeStamp.getMethod() !=
@@ -422,7 +422,7 @@ public abstract class IndexingBase {
                                     .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp));
                         }
                         // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
-                        store.saveIndexBuildStamp(index, indexingTypeStamp);
+                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }
                     // Here: has non-null type stamp
@@ -434,7 +434,7 @@ public abstract class IndexingBase {
                             indexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
                             savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
                         // Special case: partly built with multi target, but may be continued indexing on its own
-                        store.saveIndexBuildStamp(index, indexingTypeStamp);
+                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }
                     if (forceStampOverwrite) {  // and a continued Build
@@ -462,7 +462,7 @@ public abstract class IndexingBase {
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
-            store.saveIndexBuildStamp(index, indexingTypeStamp);
+            store.saveIndexingTypeStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
         // Here: there is no type stamp, but indexing is ongoing. For backward compatibility reasons, we'll consider it a BY_RECORDS stamp
@@ -485,7 +485,7 @@ public abstract class IndexingBase {
         // Ditto (a complicated way to reduce complexity)
         if (noRecordScanned) {
             // we can safely overwrite the previous type stamp
-            store.saveIndexBuildStamp(index, indexingTypeStamp);
+            store.saveIndexingTypeStamp(index, indexingTypeStamp);
             return AsyncUtil.DONE;
         }
         // A force overwrite cannot be allowed when partly built

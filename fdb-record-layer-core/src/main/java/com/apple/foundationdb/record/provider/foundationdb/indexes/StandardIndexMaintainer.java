@@ -259,7 +259,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             // Idempotent indexes can just update the index data structures directly
             return update(oldRecord, newRecord);
         }
-        return state.store.loadIndexBuildStampAsync(state.index).thenCompose(stamp -> {
+        return state.store.loadIndexingTypeStampAsync(state.index).thenCompose(stamp -> {
             if (stamp == null) {
                 // Either the index build has not started (in which case the record should not be
                 // indexed) or this is a by-records build that did not write the stamp, which can
@@ -282,7 +282,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyByRecords(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-        // Check if the record has been built be checking its primary key in the range set. Update the index
+        // Check if the record has been built by checking its primary key in the range set. Update the index
         // if it is a built range
         Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
         return addedRangeWithKey(primaryKey).thenCompose(inRange ->
@@ -302,9 +302,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             } else {
                 // The old and new record use different keys in the source index. Check each one individually,
                 // and then simulate deleting the old record (if needed) and adding the new record (if needed)
-                return addedRangeWithKey(oldEntryKey)
+                // Note: index maintainers on the same index are not thread safe, so the index updates need to
+                // be serialized here, but the range set checks can be executed concurrently
+                CompletableFuture<Boolean> oldInRangeFuture = addedRangeWithKey(oldEntryKey);
+                CompletableFuture<Boolean> newInRangeFuture = addedRangeWithKey(newEntryKey);
+                return oldInRangeFuture
                         .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
-                        .thenCompose(ignore -> addedRangeWithKey(newEntryKey))
+                        .thenCompose(ignore -> newInRangeFuture)
                         .thenCompose(newInRange -> newInRange ? update(null, newRecord) : AsyncUtil.DONE);
             }
         } else {
