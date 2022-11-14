@@ -199,6 +199,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 inRecord);
     }
 
+    @Nonnull
     public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
 
     @Override
@@ -253,6 +254,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
         if (this == other) {
             return true;

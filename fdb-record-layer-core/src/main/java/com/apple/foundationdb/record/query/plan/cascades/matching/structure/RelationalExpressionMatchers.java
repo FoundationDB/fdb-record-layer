@@ -56,6 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Matchers for descendants of {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
@@ -242,21 +243,6 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<DeleteExpression> deleteExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(DeleteExpression.class, only(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<InsertExpression> insertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(InsertExpression.class, only(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(UpdateExpression.class, only(downstream));
-    }
-
-    @Nonnull
     public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends RecordConstructorValue> downstreamAggregation,
                                                                       @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return typedWithDownstream(GroupByExpression.class,
@@ -269,5 +255,20 @@ public class RelationalExpressionMatchers {
                                 typedWithDownstream(GroupByExpression.class,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                         downstreamQuantifiers))));
+    }
+
+    @Nonnull
+    public static BindingMatcher<DeleteExpression> deleteExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(DeleteExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<InsertExpression> insertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(InsertExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(UpdateExpression.class, only(downstream));
     }
 }

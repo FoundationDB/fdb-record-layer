@@ -242,15 +242,16 @@ public class MessageHelpers {
      * by {@link Message.Builder#mergeFrom(Message)}, however, this method allow to also pass in a descriptor of describing
      * a compatible/equal message structure. In general, this method should always work (and work better), when
      * {@code DynamicMessage.parseFrom(targetDescriptor, other.toByteArray()} is well-defined.
+     * Note that if {@code message.getDescriptorForType()} and {@code targetDescriptor} are incompatible in any way,
+     * the behaviour/result of this method is undefined.
      *
      * @param targetDescriptor a descriptor that describes a structure that is wire-compatible with the {@code message}
      *        passed in
      * @param message a message
      * @return a new message of {@code targetDescriptor} which is a copy of the message passed in
-     * @apiNote if {@code message.getDescriptorForType()} and {@code targetDescriptor} are incompatible in any way,
-     *          the behaviour/result of this method is undefined
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static DynamicMessage deepCopy(@Nonnull final Descriptors.Descriptor targetDescriptor, @Nonnull final Message message) {
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
         for (final var entry : message.getAllFields().entrySet()) {
@@ -498,6 +499,7 @@ public class MessageHelpers {
                    Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
         }
 
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
             if (this == other) {
                 return true;
@@ -518,9 +520,10 @@ public class MessageHelpers {
                 return false;
             }
 
-            for (final var fieldPath : self.keySet()) {
-                final var selfNestedTrie = self.get(fieldPath);
-                final var otherNestedTrie = self.get(fieldPath);
+            for (final var entry : self.entrySet()) {
+                final var ordinal = entry.getKey();
+                final var selfNestedTrie = entry.getValue();
+                final var otherNestedTrie = other.get(ordinal);
                 if (!selfNestedTrie.semanticEquals(otherNestedTrie, equivalencesMap)) {
                     return false;
                 }

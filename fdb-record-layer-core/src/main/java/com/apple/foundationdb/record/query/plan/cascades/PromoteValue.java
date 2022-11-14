@@ -39,7 +39,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * A value that flips the output of its boolean child.
+ * A value that promotes an object of a type to an object of another type. Promotions in general agree with
+ * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PromoteValue implements ValueWithChild {
@@ -73,8 +74,13 @@ public class PromoteValue implements ValueWithChild {
     private final Function<Object, Object> promotionFunction;
 
     /**
-     * Constructs a new {@link PromoteValue} instance.
-     * @param inValue The child expression.
+     * Constructs a new {@link PromoteValue} instance. Note that the actual promotion that is carried out is viewed
+     * as a <em>treatment</em> of an object of a type as an object of another type without loss of information. On the
+     * Java level, the promotion carried out usually implies the conversion of an object to another object (of another
+     * java type).
+     * @param inValue the child expression
+     * @param promoteToType the type to promote to
+     * @param promotionFunction the promotion function carrying out the actual promotion of the object
      */
     public PromoteValue(@Nonnull final Value inValue, @Nonnull final Type promoteToType, @Nonnull final Function<Object, Object> promotionFunction) {
         this.inValue = inValue;

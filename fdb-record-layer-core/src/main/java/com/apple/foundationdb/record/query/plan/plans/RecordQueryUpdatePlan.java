@@ -75,6 +75,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
     }
 
+    @Nonnull
+    @Override
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
         return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
@@ -129,11 +131,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTransformationsTrie(),
                 getCoercionTrie(),
                 getComputationValue());
-    }
-
-    @Override
-    public int hashCode() {
-        return structuralHashCode();
     }
 
     @Override
@@ -200,7 +197,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param transformMap a map of field paths to values.
      * @param computationValue a value to be computed based on the {@code inner} and
-     *        {@link RecordQueryAbstractDataModificationPlan#CURRENT_MODIFIED_RECORD}
+     *        {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @return a newly created {@link RecordQueryUpdatePlan}
      */
     @Nonnull

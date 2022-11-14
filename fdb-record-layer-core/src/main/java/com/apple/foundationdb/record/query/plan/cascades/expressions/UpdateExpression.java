@@ -248,9 +248,10 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
             return false;
         }
 
-        for (final var fieldPath : self.keySet()) {
-            final var selfValue = self.get(fieldPath);
-            final var otherValue = self.get(fieldPath);
+        for (final var entry : self.entrySet()) {
+            final var fieldPath = entry.getKey();
+            final var selfValue = entry.getValue();
+            final var otherValue = other.get(fieldPath);
             if (!selfValue.semanticEquals(otherValue, equivalencesMap)) {
                 return false;
             }

@@ -116,7 +116,7 @@ public interface Type extends Narrowable<Type> {
      *         this method.
      */
     @Nonnull
-    Type withNullability(final boolean newIsNullable);
+    Type withNullability(boolean newIsNullable);
 
     /**
      * Checks whether a {@link Type} is numeric.

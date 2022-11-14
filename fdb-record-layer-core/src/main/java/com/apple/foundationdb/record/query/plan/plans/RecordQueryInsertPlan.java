@@ -65,6 +65,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue);
     }
 
+    @Nonnull
+    @Override
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
         return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
     }
@@ -94,11 +96,6 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public int hashCode() {
-        return structuralHashCode();
-    }
-
-    @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
     }
@@ -111,7 +108,6 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public String toString() {
-        // TODO provide proper explain
         return getInnerPlan() + " | " + "INSERT INTO " + getTargetRecordType();
     }
 
