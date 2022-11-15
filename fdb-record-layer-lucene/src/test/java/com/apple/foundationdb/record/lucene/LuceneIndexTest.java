@@ -1138,6 +1138,26 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void highlightedNgramIndex() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertRecordTexts(List.of("<b>Hello</b> record layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordTexts(List.of("<b>Hel</b>lo record layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordTexts(List.of("Hello re<b>cord</b> layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "cord", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
     void searchForAutoComplete() throws Exception {
         searchForAutoCompleteAndAssert("good", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
     }

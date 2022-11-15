@@ -255,6 +255,10 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                         int start = startOffset;
                         while (start < endOffset) {
                             int index = text.toLowerCase(Locale.ROOT).indexOf(token, start);
+                            if (index < 0 || index >= endOffset) {
+                                addNonMatch(sb, text.substring(start, endOffset));
+                                break;
+                            }
                             int actualStartOffset = index;
                             int actualEndOffset = index + token.length();
                             addNonMatch(sb, text.substring(start, index));
