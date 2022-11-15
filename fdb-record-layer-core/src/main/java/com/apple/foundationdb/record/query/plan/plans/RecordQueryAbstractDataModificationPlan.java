@@ -256,32 +256,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         }
     }
 
-    @Nullable
-    protected MessageHelpers.TransformationTrieNode<Integer> translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
-        final var transformationsTrie = getTransformationsTrie();
-        if (transformationsTrie == null) {
-            return null;
-        }
-
-        return transformationsTrie.<MessageHelpers.TransformationTrieNode<Integer>>mapMaybe((current, childrenTries) -> {
-            final var value = current.getValue();
-            if (value != null) {
-                Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode<>(value.translateCorrelations(translationMap), null);
-            } else {
-                final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
-                final var childrenTriesIterator = childrenTries.iterator();
-                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode<Integer>>builder();
-                for (final var oldEntry : oldChildrenMap.entrySet()) {
-                    Verify.verify(childrenTriesIterator.hasNext());
-                    final var childTrie = childrenTriesIterator.next();
-                    resultBuilder.put(oldEntry.getKey(), childTrie);
-                }
-                return new MessageHelpers.TransformationTrieNode<>(null, resultBuilder.build());
-            }
-        }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
-    }
-
     @Nonnull
     public Value getComputationValue() {
         return computationValue;

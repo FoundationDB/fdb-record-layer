@@ -271,7 +271,7 @@ public class MessageHelpers {
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
                     if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                        builder.addRepeatedField(targetField, deepCopyMessageIfNeeded(field.getMessageType(), (Message)element));
+                        builder.addRepeatedField(targetField, deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)element));
                     } else {
                         builder.addRepeatedField(targetField, element);
                     }
@@ -283,8 +283,8 @@ public class MessageHelpers {
                 } else {
                     final var mergedObject =
                             DynamicMessage.newBuilder(targetField.getMessageType())
-                                    .mergeFrom(existingValue)
-                                    .mergeFrom(deepCopyMessageIfNeeded(field.getMessageType(), (Message)entry.getValue()))
+                                    .mergeFrom(deepCopyMessageIfNeeded(targetField.getMessageType(), existingValue))
+                                    .mergeFrom(deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)entry.getValue()))
                                     .build();
                     builder.setField(targetField, mergedObject);
                 }
@@ -600,6 +600,8 @@ public class MessageHelpers {
          *
          * @param orderedFieldPaths a collection of field paths that must be lexicographically-ordered.
          * @param transformMap a map of transformations
+         * @param keyProvider a mapper the constructs children map keys from the field accessor.
+         * @param <D> the key type of the children map.
          *
          * @return a {@link TransformationTrieNode}
          */

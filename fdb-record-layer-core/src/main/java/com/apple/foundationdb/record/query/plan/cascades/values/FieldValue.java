@@ -422,8 +422,7 @@ public class FieldValue implements ValueWithChild {
                 return false;
             }
             for (int i = 0; i < size(); i++) {
-                if (otherFieldPath.getFieldOrdinals().get(i) != getFieldOrdinals().get(i) ||
-                        !otherFieldPath.getFieldTypes().get(i).equals(getFieldTypes().get(i))) {
+                if (!fieldAccessors.get(i).equals(otherFieldPath.fieldAccessors.get(i))) {
                     return false;
                 }
             }

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -41,8 +40,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -50,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,27 +94,27 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Nullable
-    private MessageHelpers.TransformationTrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+    protected MessageHelpers.TransformationTrieNode<Integer> translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
         final var transformationsTrie = getTransformationsTrie();
         if (transformationsTrie == null) {
             return null;
         }
 
-        return transformationsTrie.<MessageHelpers.TransformationTrieNode>mapMaybe((current, childrenTries) -> {
+        return transformationsTrie.<MessageHelpers.TransformationTrieNode<Integer>>mapMaybe((current, childrenTries) -> {
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
+                return new MessageHelpers.TransformationTrieNode<>(value.translateCorrelations(translationMap), null);
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();
-                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode>builder();
+                final var resultBuilder = ImmutableMap.<Integer, MessageHelpers.TransformationTrieNode<Integer>>builder();
                 for (final var oldEntry : oldChildrenMap.entrySet()) {
                     Verify.verify(childrenTriesIterator.hasNext());
                     final var childTrie = childrenTriesIterator.next();
                     resultBuilder.put(oldEntry.getKey(), childTrie);
                 }
-                return new MessageHelpers.TransformationTrieNode(null, resultBuilder.build());
+                return new MessageHelpers.TransformationTrieNode<>(null, resultBuilder.build());
             }
         }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
