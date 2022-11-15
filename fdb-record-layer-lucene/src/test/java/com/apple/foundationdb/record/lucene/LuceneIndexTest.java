@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -348,7 +350,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false),
                 null, null, null,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(false));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight));
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
@@ -1001,6 +1003,31 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Search for phrase with only "away", the correct behavior is to return no match. But match is still hit due to the poor handling of positional data for multi-word synonym by this analyzer
             assertIndexEntryPrimaryKeys(List.of(1624L),
                     recordStore.scanIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, fullTextSearch(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX, "\"is away for\""), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void highlightedSynonymIndex() {
+        final String original = "peanut butter and jelly sandwich";
+        final String highlighted = "<b>peanut</b> butter and jelly sandwich";
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1236L, original, 1));
+            // Search for original token
+            assertRecordTexts(List.of(highlighted),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "peanut", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            // Search for synonym word
+            assertRecordTexts(List.of(highlighted),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "groundnut", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            // Search for synonym phrase
+            assertRecordTexts(List.of(highlighted),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"monkey nut\"", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
         }
     }
 
@@ -2259,6 +2286,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         List<IndexEntry> indexEntries = cursor.asList().join();
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
+    }
+
+    private void assertRecordTexts(List<String> texts, RecordCursor<FDBIndexedRecord<Message>> cursor) {
+        final KeyExpression text = field("text");
+        assertEquals(texts,
+                cursor.map(rec -> text.evaluateSingleton(possiblyHighlightedStoredRecord(rec)).getString(0)).asList().join());
+    }
+
+    @SuppressWarnings("unchecked")
+    private <M extends Message> FDBStoredRecord<M> possiblyHighlightedStoredRecord(FDBIndexedRecord<M> indexedRecord) {
+        IndexEntry indexEntry = indexedRecord.getIndexEntry();
+        FDBStoredRecord<M> storedRecord = indexedRecord.getStoredRecord();
+        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
+            return storedRecord;
+        }
+        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
+        if (!docIndexEntry.getLuceneQueryHighlightParameters().isHighlight()) {
+            return storedRecord;
+        }
+        M message = indexedRecord.getRecord();
+        M.Builder builder = message.toBuilder();
+        LuceneDocumentFromRecord.highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
+                docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
+        return storedRecord.asBuilder().setRecord((M) builder.build()).build();
     }
 
     /**
