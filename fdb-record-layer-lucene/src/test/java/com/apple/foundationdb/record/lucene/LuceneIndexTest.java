@@ -340,9 +340,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanBounds fullTextSearch(Index index, String search) {
+        return fullTextSearch(index, search, false);
+    }
+
+    private LuceneScanBounds fullTextSearch(Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
-                new LuceneQueryMultiFieldSearchClause(search, false));
+                new LuceneQueryMultiFieldSearchClause(search, false),
+                null, null, null,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(false));
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 

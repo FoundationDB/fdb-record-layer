@@ -120,8 +120,10 @@ public class LucenePlanner extends RecordQueryPlanner {
         LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter);
         getFieldDerivations(state);
 
+        QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
-        LuceneScanParameters scanParameters = getSpecialScan(state, filterMask);
+        LuceneScanParameters scanParameters = getSpecialScan(state, filterMask, queryComponent);
+        boolean hasHighlight = false;
         if (scanParameters == null) {
             // Scan by means of normal Lucene search API.
             LuceneQueryClause query = getQueryForFilter(state, filter, new ArrayList<>(), filterMask);
@@ -132,8 +134,10 @@ public class LucenePlanner extends RecordQueryPlanner {
                 return null;
             }
             getStoredFields(state);
+            LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
-                    state.sort, state.storedFields, state.storedFieldTypes);
+                    state.sort, state.storedFields, state.storedFieldTypes, highlightParameters);
+            hasHighlight = highlightParameters.isHighlight();
         }
 
         // Wrap in plan.
@@ -144,8 +148,33 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask.allSatisfied()) {
             filterMask.setSatisfied(true);
         }
+        if (hasHighlight) {
+            plan = new LuceneHighlightTermsPlan(plan);
+        }
         return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(),  11 - filterMask.getUnsatisfiedFilters().size(),
                 state.repeated, null);
+    }
+
+    private static LuceneScanQueryParameters.LuceneQueryHighlightParameters getHighlightParameters(@Nonnull QueryComponent queryComponent) {
+        if (queryComponent instanceof LuceneQueryComponent) {
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent) queryComponent;
+            return luceneQueryComponent.getLuceneQueryHighlightParameters();
+        } else if (queryComponent instanceof AndOrComponent) {
+            for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
+                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
+                if (parameters.isHighlight()) {
+                    return parameters;
+                }
+            }
+        } else if (queryComponent instanceof AndComponent) {
+            for (QueryComponent child : ((AndComponent) queryComponent).getChildren()) {
+                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
+                if (parameters.isHighlight()) {
+                    return parameters;
+                }
+            }
+        }
+        return new LuceneScanQueryParameters.LuceneQueryHighlightParameters(false);
     }
 
     static class LucenePlanState {
@@ -178,8 +207,7 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask) {
-        QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
+    private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask, @Nonnull QueryComponent queryComponent) {
         if (queryComponent instanceof LuceneQueryComponent) {
             LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             for (String field : luceneQueryComponent.getFields()) {

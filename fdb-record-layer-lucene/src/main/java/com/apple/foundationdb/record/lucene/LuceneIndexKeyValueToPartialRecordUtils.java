@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -198,6 +199,115 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         return Pair.of(fixedFieldNames, dynamicFieldNames);
+    }
+
+    static class RecordRebuildSource<M extends Message> implements LuceneIndexExpressions.RecordSource<RecordRebuildSource<M>> {
+        @Nullable
+        public final RecordRebuildSource<M> parent;
+        @Nonnull
+        public final Descriptors.Descriptor descriptor;
+        @Nullable
+        public final Descriptors.FieldDescriptor fieldDescriptor;
+        @Nonnull
+        public final Message.Builder builder;
+        public final Message message;
+        public final int indexIfRepeated;
+
+        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Message message) {
+            //this.rec = rec;
+            this.parent = parent;
+            this.descriptor = descriptor;
+            this.fieldDescriptor = null;
+            this.builder = builder;
+            this.message = message;
+            this.indexIfRepeated = 0;
+        }
+
+        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.FieldDescriptor fieldDescriptor, @Nonnull Message.Builder builder, @Nonnull Message message, int indexIfRepeated) {
+            //this.rec = rec;
+            this.parent = parent;
+            this.descriptor = fieldDescriptor.getMessageType();
+            this.fieldDescriptor = fieldDescriptor;
+            this.builder = builder;
+            this.message = message;
+            this.indexIfRepeated = indexIfRepeated;
+        }
+
+        @Override
+        public Descriptors.Descriptor getDescriptor() {
+            return descriptor;
+        }
+
+        @Override
+        public Iterable<RecordRebuildSource<M>> getChildren(@Nonnull FieldKeyExpression parentExpression) {
+            final String parentField = parentExpression.getFieldName();
+            final Descriptors.FieldDescriptor parentFieldDescriptor = descriptor.findFieldByName(parentField);
+
+            final List<RecordRebuildSource<M>> children = new ArrayList<>();
+            int index = 0;
+            for (Key.Evaluated evaluated : parentExpression.evaluateMessage(null, message)) {
+                final Message submessage = (Message)evaluated.toList().get(0);
+                if (submessage != null) {
+                    if (parentFieldDescriptor.isRepeated()) {
+                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
+                                builder.newBuilderForField(parentFieldDescriptor),
+                                submessage, index++));
+                    } else {
+                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
+                                builder.getFieldBuilder(parentFieldDescriptor),
+                                submessage, index));
+                    }
+                }
+            }
+            return children;
+        }
+
+        @Override
+        public Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression) {
+            final List<Object> values = new ArrayList<>();
+            for (Key.Evaluated evaluated : fieldExpression.evaluateMessage(null, message)) {
+                Object value = evaluated.getObject(0);
+                if (value != null) {
+                    values.add(value);
+                }
+            }
+            return values;
+        }
+
+        @SuppressWarnings("java:S3776")
+        public void buildMessage(@Nullable Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField, int index) {
+            final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
+            if (mappedKeyFieldDescriptor != null) {
+                if (customizedKey == null) {
+                    return;
+                }
+                builder.setField(mappedKeyFieldDescriptor, customizedKey);
+            }
+
+            if (value == null) {
+                return;
+            }
+            if (subFieldDescriptor.isRepeated()) {
+                if (subFieldDescriptor.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE)) {
+                    Message.Builder subBuilder = builder.newBuilderForField(subFieldDescriptor);
+                    subBuilder.mergeFrom((Message) builder.getRepeatedField(subFieldDescriptor, index)).mergeFrom((Message) value);
+                    builder.setRepeatedField(subFieldDescriptor, index, subBuilder.build());
+                } else {
+                    builder.setRepeatedField(subFieldDescriptor, index, value);
+                }
+
+            } else {
+                int count = builder.getAllFields().size();
+                if (message != null && count == 0) {
+                    builder.mergeFrom(message);
+                }
+                builder.setField(subFieldDescriptor, value);
+            }
+
+            if (parent != null) {
+                parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField, indexIfRepeated);
+            }
+        }
     }
 
     /**

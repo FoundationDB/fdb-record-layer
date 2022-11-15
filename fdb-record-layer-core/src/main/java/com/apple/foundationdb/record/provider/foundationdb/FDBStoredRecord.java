@@ -151,6 +151,14 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     }
 
     /**
+     * Get a builder with the parameters of this stored record.
+     * @return a builder
+     */
+    public FDBStoredRecordBuilder<M> asBuilder() {
+        return new FDBStoredRecordBuilder<>(this);
+    }
+
+    /**
      * Copy this record with a different version.
      * @param recordVersion new version
      * @return a new stored record with the given version
