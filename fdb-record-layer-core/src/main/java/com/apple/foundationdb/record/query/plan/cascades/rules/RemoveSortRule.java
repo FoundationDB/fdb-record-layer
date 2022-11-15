@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -43,6 +45,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -100,9 +103,13 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             }
         }
 
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
+        final var translationMap = AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT);
+        final var rebasedSortValue = sortValues.stream().map(sortValue -> sortValue.rebase(translationMap)).collect(Collectors.toList());
+
         final boolean isSatisfyingOrdering =
                 ordering.satisfies(
-                        RequestedOrdering.fromSortValues(sortValues, sortExpression.isReverse(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                        RequestedOrdering.fromSortValues(rebasedSortValue, sortExpression.isReverse(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
 
         if (!isSatisfyingOrdering) {
             return;
