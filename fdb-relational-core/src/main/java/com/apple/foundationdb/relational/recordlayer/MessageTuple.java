@@ -42,9 +42,9 @@ public class MessageTuple extends AbstractRow {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
-        Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByNumber(position + 1);
+        Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
         if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
-            return message.getField(message.getDescriptorForType().findFieldByNumber(position + 1));
+            return message.getField(message.getDescriptorForType().getFields().get(position));
         } else {
             return null;
         }

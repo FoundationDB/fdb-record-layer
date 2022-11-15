@@ -65,7 +65,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public boolean isPrimitive(int fieldNumber) throws RelationalException {
-        final var field = typeDescriptor.findFieldByNumber(fieldNumber);
+        final var field = typeDescriptor.getFields().get(fieldNumber - 1);
         if (field == null) {
             throw new RelationalException(String.format("Field with number <%d> does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
         }
@@ -84,7 +84,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder setField(int fieldNumber, Object value) throws RelationalException {
-        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByNumber(fieldNumber);
+        final Descriptors.FieldDescriptor field = typeDescriptor.getFields().get(fieldNumber - 1);
         if (field == null) {
             throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
         }
@@ -111,7 +111,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws RelationalException {
-        final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByNumber(fieldNumber);
+        final Descriptors.FieldDescriptor field = typeDescriptor.getFields().get(fieldNumber - 1);
         if (field == null) {
             throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
         }
@@ -185,7 +185,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws RelationalException {
-        final Descriptors.FieldDescriptor fd = typeDescriptor.findFieldByNumber(fieldNumber);
+        final Descriptors.FieldDescriptor fd = typeDescriptor.getFields().get(fieldNumber - 1);
         if (fd.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
             throw new RelationalException("Cannot get Nested data builder for field with number <" + fieldNumber + "> as it is not a nested structure", ErrorCode.INVALID_PARAMETER);
         }
