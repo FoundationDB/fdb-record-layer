@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.base.Suppliers;
 
@@ -83,5 +84,11 @@ class ReferentialRecord extends Type.Record {
                                                        final boolean isNullable,
                                                        @Nullable final List<Field> fields) {
         return new ReferentialRecord(name, isNullable, fields);
+    }
+
+    public static ReferentialRecord fromNamelessRecordType(@Nonnull String name, @Nonnull Type.Record record) {
+        Assert.thatUnchecked(!(record instanceof ReferentialRecord));
+        Assert.thatUnchecked(record.getName() == null || record.getName().equals(name));
+        return new ReferentialRecord(name, record.isNullable(), record.getFields());
     }
 }

@@ -32,12 +32,11 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
 import com.google.common.base.VerifyException;
-
-import java.util.stream.Collectors;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.stream.Collectors;
 
 public interface Plan<T> {
 
@@ -79,11 +78,7 @@ public interface Plan<T> {
     static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final RelationalParser.RootContext ast = AstVisitor.parseQuery(query);
         final TypeRepository.Builder builder = TypeRepository.newBuilder();
-        planContext.getMetaData().getRecordsDescriptor().getMessageTypes().forEach(
-                message -> builder.registerTypeToTypeNameMapping(Type.Record.fromDescriptor(message), message.getName()).addMessageType(message.toProto()));
-        planContext.getMetaData().getRecordsDescriptor().getEnumTypes().forEach(
-                enumType -> builder.registerTypeToTypeNameMapping(new Type.Enum(true, Type.Enum.enumValuesFromProto(enumType.getValues())), enumType.getName())
-                        .addEnumType(enumType.toProto()));
+        registerMessageTypes(builder, planContext.getMetaData().getUnionDescriptor());
         final RelationalParserContext astContext = new RelationalParserContext(new Scopes(), builder, planContext.getMetaData().getRecordTypes().keySet(),
                 planContext.getMetaData().getFieldDescriptorMapFromNames(planContext.getMetaData().getRecordTypes().keySet()),
                 planContext.getMetaData().getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));
@@ -103,4 +98,35 @@ public interface Plan<T> {
         }
     }
 
+    private static void registerMessageTypes(@Nonnull final TypeRepository.Builder builder, @Nonnull final Descriptors.Descriptor descriptor) {
+        for (var field : descriptor.getFields()) {
+            switch (field.getType()) {
+                case MESSAGE: {
+                    var typeDesc = field.getMessageType();
+                    var oldType = builder.getTypeByName(typeDesc.getName());
+                    var newType = ReferentialRecord.fromNamelessRecordType(typeDesc.getName(), Type.Record.fromDescriptor(typeDesc));
+                    if (oldType.isEmpty()) {
+                        builder.registerTypeToTypeNameMapping(newType, typeDesc.getName());
+                        registerMessageTypes(builder, typeDesc);
+                    } else {
+                        Assert.thatUnchecked(oldType.get().equals(newType), String.format("Cannot register different types ('%s', '%s') with the same name", oldType, newType), ErrorCode.INVALID_NAME);
+                    }
+                    break;
+                }
+                case ENUM: {
+                    var typeDesc = field.getEnumType();
+                    var oldType = builder.getTypeByName(typeDesc.getName());
+                    var newType = new Type.Enum(true, Type.Enum.enumValuesFromProto(typeDesc.getValues()));
+                    if (oldType.isEmpty()) {
+                        builder.registerTypeToTypeNameMapping(newType, typeDesc.getName()).addEnumType(typeDesc.toProto());
+                    } else {
+                        Assert.thatUnchecked(oldType.get().equals(newType), String.format("Cannot register different enums ('%s', '%s') with the same name", oldType, newType), ErrorCode.INVALID_NAME);
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
 }
