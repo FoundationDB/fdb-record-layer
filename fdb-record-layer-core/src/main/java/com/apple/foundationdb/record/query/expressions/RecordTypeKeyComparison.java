@@ -184,7 +184,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (store == null) {
-                throw new Comparisons.EvaluationContextRequiredException("Cannot get record type key without store");
+                throw Comparisons.EvaluationContextRequiredException.instance();
             }
             return store.getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
         }

@@ -129,7 +129,7 @@ public abstract class IndexAggregateGroupKeys {
         @Nonnull
         public Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (context == null) {
-                throw new Comparisons.EvaluationContextRequiredException("Cannot get parameter without context");
+                throw Comparisons.EvaluationContextRequiredException.instance();
             }
             final FDBQueriedRecord<?> record = (FDBQueriedRecord<?>) context.getBinding(recordKey);
             final IndexEntry indexEntry = record.getIndexEntry();
