@@ -61,6 +61,12 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
         super(msg);
     }
 
+    protected LoggableException(String message, Throwable cause,
+                                boolean enableSuppression,
+                                boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
+
     /**
      * Get the log information associated with this exception as a map.
      *

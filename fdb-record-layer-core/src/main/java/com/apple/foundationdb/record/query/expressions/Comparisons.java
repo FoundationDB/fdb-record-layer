@@ -896,8 +896,16 @@ public class Comparisons {
      */
     @SuppressWarnings("serial")
     public static class EvaluationContextRequiredException extends RecordCoreException {
-        public EvaluationContextRequiredException(String msg) {
-            super(msg);
+        private static final Supplier<EvaluationContextRequiredException> INSTANCE_SUPPLIER =
+                Suppliers.memoize(() -> new EvaluationContextRequiredException("unable to evaluate comparison without context and/or store"));
+
+        private EvaluationContextRequiredException(String msg) {
+            super(msg, null, false, false);
+        }
+
+        @Nonnull
+        public static EvaluationContextRequiredException instance() {
+            return INSTANCE_SUPPLIER.get();
         }
     }
 
@@ -980,7 +988,7 @@ public class Comparisons {
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (context == null) {
-                throw new EvaluationContextRequiredException("Cannot get parameter without context");
+                throw EvaluationContextRequiredException.instance();
             }
             if (isCorrelation()) {
                 return Objects.requireNonNull(((QueryResult)context.getBinding(parameter))).getDatum();
@@ -1206,7 +1214,7 @@ public class Comparisons {
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (context == null) {
-                throw new EvaluationContextRequiredException("Cannot get parameter without context");
+                throw EvaluationContextRequiredException.instance();
             }
             return comparandValue.eval(store, context);
         }

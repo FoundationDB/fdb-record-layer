@@ -44,6 +44,12 @@ public class RecordCoreException extends LoggableException {
         super(msg, cause);
     }
 
+    protected RecordCoreException(String message, Throwable cause,
+                                  boolean enableSuppression,
+                                  boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
+
     @Override
     @Nonnull
     public RecordCoreException addLogInfo(@Nonnull String description, Object object) {
