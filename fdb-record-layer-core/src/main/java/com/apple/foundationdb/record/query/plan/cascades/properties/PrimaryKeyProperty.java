@@ -105,7 +105,8 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Nonnull
         @Override
         public Optional<List<Value>> visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
-            return primaryKeyFromSingleChild(updatePlan);
+            // TODO make better
+            return Optional.empty();
         }
 
         @Nonnull
@@ -199,7 +200,8 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Nonnull
         @Override
         public Optional<List<Value>> visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
-            return primaryKeyFromSingleChild(insertPlan);
+            // TODO make better
+            return Optional.empty();
         }
 
         @Nonnull

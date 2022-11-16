@@ -96,8 +96,8 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
     public static class DistinctRecordsVisitor implements RecordQueryPlanVisitor<Boolean> {
         @Nonnull
         @Override
-        public Boolean visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
-            return true;
+        public Boolean visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+            return distinctRecordsFromSingleChild(updatePlan);
         }
 
         @Nonnull
@@ -144,8 +144,8 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitDeletePlan(@Nonnull final RecordQueryDeletePlan element) {
-            return true;
+        public Boolean visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+            return distinctRecordsFromSingleChild(deletePlan);
         }
 
         @Nonnull
@@ -199,8 +199,8 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitInsertPlan(@Nonnull final RecordQueryInsertPlan element) {
-            return true;
+        public Boolean visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+            return distinctRecordsFromSingleChild(insertPlan);
         }
 
         @Nonnull

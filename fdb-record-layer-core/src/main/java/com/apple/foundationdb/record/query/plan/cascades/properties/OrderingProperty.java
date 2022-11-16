@@ -119,7 +119,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
-            return orderingFromSingleChild(updatePlan);
+            return Ordering.emptyOrder();
         }
 
         @Nonnull
@@ -258,7 +258,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
-            return orderingFromSingleChild(insertPlan);
+            return Ordering.emptyOrder();
         }
 
         @Nonnull

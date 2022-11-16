@@ -57,7 +57,13 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * A query plan that deletes records from the targeted record type.
+ * A query plan that deletes records. The record that is to be deleted is identified through the primary key of the
+ * {@link QueryResult} that represents the in record. Note that
+ * {@link com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule} only allows implementation of
+ * a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression} if the plan partition
+ * of the child guarantees
+ * {@link com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty#STORED_RECORD}.
+ * Not that we hold on to a target record type in this plan operator only for debugging purposes at the moment.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {

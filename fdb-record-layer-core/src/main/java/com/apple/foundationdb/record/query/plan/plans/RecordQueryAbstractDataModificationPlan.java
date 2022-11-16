@@ -64,7 +64,27 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
- * A query plan that filters out records from a child plan that are not of the designated record type(s).
+ * A query plan that performs transformations on the incoming record according to a set of transformation instructions
+ * in conjunction with a target {@link Type} and a target {@link com.google.protobuf.Descriptors.Descriptor} which both
+ * together define a set of instructions for type promotion as well as for protobuf coercion. All transformations and
+ * type coercions are applied in one pass to each record. The resulting record is of the target type and is encoded
+ * using the target protobuf {@link com.google.protobuf.Descriptors.Descriptor}. That record is then handed to an
+ * abstract method that can implement a mutation to the store.
+ * <br>
+ * Example
+ * <pre>
+ * recordType:
+ * {@code Restaurant(STRING as name, FLOAT as avg_review)}, descriptor from precompiled {@code RestaurantRecord}
+ * incoming record:
+ *   A {@link Message} based on a dynamically created protobuf descriptor which is wire-compatible with
+ *   {@code RestaurantRecord}, {@code ('McDonald', 4i)} which is of type {@code (STRING as name, INT as avg_review)}.
+ * modification:
+ *   transformations: {@code name -> "Burger King"}
+ *   promotions: {@code avg_review -> TREAT(avg_review AS FLOAT)}
+ * result:
+ *   A {@link com.google.protobuf.DynamicMessage} based on {@code RestaurantRecord},
+ *   {@code ('Burger King', 4.0f)} which is of type {@code (STRING as name, FLOAT as avg_review)}.
+ * </pre>
  */
 @API(API.Status.INTERNAL)
 public abstract class RecordQueryAbstractDataModificationPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
