@@ -59,6 +59,10 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SynonymQuery;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.spans.SpanNearQuery;
+import org.apache.lucene.search.spans.SpanOrQuery;
+import org.apache.lucene.search.spans.SpanQuery;
+import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
@@ -410,11 +414,26 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             BoostQuery boostQuery = (BoostQuery) query;
             getTerms(boostQuery.getQuery(), map);
         } else if (query instanceof SynonymQuery) {
-            SynonymQuery synonymQuery = (SynonymQuery) query;
+            SynonymQuery synonymQuery = (SynonymQuery)query;
             for (Term term : synonymQuery.getTerms()) {
                 map.putIfAbsent(term.field(), new HashSet<>());
                 map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
             }
+        } else if (query instanceof SpanOrQuery) {
+            SpanOrQuery spanOrQuery = (SpanOrQuery)query;
+            for (SpanQuery clause : spanOrQuery.getClauses()) {
+                getTerms(clause, map);
+            }
+        } else if (query instanceof SpanNearQuery) {
+            SpanNearQuery spanNearQuery = (SpanNearQuery)query;
+            for (SpanQuery clause : spanNearQuery.getClauses()) {
+                getTerms(clause, map);
+            }
+        } else if (query instanceof SpanTermQuery) {
+            SpanTermQuery spanTermQuery = (SpanTermQuery)query;
+            Term term = spanTermQuery.getTerm();
+            map.putIfAbsent(term.field(), new HashSet<>());
+            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
         } else {
             throw new RecordCoreException("This lucene query is not supported for highlighting");
         }
