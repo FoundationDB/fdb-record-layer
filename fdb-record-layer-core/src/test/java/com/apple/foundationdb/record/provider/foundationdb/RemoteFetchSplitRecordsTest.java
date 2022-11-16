@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 
@@ -83,8 +85,8 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
     }
 
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("fetchMethodAndStreamMode")
+    void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
         int numTransactions = 8;
@@ -96,7 +98,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
         }
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_1000_REVERSE, useIndexPrefetch);
 
-        executeAndVerifyData(plan, numRecordsPerTransaction * numTransactions, (rec, i) -> {
+        executeAndVerifyData(plan, null, serializableWithStreamingMode(streamingMode), numRecordsPerTransaction * numTransactions, (rec, i) -> {
             int primaryKey = 200 + i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 2000 - i;

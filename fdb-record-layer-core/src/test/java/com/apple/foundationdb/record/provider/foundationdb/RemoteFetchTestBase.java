@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
@@ -37,12 +40,14 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.provider.Arguments;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Counts.REMOTE_FETCH;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY;
@@ -93,6 +98,12 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
             .setRecordType("MySimpleRecord")
             .setFilter(Query.field("rec_no").equalsValue(1L))
             .build();
+
+    public static Stream<Arguments> fetchMethodAndStreamMode() {
+        return Stream.of(IndexFetchMethod.values())
+                .flatMap(indexFetchMethod -> Stream.of(CursorStreamingMode.ITERATOR, CursorStreamingMode.LARGE, CursorStreamingMode.MEDIUM, CursorStreamingMode.SMALL)
+                        .map(streamMode -> Arguments.of(indexFetchMethod, streamMode)));
+    }
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
                                 final int numValue, final String indexName, Object indexedValue) {
@@ -240,5 +251,15 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
             results = cursor.asList().get();
         }
         return results;
+    }
+
+    @Nonnull
+    protected ExecuteProperties serializableWithStreamingMode(final CursorStreamingMode streamingMode) {
+        final ExecuteProperties execProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .setState(ExecuteState.NO_LIMITS)
+                .setDefaultCursorStreamingMode(streamingMode)
+                .build();
+        return execProperties;
     }
 }

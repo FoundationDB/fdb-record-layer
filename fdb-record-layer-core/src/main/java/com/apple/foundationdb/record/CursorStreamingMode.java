@@ -32,5 +32,12 @@ public enum CursorStreamingMode {
     /** The client will process records one-at-a-time. */
     ITERATOR,
     /** The client will load all records immediately, such as with {@link RecordCursor#asList}. */
-    WANT_ALL
+    WANT_ALL,
+    /** Advanced. Transfer data in batches small enough to not be much more expensive than reading individual rows,
+     * to minimize cost if iteration stops early */
+    SMALL,
+    /** Advanced. Transfer data in batches sized in between small and large */
+    MEDIUM,
+    /** Advanced. Transfer data in batches large enough to be, in a high-concurrency environment, nearly as efficient as possible */
+    LARGE
 }
