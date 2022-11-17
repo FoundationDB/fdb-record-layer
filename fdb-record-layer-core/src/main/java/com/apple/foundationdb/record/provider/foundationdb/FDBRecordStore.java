@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
@@ -189,11 +190,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
     // 8 - add custom fields to store header
     public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
-
+    // 9 - add READABLE_UNIQUE_PENDING index state
     public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = 9;
+    // 10 - check index build type during update
+    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = 10;
 
     // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION;
 
     // By default, record stores attempt to upgrade to this version
     // NOTE: Updating this can break certain users during upgrades.
@@ -605,22 +608,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         for (Index index : indexes) {
             final IndexMaintainer maintainer = getIndexMaintainer(index);
             final CompletableFuture<Void> future;
-            if (!maintainer.isIdempotent() && isIndexWriteOnly(index)) {
-                // In this case, the index is still being built, so we are not
-                // going to update the record unless the rebuild job has already
-                // gotten to this range.
-                final Tuple primaryKey = newRecord == null ? oldRecord.getPrimaryKey() : newRecord.getPrimaryKey();
-                future = maintainer.addedRangeWithKey(primaryKey)
-                        .thenCompose(present -> {
-                            if (present) {
-                                return maintainer.update(oldRecord, newRecord);
-                            } else {
-                                return AsyncUtil.DONE;
-                            }
-                        });
-                if (!MoreAsyncUtil.isCompletedNormally(future)) {
-                    futures.add(future);
-                }
+            if (isIndexWriteOnly(index)) {
+                // In this case, the index is still being built. For some index
+                // types, the index update needs to check whether indexing
+                // process has already built the relevant ranges, and it
+                // may adjust the way the index is built in response.
+                future = maintainer.updateWhileWriteOnly(oldRecord, newRecord);
             } else {
                 future = maintainer.update(oldRecord, newRecord);
             }
@@ -3497,6 +3490,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
         return IndexBuildState.loadIndexBuildStateAsync(this, index);
+    }
+
+    /**
+     * Load the indexing type stamp for an index. This stamp contains information about the kind of
+     * index build being used to construct a new index. This method is {@link API.Status#INTERNAL}.
+     *
+     * @param index the index being built
+     * @return the indexing type stamp for the index's current build
+     * @see #saveIndexingTypeStamp(Index, IndexBuildProto.IndexBuildIndexingStamp)
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
+        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
+            if (serializedStamp == null) {
+                return null;
+            }
+            try {
+                return IndexBuildProto.IndexBuildIndexingStamp.parseFrom(serializedStamp);
+            } catch (InvalidProtocolBufferException ex) {
+                RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.ACTUAL, ByteArrayUtil2.loggable(serializedStamp));
+                protoEx.initCause(ex);
+                throw protoEx;
+            }
+        });
+    }
+
+    /**
+     * Update the indexing type stamp for the given index. This is used by the {@link OnlineIndexer}
+     * to document what kind of indexing procedure is being used to build the given index. This method
+     * is {@link API.Status#INTERNAL}.
+     *
+     * @param index the index being built
+     * @param stamp the new value of the index's indexing type stamp
+     * @see #loadIndexingTypeStampAsync(Index)
+     */
+    @API(API.Status.INTERNAL)
+    public void saveIndexingTypeStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        ensureContextActive().set(stampKey, stamp.toByteArray());
     }
 
     // Remove any indexes that do not match the filter.

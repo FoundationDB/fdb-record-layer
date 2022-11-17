@@ -2168,8 +2168,15 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Use this source index to scan records for indexing.
-             * Some sanity checks will be performed, but it is the caller's responsibility to verify that this source-index
-             * covers <em>all</em> the relevant records for the target-index.
+             * Some sanity checks will be performed, but it is the caller's responsibility to verify that this
+             * source-index covers <em>all</em> the relevant records for the target-index. Also, note that
+             * if the {@linkplain OnlineIndexer.Builder#setIndex(Index) target index} is not idempotent,
+             * the index build will not be executed using the given source index unless the store's
+             * format version is at least {@link FDBRecordStore#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION},
+             * as concurrent updates to the index during such a build on older format versions can
+             * result in corrupting the index. On older format versions, the indexer will throw an
+             * exception and the build may fall back to building the index by a records scan depending
+             * on the value given to {@link #setForbidRecordScan(boolean)}.
              *
              * @param sourceIndex an existing, readable, index.
              * @return this builder

@@ -190,7 +190,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, agents, overlap, false, index, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {

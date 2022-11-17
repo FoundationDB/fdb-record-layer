@@ -2127,7 +2127,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         // Build the index to make it actually usable.
-        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(recordMetaData).setIndex(index.getName()).setSubspace(recordStore.getSubspace()).build()) {
+        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setMetaData(recordMetaData)
+                .setIndex(index.getName())
+                .setSubspace(recordStore.getSubspace())
+                .setIndexMaintenanceFilter(recordStore.getIndexMaintenanceFilter())
+                .setFormatVersion(recordStore.getFormatVersion())
+                .build()) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
