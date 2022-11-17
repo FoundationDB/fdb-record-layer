@@ -107,7 +107,7 @@ public class CorrelationIdentifier {
     public static CorrelationIdentifier uniqueSingletonID(@Nonnull final UUID singleton, @Nonnull final String prefix) {
         return Debugger.getOrRegisterSingleton(singleton)
                 .map(index -> new CorrelationIdentifier(prefix + index))
-                .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
+                .orElseGet(() -> new CorrelationIdentifier(singleton.toString()));
     }
 
     private CorrelationIdentifier(@Nonnull final String id) {
