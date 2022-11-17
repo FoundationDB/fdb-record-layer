@@ -252,8 +252,15 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
 
             final int limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
             final StreamingMode streamingMode;
-            if (scanProperties.getCursorStreamingMode() == CursorStreamingMode.ITERATOR) {
+            CursorStreamingMode propertiesStreamingMode = scanProperties.getCursorStreamingMode();
+            if (propertiesStreamingMode == CursorStreamingMode.ITERATOR) {
                 streamingMode = StreamingMode.ITERATOR;
+            } else if (propertiesStreamingMode == CursorStreamingMode.LARGE) {
+                streamingMode = StreamingMode.LARGE;
+            } else if (propertiesStreamingMode == CursorStreamingMode.MEDIUM) {
+                streamingMode = StreamingMode.MEDIUM;
+            } else if (propertiesStreamingMode == CursorStreamingMode.SMALL) {
+                streamingMode = StreamingMode.SMALL;
             } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
                 streamingMode = StreamingMode.WANT_ALL;
             } else {

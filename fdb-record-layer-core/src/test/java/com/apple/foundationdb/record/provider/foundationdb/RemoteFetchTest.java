@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -124,10 +126,10 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * @param useIndexPrefetch the fetch method mode to use
      */
     @ParameterizedTest(name = "indexPrefetchPrimaryKeyIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("fetchMethodAndStreamMode")
+    void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, useIndexPrefetch);
-        executeAndVerifyData(plan, 1, (rec, i) -> {
+        executeAndVerifyData(plan, null, serializableWithStreamingMode(streamingMode), 1, (rec, i) -> {
             int primaryKey = 1;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -137,10 +139,11 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     }
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
-    @EnumSource()
-    void indexPrefetchComplexIndexTest(IndexFetchMethod useIndexPrefetch) throws Exception {
+    @MethodSource("fetchMethodAndStreamMode")
+    void indexPrefetchComplexIndexTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
-        executeAndVerifyData(plan, 50, (rec, i) -> {
+        // Pass in every supported streaming mode. The result should not change.
+        executeAndVerifyData(plan, null, serializableWithStreamingMode(streamingMode), 50, (rec, i) -> {
             int primaryKey = i * 2;
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
