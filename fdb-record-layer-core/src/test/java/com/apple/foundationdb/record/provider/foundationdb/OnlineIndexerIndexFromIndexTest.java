@@ -27,12 +27,14 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -52,7 +54,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     private void populateData(final long numRecords, final long numOtherRecords) {
         List<TestRecords1Proto.MySimpleRecord> simpleRecords = LongStream.range(0, numRecords).mapToObj(val ->
-                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).build()
+                TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(val)
+                        .addAllRepeater(IntStream.range(0, (int)Math.max(numRecords, 100)).boxed().collect(Collectors.toList()))
+                        .build()
         ).collect(Collectors.toList());
         List<TestRecords1Proto.MyOtherRecord> otherRecords = LongStream.range(0, numOtherRecords).mapToObj(val ->
                 TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(numRecords + val).setNumValue2((int) val).build()
@@ -352,6 +357,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
+    @SuppressWarnings("try")
     @Test
     public void testIndexFromIndexNoFallbackNonValueSrc() {
         // Let srcIndex be a non-VALUE index
@@ -380,7 +386,54 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+
+            try (FDBRecordContext context = openContext()) {
+                e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
+                assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+            }
         }
+
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @SuppressWarnings("try")
+    @Test
+    public void testIndexFromIndexWithDuplicates() {
+        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 5;
+
+        Index srcIndex = new Index("src_index", field("repeater", KeyExpression.FanType.FanOut));
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        openContext();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(tgtIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("source index creates duplicates"));
+
+            try (FDBRecordContext context = openContext()) {
+                e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
+                assertTrue(e.getMessage().contains("source index creates duplicates"));
+            }
+        }
+
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }

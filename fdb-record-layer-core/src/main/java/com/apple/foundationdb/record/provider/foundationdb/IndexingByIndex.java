@@ -111,18 +111,8 @@ public class IndexingByIndex extends IndexingBase {
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose( store -> {
-                    // first validate that both src and tgt are of a single, similar, type
-                    final RecordMetaData metaData = store.getRecordMetaData();
-                    final Index srcIndex = getSourceIndex(metaData);
-                    final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
-
-                    validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
-                    validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
-                    validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
-                    validateOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
-                    validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
-
+                .thenCompose(store -> {
+                    validateSourceAndTargetIndexes(store);
                     // all valid; back to the future. Note that for practical reasons, readability and idempotency will be validated later
                     return context.getReadVersionAsync()
                             .thenCompose(vignore -> {
@@ -203,14 +193,16 @@ public class IndexingByIndex extends IndexingBase {
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<Tuple> nextResultCont = new AtomicReference<>();
         AtomicLong recordScanned = new AtomicLong();
-        return AsyncUtil.whileTrue(() ->
-                rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
-                    if (cont == null) {
-                        return false;
-                    }
-                    nextResultCont.set(cont);
-                    return true;
-                }), store.getExecutor());
+        return AsyncUtil.whileTrue(() -> {
+            validateSourceAndTargetIndexes(store);
+            return rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
+                if (cont == null) {
+                    return false;
+                }
+                nextResultCont.set(cont);
+                return true;
+            });
+        }, store.getExecutor());
     }
 
     @Nonnull
@@ -243,6 +235,19 @@ public class IndexingByIndex extends IndexingBase {
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );
+    }
+
+    private void validateSourceAndTargetIndexes(FDBRecordStore store) {
+        // first validate that both source and target are of a single, similar, type
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final Index srcIndex = getSourceIndex(metaData);
+        final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
+
+        validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
+        validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
+        validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
+        validateOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
+        validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
     }
 
     private void validateIdempotenceIfNecessary(@Nonnull FDBRecordStore store, @Nonnull IndexMaintainer maintainer) {
