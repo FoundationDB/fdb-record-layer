@@ -72,6 +72,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -249,6 +250,100 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             }
         }
         return future;
+    }
+
+    @Override
+    @Nonnull
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (isIdempotent()) {
+            // Idempotent indexes can just update the index data structures directly
+            return update(oldRecord, newRecord);
+        }
+        return state.store.loadIndexingTypeStampAsync(state.index).thenCompose(stamp -> {
+            if (stamp == null) {
+                // Either the index build has not started (in which case the record should not be
+                // indexed) or this is a by-records build that did not write the stamp, which can
+                // happen with certain kinds of segmented index builds.
+                return updateWriteOnlyByRecords(oldRecord, newRecord);
+            }
+            switch (stamp.getMethod()) {
+                case BY_RECORDS:
+                case MULTI_TARGET_BY_RECORDS:
+                    return updateWriteOnlyByRecords(oldRecord, newRecord);
+                case BY_INDEX:
+                    Object sourceIndexKey = Tuple.fromBytes(stamp.getSourceIndexSubspaceKey().toByteArray()).get(0);
+                    Index sourceIndex = state.store.getRecordMetaData().getIndexFromSubspaceKey(sourceIndexKey);
+                    return updateWriteOnlyByIndex(sourceIndex, oldRecord, newRecord);
+                default:
+                    throw new RecordCoreException("unable to update write-only index with current type stamp")
+                            .addLogInfo("stamp", stamp);
+            }
+        });
+    }
+
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyByRecords(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        // Check if the record has been built by checking its primary key in the range set. Update the index
+        // if it is a built range
+        Tuple primaryKey = oldRecord == null ? Verify.verifyNotNull(newRecord).getPrimaryKey() : oldRecord.getPrimaryKey();
+        return addedRangeWithKey(primaryKey).thenCompose(inRange ->
+                inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+    }
+
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyByIndex(@Nonnull Index sourceIndex, @Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
+        Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
+        Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
+        if (oldEntryKey != null && newEntryKey != null) {
+            if (oldEntryKey.equals(newEntryKey)) {
+                // The old and new record use the same key in the source index, so check if it has been
+                // built, and update the index if so
+                return addedRangeWithKey(oldEntryKey).thenCompose(inRange ->
+                        inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+            } else {
+                // The old and new record use different keys in the source index. Check each one individually,
+                // and then simulate deleting the old record (if needed) and adding the new record (if needed)
+                // Note: index maintainers on the same index are not thread safe, so the index updates need to
+                // be serialized here, but the range set checks can be executed concurrently
+                CompletableFuture<Boolean> oldInRangeFuture = addedRangeWithKey(oldEntryKey);
+                CompletableFuture<Boolean> newInRangeFuture = addedRangeWithKey(newEntryKey);
+                return oldInRangeFuture
+                        .thenCompose(oldInRange -> oldInRange ? update(oldRecord, null) : AsyncUtil.DONE)
+                        .thenCompose(ignore -> newInRangeFuture)
+                        .thenCompose(newInRange -> newInRange ? update(null, newRecord) : AsyncUtil.DONE);
+            }
+        } else {
+            Tuple entryKey = oldEntryKey == null ? newEntryKey : oldEntryKey;
+            if (entryKey == null) {
+                // Both the old and new entries are null. This can happen if there is an index maintenance filter
+                // results in one (or both) of the records being excluded from indexing. If the record(s) is/are
+                // excluded by the filter from the source index, then they must also be excluded from this index,
+                // so it is safe to just do nothing
+                return AsyncUtil.DONE;
+            } else {
+                // One of the entry keys is not null. Check if that one has been built, and then update if it
+                // is in the built range
+                return addedRangeWithKey(entryKey).thenCompose(inRange ->
+                        inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
+            }
+        }
+    }
+
+    @Nullable
+    private static <M extends Message> Tuple evaluateSingletonIndexKey(Index index, IndexMaintainer maintainer, @Nullable FDBIndexableRecord<M> record) {
+        if (record == null) {
+            return null;
+        }
+        List<IndexEntry> entries = maintainer.filteredIndexEntries(record);
+        if (entries == null || entries.isEmpty()) {
+            // If there is an IndexMaintenanceFilter on the index, this can return null/an empty list even if the
+            // index key expression always returns a single value. In this case, the record is excluded from the index
+            return null;
+        } else if (entries.size() != 1) {
+            throw new RecordCoreException("index produced incorrect number of entries for use as source index");
+        }
+        IndexEntry entry = entries.get(0);
+        // Make sure the primary key is included in the key
+        return FDBRecordStoreBase.indexEntryKey(index, entry.getKey(), record.getPrimaryKey());
     }
 
     /**

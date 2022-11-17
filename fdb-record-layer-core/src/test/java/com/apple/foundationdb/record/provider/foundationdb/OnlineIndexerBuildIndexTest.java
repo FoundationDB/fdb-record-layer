@@ -76,9 +76,11 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     }
 
     @SuppressWarnings("deprecation")
-    void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
-                                 int agents, boolean overlap, boolean splitLongRecords,
-                                 @Nonnull Index index, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
+    void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+                       @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+                       @Nullable List<Tuple> deleteWhileBuilding,
+                       int agents, boolean overlap, boolean splitLongRecords,
+                       @Nonnull Index index, @Nullable Index sourceIndex, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
                 TestLogMessageKeys.RECORDS, records.size(),
                 LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
@@ -93,6 +95,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             if (splitLongRecords) {
                 metaDataBuilder.setSplitLongRecords(true);
                 metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+            }
+            if (sourceIndex != null) {
+                metaDataBuilder.addIndex("MySimpleRecord", sourceIndex);
             }
         };
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
@@ -113,6 +118,16 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
             context.commit();
+        }
+
+        if (sourceIndex != null) {
+            LOGGER.info(KeyValueLogMessage.of("building source index",
+                    LogMessageKeys.INDEX_NAME, sourceIndex.getName()));
+            try (OnlineIndexer indexer = newIndexerBuilder()
+                    .setIndex(sourceIndex)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
         }
 
         LOGGER.info(KeyValueLogMessage.of("running before build for test"));
@@ -142,11 +157,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                 LogMessageKeys.LIMIT, 20,
                 TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
-        final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb)
-                .setMetaData(metaData)
+        final OnlineIndexer.Builder builder = newIndexerBuilder()
                 .setIndex(index)
-                .setSubspace(subspace)
                 .setConfigLoader(old -> {
                     OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
                             .setMaxLimit(20)
@@ -168,12 +180,18 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             LOGGER.info("Setting weak read semantics");
             builder.setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true));
         }
+        OnlineIndexer.IndexingPolicy.Builder indexingPolicy = OnlineIndexer.IndexingPolicy.newBuilder();
+
         if (!safeBuild) {
-            builder.setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                    .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                    .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
+            indexingPolicy.setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                    .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR);
             builder.setUseSynchronizedSession(false);
         }
+        if (sourceIndex != null) {
+            indexingPolicy.setSourceIndex(sourceIndex.getName())
+                    .setForbidRecordScan(true);
+        }
+        builder.setIndexingPolicy(indexingPolicy.build());
 
         try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
@@ -241,7 +259,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         fdb::mapAsyncToSyncException);
             }
 
-            if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
+            if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
                 int i = 0;
                 while (i < recordsWhileBuilding.size()) {
                     List<TestRecords1Proto.MySimpleRecord> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
@@ -251,6 +269,19 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         return null;
                     });
                     i += 30;
+                }
+            }
+
+            if (deleteWhileBuilding != null && !deleteWhileBuilding.isEmpty()) {
+                int i = 0;
+                while (i < deleteWhileBuilding.size()) {
+                    List<Tuple> thisBatch = deleteWhileBuilding.subList(i, Math.min(i + 10, deleteWhileBuilding.size()));
+                    fdb.run(context -> {
+                        FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
+                        thisBatch.forEach(store::deleteRecord);
+                        return null;
+                    });
+                    i += 10;
                 }
             }
 
@@ -277,11 +308,18 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
 
-            assertThat(indexBuilder.getTotalRecordsScanned(),
-                    allOf(
-                            greaterThanOrEqualTo((long)records.size()),
-                            lessThanOrEqualTo((long)records.size() + additionalScans)
-                    ));
+            // With a non-null source index, updated records aren't necessarily scanned. In particular, if a record is
+            // deleted from a range that has not been built and placed into a range that has already been built, the
+            // record might not be scanned
+            int updateRecordMargin = (sourceIndex == null || recordsWhileBuilding == null) ? 0 : recordsWhileBuilding.size();
+            int deletedRecordCount = deleteWhileBuilding == null ? 0 : deleteWhileBuilding.size();
+            if (sourceIndex == null || getIndexMaintenanceFilter().equals(IndexMaintenanceFilter.NORMAL)) {
+                assertThat(indexBuilder.getTotalRecordsScanned(),
+                        allOf(
+                                greaterThanOrEqualTo((long)(records.size() - deletedRecordCount - updateRecordMargin)),
+                                lessThanOrEqualTo((long)records.size() + additionalScans)
+                        ));
+            }
         }
         KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
         msg.addKeysAndValues(timer.getKeysAndValues());

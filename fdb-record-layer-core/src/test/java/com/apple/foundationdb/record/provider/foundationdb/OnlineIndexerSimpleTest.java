@@ -113,8 +113,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             final RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(index));
 
@@ -238,8 +238,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         };
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
                 recordStore.markIndexWriteOnly(index).join();
@@ -332,8 +332,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexBuilder.buildRange(null, null).join();
             assertEquals(Tuple.from(20100L), getAggregate.get());
@@ -359,8 +359,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -373,8 +373,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @Test
     public void run() {
         Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
                 .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(2)
@@ -459,8 +459,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @Test
     public void lessenLimits() {
         Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setLimit(100).setMaxRetries(30).setRecordsPerSecond(10000)
                 .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(3)
@@ -501,8 +501,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             queue.add(Pair.of(42, null));
         }
         reincreaseLimit(queue, index ->
-                OnlineIndexer.newBuilder()
-                        .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                newIndexerBuilder()
+                        .setIndex(index)
                         .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
                         .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                         .setMaxAttempts(3)
@@ -557,8 +557,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         queue.add(Pair.of(42, null));
 
         reincreaseLimit(queue, index ->
-                OnlineIndexer.newBuilder()
-                        .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                newIndexerBuilder()
+                        .setIndex(index)
                         .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
                         .setIncreaseLimitAfter(10)
                         .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
@@ -615,8 +615,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         Index index = runAsyncSetup();
 
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(3)
                 .setConfigLoader(old ->
@@ -662,8 +662,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             Index index = runAsyncSetup();
 
             FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                    .setIndex(index)
                     .setWeakReadSemantics(weakReadSemantics)
                     .build()) {
                 long readVersion = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
@@ -686,16 +686,16 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @Test
     public void runWithPriorities() throws InterruptedException, ExecutionException {
         Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
                 assertEquals(FDBTransactionPriority.BATCH, recordStore.getContext().getPriority());
                 return AsyncUtil.DONE;
             }).get();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setPriority(FDBTransactionPriority.DEFAULT)
                 .build()) {
             runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
@@ -726,34 +726,34 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         // Absent index
         RecordCoreException e = assertThrows(MetaDataException.class, () -> {
             Index absentIndex = new Index("absent", field("num_value_2"));
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(absentIndex).setSubspace(subspace).build();
+            newIndexerBuilder().setIndex(absentIndex).build();
         });
         assertEquals("Index absent not contained within specified metadata", e.getMessage());
         // Limit
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(-1).build()
+                newIndexerBuilder().setIndex(indexPrime).setLimit(-1).build()
         );
         assertEquals("Non-positive value -1 given for record limit", e.getMessage());
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(0).build()
+                newIndexerBuilder().setIndex(indexPrime).setLimit(0).build()
         );
         assertEquals("Non-positive value 0 given for record limit", e.getMessage());
         // Retries
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(-1).build()
+                newIndexerBuilder().setIndex(indexPrime).setMaxRetries(-1).build()
         );
         assertEquals("Non-positive value -1 given for maximum retries", e.getMessage());
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(0).build()
+                newIndexerBuilder().setIndex(indexPrime).setMaxRetries(0).build()
         );
         assertEquals("Non-positive value 0 given for maximum retries", e.getMessage());
         // Records per second
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(-1).build()
+                newIndexerBuilder().setIndex(indexPrime).setRecordsPerSecond(-1).build()
         );
         assertEquals("Non-positive value -1 given for records per second value", e.getMessage());
         e = assertThrows(RecordCoreException.class, () ->
-                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(0).build()
+                newIndexerBuilder().setIndex(indexPrime).setRecordsPerSecond(0).build()
         );
         assertEquals("Non-positive value 0 given for records per second value", e.getMessage());
         // WeakReadSemantics before runner
@@ -787,8 +787,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final CompletableFuture<Void> future;
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setLimit(1).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(Integer.MAX_VALUE)
                 .setTimer(timer)
                 .build()) {
@@ -823,8 +823,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             // No need to build range because there is no record.
             indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.buildEndpoints());
@@ -857,8 +857,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final CompletableFuture<Void> future;
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setConfigLoader(old ->
                         old.toBuilder()
                                 .setMaxLimit(old.getMaxLimit() - 1)
@@ -969,8 +969,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
 
         timer.reset();
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
                 .setTimer(timer)
                 .setIndex(index)
                 .setLimit(100000)
@@ -1000,8 +999,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexer.buildIndex(true);
         }
@@ -1033,8 +1032,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
                 .setTimeLimitMilliseconds(1)
                 .setLimit(20)
                 .setConfigLoader(old -> {

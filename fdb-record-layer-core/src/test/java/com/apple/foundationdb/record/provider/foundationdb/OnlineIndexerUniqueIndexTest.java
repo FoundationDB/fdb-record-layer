@@ -81,8 +81,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
 
@@ -123,8 +123,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
@@ -149,8 +149,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
@@ -182,8 +182,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -214,8 +214,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
@@ -249,8 +249,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
                 context.getReadVersion();
@@ -316,8 +316,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
@@ -366,8 +366,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
                 .build()) {
@@ -402,8 +402,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
                 .build()) {
@@ -465,8 +465,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // Force a RecordCoreException failure
         final String throwMsg = "Intentionally crash during test";
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setLimit(1)
                 .setConfigLoader(old -> {
@@ -481,8 +480,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // build normally
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(allowUniquePending))
@@ -542,8 +540,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
                 .build()) {
@@ -573,8 +571,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
@@ -650,8 +647,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
@@ -701,8 +697,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // mark readable via build index's short circuit
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
@@ -742,8 +737,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // partly build the index
         final AtomicLong counter = new AtomicLong(0);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setLimit(1)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -792,8 +786,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
         // build source index
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(srcIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
@@ -808,8 +801,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // build target index from source index (note - may fall back to by-records)
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).addTargetIndex(tgtIndex).setSubspace(subspace)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(tgtIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(srcIndex.getName())
                         .build())
