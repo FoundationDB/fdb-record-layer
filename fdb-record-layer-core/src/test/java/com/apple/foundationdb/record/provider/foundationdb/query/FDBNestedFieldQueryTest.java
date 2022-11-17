@@ -763,6 +763,103 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that AND clauses in queries on nested record fields and sorting work properly.
+     */
+    @DualPlannerTest
+    void nestedWithAndSorted() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("stats$school");
+            metaData.addIndex("RestaurantReviewer", "stats$cat_school_email",
+                    concat(field("category"), field("stats").nest("start_date"), field("email")));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.field("start_date").greaterThan(0L))))
+                .setSort(field("stats").nest("start_date"))
+                .build();
+
+        // Index(stats$cat_school_email ([1, 0],[1]])
+        RecordQueryPlan plan1 = planner.plan(query1);
+        assertMatchesExactly(plan1,
+                indexPlan()
+                        .where(indexName("stats$cat_school_email"))
+                        .and(scanComparisons(range("([1, 0],[1]]"))));
+        assertEquals(-54634325, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1388628388, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1652535859, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(Collections.singletonList(2L), fetchResultValues(plan1, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                ctx -> openNestedRecordStore(ctx, hook),
+                TestHelpers::assertDiscardedNone));
+
+        // Same query does more sorting than that.
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.field("start_date").greaterThan(0L))))
+                .setSort(concat(
+                        field("stats").nest("start_date"),
+                        field("email")))
+                .build();
+
+        RecordQueryPlan plan2 = planner.plan(query2);
+        assertEquals(plan1, plan2);
+    }
+
+    /**
+     * Verify that AND clauses in queries on nested record fields with nested equality and sorting work properly.
+     */
+    @DualPlannerTest
+    void nestedWithAndSortedEquality() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("stats$school");
+            metaData.addIndex("RestaurantReviewer", "stats$cat_school_email",
+                    concat(field("category"), field("stats").nest("start_date"), field("email")));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.field("start_date").equalsValue(1066L))))
+                .setSort(field("stats").nest("start_date"))
+                .build();
+
+        // Index(stats$cat_school_email [[1, 1066],[1, 1066]])
+        RecordQueryPlan plan1 = planner.plan(query1);
+        assertMatchesExactly(plan1,
+                indexPlan()
+                        .where(indexName("stats$cat_school_email"))
+                        .and(scanComparisons(range("[[1, 1066],[1, 1066]]"))));
+        assertEquals(-1814067790, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-2078371741, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(319501900, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(Collections.singletonList(2L), fetchResultValues(plan1, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                ctx -> openNestedRecordStore(ctx, hook),
+                TestHelpers::assertDiscardedNone));
+
+        // Some query with some reductive sorting.
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.field("start_date").equalsValue(1066L))))
+                .setSort(concat(
+                        field("stats").nest("start_date"),
+                        field("category"),
+                        field("email")))
+                .build();
+
+        RecordQueryPlan plan2 = planner.plan(query2);
+        assertEquals(plan1, plan2);
+    }
+
+    /**
      * Verify that queries on doubly nested records with fanout on the inner field work properly.
      */
     @DualPlannerTest

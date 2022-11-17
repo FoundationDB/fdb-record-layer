@@ -256,7 +256,10 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                     .setStartDate(0L)
                                     .setSchoolName("University of Learning")
                                     .setHometown("Home Town")
-                    ).build();
+
+                    )
+                    .setCategory(1)
+                    .build();
 
             TestRecords4Proto.RestaurantReviewer reviewer2 = TestRecords4Proto.RestaurantReviewer.newBuilder()
                     .setId(2L)
@@ -267,7 +270,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                     .setStartDate(1066L)
                                     .setSchoolName("Human University")
                                     .setHometown("Real Place")
-                    ).build();
+                    )
+                    .setCategory(1)
+                    .build();
 
             recordStore.saveRecord(reviewer1);
             recordStore.saveRecord(reviewer2);
