@@ -456,9 +456,9 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     @Nonnull
     default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
-                                                      @Nullable StoreTimer timer, @Nullable StoreTimer.Count in,
-                                                      @Nullable StoreTimer.Event during,
-                                                      @Nullable StoreTimer.Count success, @Nullable StoreTimer.Count failure) {
+                                               @Nullable StoreTimer timer, @Nullable StoreTimer.Count in,
+                                               @Nullable StoreTimer.Event during,
+                                               @Nullable StoreTimer.Count success, @Nullable StoreTimer.Count failure) {
         Set<StoreTimer.Count> inSet = in != null ? Collections.singleton(in) : Collections.emptySet();
         Set<StoreTimer.Event> duringSet = during != null ? Collections.singleton(during) : Collections.emptySet();
         Set<StoreTimer.Count> successSet = success != null ? Collections.singleton(success) : Collections.emptySet();
@@ -481,11 +481,11 @@ public interface RecordCursor<T> extends AutoCloseable {
      */
     @Nonnull
     default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
-                                                      @Nullable StoreTimer timer,
-                                                      @Nonnull Set<StoreTimer.Count> inSet,
-                                                      @Nonnull Set<StoreTimer.Event> duringSet,
-                                                      @Nonnull Set<StoreTimer.Count> successSet,
-                                                      @Nonnull Set<StoreTimer.Count> failureSet) {
+                                               @Nullable StoreTimer timer,
+                                               @Nonnull Set<StoreTimer.Count> inSet,
+                                               @Nonnull Set<StoreTimer.Event> duringSet,
+                                               @Nonnull Set<StoreTimer.Count> successSet,
+                                               @Nonnull Set<StoreTimer.Count> failureSet) {
         if (timer == null) {
             return filter(pred);
         }
@@ -614,10 +614,10 @@ public interface RecordCursor<T> extends AutoCloseable {
      */
     @Nonnull
     static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
-                                                          @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
-                                                          @Nullable Function<T, byte[]> checker,
-                                                          @Nullable byte[] continuation,
-                                                          int pipelineSize) {
+                                                   @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
+                                                   @Nullable Function<T, byte[]> checker,
+                                                   @Nullable byte[] continuation,
+                                                   int pipelineSize) {
         if (continuation == null) {
             return new FlatMapPipelinedCursor<>(outerFunc.apply(null), innerFunc, checker,
                     null, null, null,
@@ -653,11 +653,11 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     @Nonnull
     default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred, int pipelineSize,
-                                                           @Nullable StoreTimer timer,
-                                                           @Nullable StoreTimer.Count in,
-                                                           @Nullable StoreTimer.Event during,
-                                                           @Nullable StoreTimer.Count success,
-                                                           @Nullable StoreTimer.Count failure) {
+                                                    @Nullable StoreTimer timer,
+                                                    @Nullable StoreTimer.Count in,
+                                                    @Nullable StoreTimer.Event during,
+                                                    @Nullable StoreTimer.Count success,
+                                                    @Nullable StoreTimer.Count failure) {
         Set<StoreTimer.Count> inSet = in != null ? Collections.singleton(in) : Collections.emptySet();
         Set<StoreTimer.Event> duringSet = during != null ? Collections.singleton(during) : Collections.emptySet();
         Set<StoreTimer.Count> successSet = success != null ? Collections.singleton(success) : Collections.emptySet();
@@ -682,12 +682,12 @@ public interface RecordCursor<T> extends AutoCloseable {
     @Nonnull
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
     default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred,
-                                                           int pipelineSize,
-                                                           @Nullable StoreTimer timer,
-                                                           @Nonnull Set<StoreTimer.Count> inSet,
-                                                           @Nonnull Set<StoreTimer.Event> duringSet,
-                                                           @Nonnull Set<StoreTimer.Count> successSet,
-                                                           @Nonnull Set<StoreTimer.Count> failureSet) {
+                                                    int pipelineSize,
+                                                    @Nullable StoreTimer timer,
+                                                    @Nonnull Set<StoreTimer.Count> inSet,
+                                                    @Nonnull Set<StoreTimer.Event> duringSet,
+                                                    @Nonnull Set<StoreTimer.Count> successSet,
+                                                    @Nonnull Set<StoreTimer.Count> failureSet) {
         if (timer == null) {
             return filterAsync(pred, pipelineSize);
         }

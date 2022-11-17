@@ -79,10 +79,11 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
+        final var binding = (QueryResult)context.getBinding(alias);
         if (resultType.getTypeCode() == Type.TypeCode.RECORD) {
-            return ((QueryResult)context.getBinding(alias)).getMessage();
+            return binding.getDatum() == null ? null : binding.getMessage();
         } else {
-            return ((QueryResult)context.getBinding(alias)).getDatum();
+            return binding.getDatum();
         }
     }
 
@@ -110,7 +111,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Override
     public String toString() {
-        return alias.equals(Quantifier.CURRENT) ? "_" : "$" + alias;
+        return alias.equals(Quantifier.current()) ? "_" : "$" + alias;
     }
 
     @Override

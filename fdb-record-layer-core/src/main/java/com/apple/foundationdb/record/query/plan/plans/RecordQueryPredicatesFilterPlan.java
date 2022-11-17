@@ -95,11 +95,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nullable
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
-        final var datum = queryResult.getDatum();
-        if (datum == null) {
-            return null;
-        }
-
         final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
         return conjunctedPredicate.eval(store, nestedContext);
     }

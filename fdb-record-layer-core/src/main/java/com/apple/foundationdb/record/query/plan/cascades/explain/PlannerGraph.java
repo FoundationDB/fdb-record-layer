@@ -129,6 +129,24 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
+    public static PlannerGraph fromNodeInnerAndTargetForModifications(@Nonnull final Node node,
+                                                                      @Nonnull final PlannerGraph innerGraph,
+                                                                      @Nonnull final PlannerGraph targetGraph) {
+        final InternalPlannerGraphBuilder plannerGraphBuilder =
+                builder(node);
+
+        GroupExpressionRefEdge edge;
+        edge = new GroupExpressionRefEdge(null, ImmutableSet.of());
+        plannerGraphBuilder
+                .addGraph(innerGraph)
+                .addEdge(innerGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
+        edge = new ModificationTargetEdge(null, ImmutableSet.of(edge));
+        plannerGraphBuilder
+                .addGraph(targetGraph)
+                .addEdge(targetGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
+        return plannerGraphBuilder.build();
+    }
+
     private static List<? extends Quantifier> tryGetQuantifiers(@Nonnull final Node node) {
         if (node instanceof WithExpression) {
             @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
@@ -407,6 +425,42 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
+     * Node class for actual plan operators.
+     */
+    @SuppressWarnings("squid:S2160")
+    public static class ModificationOperatorNodeWithInfo extends OperatorNodeWithInfo {
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo) {
+            this(recordQueryPlan, nodeInfo, null);
+        }
+
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nullable final List<String> details) {
+            this(recordQueryPlan, nodeInfo, details, ImmutableMap.of());
+        }
+
+        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nullable final List<String> details,
+                                                @Nonnull final Map<String, Attribute> additionalAttributes) {
+            super(recordQueryPlan, nodeInfo, details, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public String getStyle() {
+            return "filled";
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "lightcoral";
+        }
+    }
+
+    /**
      * Node class for logical operators.
      */
     @SuppressWarnings("squid:S2160")
@@ -507,6 +561,24 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public RelationalExpression getExpression() {
             return expression;
+        }
+    }
+
+    /**
+     * Node class for logical operators that also have a {@link NodeInfo}.
+     */
+    public static class ModificationLogicalOperatorNode extends LogicalOperatorNodeWithInfo {
+        public ModificationLogicalOperatorNode(@Nullable final RelationalExpression expression,
+                                               final NodeInfo nodeInfo,
+                                               @Nullable final List<String> details,
+                                               final Map<String, Attribute> additionalAttributes) {
+            super(expression, nodeInfo, details, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "darkseagreen4";
         }
     }
 
@@ -651,6 +723,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .put("fontsize", Attribute.dot(getFontSize()))
                     .put("arrowhead", Attribute.dot(getArrowHead()))
                     .put("arrowtail", Attribute.dot(getArrowTail()))
+                    .put("dir", Attribute.dot("both"))
                     .build();
         }
 
@@ -755,7 +828,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for for-each quantifiers.
+     * Edge class for physical quantifiers.
      */
     public static class PhysicalQuantifierEdge extends GroupExpressionRefEdge {
         public PhysicalQuantifierEdge() {
@@ -774,6 +847,35 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public String getStyle() {
             return "bold";
+        }
+    }
+
+    /**
+     * Edge class for modification (delete, insert, update) targets.
+     */
+    public static class ModificationTargetEdge extends GroupExpressionRefEdge {
+        public ModificationTargetEdge() {
+            this(null, ImmutableSet.of());
+        }
+
+        public ModificationTargetEdge(final Set<? extends AbstractEdge> dependsOn) {
+            super(null, dependsOn);
+        }
+
+        public ModificationTargetEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            super(label, dependsOn);
+        }
+
+        @Nonnull
+        @Override
+        public String getArrowHead() {
+            return "none";
+        }
+
+        @Nonnull
+        @Override
+        public String getArrowTail() {
+            return "normal";
         }
     }
 

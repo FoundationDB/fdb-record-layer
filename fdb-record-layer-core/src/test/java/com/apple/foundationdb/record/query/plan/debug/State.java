@@ -52,7 +52,6 @@ class State {
 
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
-
     @Nonnull
     private final Cache<Integer, RelationalExpression> expressionCache;
     @Nonnull private final Cache<RelationalExpression, Integer> invertedExpressionsCache;

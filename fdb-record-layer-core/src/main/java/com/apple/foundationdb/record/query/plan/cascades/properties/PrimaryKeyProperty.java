@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExp
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -50,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -61,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -98,6 +102,13 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
      * e.g. primary keys, or if the result does not flow them.
      */
     public static class PrimaryKeyVisitor implements RecordQueryPlanVisitor<Optional<List<Value>>> {
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+            // TODO make better
+            return Optional.empty();
+        }
+
         @Nonnull
         @Override
         public Optional<List<Value>> visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
@@ -140,6 +151,12 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
+        public Optional<List<Value>> visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+            return primaryKeyFromSingleChild(deletePlan);
+        }
+
+        @Nonnull
+        @Override
         public Optional<List<Value>> visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
             return commonPrimaryKeyFromChildren(intersectionOnKeyExpressionPlan);
         }
@@ -170,7 +187,20 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
+        public Optional<List<Value>> visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
         public Optional<List<Value>> visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+            // TODO make better
             return Optional.empty();
         }
 

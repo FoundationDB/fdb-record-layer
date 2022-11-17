@@ -78,7 +78,7 @@ public class CorrelationIdentifier {
 
     /**
      * Create a new correlation identifier. The returned correlation identifier can be assumed
-     * to be unique.
+     * to be unique for the given class.
      * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @param prefix a prefix for the returned identifier
@@ -92,6 +92,22 @@ public class CorrelationIdentifier {
                         .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
         Debugger.updateIndex(clazz, i -> i + 1);
         return id;
+    }
+
+    /**
+     * Create a new correlation identifier. The returned correlation identifier can be assumed to be unique and stable
+     * for subsequent calls. The advantage of using this approach for singletons is that this method returns rather
+     * readable identifier names when a debugger is installed.
+     * @param singleton to specify the singleton this identifier is going to be used for. This is really only useful
+     *        if a {@link Debugger} is set.
+     * @param prefix a prefix for the returned identifier
+     * @return a new unique {@link CorrelationIdentifier}
+     */
+    @Nonnull
+    public static CorrelationIdentifier uniqueSingletonID(@Nonnull final UUID singleton, @Nonnull final String prefix) {
+        return Debugger.getOrRegisterSingleton(singleton)
+                .map(index -> new CorrelationIdentifier(prefix + index))
+                .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
     }
 
     private CorrelationIdentifier(@Nonnull final String id) {

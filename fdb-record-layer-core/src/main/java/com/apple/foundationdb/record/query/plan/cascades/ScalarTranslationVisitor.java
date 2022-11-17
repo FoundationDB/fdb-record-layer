@@ -200,7 +200,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
         return primaryKeyComponents
                 .stream()
-                .map(primaryKeyComponent -> new ScalarTranslationVisitor(primaryKeyComponent).toResultValue(Quantifier.CURRENT, flowedType))
+                .map(primaryKeyComponent -> new ScalarTranslationVisitor(primaryKeyComponent).toResultValue(Quantifier.current(), flowedType))
                 .collect(ImmutableList.toImmutableList());
     }
 

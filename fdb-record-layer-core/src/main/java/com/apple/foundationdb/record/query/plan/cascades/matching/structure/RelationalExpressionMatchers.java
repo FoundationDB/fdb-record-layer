@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -35,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScan
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -43,6 +46,8 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopExpressionReferenceMatcher;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
@@ -51,6 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Matchers for descendants of {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
@@ -124,7 +130,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalDistinctExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalDistinctExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -134,7 +140,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalFilterExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalFilterExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -145,7 +151,7 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                                   @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, AnyMatcher.any(downstreamPredicates), AnyMatcher.any(downstreamQuantifiers));
+        return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, any(downstreamPredicates), any(downstreamQuantifiers));
     }
 
     @Nonnull
@@ -156,7 +162,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalProjectionExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalProjectionExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -166,7 +172,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalSortExpression> logicalSortExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalSortExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalSortExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -176,7 +182,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalTypeFilterExpression> logicalTypeFilterExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalTypeFilterExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalTypeFilterExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -186,7 +192,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalUnionExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(LogicalUnionExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -206,7 +212,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(SelectExpression.class, AnyMatcher.any(downstream));
+        return ofTypeOwning(SelectExpression.class, any(downstream));
     }
 
     @Nonnull
@@ -217,7 +223,7 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                     @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(SelectExpression.class, AnyMatcher.any(downstreamPredicates), AnyMatcher.any(downstreamQuantifiers));
+        return ofTypeWithPredicatesAndOwning(SelectExpression.class, any(downstreamPredicates), any(downstreamQuantifiers));
     }
 
     @Nonnull
@@ -232,8 +238,8 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(GroupByExpression.class, downstream);
+    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(GroupByExpression.class, only(downstream));
     }
 
     @Nonnull
@@ -249,5 +255,20 @@ public class RelationalExpressionMatchers {
                                 typedWithDownstream(GroupByExpression.class,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                         downstreamQuantifiers))));
+    }
+
+    @Nonnull
+    public static BindingMatcher<DeleteExpression> deleteExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(DeleteExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<InsertExpression> insertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(InsertExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(UpdateExpression.class, only(downstream));
     }
 }

@@ -264,7 +264,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             }
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
             if (parameterId.equals(scoreAlias)) {
@@ -312,7 +312,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             }
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
             if (i == scoreOrdinal) {
@@ -331,7 +331,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             }
 
             final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.CURRENT,
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
             //

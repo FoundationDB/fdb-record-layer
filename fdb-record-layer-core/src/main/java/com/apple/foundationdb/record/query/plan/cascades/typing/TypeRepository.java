@@ -179,6 +179,19 @@ public class TypeRepository {
     }
 
     /**
+     * Gets the protobuf message descriptor for the given message type.
+     *
+     * @param type the type the caller wants to look up
+     * @return the message descriptor (null if not found)
+     */
+    @Nullable
+    public Descriptor getMessageDescriptor(@Nonnull final Type type) {
+        String msgTypeName = getProtoTypeName(type);
+        return getMessageDescriptor(msgTypeName);
+    }
+
+
+    /**
      * Gets the enum value for the given enum type and name.
      *
      * @param enumTypeName the enum type name

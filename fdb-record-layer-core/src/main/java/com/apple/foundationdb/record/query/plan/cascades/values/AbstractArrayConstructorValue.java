@@ -30,20 +30,16 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -124,18 +120,17 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                     return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
-        final Type elementType = resolveElementType(arguments);
+        final Type elementType = resolveElementType(null, arguments);
         return new LightArrayConstructorValue(arguments, elementType);
     }
 
-    private static Type resolveElementType(@Nonnull final Iterable<? extends Typed> argumentTypeds) {
+    private static Type resolveElementType(@Nullable Type defaultType, @Nonnull final Iterable<? extends Typed> argumentTypeds) {
+        Verify.verifyNotNull(defaultType != null || !Iterables.isEmpty(argumentTypeds));
+        defaultType = defaultType == null ? new Type.Any() : defaultType;
+
         return StreamSupport.stream(argumentTypeds.spliterator(), false)
                 .map(Typed::getResultType)
-                .reduce(new Type.Any(), (l, r) -> {
-                    if (l == null || r == null) {
-                        throw new IllegalStateException("should not be here");
-                    }
-
+                .reduce(defaultType, (l, r) -> {
                     if (l instanceof Type.Any) {
                         return r;
                     }
@@ -156,7 +151,15 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
      */
     @SuppressWarnings("java:S2160")
     public static class LightArrayConstructorValue extends AbstractArrayConstructorValue {
-        public LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
+        private LightArrayConstructorValue(@Nonnull final List<? extends Value> children) {
+            this(children, AbstractArrayConstructorValue.resolveElementType(null, children));
+        }
+
+        private LightArrayConstructorValue(@Nonnull final Type elementType) {
+            this(ImmutableList.of(), elementType);
+        }
+
+        private LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
             super(children, elementType);
         }
 
@@ -172,51 +175,28 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         @Nonnull
         @Override
         public LightArrayConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-            Verify.verify(!Iterables.isEmpty(newChildren));
-            Verify.verifyNotNull(resolveElementType(newChildren).equals(getElementType()));
+            if (Iterables.isEmpty(newChildren)) {
+                return this;
+            }
+            Verify.verify(resolveElementType(null, newChildren).equals(getElementType()));
             return new LightArrayConstructorValue(ImmutableList.copyOf(newChildren), getElementType());
         }
-    }
 
-    /**
-     * Full array with general child proto construction.
-     */
-    @SuppressWarnings("java:S2160")
-    public static class ArrayConstructorValue extends AbstractArrayConstructorValue {
-
-        public ArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
-            super(children, elementType);
-        }
-
-        @Nullable
-        @Override
-        @SuppressWarnings("java:S6213")
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getTypeRepository());
-            final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
-            return StreamSupport.stream(getChildren().spliterator(), false)
-                    .map(child -> {
-                        final Object childResultElement = child.eval(store, context);
-                        final DynamicMessage.Builder helperMessageBuilder = DynamicMessage.newBuilder(descriptorForType);
-                        if (childResultElement != null) {
-                            helperMessageBuilder.setField(descriptorForType.findFieldByNumber(1), childResultElement);
-                        }
-                        return helperMessageBuilder.build();
-                    })
-                    .collect(ImmutableList.toImmutableList());
+        @Nonnull
+        public static LightArrayConstructorValue of(@Nonnull final Value value1, @Nonnull final Value... valuesN) {
+            final var children = ImmutableList.<Value>builder().add(value1).add(valuesN).build();
+            return of(children);
         }
 
         @Nonnull
-        @Override
-        public ArrayConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-            Verify.verify(!Iterables.isEmpty(newChildren));
-            Verify.verifyNotNull(resolveElementType(newChildren).equals(getElementType()));
-            return new ArrayConstructorValue(ImmutableList.copyOf(newChildren), getElementType());
+        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children) {
+            Verify.verify(!children.isEmpty());
+            return new LightArrayConstructorValue(children);
         }
 
         @Nonnull
-        private DynamicMessage.Builder newMessageBuilderForType(@Nonnull TypeRepository typeRepository) {
-            return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
+        public static LightArrayConstructorValue emptyArray(@Nonnull final Type elementType) {
+            return new LightArrayConstructorValue(elementType);
         }
     }
 

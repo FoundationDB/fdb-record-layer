@@ -208,7 +208,7 @@ class TypeRepositoryTest {
     @Test
     void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
         try {
-            new AbstractArrayConstructorValue.ArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
+            new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
@@ -237,7 +237,7 @@ class TypeRepositoryTest {
         Assertions.assertTrue(value instanceof RecordConstructorValue);
         final RecordConstructorValue recordConstructorValue = (RecordConstructorValue)value;
         final Type resultType = recordConstructorValue.getResultType();
-        Assertions.assertEquals(Type.Record.fromFields(List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
+        Assertions.assertEquals(Type.Record.fromFields(false, List.of(Type.Record.Field.of(STRING_1.getResultType(), Optional.empty()),
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
                 )), resultType);

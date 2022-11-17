@@ -266,8 +266,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
                 assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(1846797500, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             byte[] continuation = null;
             List<TestRecords1Proto.MySimpleRecord> retrieved = new ArrayList<>(100);
@@ -347,7 +347,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertMatchesExactly(plan,
                         predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
                                 .where(predicates(only(valuePredicate(fieldValueWithFieldNames(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0))))));
-                assertEquals(-1244637277, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-1434217392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
             continuation = null;
             retrieved = new ArrayList<>(50);
@@ -695,7 +695,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-                assertEquals(-1152844011, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-1152849777, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
 
             assertEquals(Arrays.asList(800L, 1776L),

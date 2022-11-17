@@ -164,7 +164,7 @@ class OrderingTest {
         final var c = of(field(rcv, "c"));
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
         final var rcv2 = rcvWrapper("a", "b", "c");
-        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = of(field(qov, "ap"));
         final var bp = of(field(qov, "bp"));
         final var cp = of(field(qov, "cp"));
@@ -184,7 +184,7 @@ class OrderingTest {
         final var d = of(field(rcv, "d"));
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
         final var rcv2 = rcvWrapper("a", "b", "c");
-        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = of(field(qov, "ap"));
         final var bp = of(field(qov, "bp"));
         final var cp = of(field(qov, "cp"));
@@ -203,7 +203,6 @@ class OrderingTest {
         final var c = of(field(rcv, "c")); // a <- b <- c
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
         final var rcv2 = rcvWrapper("b", "c");
-        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
         final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
         assertEquals(
@@ -222,7 +221,7 @@ class OrderingTest {
         //   <- d
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b, d, a));
         final var rcv2 = rcvWrapper("a", "d");
-        final var qov = QuantifiedObjectValue.of(Quantifier.CURRENT, rcv2.getResultType());
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = of(field(qov, "ap"));
         final var dp = of(field(qov, "dp"));
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);

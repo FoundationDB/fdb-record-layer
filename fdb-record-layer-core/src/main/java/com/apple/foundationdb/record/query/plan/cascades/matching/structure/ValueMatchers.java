@@ -21,12 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -139,13 +137,6 @@ public class ValueMatchers {
         return typedWithDownstream(ArithmeticValue.class,
                 Extractor.of(ArithmeticValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
-    }
-
-    @Nonnull
-    public static BindingMatcher<QuantifiedObjectValue> currentObjectValue() {
-        return typedWithDownstream(QuantifiedObjectValue.class,
-                Extractor.of(QuantifiedObjectValue::getAlias, name -> "alias(" + name + ")"),
-                PrimitiveMatchers.equalsObject(Quantifier.CURRENT));
     }
 
     @Nonnull

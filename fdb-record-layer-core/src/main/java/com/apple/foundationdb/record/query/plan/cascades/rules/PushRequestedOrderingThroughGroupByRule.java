@@ -40,7 +40,6 @@ import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.groupByExpression;
 
@@ -55,7 +54,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<GroupByExpression> root =
-            groupByExpression(any(innerQuantifierMatcher));
+            groupByExpression(innerQuantifierMatcher);
 
     public PushRequestedOrderingThroughGroupByRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -88,7 +87,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var resultValue = groupByExpression.getResultValue(); // full result value
         final var groupingValue = groupByExpression.getGroupingValue();
-        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.CURRENT));
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.current()));
 
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {

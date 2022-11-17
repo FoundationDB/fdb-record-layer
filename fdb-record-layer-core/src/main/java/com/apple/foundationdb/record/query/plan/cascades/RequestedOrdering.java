@@ -164,9 +164,9 @@ public class RequestedOrdering {
                         .collect(ImmutableList.toImmutableList());
 
         final var pushedDownOrderingValues =
-                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
 
-        final var translationMap = AliasMap.of(lowerBaseAlias, Quantifier.CURRENT);
+        final var translationMap = AliasMap.of(lowerBaseAlias, Quantifier.current());
 
         final var pushedDownOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
         for (int i = 0; i < orderingParts.size(); i++) {
