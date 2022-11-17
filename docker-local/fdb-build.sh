@@ -104,10 +104,4 @@ $MVN_HOME/mvn install:install-file \
    -DgeneratePom=true
 
 echo "-----------------------------------------------------"
-echo "Pulling docker images"
-aws ecr get-login-password | docker login --username AWS --password-stdin 112664522426.dkr.ecr.us-west-2.amazonaws.com
-docker pull 112664522426.dkr.ecr.us-west-2.amazonaws.com/foundationdb/foundationdb:${FDB_VERSION}-${OKTETO_USERNAME}
-docker tag 112664522426.dkr.ecr.us-west-2.amazonaws.com/foundationdb/foundationdb:${FDB_VERSION}-${OKTETO_USERNAME} foundationdb/foundationdb:${FDB_VERSION}-${OKTETO_USERNAME}
-
-echo "-----------------------------------------------------"
 echo "Done building. Start docker image by issuing the command: " FDB_VERSION=${FDB_VERSION}-${OKTETO_USERNAME} ./start.sh
