@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -72,7 +73,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                streamGrouping.finalizeGroup();
+                if (!isNoRecords() || streamGrouping.isResultOnEmpty()) {
+                    streamGrouping.finalizeGroup();
+                }
                 return false;
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
@@ -81,7 +84,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
-            if ((previousValidResult == null) && (!previousResult.hasNext())) {
+            if (isNoRecords()) {
                 // Edge case where there are no records at all
                 if (streamGrouping.isResultOnEmpty()) {
                     return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
@@ -90,9 +93,13 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 }
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
-            RecordCursorContinuation continuation = previousValidResult.getContinuation();
+            RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();
             return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
         });
+    }
+    
+    private boolean isNoRecords() {
+        return ((previousValidResult == null) && (!Verify.verifyNotNull(previousResult).hasNext()));
     }
 
     @Override

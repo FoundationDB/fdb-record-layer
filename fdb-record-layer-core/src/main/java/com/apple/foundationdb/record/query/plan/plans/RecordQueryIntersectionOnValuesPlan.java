@@ -50,7 +50,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
                                                @Nonnull final List<? extends Value> comparisonKeyValues,
                                                final boolean reverse) {
         super(quantifiers,
-                new ComparisonKeyFunction.OnValues(Quantifier.CURRENT, comparisonKeyValues),
+                new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
                 reverse);
     }
 
@@ -65,7 +65,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
         return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.CURRENT, newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
+                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
     }
 

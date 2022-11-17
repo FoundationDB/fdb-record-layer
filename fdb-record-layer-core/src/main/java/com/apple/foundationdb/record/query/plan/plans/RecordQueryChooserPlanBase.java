@@ -25,8 +25,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.ValuePickerValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -133,15 +134,15 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     /**
      * This utility calculates the list of values that are returned by the plan. The plan returns a list of
-     * {@link ValuePickerValue} that each represent the values returned by one of the child plans.
-     * Each {@link ValuePickerValue} holds a "selected index" that determines which of the sub-values it references, so
+     * {@link PickValue} that each represent the values returned by one of the child plans.
+     * Each {@link PickValue} holds a "selected index" that determines which of the sub-values it references, so
      * that, in all, when the same "selected index" is chosen for all picker value, one would get back a consistent set
      * of values, representing one of the child plans for this plan.
      *
-     * @return a {@link ValuePickerValue} representing the values from all the sub plans
+     * @return a {@link PickValue} representing the values from all the sub plans
      */
     private static Value calculateChildrenValues(@Nonnull final List<? extends Quantifier> quantifiers) {
-        return new ValuePickerValue(0, quantifiers.stream()
+        return new PickValue(LiteralValue.ofScalar(0), quantifiers.stream()
                 .map(Quantifier::getFlowedObjectValue)
                 .collect(ImmutableList.toImmutableList()));
     }

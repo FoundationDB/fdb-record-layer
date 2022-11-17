@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -391,10 +392,19 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
 
         public RecordQueryPlan build(final boolean useNestedResult) {
+            final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+            final var aggregateAlias = CorrelationIdentifier.uniqueID();
+
+            final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
+            final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
             return RecordQueryStreamingAggregationPlan.of(quantifier,
-                    RecordConstructorValue.ofUnnamed(groupValues),
-                    RecordConstructorValue.ofUnnamed(aggregateValues),
-                    useNestedResult ? RecordQueryStreamingAggregationPlan::nestedResults : RecordQueryStreamingAggregationPlan::flattenedResults);
+                    groupingKeyValue,
+                    aggregateValue,
+                    groupingKeyAlias,
+                    aggregateAlias,
+                    useNestedResult
+                    ? RecordQueryStreamingAggregationPlan.nestedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias)
+                    : RecordQueryStreamingAggregationPlan.flattenedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
         }
 
         private Value createFieldValue(final String fieldName) {

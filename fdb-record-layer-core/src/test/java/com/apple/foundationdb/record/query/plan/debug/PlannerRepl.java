@@ -34,6 +34,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import org.jline.reader.EndOfFileException;
@@ -99,6 +100,8 @@ public class PlannerRepl implements Debugger {
     private String queryAsString;
     @Nullable
     private PlanContext planContext;
+    @Nonnull
+    private final Map<Object, Integer> singletonToIndexMap;
 
     @Nonnull
     private final Terminal terminal;
@@ -117,6 +120,7 @@ public class PlannerRepl implements Debugger {
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
         this.planContext = null;
+        this.singletonToIndexMap = Maps.newHashMap();
         this.terminal = terminal;
         this.lineReader = null;
         this.exitOnQuit = exitOnQuit;
@@ -165,6 +169,12 @@ public class PlannerRepl implements Debugger {
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
         getCurrentState().registerQuantifier(quantifier);
+    }
+
+    @Override
+    public int onGetOrRegisterSingleton(@Nonnull final Object singleton) {
+        final var size = singletonToIndexMap.size();
+        return singletonToIndexMap.computeIfAbsent(singleton, s -> size);
     }
 
     @Override

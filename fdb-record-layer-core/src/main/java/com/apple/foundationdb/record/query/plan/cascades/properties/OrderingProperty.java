@@ -27,18 +27,20 @@ import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryP
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -51,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExp
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -58,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -69,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -113,6 +118,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
         @Nonnull
         @Override
+        public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+            return Ordering.emptyOrder();
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             final var childOrdering = orderingFromSingleChild(predicatesFilterPlan);
 
@@ -146,7 +157,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                     !fieldValueComparisonPair.getRight().getCorrelatedTo().contains(predicatesFilterPlan.getInner().getAlias()))
                             .map(valueComparisonPair -> {
                                 final var fieldValue = valueComparisonPair.getLeft();
-                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.CURRENT);
+                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.current());
                                 return Pair.of(fieldValue.rebase(translationMap), valueComparisonPair.getRight());
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
@@ -192,6 +203,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+            return orderingFromSingleChild(deletePlan);
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
             return Ordering.emptyOrder();
         }
@@ -202,7 +219,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var childOrdering = orderingFromSingleChild(mapPlan);
             final var resultValue = mapPlan.getResultValue();
 
-            return childOrdering.pullUp(resultValue, AliasMap.of(mapPlan.getInner().getAlias(), Quantifier.CURRENT), mapPlan.getCorrelatedTo());
+            return childOrdering.pullUp(resultValue, AliasMap.of(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -225,7 +242,22 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+            return Ordering.ofUnnormalized(ImmutableSetMultimap.of(),
+                    PartiallyOrderedSet.of(
+                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT)))),
+                            ImmutableSetMultimap.of()), true);
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+            return Ordering.emptyOrder();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
             return Ordering.emptyOrder();
         }
 
@@ -379,13 +411,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
             var maxCardinality = outerCardinalities.getMaxCardinality();
             if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
-                return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
+                return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
             maxCardinality = innerCardinalities.getMaxCardinality();
             if (!innerOrdering.isDistinct() || (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L)) {
-                return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.CURRENT), correlatedTo);
+                return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             //
@@ -432,7 +464,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
 
-            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.of(streamingAggregationPlan.getInner().getAlias(), Quantifier.CURRENT), streamingAggregationPlan.getCorrelatedTo());
+            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.of(streamingAggregationPlan.getInner().getAlias(), Quantifier.current()), streamingAggregationPlan.getCorrelatedTo());
         }
 
         @Nonnull

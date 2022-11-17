@@ -1,5 +1,5 @@
 /*
- * TransformValueTest.java
+ * MessageTransformationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,78 +21,75 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.TestRecordsTransformProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.TransformValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang3.tuple.Pair;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 /**
- * Tests different aspects of functionality provided by {@link TransformValue}.
+ * Tests different aspects of functionality transforming a message through a multitude of replacements.
  */
-class TransformValueTest {
+@SuppressWarnings("ConstantConditions")
+class MessageTransformationTest {
     @Test
     void testTransformTrie() {
         final var recordType = someRecordType();
-        var fields = recordType.getFields();
-        final var aField = fields.get(0);
-        fields = ((Type.Record)aField.getFieldType()).getFields();
-        final var aaField = fields.get(0);
-        final var abField = fields.get(1);
-        fields = ((Type.Record)aaField.getFieldType()).getFields();
-        final var aaaField = fields.get(0);
-        final var aabField = fields.get(1);
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, recordType);
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), recordType);
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
+        
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
 
-        final var transformValue =
-                new TransformValue(inValue,
-                        ImmutableMap.of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
-                                a_aa_aab.getFieldPath(), new LiteralValue<>(2),
-                                a_ab.getFieldPath(), new LiteralValue<>(3)));
-        final var transformMap = transformValue.getTransformMap();
-        final var transformTrie = transformValue.getTransformTrie();
+        final var transformTrie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
         Assertions.assertNull(transformTrie.getValue());
         var childrenMap = transformTrie.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        Assertions.assertTrue(childrenMap.containsKey(Pair.of(0, aField.getFieldType())));
+        Assertions.assertTrue(childrenMap.containsKey(0)); //aField
         Assertions.assertEquals(1, childrenMap.size());
-        var aTrie = childrenMap.get(Pair.of(0, aField.getFieldType()));
+        var aTrie = childrenMap.get(0); // aField
         Assertions.assertNull(aTrie.getValue());
         childrenMap = aTrie.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        Assertions.assertTrue(childrenMap.containsKey(Pair.of(0, aaField.getFieldType())));
-        Assertions.assertTrue(childrenMap.containsKey(Pair.of(1, abField.getFieldType())));
+        Assertions.assertTrue(childrenMap.containsKey(0)); // aaField
+        Assertions.assertTrue(childrenMap.containsKey(1)); // abField
         Assertions.assertEquals(2, childrenMap.size());
-        var aaTrie = childrenMap.get(Pair.of(0, aaField.getFieldType()));
+        var aaTrie = childrenMap.get(0); // aaField
         Assertions.assertNull(aaTrie.getValue());
         childrenMap = aaTrie.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        Assertions.assertTrue(childrenMap.containsKey(Pair.of(0, aaaField.getFieldType())));
-        Assertions.assertTrue(childrenMap.containsKey(Pair.of(1, aabField.getFieldType())));
+        Assertions.assertTrue(childrenMap.containsKey(0)); // aaaField
+        Assertions.assertTrue(childrenMap.containsKey(1)); // aabField
         Assertions.assertEquals(2, childrenMap.size());
-        var aaaTrie = childrenMap.get(Pair.of(0, aaaField.getFieldType()));
+        var aaaTrie = childrenMap.get(0); // aaaField
         Assertions.assertNull(aaaTrie.getChildrenMap());
         Assertions.assertNotNull(aaaTrie.getValue());
         Assertions.assertEquals(aaaTrie.getValue(), transformMap.get(a_aa_aaa.getFieldPath()));
-        var aabTrie = childrenMap.get(Pair.of(1, aabField.getFieldType()));
+        var aabTrie = childrenMap.get(1); // aabField
         Assertions.assertEquals(aabTrie.getValue(), transformMap.get(a_aa_aab.getFieldPath()));
         childrenMap = aTrie.getChildrenMap();
-        var abTrie = childrenMap.get(Pair.of(1, abField.getFieldType()));
+        var abTrie = childrenMap.get(1); // abField
         Assertions.assertNull(abTrie.getChildrenMap());
         Assertions.assertNotNull(abTrie.getValue());
         Assertions.assertEquals(abTrie.getValue(), transformMap.get(a_ab.getFieldPath()));
@@ -100,28 +97,36 @@ class TransformValueTest {
 
     @Test
     void testTransformWrongReplacementType() {
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, someRecordType());
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), someRecordType());
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
 
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>(1),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var transformationsTrie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                transformMap);
         Assertions.assertThrows(SemanticException.class,
-                () -> new TransformValue(inValue,
-                        ImmutableMap.of(a_aa_aaa.getFieldPath(), new LiteralValue<>(1),
-                                a_aa_aab.getFieldPath(), new LiteralValue<>(2),
-                                a_ab.getFieldPath(), new LiteralValue<>(3))));
+                () -> RecordQueryAbstractDataModificationPlan.computePromotionsTrie(inValue.getResultType(), inValue.getResultType(), transformationsTrie));
     }
 
     @Test
     void testTransformAmbiguousReplacement() {
-        final var inValue = QuantifiedObjectValue.of(Quantifier.CURRENT, someRecordType());
+        final var inValue = QuantifiedObjectValue.of(Quantifier.current(), someRecordType());
         final var a_aa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
 
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa.getFieldPath(), new NullValue(a_aa.getResultType()),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2));
+
         Assertions.assertThrows(SemanticException.class,
-                () -> new TransformValue(inValue,
-                        ImmutableMap.of(a_aa.getFieldPath(), new NullValue(a_aa.getResultType()),
-                                a_aa_aab.getFieldPath(), new LiteralValue<>(2))));
+                () -> RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap));
     }
 
     @Test
@@ -130,14 +135,27 @@ class TransformValueTest {
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
-        final var transformValue =
-                new TransformValue(inValue,
-                        ImmutableMap.of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
-                                a_aa_aab.getFieldPath(), new LiteralValue<>(2),
-                                a_ab.getFieldPath(), new LiteralValue<>(3)));
 
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(transformValue.getDynamicTypes()).build());
-        final var result = transformValue.eval(null, evaluationContext);
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var trie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = inValue.eval(null, evaluationContext);
+        final var result = MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                inRecord);
 
         final var aaValue =
                 RecordConstructorValue.ofColumns(
@@ -185,14 +203,26 @@ class TransformValueTest {
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac")), new LiteralValue<>("30"))
                         ));
 
-        final var transformValue =
-                new TransformValue(inValue,
-                        ImmutableMap.of(a_aa.getFieldPath(), aaValue,
-                                a_ab.getFieldPath(), new LiteralValue<>(3)));
+        final var transformMap =
+                ImmutableMap.of(a_aa.getFieldPath(), aaValue,
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
 
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(transformValue.getDynamicTypes()).build());
-        final var result = transformValue.eval(null, evaluationContext);
+        final var trie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
 
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = inValue.eval(null, evaluationContext);
+        final var result = MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                inValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                inRecord);
+        
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
@@ -224,14 +254,14 @@ class TransformValueTest {
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
         final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
         final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
-        final var transformValue =
-                new TransformValue(inValue,
-                        ImmutableMap.of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
-                                a_aa_aab.getFieldPath(), new LiteralValue<>(2),
-                                a_ab.getFieldPath(), new LiteralValue<>(3)));
-
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(transformValue.getDynamicTypes()).build());
-        final var result = transformValue.eval(null, evaluationContext);
+        
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+        final var trie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
 
         final var aaValue =
                 RecordConstructorValue.ofColumns(
@@ -261,8 +291,144 @@ class TransformValueTest {
                         Column.of(Type.Record.Field.of(xValue.getResultType(), Optional.of("x")), xValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z")), new LiteralValue<>("z"))
                 ));
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).addTypeIfNeeded(expectedValue.getResultType()).build());
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var result = MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                expectedValue.getResultType(),
+                evaluationContext.getTypeRepository().getMessageDescriptor(expectedValue.getResultType()),
+                inValue.getResultType(),
+                inRecord.getDescriptorForType(),
+                inRecord);
+
         final var expected = expectedValue.eval(null, evaluationContext);
         Assertions.assertEquals(expected, result);
+    }
+
+    @Test
+    void testTransformLeafsWithCoercion() throws Exception {
+        final var inValue = makeRecordConstructor();
+        final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
+        final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
+        final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
+
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var trie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
+        final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                coercedType,
+                TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
+                inValue.getResultType(),
+                inRecord.getDescriptorForType(),
+                inRecord));
+        Assertions.assertEquals(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
+        final var resultSerialized = result.toByteString();
+        final var typedResult = TestRecordsTransformProto.DefaultTransformMessage.parseFrom(resultSerialized);
+        Assertions.assertEquals("1", typedResult.getA().getAa().getAaa());
+        Assertions.assertEquals(2, typedResult.getA().getAa().getAab());
+        Assertions.assertEquals("aac", typedResult.getA().getAa().getAac());
+        Assertions.assertEquals(3, typedResult.getA().getAb());
+        Assertions.assertEquals("ac", typedResult.getA().getAc());
+        Assertions.assertEquals("z", typedResult.getZ());
+    }
+
+    @Test
+    void testTransformIntermediateWithCoercion() throws Exception {
+        final var inValue = makeRecordConstructor();
+        final var a_aa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa"));
+        final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
+
+        final var aaValue =
+                RecordConstructorValue.ofColumns(
+                        ImmutableList.of(
+                                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")), new LiteralValue<>("10")),
+                                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")), new LiteralValue<>(20)),
+                                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac")), new LiteralValue<>("30"))
+                        ));
+
+        final var transformMap =
+                ImmutableMap.of(a_aa.getFieldPath(), aaValue,
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var trie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
+        final var result = (Message)MessageHelpers.transformMessage(null,
+                evaluationContext,
+                trie,
+                null,
+                coercedType,
+                TestRecordsTransformProto.DefaultTransformMessage.getDescriptor(),
+                inValue.getResultType(),
+                inRecord.getDescriptorForType(),
+                inRecord);
+        final var resultSerialized = result.toByteString();
+        final var typedResult = TestRecordsTransformProto.DefaultTransformMessage.parseFrom(resultSerialized);
+        Assertions.assertEquals("10", typedResult.getA().getAa().getAaa());
+        Assertions.assertEquals(20, typedResult.getA().getAa().getAab());
+        Assertions.assertEquals("30", typedResult.getA().getAa().getAac());
+        Assertions.assertEquals(3, typedResult.getA().getAb());
+        Assertions.assertEquals("ac", typedResult.getA().getAc());
+        Assertions.assertEquals("z", typedResult.getZ());
+    }
+
+    @Test
+    void testTransformLeafsWithPromotion() throws Exception {
+        final var inValue = makeRecordConstructor();
+        final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
+        final var a_aa_aab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aab"));
+        final var a_ab = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "ab"));
+
+        final var transformMap =
+                ImmutableMap.<FieldValue.FieldPath, Value>of(a_aa_aaa.getFieldPath(), new LiteralValue<>("1"),
+                        a_aa_aab.getFieldPath(), new LiteralValue<>(2),
+                        a_ab.getFieldPath(), new LiteralValue<>(3));
+
+        final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor());
+        final var transformationsTrie =
+                RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
+                        transformMap);
+        final var promotionsTrie = RecordQueryAbstractDataModificationPlan.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
+
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
+        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
+                evaluationContext,
+                transformationsTrie,
+                promotionsTrie,
+                coercedType,
+                TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor(),
+                inValue.getResultType(),
+                inRecord.getDescriptorForType(),
+                inRecord));
+        Assertions.assertEquals(TestRecordsTransformProto.TransformMessageMaxTypes.getDescriptor().getFullName(), result.getDescriptorForType().getFullName());
+        final var resultSerialized = result.toByteString();
+        final var typedResult = TestRecordsTransformProto.TransformMessageMaxTypes.parseFrom(resultSerialized);
+        Assertions.assertEquals("1", typedResult.getA().getAa().getAaa());
+        Assertions.assertEquals(2, typedResult.getA().getAa().getAab());
+        Assertions.assertEquals("aac", typedResult.getA().getAa().getAac());
+        Assertions.assertEquals(3, typedResult.getA().getAb());
+        Assertions.assertEquals("ac", typedResult.getA().getAc());
+        Assertions.assertEquals("z", typedResult.getZ());
     }
 
     private static Type.Record someRecordType() {
@@ -288,7 +454,7 @@ class TransformValueTest {
     }
 
     private static Value makeRecordConstructor() {
-        final var aaType = Type.Record.fromFields(ImmutableList.of(
+        final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
@@ -302,7 +468,7 @@ class TransformValueTest {
                         ));
         Verify.verify(aaType.equals(aaValue.getResultType()));
 
-        final var aType = Type.Record.fromFields(ImmutableList.of(
+        final var aType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(aaType, Optional.of("aa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
@@ -316,7 +482,7 @@ class TransformValueTest {
                         ));
         Verify.verify(aType.equals(aValue.getResultType()));
 
-        final var xType = Type.Record.fromFields(ImmutableList.of(
+        final var xType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("xb")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xc"))));
@@ -331,7 +497,7 @@ class TransformValueTest {
         Verify.verify(xType.equals(xValue.getResultType()));
 
         final var returnType =
-                Type.Record.fromFields(ImmutableList.of(
+                Type.Record.fromFields(false, ImmutableList.of(
                         Type.Record.Field.of(aType, Optional.of("a")),
                         Type.Record.Field.of(xType, Optional.of("x")),
                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
@@ -347,29 +513,29 @@ class TransformValueTest {
     }
 
     private static Value makeSparseRecordConstructor() {
-        final var aaType = Type.Record.fromFields(ImmutableList.of(
+        final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aac"))));
 
         final var aaValue = new NullValue(aaType);
-        Verify.verify(aaType.equals(aaValue.getResultType()));
+        Verify.verify(aaType.equals(aaValue.getResultType().notNullable()));
 
-        final var aType = Type.Record.fromFields(ImmutableList.of(
-                Type.Record.Field.of(aaType, Optional.of("aa")),
+        final var aType = Type.Record.fromFields(false, ImmutableList.of(
+                Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac"))));
 
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(aaType, Optional.of("aa")), aaValue),
+                                Column.of(Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")), aaValue),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")), new LiteralValue<>(2)),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac")), new LiteralValue<>("ac"))
                         ));
         Verify.verify(aType.equals(aValue.getResultType()));
 
-        final var xType = Type.Record.fromFields(ImmutableList.of(
+        final var xType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xa")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("xb")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("xc"))));
@@ -384,7 +550,7 @@ class TransformValueTest {
         Verify.verify(xType.equals(xValue.getResultType()));
 
         final var returnType =
-                Type.Record.fromFields(ImmutableList.of(
+                Type.Record.fromFields(false, ImmutableList.of(
                         Type.Record.Field.of(aType, Optional.of("a")),
                         Type.Record.Field.of(xType, Optional.of("x")),
                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));

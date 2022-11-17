@@ -71,7 +71,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
 
     public RecordQueryFirstOrDefaultPlan(@Nonnull Quantifier.Physical inner,
                                          @Nonnull Value onEmptyResultValue) {
-        Verify.verify(inner.getFlowedObjectType().equals(onEmptyResultValue.getResultType()));
+        Verify.verify(inner.getFlowedObjectType().nullable().equals(onEmptyResultValue.getResultType().nullable()));
         this.inner = inner;
         this.onEmptyResultValue = onEmptyResultValue;
         this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue), inner.getFlowedObjectType());

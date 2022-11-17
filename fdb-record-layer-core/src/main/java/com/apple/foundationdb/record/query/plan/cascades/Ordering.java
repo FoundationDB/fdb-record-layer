@@ -243,7 +243,7 @@ public class Ordering {
                                     Streams.stream(orderingParts)
                                             .map(OrderingPart::getValue)
                                             .collect(ImmutableList.toImmutableList());
-                            final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.CURRENT);
+                            final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.current());
                             final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
                             for (final OrderingPart orderingPart : orderingParts) {
                                 final var pulledUpOrderingValue = pulledUpValuesMap.get(orderingPart.getValue());
@@ -256,7 +256,7 @@ public class Ordering {
 
         final var pulledUpEqualityBoundMap =
                 translateEqualityBoundValueMap(equalityBoundValueMap,
-                        toBePulledValues -> value.pullUp(toBePulledValues, aliasMap, constantAliases, Quantifier.CURRENT));
+                        toBePulledValues -> value.pullUp(toBePulledValues, aliasMap, constantAliases, Quantifier.current()));
 
         return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingParts, false);
     }
@@ -273,7 +273,7 @@ public class Ordering {
                                     Streams.stream(orderingParts)
                                             .map(OrderingPart::getValue)
                                             .collect(ImmutableList.toImmutableList());
-                            final var pushedDownOrderingValues = value.pushDown(orderingValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+                            final var pushedDownOrderingValues = value.pushDown(orderingValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
                             final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
                             final var orderingPartsIterator = orderingParts.iterator();
                             final var pushedDownOrderingValuesIterator = pushedDownOrderingValues.iterator();
@@ -290,7 +290,7 @@ public class Ordering {
         final var pushedDownEqualityBoundMap =
                 translateEqualityBoundValueMap(equalityBoundValueMap,
                         toBePushedValues -> {
-                            final var pushedDownValues = value.pushDown(toBePushedValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.CURRENT);
+                            final var pushedDownValues = value.pushDown(toBePushedValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
                             final var resultMap = new LinkedIdentityMap<Value, Value>();
                             for (int i = 0; i < toBePushedValues.size(); i++) {
                                 final Value toBePushedValue = toBePushedValues.get(i);

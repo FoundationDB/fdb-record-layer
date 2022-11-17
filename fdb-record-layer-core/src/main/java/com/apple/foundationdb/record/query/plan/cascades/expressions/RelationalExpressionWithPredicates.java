@@ -113,7 +113,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
                     // TODO make better as the field can currently only handle exactly one correlated alias
                     final var alias = Iterables.getOnlyElement(fieldCorrelatedTo);
-                    return (FieldValue)fieldValue.rebase(AliasMap.of(alias, Quantifier.CURRENT));
+                    return (FieldValue)fieldValue.rebase(AliasMap.of(alias, Quantifier.current()));
                 })
                 .collect(ImmutableSet.toImmutableSet());
     }

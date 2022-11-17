@@ -46,10 +46,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -308,18 +310,27 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected <T> List<T> fetchResultValues(RecordQueryPlan plan, Opener opener, Function<Message, T> rowHandler,
                                             TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
-        List<T> result = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             opener.open(context);
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
-                    result.add(rowHandler.apply(rec.getRecord()));
-                }
-            }
-            checkDiscarded.accept(context);
-            clearStoreCounter(context); // TODO a hack until this gets refactored properly
+            return fetchResultValues(context, plan, rowHandler, checkDiscarded);
         }
+    }
+
+    protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
+                                            TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
+        final var usedTypes = UsedTypesProperty.evaluate(plan);
+
+        List<T> result = new ArrayList<>();
+        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+            while (cursor.hasNext()) {
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                result.add(rowHandler.apply(message));
+            }
+        }
+        checkDiscarded.accept(context);
+        clearStoreCounter(context); // TODO a hack until this gets refactored properly
+
         return result;
     }
 

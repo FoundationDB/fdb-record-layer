@@ -53,7 +53,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                                           @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
-                new ComparisonKeyFunction.OnValues(Quantifier.CURRENT, comparisonKeyValues),
+                new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
                 reverse,
                 maxNumberOfValuesAllowed,
                 internal);
@@ -70,7 +70,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
         return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.CURRENT, newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
+                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
     }
 

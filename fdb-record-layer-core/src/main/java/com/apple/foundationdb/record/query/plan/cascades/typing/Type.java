@@ -100,6 +100,24 @@ public interface Type extends Narrowable<Type> {
      */
     boolean isNullable();
 
+    default Type nullable() {
+        return withNullability(true);
+    }
+
+    default Type notNullable() {
+        return withNullability(false);
+    }
+
+    /**
+     * Create a new type based on the current one that indicates nullability based on the {@code isNullable} parameter
+     * passed in.
+     * @param newIsNullable indicator whether the returned new type is nullable or not nullable
+     * @return a new type that is the same type as the current type but reflecting the nullability as passed in to
+     *         this method.
+     */
+    @Nonnull
+    Type withNullability(boolean newIsNullable);
+
     /**
      * Checks whether a {@link Type} is numeric.
      * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
@@ -196,6 +214,12 @@ public interface Type extends Narrowable<Type> {
             @Override
             public boolean isNullable() {
                 return isNullable;
+            }
+
+            @Nonnull
+            @Override
+            public Type withNullability(final boolean newIsNullable) {
+                return newIsNullable == isNullable ? this : primitiveType(typeCode, newIsNullable);
             }
 
             @Override
@@ -325,10 +349,10 @@ public interface Type extends Narrowable<Type> {
             if (isNullable) {
                 Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                 Objects.requireNonNull(wrappedDescriptor);
-                return new Array(isNullable, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
             } else {
                 // case 2: any arbitrary sub message we don't understand
-                return new Array(isNullable, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
             }
         }
     }
@@ -537,6 +561,13 @@ public interface Type extends Narrowable<Type> {
             return true;
         }
 
+        @Nonnull
+        @Override
+        public Any withNullability(final boolean newIsNullable) {
+            Verify.verify(newIsNullable);
+            return this;
+        }
+
         /**
          * {@inheritDoc}
          */
@@ -629,6 +660,12 @@ public interface Type extends Narrowable<Type> {
         @Override
         public boolean isNullable() {
             return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public Enum withNullability(final boolean newIsNullable) {
+            return new Enum(newIsNullable, enumValues, name);
         }
 
         @Nullable
@@ -772,13 +809,13 @@ public interface Type extends Narrowable<Type> {
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
     class Record implements Type {
+        @Nullable
+        private final String name;
+
         /**
          * indicates whether the {@link Record} type instance is nullable or not.
          */
         private final boolean isNullable;
-
-        @Nullable
-        private final String name;
 
         /**
          * list of {@link Field} types.
@@ -817,24 +854,24 @@ public interface Type extends Narrowable<Type> {
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s.
          * @param isNullable True if the record type is nullable, otherwise false.
-         * @param fields The list of {@link Record} {@link Field}s.
+         * @param normalizedFields The list of {@link Record} {@link Field}s.
          */
-        protected Record(final boolean isNullable, @Nullable final List<Field> fields) {
-            this(null, isNullable, fields);
+        protected Record(final boolean isNullable, @Nullable final List<Field> normalizedFields) {
+            this(null, isNullable, normalizedFields);
         }
 
         /**
          * Constructs a new {@link Record} using a list of {@link Field}s and an explicit name.
          * @param name The name of the record.
          * @param isNullable True if the record type is nullable, otherwise false.
-         * @param fields The list of {@link Record} {@link Field}s.
+         * @param normalizedFields The list of {@link Record} {@link Field}s.
          */
-        protected Record(@Nullable final String name, final boolean isNullable, @Nullable final List<Field> fields) {
+        protected Record(@Nullable final String name, final boolean isNullable, @Nullable final List<Field> normalizedFields) {
             this.name = name;
             this.isNullable = isNullable;
-            this.fields = fields == null ? null : normalizeFields(fields);
+            this.fields = normalizedFields;
             this.fieldNameFieldMapSupplier = Suppliers.memoize(this::computeFieldNameFieldMap);
-            this.fieldNameToOrdinalSupplier = Suppliers.memoize(this::computeFieldNameToOrdinalMap);
+            this.fieldNameToOrdinalSupplier = Suppliers.memoize(this::computeFieldNameToOrdinal);
             this.fieldIndexToOrdinalSupplier = Suppliers.memoize(this::computeFieldIndexToOrdinal);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
@@ -855,6 +892,12 @@ public interface Type extends Narrowable<Type> {
             return isNullable;
         }
 
+        @Nonnull
+        @Override
+        public Record withNullability(final boolean newIsNullable) {
+            return new Record(name, newIsNullable, fields);
+        }
+
         @Nullable
         public String getName() {
             return name;
@@ -867,6 +910,11 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         public List<Field> getFields() {
             return Objects.requireNonNull(fields);
+        }
+
+        @Nonnull
+        public Field getField(int index) {
+            return Verify.verifyNotNull(fields.get(index));
         }
 
         @Nonnull
@@ -925,7 +973,7 @@ public interface Type extends Narrowable<Type> {
          */
         @Nonnull
         @SuppressWarnings("OptionalGetWithoutIsPresent")
-        private Map<String, Integer> computeFieldNameToOrdinalMap() {
+        private Map<String, Integer> computeFieldNameToOrdinal() {
             return IntStream
                     .range(0, Objects.requireNonNull(fields).size())
                     .boxed()
@@ -1062,12 +1110,12 @@ public interface Type extends Narrowable<Type> {
          */
         @Nonnull
         public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
-            return new Record(isNullable, fields);
+            return new Record(isNullable, normalizeFields(fields));
         }
 
         @Nonnull
         public static Record fromFieldsWithName(@Nonnull String name, final boolean isNullable, @Nonnull final List<Field> fields) {
-            return new Record(name, isNullable, fields);
+            return new Record(name, isNullable, normalizeFields(fields));
         }
 
         /**
@@ -1102,7 +1150,7 @@ public interface Type extends Narrowable<Type> {
                         new Field(fromProtoType(getTypeSpecificDescriptor(fieldDescriptor),
                                 fieldDescriptor.getType(),
                                 fieldDescriptor.toProto().getLabel(),
-                                true),
+                                !fieldDescriptor.isRequired()),
                                 Optional.of(entry.getKey()),
                                 Optional.of(fieldDescriptor.getNumber())));
             }
@@ -1141,11 +1189,13 @@ public interface Type extends Narrowable<Type> {
          * @param fields The list of {@link Field}s to normalize.
          * @return a list of normalized {@link Field}s.
          */
-        @Nonnull
-        private static List<Field> normalizeFields(@Nonnull final List<Field> fields) {
-            Objects.requireNonNull(fields);
-            final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
+        @Nullable
+        private static List<Field> normalizeFields(@Nullable final List<Field> fields) {
+            if (fields == null) {
+                return null;
+            }
 
+            final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
             var i = 0;
             for (final var field : fields) {
                 resultFieldsBuilder.add(
@@ -1372,6 +1422,13 @@ public interface Type extends Narrowable<Type> {
             return false;
         }
 
+        @Nonnull
+        @Override
+        public Relation withNullability(final boolean newIsNullable) {
+            Verify.verify(!newIsNullable);
+            return this;
+        }
+
         /**
          * Returns the values {@link Type}.
          * @return The values {@link Type}.
@@ -1508,6 +1565,12 @@ public interface Type extends Narrowable<Type> {
         @Override
         public boolean isNullable() {
             return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public Array withNullability(final boolean newIsNullable) {
+            return new Array(newIsNullable, elementType);
         }
 
         /**

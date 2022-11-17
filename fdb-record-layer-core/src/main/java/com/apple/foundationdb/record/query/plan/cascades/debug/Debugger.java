@@ -152,6 +152,10 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onRegisterQuantifier(quantifier));
     }
 
+    static Optional<Integer> getOrRegisterSingleton(Object singleton) {
+        return mapDebugger(debugger -> debugger.onGetOrRegisterSingleton(singleton));
+    }
+
     @Nullable
     String nameForObject(@Nonnull Object object);
 
@@ -170,6 +174,8 @@ public interface Debugger {
     void onRegisterReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
 
     void onRegisterQuantifier(@Nonnull Quantifier quantifier);
+
+    int onGetOrRegisterSingleton(@Nonnull Object singleton);
 
     void onInstall();
 
