@@ -1,5 +1,5 @@
 /*
- * FDBRepeatedFieldQueryTest.java
+ * FDBModificationQueryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -80,7 +80,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray;
 
 /**
- * Tests of query planning and execution for queries on records with repeated fields.
+ * Tests of query planning and execution for query graphs that modify the state of the database.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {

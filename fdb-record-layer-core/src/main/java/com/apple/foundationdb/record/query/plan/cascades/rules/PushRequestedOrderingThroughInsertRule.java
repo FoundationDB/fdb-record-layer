@@ -42,7 +42,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 
 /**
- * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link InsertExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through an {@link InsertExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

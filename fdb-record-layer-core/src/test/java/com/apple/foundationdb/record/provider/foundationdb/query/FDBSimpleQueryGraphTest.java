@@ -1,5 +1,5 @@
 /*
- * FDBRepeatedFieldQueryTest.java
+ * FDBSimpleQueryGraphTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -83,7 +83,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
- * Tests of query planning and execution for queries on records with repeated fields.
+ * Tests of query planning and execution for queries that use a query graph to define a query instead of
+ * {@link com.apple.foundationdb.record.query.RecordQuery}.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {

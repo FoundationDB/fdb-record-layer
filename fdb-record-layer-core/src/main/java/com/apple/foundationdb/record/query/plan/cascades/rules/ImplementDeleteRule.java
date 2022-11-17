@@ -44,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
- * A rule that implements a {@link DeleteExpression} delete expression by creating
+ * A rule that implements a {@link DeleteExpression} by creating
  * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan}.
  */
 @API(API.Status.EXPERIMENTAL)

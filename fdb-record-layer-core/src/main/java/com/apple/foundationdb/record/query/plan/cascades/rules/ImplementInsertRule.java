@@ -40,8 +40,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.insertExpression;
 
 /**
- * A rule that implements an {@link InsertExpression} delete expression by creating
- * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan}.
+ * A rule that implements an {@link InsertExpression} by creating
+ * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

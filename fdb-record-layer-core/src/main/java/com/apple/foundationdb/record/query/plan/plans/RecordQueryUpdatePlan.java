@@ -57,7 +57,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A query plan that filters out records from a child plan that are not of the designated record type(s).
+ * A query plan that updates records in the database using a stream of incoming records, that are transformed according
+ * to a transformation map, then coerced into a target type, and then saved using
+ * {@link FDBRecordStoreBase#saveRecord(Message)}.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPlan {

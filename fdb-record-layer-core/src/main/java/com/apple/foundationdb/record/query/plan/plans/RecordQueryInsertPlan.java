@@ -48,7 +48,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A query plan that filters out records from a child plan that are not of the designated record type(s).
+ * A query plan that inserts records into the database. This plan uses {@link FDBRecordStoreBase#saveRecord(Message)}
+ * to save the to-be-inserted records. Note that that logic uses the descriptor of the target record to determine the
+ * actual record type of the record.
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPlan {

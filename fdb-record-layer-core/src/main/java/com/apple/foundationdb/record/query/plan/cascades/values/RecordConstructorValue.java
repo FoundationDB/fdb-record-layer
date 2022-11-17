@@ -153,6 +153,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
      *         constituent messages are {@link DynamicMessage}s based on dynamically-created descriptors.
      */
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
                                     @Nonnull final Type fieldType,
                                     @Nullable final Object field) {
@@ -181,7 +182,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
         final var actualDescriptor = message.getDescriptorForType();
-        if (actualDescriptor.getFullName().equals(declaredDescriptor.getFullName())) {
+        if (actualDescriptor == declaredDescriptor) {
             return field;
         }
 

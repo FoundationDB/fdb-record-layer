@@ -219,7 +219,7 @@ public interface Type extends Narrowable<Type> {
             @Nonnull
             @Override
             public Type withNullability(final boolean newIsNullable) {
-                return primitiveType(typeCode, newIsNullable);
+                return newIsNullable == isNullable ? this : primitiveType(typeCode, newIsNullable);
             }
 
             @Override

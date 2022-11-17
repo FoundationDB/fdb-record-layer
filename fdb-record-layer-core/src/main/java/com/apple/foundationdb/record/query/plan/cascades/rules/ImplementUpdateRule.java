@@ -44,8 +44,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
- * A rule that implements an {@link UpdateExpression} delete expression by creating
- * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan}.
+ * A rule that implements an {@link UpdateExpression} by creating
+ * a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
