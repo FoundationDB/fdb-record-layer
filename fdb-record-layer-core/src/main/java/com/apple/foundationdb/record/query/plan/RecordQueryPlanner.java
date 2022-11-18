@@ -106,11 +106,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -2009,15 +2008,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Nonnull
         private List<QueryComponent> unsatisfiedFilters;
         /**
-         * If the sort is also a then, this iterates over its children.
+         * The set of sort keys that have not been satisfied (yet).
          */
-        @Nullable
-        private Iterator<KeyExpression> sortIterator;
-        /**
-         * The current sort child, or the sort itself, or {@code null} if the sort has been satisfied.
-         */
-        @Nullable
-        private KeyExpression currentSort;
+        @Nonnull
+        private List<KeyExpression> unsatisfiedSorts;
         /**
          * True if the current child of the index {@link ThenKeyExpression Then} clause has a corresponding equality comparison in the filter.
          */
@@ -2070,6 +2064,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
             unsatisfiedFilters = new ArrayList<>();
             comparisons = new ScanComparisons.Builder();
+            unsatisfiedSorts = new ArrayList<>();
         }
 
         public ScoredPlan plan() {
@@ -2086,7 +2081,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     }
                 }
                 if (doneComparing) {
-                    if (currentSort == null) {
+                    if (unsatisfiedSorts.isEmpty()) {
                         if (!(candidateScan.index != null && candidateScan.index.isUnique() && childColumns >= candidateScan.index.getColumnSize())) {
                             // More index children than sorts, except for unique index sorted up far enough.
                             strictlySorted = false;
@@ -2094,15 +2089,13 @@ public class RecordQueryPlanner implements QueryPlanner {
                         break;
                     }
                     // With inequalities or no filters, index ordering must match sort ordering.
-                    if (currentSortMatches(child)) {
-                        advanceCurrentSort();
-                    } else {
+                    if (!nextSortSatisfied(child)) {
                         break;
                     }
                 }
                 childColumns += child.getColumnSize();
             }
-            if (currentSort != null) {
+            if (!unsatisfiedSorts.isEmpty()) {
                 return null;
             }
             if (comparisons.isEmpty()) {
@@ -2125,17 +2118,17 @@ public class RecordQueryPlanner implements QueryPlanner {
         private void setupPlanState() {
             unsatisfiedFilters = new ArrayList<>(filters);
             comparisons = new ScanComparisons.Builder();
-            KeyExpression sortKey = sort;
-            if (sortKey instanceof GroupingKeyExpression) {
-                sortKey = ((GroupingKeyExpression) sortKey).getWholeKey();
-            }
-            if (sortKey instanceof ThenKeyExpression) {
-                ThenKeyExpression sortThen = (ThenKeyExpression) sortKey;
-                sortIterator = sortThen.getChildren().iterator();
-                currentSort = sortIterator.next();
-            } else {
-                currentSort = sortKey;
-                sortIterator = null;
+            if (sort != null) {
+                KeyExpression sortKey = sort;
+                if (sortKey instanceof GroupingKeyExpression) {
+                    sortKey = ((GroupingKeyExpression) sortKey).getWholeKey();
+                }
+                if (sortKey instanceof ThenKeyExpression) {
+                    ThenKeyExpression sortThen = (ThenKeyExpression) sortKey;
+                    unsatisfiedSorts.addAll(sortThen.getChildren());
+                } else {
+                    unsatisfiedSorts.add(sortKey);
+                }
             }
         }
 
@@ -2208,38 +2201,28 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
-                    () -> planNestedField(candidateScan, child, filterField, null),
-                    () -> planNestedField(candidateScan, child, filterField, currentSort));
+                    (maybeSort) -> planNestedField(candidateScan, child, filterField, maybeSort));
         }
 
         private boolean planOneOfThemWithComponentChild(@Nonnull KeyExpression child, @Nonnull OneOfThemWithComponent oneOfThemWithComponent, @Nonnull QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
-                    () -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, null),
-                    () -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, currentSort));
+                    (maybeSort) -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, maybeSort));
         }
 
         private boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
                                                         @Nonnull QueryComponent filterChild,
-                                                        @Nonnull Supplier<ScoredPlan> unsortedPlanSupplier,
-                                                        @Nonnull Supplier<ScoredPlan> sortedPlanSupplier) {
-            ScoredPlan scoredPlan = unsortedPlanSupplier.get();
+                                                        @Nonnull Function<KeyExpression, ScoredPlan> maybeSortedPlan) {
+            ScoredPlan scoredPlan = maybeSortedPlan.apply(null);
             ScanComparisons nextComparisons = getPlanComparisons(scoredPlan);
             if (nextComparisons != null) {
                 if (!comparisons.isEquality() && nextComparisons.getEqualitySize() > 0) {
                     throw new Query.InvalidExpressionException(
                             "Two nested fields in the same and clause, combine them into one");
                 } else {
-                    if (nextComparisons.isEquality()) {
-                        // Equality comparisons might match required sort.
-                        if (currentSortMatches(child)) {
-                            advanceCurrentSort();
-                        }
-                    } else if (currentSort != null) {
+                    if (!unsatisfiedSorts.isEmpty() && !nextComparisons.isEquality()) {
                         // Didn't plan to equality, need to try with sorting.
-                        scoredPlan = sortedPlanSupplier.get();
-                        if (scoredPlan != null) {
-                            advanceCurrentSort();
-                        }
+                        scoredPlan = maybeSortedPlan.apply(unsatisfiedSorts.get(0));
+                        nextComparisons = getPlanComparisons(scoredPlan);
                     }
                     if (scoredPlan != null) {
                         unsatisfiedFilters.remove(filterChild);
@@ -2248,6 +2231,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                         if (nextComparisons.isEquality()) {
                             foundComparison = true;
                             foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
+                            satisfyEqualitySort(child);
                         }
                         return true;
                     }
@@ -2256,21 +2240,24 @@ public class RecordQueryPlanner implements QueryPlanner {
             return false;
         }
 
-        private boolean currentSortMatches(@Nonnull KeyExpression child) {
-            if (currentSort != null) {
-                if (currentSort.equals(child)) {
-                    return true;
-                }
+        // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
+        @SuppressWarnings("PMD.EmptyWhileStmt")
+        private void satisfyEqualitySort(@Nonnull KeyExpression child) {
+            while (unsatisfiedSorts.remove(child)) {
+                // Keep removing all occurrences.
             }
-            return false;
         }
 
-        private void advanceCurrentSort() {
-            if (sortIterator != null && sortIterator.hasNext()) {
-                currentSort = sortIterator.next();
-            } else {
-                currentSort = null;
+        // Does this sort key from an inequality comparison or in the index after filters match what's pending?
+        private boolean nextSortSatisfied(@Nonnull KeyExpression child) {
+            if (unsatisfiedSorts.isEmpty()) {
+                return false;
             }
+            if (child.equals(unsatisfiedSorts.get(0))) {
+                unsatisfiedSorts.remove(0);
+                return true;
+            }
+            return false;
         }
 
         private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull FieldWithComparison field, @Nonnull QueryComponent filterChild) {
@@ -2344,9 +2331,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             unsatisfiedFilters.remove(filterChild);
             if (foundComparison) {
                 foundCompleteComparison = true;
-                if (currentSortMatches(child)) {
-                    advanceCurrentSort();
-                }
+                satisfyEqualitySort(child);
             }
         }
 

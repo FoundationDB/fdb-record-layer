@@ -31,6 +31,7 @@ message RestaurantReviewer {
   required string name = 2 [(com.apple.foundationdb.record.field).index = {}];
   optional string email = 3;
   optional ReviewerStats stats = 4;
+  optional int32 category = 5;
 }
 
 message ReviewerStats {
