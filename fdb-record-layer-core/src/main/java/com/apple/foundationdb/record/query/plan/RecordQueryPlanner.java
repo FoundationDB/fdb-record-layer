@@ -2089,7 +2089,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                         break;
                     }
                     // With inequalities or no filters, index ordering must match sort ordering.
-                    if (!nextSortSatisfied(child)) {
+                    if (!nextSortSatisfied(child, childColumns)) {
                         break;
                     }
                 }
@@ -2249,13 +2249,29 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         // Does this sort key from an inequality comparison or in the index after filters match what's pending?
-        private boolean nextSortSatisfied(@Nonnull KeyExpression child) {
+        private boolean nextSortSatisfied(@Nonnull KeyExpression child, int childColumns) {
             if (unsatisfiedSorts.isEmpty()) {
                 return false;
             }
             if (child.equals(unsatisfiedSorts.get(0))) {
                 unsatisfiedSorts.remove(0);
                 return true;
+            }
+            int childSize = child.getColumnSize();
+            if (childSize > 1) {
+                List<KeyExpression> flattenedChildren = child.normalizeKeyForPositions();
+                int childEqualityOffset = comparisons.getEqualitySize() - childColumns;
+                int remainingChildren = flattenedChildren.size() - childEqualityOffset;
+                if (remainingChildren > 0) {
+                    for (int i = 0; i < remainingChildren; i++) {
+                        if (flattenedChildren.get(childEqualityOffset + i).equals(unsatisfiedSorts.get(0))) {
+                            unsatisfiedSorts.remove(0);
+                        } else {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
             }
             return false;
         }
