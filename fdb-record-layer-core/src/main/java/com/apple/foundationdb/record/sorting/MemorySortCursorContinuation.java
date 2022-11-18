@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,14 +68,14 @@ class MemorySortCursorContinuation<K, V> implements RecordCursorContinuation {
         if (cachedProto == null) {
             RecordSortingProto.MemorySortContinuation.Builder builder = RecordSortingProto.MemorySortContinuation.newBuilder();
             for (V record : records) {
-                builder.addRecords(ByteString.copyFrom(adapter.serializeValue(record)));
+                builder.addRecords(ZeroCopyByteString.wrap(adapter.serializeValue(record)));
             }
             if (minimumKey != null) {
-                builder.setMinimumKey(ByteString.copyFrom(adapter.serializeKey(minimumKey)));
+                builder.setMinimumKey(ZeroCopyByteString.wrap(adapter.serializeKey(minimumKey)));
             }
             byte[] childBytes = childContinuation.toBytes();
             if (childBytes != null) {
-                builder.setContinuation(ByteString.copyFrom(childBytes));
+                builder.setContinuation(ZeroCopyByteString.wrap(childBytes));
             }
             cachedProto = builder.build();
         }

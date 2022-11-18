@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -194,7 +194,7 @@ public class OrElseCursor<T> implements RecordCursor<T> {
 
             return RecordCursorProto.OrElseContinuation.newBuilder()
                     .setState(state)
-                    .setContinuation(ByteString.copyFrom(bytes))
+                    .setContinuation(ZeroCopyByteString.wrap(bytes))
                     .build()
                     .toByteArray();
         }

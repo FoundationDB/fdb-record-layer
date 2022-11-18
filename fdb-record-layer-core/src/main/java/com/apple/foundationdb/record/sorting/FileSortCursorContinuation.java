@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -83,14 +83,14 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
                 builder.setLoading(true);
             }
             for (V record : inMemoryRecords) {
-                builder.addInMemoryRecords(ByteString.copyFrom(adapter.serializeValue(record)));
+                builder.addInMemoryRecords(ZeroCopyByteString.wrap(adapter.serializeValue(record)));
             }
             for (File file : files) {
                 builder.addFiles(file.getPath());
             }
             byte[] childBytes = childContinuation.toBytes();
             if (childBytes != null) {
-                builder.setContinuation(ByteString.copyFrom(childBytes));
+                builder.setContinuation(ZeroCopyByteString.wrap(childBytes));
             }
             if (recordPosition > 0) {
                 builder.setRecordPosition(recordPosition);

@@ -30,12 +30,12 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.ExtensionRegistryLite;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -145,10 +145,10 @@ public class SortedRecordSerializer<M extends Message> {
     @Nonnull
     public RecordSortingProto.SortedRecord toProto(@Nonnull FDBRecord<M> rec) {
         final RecordSortingProto.SortedRecord.Builder builder = RecordSortingProto.SortedRecord.newBuilder();
-        builder.setPrimaryKey(ByteString.copyFrom(rec.getPrimaryKey().pack()));
-        builder.setMessage(ByteString.copyFrom(serializer.serialize(recordMetaData, rec.getRecordType(), rec.getRecord(), timer)));
+        builder.setPrimaryKey(ZeroCopyByteString.wrap(rec.getPrimaryKey().pack()));
+        builder.setMessage(ZeroCopyByteString.wrap(serializer.serialize(recordMetaData, rec.getRecordType(), rec.getRecord(), timer)));
         if (rec.hasVersion()) {
-            builder.setVersion(ByteString.copyFrom(rec.getVersion().toBytes()));
+            builder.setVersion(ZeroCopyByteString.wrap(rec.getVersion().toBytes()));
         }
         return builder.build();
     }

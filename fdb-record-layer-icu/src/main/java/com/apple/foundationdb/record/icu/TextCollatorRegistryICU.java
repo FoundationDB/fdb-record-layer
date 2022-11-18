@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 import com.ibm.icu.text.Collator;
 import com.ibm.icu.util.ULocale;
 import org.apache.commons.lang3.tuple.Pair;
@@ -91,7 +92,7 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
         @Nonnull
         @Override
         public ByteString getKey(@Nonnull String str) {
-            return ByteString.copyFrom(collator.getCollationKey(str).toByteArray());
+            return ZeroCopyByteString.wrap(collator.getCollationKey(str).toByteArray());
         }
     }
 }

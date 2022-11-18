@@ -40,8 +40,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -79,7 +79,7 @@ public class IndexingByIndex extends IndexingBase {
     private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
         return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                 .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX)
-                .setSourceIndexSubspaceKey(ByteString.copyFrom(Tuple.from(srcIndex.getSubspaceKey()).pack()))
+                .setSourceIndexSubspaceKey(ZeroCopyByteString.wrap(Tuple.from(srcIndex.getSubspaceKey()).pack()))
                 .setSourceIndexLastModifiedVersion(srcIndex.getLastModifiedVersion())
                 .build();
     }
