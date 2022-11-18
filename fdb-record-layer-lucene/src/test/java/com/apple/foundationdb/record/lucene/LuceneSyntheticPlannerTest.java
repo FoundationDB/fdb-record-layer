@@ -23,33 +23,34 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
-import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.Sets;
-import org.junit.jupiter.api.Assertions;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
+import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.hasToString;
 
 /**
  * Tests about applying the Lucene index when used as part of a SyntheticRecord join.
@@ -74,6 +75,9 @@ public class LuceneSyntheticPlannerTest extends FDBRecordStoreTestBase {
                 .build());
     }
 
+    /**
+     * Verify that Lucene index on Joined record gives covering scan.
+     */
     @Test
     void canPlanQueryAgainstSyntheticLuceneType() {
         try (FDBRecordContext context = openContext()) {
@@ -101,22 +105,20 @@ public class LuceneSyntheticPlannerTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex("OrderWithHeader", "order$custRef", concat(field("___header").nest("z_key"), field("custRef").nest("string_value")));
             }, false);
 
-//            QueryComponent filter = new AndComponent(List.of(
-//                    new NestedField("order",new NestedField("___header",new FieldWithComparison("z_key", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))),
-//                    new LuceneQueryComponent("order_order_desc: \"twelve pineapple\" and cust_name: \"steve\"",List.of("order","cust"))
-//            ));
-
-            QueryComponent filter = new LuceneQueryComponent("order_order_desc: \"twelve pineapple\" and cust_name: \"steve\"",List.of("order","cust"));
-
-
+            String luceneSearch = "order_order_desc: \"twelve pineapple\" and cust_name: \"steve\"";
+            QueryComponent filter = new LuceneQueryComponent(luceneSearch, List.of("order", "cust"));
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("luceneJoinedIdx")
                     .setFilter(filter)
                     .setRequiredResults(List.of(Key.Expressions.field("order").nest("order_no")))
                     .build();
             final RecordQueryPlan plan = planner.plan(query);
-            Assertions.assertTrue(plan.hasIndexScan("joinNestedConcat"),"Incorrect index scan");
-            Assertions.assertTrue(plan instanceof RecordQueryCoveringIndexPlan, "Is not a covering scan!");
+            Matcher<RecordQueryPlan> matcher = coveringIndexScan(indexScan(allOf(
+                    indexScanType(LuceneScanTypes.BY_LUCENE),
+                    indexName("joinNestedConcat"),
+                    scanParams(query(hasToString(luceneSearch)))
+            )));
+            assertThat(plan, matcher);
         }
 
     }
