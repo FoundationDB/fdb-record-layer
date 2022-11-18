@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -119,7 +119,7 @@ public class FormerIndex {
     @Nonnull
     public RecordMetaDataProto.FormerIndex toProto() {
         RecordMetaDataProto.FormerIndex.Builder builder = RecordMetaDataProto.FormerIndex.newBuilder();
-        builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
+        builder.setSubspaceKey(ZeroCopyByteString.wrap(Tuple.from(subspaceKey).pack()));
         if (addedVersion > 0) {
             builder.setAddedVersion(addedVersion);
         }

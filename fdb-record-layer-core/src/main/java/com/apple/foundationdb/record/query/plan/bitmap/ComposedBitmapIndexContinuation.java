@@ -34,9 +34,9 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.MergeCursorCo
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -93,7 +93,7 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
                 cursorState = START_PROTO;
             } else {
                 cursorState = RecordCursorProto.ComposedBitmapIndexContinuation.CursorState.newBuilder()
-                        .setContinuation(ByteString.copyFrom(asBytes))
+                        .setContinuation(ZeroCopyByteString.wrap(asBytes))
                         .build();
             }
         }

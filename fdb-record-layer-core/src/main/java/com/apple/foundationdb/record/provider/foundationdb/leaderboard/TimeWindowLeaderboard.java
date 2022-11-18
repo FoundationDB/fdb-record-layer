@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 
@@ -151,7 +151,7 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
                 .setType(type)
                 .setStartTimestamp(startTimestamp)
                 .setEndTimestamp(endTimestamp)
-                .setSubspaceKey(ByteString.copyFrom(subspaceKey.pack()))
+                .setSubspaceKey(ZeroCopyByteString.wrap(subspaceKey.pack()))
                 .setNlevels(nlevels);
     }
 }

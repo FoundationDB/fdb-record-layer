@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.common.text;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -90,7 +91,7 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
         @Nonnull
         @Override
         public ByteString getKey(@Nonnull String str) {
-            return ByteString.copyFrom(collator.getCollationKey(str).toByteArray());
+            return ZeroCopyByteString.wrap(collator.getCollationKey(str).toByteArray());
         }
     }
 }

@@ -30,8 +30,8 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -195,7 +195,7 @@ public class StringInterningLayer {
         StringInterningProto.Data.Builder builder = StringInterningProto.Data.newBuilder();
         builder.setInternedValue(allocated.getValue());
         if (metadata != null) {
-            builder.setMetadata(ByteString.copyFrom(metadata));
+            builder.setMetadata(ZeroCopyByteString.wrap(metadata));
         }
         return builder.build().toByteArray();
     }

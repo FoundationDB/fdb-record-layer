@@ -32,9 +32,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -175,7 +175,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         } else if (value instanceof String) {
             builder.setStringValue((String) value);
         } else if (value instanceof byte[]) {
-            builder.setBytesValue(ByteString.copyFrom((byte[]) value));
+            builder.setBytesValue(ZeroCopyByteString.wrap((byte[]) value));
         } else if (value != null) {
             throw new RecordCoreException("Unsupported value type").addLogInfo(
                     "value_type", value.getClass().getName());

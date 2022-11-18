@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -187,7 +188,7 @@ public class TupleFieldsHelper {
         } else if (descriptor == TupleFieldsProto.NullableString.getDescriptor()) {
             return toProto((String)value);
         } else if (descriptor == TupleFieldsProto.NullableBytes.getDescriptor()) {
-            return toProto(value instanceof byte[] ? ByteString.copyFrom((byte[])value) : (ByteString)value);
+            return toProto(value instanceof byte[] ? ZeroCopyByteString.wrap((byte[])value) : (ByteString)value);
         } else {
             throw new RecordCoreArgumentException("value is not of a known message type");
         }

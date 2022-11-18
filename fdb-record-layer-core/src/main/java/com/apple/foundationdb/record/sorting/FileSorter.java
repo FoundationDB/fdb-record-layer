@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -277,7 +277,7 @@ public class FileSorter<K, V>  {
             throws GeneralSecurityException {
         final byte[] iv = new byte[CipherPool.IV_SIZE];
         secureRandom.nextBytes(iv);
-        sectionHeader.setEncryptionIv(ByteString.copyFrom(iv));
+        sectionHeader.setEncryptionIv(ZeroCopyByteString.wrap(iv));
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
     }
 

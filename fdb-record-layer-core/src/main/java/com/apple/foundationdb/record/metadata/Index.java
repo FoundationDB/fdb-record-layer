@@ -33,6 +33,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -606,7 +607,7 @@ public class Index {
         for (Map.Entry<String, String> entry : options.entrySet()) {
             builder.addOptionsBuilder().setKey(entry.getKey()).setValue(entry.getValue());
         }
-        builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
+        builder.setSubspaceKey(ZeroCopyByteString.wrap(Tuple.from(subspaceKey).pack()));
         if (addedVersion > 0) {
             builder.setAddedVersion(addedVersion);
         }

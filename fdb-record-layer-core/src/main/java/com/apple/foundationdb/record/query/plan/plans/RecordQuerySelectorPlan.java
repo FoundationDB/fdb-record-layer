@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -301,7 +302,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             this.selectedPlanIndex = selectedPlanIndex;
             this.isEnd = isEnd;
             if (innerContinuation != null) {
-                this.innerContinuation = ByteString.copyFrom(innerContinuation);
+                this.innerContinuation = ZeroCopyByteString.wrap(innerContinuation);
             } else {
                 this.innerContinuation = null;
             }

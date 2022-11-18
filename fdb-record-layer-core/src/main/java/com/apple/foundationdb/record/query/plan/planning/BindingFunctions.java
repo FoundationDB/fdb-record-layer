@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,7 +75,7 @@ public class BindingFunctions {
                 case BYTE_STRING:
                     return tuple -> {
                         byte[] value = (byte[])tuple.get(0);
-                        return value == null ? null : ByteString.copyFrom(value);
+                        return value == null ? null : ZeroCopyByteString.wrap(value);
                     };
                 default:
                     break;

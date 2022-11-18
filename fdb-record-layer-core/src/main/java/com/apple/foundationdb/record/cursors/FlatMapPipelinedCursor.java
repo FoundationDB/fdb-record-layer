@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -326,17 +326,17 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
             if (innerContinuation.isEnd()) {
                 // This was the last of the inner cursor. Take continuation from outer after it.
-                builder.setOuterContinuation(ByteString.copyFrom(outerResult.getContinuation().toBytes()));
+                builder.setOuterContinuation(ZeroCopyByteString.wrap(outerResult.getContinuation().toBytes()));
             } else {
                 // This was in the middle of the inner cursor. Take continuation from outer before it and arrange to skip to it.
                 final byte[] priorOuterContinuationBytes = priorOuterContinuation.toBytes();
                 if (priorOuterContinuationBytes != null) { // isn't start or end continuation
-                    builder.setOuterContinuation(ByteString.copyFrom(priorOuterContinuation.toBytes()));
+                    builder.setOuterContinuation(ZeroCopyByteString.wrap(priorOuterContinuation.toBytes()));
                 }
                 if (outerCheckValue != null) {
-                    builder.setCheckValue(ByteString.copyFrom(outerCheckValue));
+                    builder.setCheckValue(ZeroCopyByteString.wrap(outerCheckValue));
                 }
-                builder.setInnerContinuation(ByteString.copyFrom(innerContinuation.toBytes()));
+                builder.setInnerContinuation(ZeroCopyByteString.wrap(innerContinuation.toBytes()));
             }
             return builder.build().toByteArray();
         }

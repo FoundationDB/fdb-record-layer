@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.util.BytesRef;
@@ -80,7 +81,7 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
             for (Object field : ((FieldDoc)scoreDoc).fields) {
                 final LuceneContinuationProto.LuceneIndexContinuation.Field.Builder value = builder.addFieldsBuilder();
                 if (field instanceof BytesRef) {
-                    value.setB(ByteString.copyFrom(((BytesRef)field).bytes));
+                    value.setB(ZeroCopyByteString.wrap(((BytesRef)field).bytes));
                 } else if (field instanceof String) {
                     value.setS((String)field);
                 } else if (field instanceof Float) {

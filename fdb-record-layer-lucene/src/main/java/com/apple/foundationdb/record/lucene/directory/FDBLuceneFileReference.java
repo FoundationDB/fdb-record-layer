@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFileSystemProto;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -104,10 +104,10 @@ public class FDBLuceneFileReference {
         builder.setBlockSize(this.blockSize);
         builder.setActualSize(this.actualSize);
         if (this.segmentInfo != null) {
-            builder.setSegmentInfo(ByteString.copyFrom(this.segmentInfo));
+            builder.setSegmentInfo(ZeroCopyByteString.wrap(this.segmentInfo));
         }
         if (this.entries != null) {
-            builder.setEntries(ByteString.copyFrom(this.entries));
+            builder.setEntries(ZeroCopyByteString.wrap(this.entries));
         }
         return builder.build().toByteArray();
     }

@@ -32,6 +32,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,7 +66,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
         } else {
             builder.setFirstStarted(true);
             if (asBytes != null) {
-                builder.setFirstContinuation(ByteString.copyFrom(asBytes));
+                builder.setFirstContinuation(ZeroCopyByteString.wrap(asBytes));
             }
         }
     }
@@ -78,7 +79,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
         } else {
             builder.setSecondStarted(true);
             if (asBytes != null) {
-                builder.setSecondContinuation(ByteString.copyFrom(asBytes));
+                builder.setSecondContinuation(ZeroCopyByteString.wrap(asBytes));
             }
         }
     }

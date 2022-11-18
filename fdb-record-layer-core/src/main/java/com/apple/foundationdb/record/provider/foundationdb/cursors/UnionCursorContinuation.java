@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,7 +63,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         } else {
             final byte[] asBytes = continuation.toBytes();
             if (asBytes != null) {
-                builder.setFirstContinuation(ByteString.copyFrom(asBytes));
+                builder.setFirstContinuation(ZeroCopyByteString.wrap(asBytes));
             }
         }
     }
@@ -75,7 +75,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         } else {
             final byte[] asBytes = continuation.toBytes();
             if (asBytes != null) {
-                builder.setSecondContinuation(ByteString.copyFrom(asBytes));
+                builder.setSecondContinuation(ZeroCopyByteString.wrap(asBytes));
             }
         }
     }
@@ -91,7 +91,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
                 cursorState = START_PROTO;
             } else {
                 cursorState = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
-                        .setContinuation(ByteString.copyFrom(asBytes))
+                        .setContinuation(ZeroCopyByteString.wrap(asBytes))
                         .build();
             }
         }
