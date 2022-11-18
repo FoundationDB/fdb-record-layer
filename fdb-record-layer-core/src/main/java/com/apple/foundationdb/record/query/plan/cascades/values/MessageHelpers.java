@@ -266,7 +266,11 @@ public class MessageHelpers {
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
-                    builder.addRepeatedField(targetField, element);
+                    if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                        builder.addRepeatedField(targetField, deepCopyMessageIfNeeded(field.getMessageType(), (Message)element));
+                    } else {
+                        builder.addRepeatedField(targetField, element);
+                    }
                 }
             } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 final var existingValue = (Message)builder.getField(targetField);
