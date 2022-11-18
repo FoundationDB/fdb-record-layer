@@ -843,7 +843,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));
 
-        // Some query with some reductive sorting.
+        // Same query with some reductive sorting.
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("RestaurantReviewer")
                 .setFilter(Query.and(
@@ -853,6 +853,55 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         field("stats").nest("start_date"),
                         field("category"),
                         field("email")))
+                .build();
+
+        RecordQueryPlan plan2 = planner.plan(query2);
+        assertEquals(plan1, plan2);
+    }
+
+    /**
+     * Verify that AND clauses in queries on nested record fields with nested inequality and sorting work properly.
+     */
+    @DualPlannerTest
+    void nestedWithAndSortedInequality() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("stats$school");
+            metaData.addIndex("RestaurantReviewer", "stats$cat_school_email",
+                    concat(field("category"), field("stats").nest(concatenateFields("start_date", "hometown"))));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.field("start_date").equalsValue(1066L)),
+                        Query.field("stats").matches(Query.field("hometown").greaterThan("M"))))
+                .setSort(field("stats").nest("hometown"))
+                .build();
+
+        // Index(stats$cat_school_email ([1, 1066, M],[1, 1066]])
+        RecordQueryPlan plan1 = planner.plan(query1);
+        assertMatchesExactly(plan1,
+                indexPlan()
+                        .where(indexName("stats$cat_school_email"))
+                        .and(scanComparisons(range("([1, 1066, M],[1, 1066]]"))));
+        assertEquals(-841915133, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-992975093, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1324371533, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(Collections.singletonList(2L), fetchResultValues(plan1, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                ctx -> openNestedRecordStore(ctx, hook),
+                TestHelpers::assertDiscardedNone));
+
+        // Same query with consolidated predicate.
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("category").equalsValue(1),
+                        Query.field("stats").matches(Query.and(
+                                                               Query.field("start_date").equalsValue(1066L),
+                                                               Query.field("hometown").greaterThan("M")))))
+                .setSort(field("stats").nest("hometown"))
                 .build();
 
         RecordQueryPlan plan2 = planner.plan(query2);
