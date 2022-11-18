@@ -252,7 +252,11 @@ public class MessageHelpers {
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static DynamicMessage deepCopy(@Nonnull final Descriptors.Descriptor targetDescriptor, @Nonnull final Message message) {
+    public static Message deepCopyMessageIfNeeded(@Nonnull final Descriptors.Descriptor targetDescriptor, @Nonnull final Message message) {
+        if (targetDescriptor == message.getDescriptorForType()) {
+            return message;
+        }
+
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
@@ -262,7 +266,11 @@ public class MessageHelpers {
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
-                    builder.addRepeatedField(targetField, element);
+                    if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                        builder.addRepeatedField(targetField, deepCopyMessageIfNeeded(field.getMessageType(), (Message)element));
+                    } else {
+                        builder.addRepeatedField(targetField, element);
+                    }
                 }
             } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 final var existingValue = (Message)builder.getField(targetField);
@@ -272,7 +280,7 @@ public class MessageHelpers {
                     final var mergedObject =
                             DynamicMessage.newBuilder(targetField.getMessageType())
                                     .mergeFrom(existingValue)
-                                    .mergeFrom((Message)entry.getValue())
+                                    .mergeFrom(deepCopyMessageIfNeeded(field.getMessageType(), (Message)entry.getValue()))
                                     .build();
                     builder.setField(targetField, mergedObject);
                 }

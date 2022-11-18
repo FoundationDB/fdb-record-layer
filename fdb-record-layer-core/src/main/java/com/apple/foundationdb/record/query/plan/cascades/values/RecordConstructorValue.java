@@ -181,12 +181,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         Verify.verify(fieldType instanceof Type.Record);
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
-        final var actualDescriptor = message.getDescriptorForType();
-        if (actualDescriptor == declaredDescriptor) {
-            return field;
-        }
-
-        return MessageHelpers.deepCopy(declaredDescriptor, message);
+        return MessageHelpers.deepCopyMessageIfNeeded(declaredDescriptor, message);
     }
 
     @Override
