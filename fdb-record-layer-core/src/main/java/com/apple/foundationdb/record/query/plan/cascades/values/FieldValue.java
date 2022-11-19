@@ -422,8 +422,7 @@ public class FieldValue implements ValueWithChild {
                 return false;
             }
             for (int i = 0; i < size(); i++) {
-                if (otherFieldPath.getFieldOrdinals().get(i) != getFieldOrdinals().get(i) ||
-                        !otherFieldPath.getFieldTypes().get(i).equals(getFieldTypes().get(i))) {
+                if (!fieldAccessors.get(i).equals(otherFieldPath.fieldAccessors.get(i))) {
                     return false;
                 }
             }
@@ -537,7 +536,7 @@ public class FieldValue implements ValueWithChild {
         @Nonnull
         private final Type type;
 
-        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
             this.name = name;
             this.ordinal = ordinal;
             this.type = type;
