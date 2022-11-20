@@ -24,6 +24,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -97,10 +100,10 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey, indexPlan);
 
-            Set<KeyExpression> fields = new HashSet<>(requiredFields);
+            final Set<KeyExpression> fields = new HashSet<>(requiredFields);
             if (commonPrimaryKey != null) {
                 // Need the primary key, even if it wasn't one of the explicit result fields.
-                fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
+                flattenKeys(commonPrimaryKey, fields);
             }
             fields.removeIf(keyExpression -> !keyExpression.needsCopyingToPartialRecord());
 
@@ -117,6 +120,17 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
         }
         return null;
+    }
+
+    private static void flattenKeys(@Nonnull KeyExpression commonPrimaryKey, @Nonnull Set<KeyExpression> fields) {
+        // Not just normalizeKeyForPositions, because while List doesn't flatten _positions_, that doesn't matter.
+        if (commonPrimaryKey instanceof ThenKeyExpression || commonPrimaryKey instanceof ListKeyExpression) {
+            for (KeyExpression child : ((KeyExpressionWithChildren)commonPrimaryKey).getChildren()) {
+                flattenKeys(child, fields);
+            }
+        } else {
+            fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
+        }
     }
 
     @Nullable

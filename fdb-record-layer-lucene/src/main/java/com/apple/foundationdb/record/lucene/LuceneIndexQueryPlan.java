@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -161,18 +162,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
                                 @Nonnull List<KeyExpression> otherFields) {
         int i = 0;
         while (i < nonStoredFields.size()) {
-            KeyExpression field = nonStoredFields.get(i);
-            KeyExpression origField = field;
-            // Unwrap functions that are just annotations.
-            while (field instanceof LuceneFunctionKeyExpression) {
-                if (field instanceof LuceneFunctionKeyExpression.LuceneSorted) {
-                    field = ((LuceneFunctionKeyExpression.LuceneSorted)field).getSortedExpression();
-                } else if (field instanceof LuceneFunctionKeyExpression.LuceneStored) {
-                    field = ((LuceneFunctionKeyExpression.LuceneStored)field).getStoredExpression();
-                } else {
-                    break;
-                }
-            }
+            KeyExpression origField = nonStoredFields.get(i);
+            KeyExpression field = removeLuceneAnnotations(origField);
             if (field != origField) {
                 nonStoredFields.set(i, field);
                 int j = keyFields.indexOf(origField);
@@ -196,6 +187,29 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         }
     }
 
+    // Unwrap functions that are just annotations.
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static KeyExpression removeLuceneAnnotations(@Nonnull KeyExpression field) {
+        if (field instanceof NestingKeyExpression) {
+            KeyExpression origChild = ((NestingKeyExpression)field).getChild();
+            KeyExpression child = removeLuceneAnnotations(origChild);
+            if (child == origChild) {
+                return field;
+            }
+            return new NestingKeyExpression(((NestingKeyExpression)field).getParent(), child);
+        }
+        while (field instanceof LuceneFunctionKeyExpression) {
+            if (field instanceof LuceneFunctionKeyExpression.LuceneSorted) {
+                field = ((LuceneFunctionKeyExpression.LuceneSorted)field).getSortedExpression();
+            } else if (field instanceof LuceneFunctionKeyExpression.LuceneStored) {
+                field = ((LuceneFunctionKeyExpression.LuceneStored)field).getStoredExpression();
+            } else {
+                break;
+            }
+        }
+        return field;
+    }
+    
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
