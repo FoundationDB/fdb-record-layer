@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -184,19 +184,25 @@ public class OrElseCursor<T> implements RecordCursor<T> {
             return innerOrOtherContinuation.isEnd();
         }
 
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            ByteString bytes = innerOrOtherContinuation.toByteString();
+            if (isEnd() || bytes.isEmpty()) {
+                return ByteString.EMPTY;
+            }
+            return RecordCursorProto.OrElseContinuation.newBuilder()
+                    .setState(state)
+                    .setContinuation(bytes)
+                    .build()
+                    .toByteString();
+        }
+
         @Nullable
         @Override
         public byte[] toBytes() {
-            byte[] bytes = innerOrOtherContinuation.toBytes();
-            if (isEnd() || bytes == null) {
-                return null;
-            }
-
-            return RecordCursorProto.OrElseContinuation.newBuilder()
-                    .setState(state)
-                    .setContinuation(ZeroCopyByteString.wrap(bytes))
-                    .build()
-                    .toByteArray();
+            ByteString byteString = toByteString();
+            return byteString.isEmpty() ? null : byteString.toByteArray();
         }
     }
 

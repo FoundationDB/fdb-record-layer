@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -298,6 +299,10 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         private final byte[] outerCheckValue;
         @Nonnull
         private final RecordCursorResult<V> innerResult;
+        @Nullable
+        private ByteString cachedByteString;
+        @Nullable
+        private byte[] cachedBytes;
 
         public Continuation(@Nonnull RecordCursorContinuation priorOuterContinuation,
                             @Nonnull RecordCursorResult<T> outerResult,
@@ -314,31 +319,45 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return outerResult.getContinuation().isEnd() && innerResult.getContinuation().isEnd();
         }
 
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            }
+            if (cachedByteString == null) {
+                final RecordCursorProto.FlatMapContinuation.Builder builder = RecordCursorProto.FlatMapContinuation.newBuilder();
+                final RecordCursorContinuation innerContinuation = innerResult.getContinuation();
+
+                if (innerContinuation.isEnd()) {
+                    // This was the last of the inner cursor. Take continuation from outer after it.
+                    builder.setOuterContinuation(outerResult.getContinuation().toByteString());
+                } else {
+                    // This was in the middle of the inner cursor. Take continuation from outer before it and arrange to skip to it.
+                    final ByteString priorOuterContinuationBytes = priorOuterContinuation.toByteString();
+                    if (!priorOuterContinuationBytes.isEmpty()) { // isn't start or end continuation
+                        builder.setOuterContinuation(priorOuterContinuationBytes);
+                    }
+                    if (outerCheckValue != null) {
+                        builder.setCheckValue(ZeroCopyByteString.wrap(outerCheckValue));
+                    }
+                    builder.setInnerContinuation(innerContinuation.toByteString());
+                }
+                cachedByteString = builder.build().toByteString();
+            }
+            return cachedByteString;
+        }
+
         @Nullable
         @Override
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
             }
-
-            final RecordCursorProto.FlatMapContinuation.Builder builder = RecordCursorProto.FlatMapContinuation.newBuilder();
-            final RecordCursorContinuation innerContinuation = innerResult.getContinuation();
-
-            if (innerContinuation.isEnd()) {
-                // This was the last of the inner cursor. Take continuation from outer after it.
-                builder.setOuterContinuation(ZeroCopyByteString.wrap(outerResult.getContinuation().toBytes()));
-            } else {
-                // This was in the middle of the inner cursor. Take continuation from outer before it and arrange to skip to it.
-                final byte[] priorOuterContinuationBytes = priorOuterContinuation.toBytes();
-                if (priorOuterContinuationBytes != null) { // isn't start or end continuation
-                    builder.setOuterContinuation(ZeroCopyByteString.wrap(priorOuterContinuation.toBytes()));
-                }
-                if (outerCheckValue != null) {
-                    builder.setCheckValue(ZeroCopyByteString.wrap(outerCheckValue));
-                }
-                builder.setInnerContinuation(ZeroCopyByteString.wrap(innerContinuation.toBytes()));
+            if (cachedBytes == null) {
+                cachedBytes = toByteString().toByteArray();
             }
-            return builder.build().toByteArray();
+            return cachedBytes;
         }
     }
 }

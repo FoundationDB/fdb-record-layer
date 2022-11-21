@@ -25,10 +25,13 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -104,6 +107,15 @@ public class RangeCursor implements RecordCursor<Integer> {
             // cursor knows for certain that there is no more after that result, as in the ListCursor.
             // Concretely, this means that we really need a > here, rather than >=.
             return nextPosition > size;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            }
+            return ZeroCopyByteString.wrap(Objects.requireNonNull(toBytes()));
         }
 
         @Nullable

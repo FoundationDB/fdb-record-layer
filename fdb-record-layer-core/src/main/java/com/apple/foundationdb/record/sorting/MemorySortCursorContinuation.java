@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -73,20 +74,32 @@ class MemorySortCursorContinuation<K, V> implements RecordCursorContinuation {
             if (minimumKey != null) {
                 builder.setMinimumKey(ZeroCopyByteString.wrap(adapter.serializeKey(minimumKey)));
             }
-            byte[] childBytes = childContinuation.toBytes();
-            if (childBytes != null) {
-                builder.setContinuation(ZeroCopyByteString.wrap(childBytes));
+            ByteString childBytes = childContinuation.toByteString();
+            if (!childBytes.isEmpty()) {
+                builder.setContinuation(childBytes);
             }
             cachedProto = builder.build();
         }
         return cachedProto;
     }
 
+    @Nonnull
+    @Override
+    public ByteString toByteString() {
+        if (exhausted) {
+            return ByteString.EMPTY;
+        }
+        return toProto().toByteString();
+    }
+
     @Override
     @Nullable
     public byte[] toBytes() {
+        if (exhausted) {
+            return null;
+        }
         if (cachedBytes == null) {
-            cachedBytes = toProto().toByteArray();
+            cachedBytes = toByteString().toByteArray();
         }
         return cachedBytes;
     }

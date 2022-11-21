@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -258,6 +260,13 @@ public class ChainedCursor<T> implements BaseCursor<T> {
         public Continuation(@Nonnull Optional<T> lastValue, @Nonnull Function<T, byte[]> continuationEncoder) {
             this.lastValue = lastValue;
             this.continuationEncoder = continuationEncoder;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            byte[] bytes = toBytes();
+            return bytes == null ? ByteString.EMPTY : ZeroCopyByteString.wrap(bytes);
         }
 
         @Nullable

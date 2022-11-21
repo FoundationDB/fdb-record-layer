@@ -280,6 +280,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         @Nullable
         private ByteString innerContinuation = null;
         private boolean isEnd;
+        @Nullable
+        private RecordCursorProto.SelectorPlanContinuation cachedProto;
 
         public SelectorContinuation(byte[] rawBytes) {
             try {
@@ -308,17 +310,33 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             }
         }
 
+        private RecordCursorProto.SelectorPlanContinuation toProto() {
+            if (cachedProto == null) {
+                cachedProto = RecordCursorProto.SelectorPlanContinuation.newBuilder()
+                        .setSelectedPlan(selectedPlanIndex)
+                        .setInnerContinuation(innerContinuation)
+                        .build();
+            }
+            return cachedProto;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            } else {
+                return toProto().toByteString();
+            }
+        }
+
         @Nullable
         @Override
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
             } else {
-                RecordCursorProto.SelectorPlanContinuation continuation = RecordCursorProto.SelectorPlanContinuation.newBuilder()
-                        .setSelectedPlan(selectedPlanIndex)
-                        .setInnerContinuation(innerContinuation)
-                        .build();
-                return continuation.toByteArray();
+                return toProto().toByteArray();
             }
         }
 

@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -148,6 +150,16 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         @Override
         public boolean isEnd() {
             return lastKey == null;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (lastKey == null) {
+                return ByteString.EMPTY;
+            }
+            ByteString base = ZeroCopyByteString.wrap(lastKey);
+            return base.substring(prefixLength, lastKey.length);
         }
 
         @Nullable
