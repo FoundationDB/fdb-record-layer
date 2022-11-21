@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -88,9 +89,9 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
             for (File file : files) {
                 builder.addFiles(file.getPath());
             }
-            byte[] childBytes = childContinuation.toBytes();
-            if (childBytes != null) {
-                builder.setContinuation(ZeroCopyByteString.wrap(childBytes));
+            ByteString childBytes = childContinuation.toByteString();
+            if (childBytes.isEmpty()) {
+                builder.setContinuation(childBytes);
             }
             if (recordPosition > 0) {
                 builder.setRecordPosition(recordPosition);
@@ -103,6 +104,15 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return cachedProto;
     }
 
+    @Nonnull
+    @Override
+    public ByteString toByteString() {
+        if (isEnd()) {
+            return ByteString.EMPTY;
+        }
+        return toProto().toByteString();
+    }
+
     @Override
     @Nullable
     public byte[] toBytes() {
@@ -110,7 +120,7 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
             return null;
         }
         if (cachedBytes == null) {
-            cachedBytes = toProto().toByteArray();
+            cachedBytes = toByteString().toByteArray();
         }
         return cachedBytes;
     }

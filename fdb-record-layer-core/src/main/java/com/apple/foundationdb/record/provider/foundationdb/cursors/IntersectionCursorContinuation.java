@@ -32,7 +32,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,26 +59,26 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
 
     @Override
     protected void setFirstChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
-        byte[] asBytes = continuation.toBytes();
-        if (asBytes == null && !continuation.isEnd()) { // first cursor has not started
+        ByteString asBytes = continuation.toByteString();
+        if (asBytes.isEmpty() && !continuation.isEnd()) { // first cursor has not started
             builder.setFirstStarted(false);
         } else {
             builder.setFirstStarted(true);
-            if (asBytes != null) {
-                builder.setFirstContinuation(ZeroCopyByteString.wrap(asBytes));
+            if (!asBytes.isEmpty()) {
+                builder.setFirstContinuation(asBytes);
             }
         }
     }
 
     @Override
     protected void setSecondChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
-        byte[] asBytes = continuation.toBytes();
-        if (asBytes == null && !continuation.isEnd()) { // second cursor not started
+        ByteString asBytes = continuation.toByteString();
+        if (asBytes.isEmpty() && !continuation.isEnd()) { // second cursor not started
             builder.setSecondStarted(false);
         } else {
             builder.setSecondStarted(true);
-            if (asBytes != null) {
-                builder.setSecondContinuation(ZeroCopyByteString.wrap(asBytes));
+            if (!asBytes.isEmpty()) {
+                builder.setSecondContinuation(asBytes);
             }
         }
     }
@@ -90,13 +89,13 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
-            byte[] asBytes = continuation.toBytes();
-            if (asBytes == null && !continuation.isEnd()) {
+            ByteString asBytes = continuation.toByteString();
+            if (asBytes.isEmpty() && !continuation.isEnd()) {
                 cursorState = START_PROTO;
             } else {
                 cursorState = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
                         .setStarted(true)
-                        .setContinuation(ByteString.copyFrom(asBytes))
+                        .setContinuation(asBytes)
                         .build();
             }
         }

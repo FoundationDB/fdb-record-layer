@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.protobuf.ByteString;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -33,6 +35,12 @@ public class RecordCursorEndContinuation implements RecordCursorContinuation {
     public static final RecordCursorContinuation END = new RecordCursorEndContinuation();
 
     private RecordCursorEndContinuation() {
+    }
+
+    @Nonnull
+    @Override
+    public ByteString toByteString() {
+        return ByteString.EMPTY;
     }
 
     @Nullable

@@ -78,13 +78,13 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
-            byte[] asBytes = continuation.toBytes();
-            if (asBytes == null && !continuation.isEnd()) {
+            ByteString asBytes = continuation.toByteString();
+            if (asBytes.isEmpty() && !continuation.isEnd()) {
                 cursorState = START_PROTO;
             } else {
                 cursorState = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
                         .setStarted(true)
-                        .setContinuation(ByteString.copyFrom(asBytes))
+                        .setContinuation(asBytes)
                         .build();
             }
         }

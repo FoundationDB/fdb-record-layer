@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,9 +61,9 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         if (continuation.isEnd()) {
             builder.setFirstExhausted(true);
         } else {
-            final byte[] asBytes = continuation.toBytes();
-            if (asBytes != null) {
-                builder.setFirstContinuation(ZeroCopyByteString.wrap(asBytes));
+            final ByteString asBytes = continuation.toByteString();
+            if (!asBytes.isEmpty()) {
+                builder.setFirstContinuation(asBytes);
             }
         }
     }
@@ -73,9 +73,9 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         if (continuation.isEnd()) {
             builder.setSecondExhausted(true);
         } else {
-            final byte[] asBytes = continuation.toBytes();
-            if (asBytes != null) {
-                builder.setSecondContinuation(ZeroCopyByteString.wrap(asBytes));
+            final ByteString asBytes = continuation.toByteString();
+            if (!asBytes.isEmpty()) {
+                builder.setSecondContinuation(asBytes);
             }
         }
     }
@@ -86,12 +86,12 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
-            final byte[] asBytes = continuation.toBytes();
-            if (asBytes == null) {
+            final ByteString asBytes = continuation.toByteString();
+            if (asBytes.isEmpty()) {
                 cursorState = START_PROTO;
             } else {
                 cursorState = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
-                        .setContinuation(ZeroCopyByteString.wrap(asBytes))
+                        .setContinuation(asBytes)
                         .build();
             }
         }

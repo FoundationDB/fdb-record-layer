@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,9 +52,9 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
             if (childContinuation.isEnd()) {
                 builder.setExhausted(true);
             } else {
-                byte[] childBytes = childContinuation.toBytes();
-                if (childBytes != null) {
-                    builder.setContinuation(ZeroCopyByteString.wrap(childBytes));
+                ByteString childBytes = childContinuation.toByteString();
+                if (!childBytes.isEmpty()) {
+                    builder.setContinuation(childBytes);
                 }
             }
             if (bloomBytes != null) {
