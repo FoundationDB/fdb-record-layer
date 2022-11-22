@@ -504,7 +504,7 @@ public class GroupByQueryTests {
         }
     }
 
-    @Disabled // we require a fix for https://github.com/FoundationDB/fdb-record-layer/issues/1212 to make this work.
+    @Test
     void groupByClauseWithNamedGroupingColumns() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk int64, a int64, b int64, c int64, PRIMARY KEY(pk))" +
@@ -522,11 +522,39 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT SUM(c) / COUNT(c), MAX(c) FROM T1 GROUP BY a as x, b as y"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 20L, 1L, 20L)
+                            .hasRowExactly(20L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(1L, 10L, 2L, 15L)
+                            .hasRowExactly(10L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(2L, 40L, 1L, 90L)
+                            .hasRowExactly(40L, 90L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Disabled // (yhatem) check ordering requirements of join.
+    void groupByOverJoinWorks() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk int64, a int64, b int64, c int64, PRIMARY KEY(pk))" +
+                        "CREATE TABLE T2(pk int64, x int64, y int64, z int64, primary key(pk))" +
+                        "CREATE INDEX idx1 AS SELECT B FROM T1";
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertT1Record(statement, 2, 1, 1, 20);
+                insertT1Record(statement, 3, 1, 2, 10);
+                insertT1Record(statement, 4, 1, 2, 15);
+                insertT1Record(statement, 5, 1, 2, 5);
+                insertT1Record(statement, 6, 2, 1, 10);
+                insertT1Record(statement, 7, 2, 1, 40);
+                insertT1Record(statement, 8, 2, 1, 20);
+                insertT1Record(statement, 9, 2, 1, 90);
+                Assertions.assertTrue(statement.execute("SELECT max(y) from (select y, b as L from t1, t2) as q group by l"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(1L)
+                            .hasNextRow()
+                            .hasRowExactly(2L)
                             .hasNoNextRow();
                 }
             }

@@ -89,6 +89,16 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void aggregateIndexTests() throws Exception {
+        doRun("aggregate-index-tests.yaml");
+    }
+
+    @Test
+    public void aggregateIndexTestsCount() throws Exception {
+        doRun("aggregate-index-tests-count.yaml");
+    }
+
+    @Test
     public void limit() throws Exception {
         doRun("limit.yaml");
     }

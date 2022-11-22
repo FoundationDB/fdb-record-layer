@@ -106,7 +106,7 @@ public class InsertTest {
                 /*
                  * now try to scan the entirety of each table and validate the results
                  * we can have data from multiple test runs contaminating this scan, because it's unbounded. This is
-                 * actually OK, because wwhat we really care about is that the scan doesn't return data from
+                 * actually OK, because what we really care about is that the scan doesn't return data from
                  * other tables. So all we do here is check the returned message type
                  */
                 try (final RelationalResultSet recordScan = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {

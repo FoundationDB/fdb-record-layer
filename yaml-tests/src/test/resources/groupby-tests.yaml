@@ -48,6 +48,9 @@
            {ID: 12, 20, 12},
            {ID: 13, 20, 13}]
 - table: T1
+#---
+#- query: select sum(col2) from T1 group by 3;
+#- result: [{!l 210}]
 ---
 - query: select * from T1 group by col1;
 - error: "42803"
@@ -68,10 +71,9 @@
 - query: select col1 as XX from T1 group by col1;
 - result: [{!l 10}, {!l 20}]
 ---
-# error cascades can not plan this query, #derivation_graphs
-#- query: select x from T1 group by col1 as x;
-#- result: [{!l 10}, {!l 20}]
-#---
+- query: select x from T1 group by col1 as x;
+- result: [{!l 10}, {!l 20}]
+---
 - query: select col1 from (select col1 from t1) as x group by col1;
 - result: [{!l 10}, {!l 20}]
 ---
@@ -129,6 +131,12 @@
 ---
 - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
 - result: [{!l 10}]
+---
+- query: select COUNT(*) from T1;
+- result: [{!l 13}]
+---
+- query: select COUNT(col1) from T1;
+- result: [{!l 13}]
 ---
 - query: drop schema template groupby_tests_template
 ---

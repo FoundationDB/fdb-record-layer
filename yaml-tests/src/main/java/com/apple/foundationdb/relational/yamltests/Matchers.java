@@ -325,6 +325,9 @@ public class Matchers {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", resultSetPrettyPrinter);
             }
         }
+        if (expected instanceof YamlRunner.StringContains) {
+            return ((YamlRunner.StringContains) expected).matchWith(actual, resultSetPrettyPrinter);
+        }
         if (isMap(expected)) {
             if (!actual.next()) {
                 return ResultSetMatchResult.fail("actual result set is empty", resultSetPrettyPrinter);
@@ -438,6 +441,9 @@ public class Matchers {
             } else {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", printer);
             }
+        }
+        if (expected instanceof YamlRunner.StringContains) {
+            return ((YamlRunner.StringContains) expected).matchWith(actual, printer);
         }
 
         if (expected instanceof Map<?, ?>) {

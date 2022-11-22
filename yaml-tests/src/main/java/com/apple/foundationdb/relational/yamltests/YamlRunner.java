@@ -41,7 +41,8 @@ import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
 import java.io.InputStream;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 
 import javax.annotation.Nonnull;
 
@@ -77,6 +78,7 @@ public final class YamlRunner implements AutoCloseable {
         public CustomTagsInject() {
             yamlConstructors.put(new Tag("!dc"), new CustomTagsInject.ConstructDontCare());
             yamlConstructors.put(new Tag("!l"), new CustomTagsInject.ConstructLong());
+            yamlConstructors.put(new Tag("!sc"), new CustomTagsInject.ConstructStringContains());
         }
 
         @Override
@@ -126,6 +128,16 @@ public final class YamlRunner implements AutoCloseable {
                 return Long.valueOf(((ScalarNode) node).getValue());
             }
         }
+
+        private static class ConstructStringContains extends AbstractConstruct {
+            @Override
+            public Object construct(Node node) {
+                if (!(node instanceof ScalarNode)) {
+                    Assert.failUnchecked(String.format("The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
+                }
+                return new StringContains(((ScalarNode) node).getValue());
+            }
+        }
     }
 
     static final class DontCare {
@@ -137,6 +149,39 @@ public final class YamlRunner implements AutoCloseable {
         @Override
         public String toString() {
             return "!dc";
+        }
+    }
+
+    static final class StringContains {
+        @Nonnull
+        private final String value;
+
+        StringContains(@Nonnull final String value) {
+            this.value = value;
+        }
+
+        @Nonnull
+        public String getValue() {
+            return value;
+        }
+
+        @Nonnull
+        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, @Nonnull Matchers.ResultSetPrettyPrinter printer) {
+            if (other instanceof String) {
+                final var otherStr = (String) other;
+                if (otherStr.contains(value)) {
+                    return Matchers.ResultSetMatchResult.success();
+                } else {
+                    return Matchers.ResultSetMatchResult.fail(String.format("The string '%s' does not contain '%s'", otherStr, value), printer);
+                }
+            } else {
+                return Matchers.ResultSetMatchResult.fail(String.format("expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other.toString(), other.getClass().getSimpleName()), printer);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "!sc " + value;
         }
     }
 

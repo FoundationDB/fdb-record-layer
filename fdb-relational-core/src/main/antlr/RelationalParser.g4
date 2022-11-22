@@ -1747,7 +1747,7 @@ levelInWeightListElement
     ;
 
 aggregateWindowedFunction
-    : functionName=(AVG | MAX | MIN | SUM)
+    : functionName=(AVG | MAX | MIN | SUM | MAX_EVER | MIN_EVER )
       '(' aggregator=(ALL | DISTINCT)? functionArg ')' overClause?
     | functionName=COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?
     | functionName=(

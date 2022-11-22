@@ -1,0 +1,144 @@
+#
+# aggregate-index-tests.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template aggregate_index_tests_template
+---
+- query: create schema template aggregate_index_tests_template
+    create table t1(id int64, col1 int64, col2 int64, primary key(id))
+    create index mv1 as select sum(col2) from t1 group by col1
+    create index mv6 as select max_ever(col2) from t1 group by col1
+    create table t2(id int64, col1 int64, col2 int64, col3 int64, primary key(id))
+    create index mv2 as select col1, col2 from t2 order by col1, col2
+    create index mv3 as select col1, col3 from t2 order by col1, col3
+    create index mv4 as select min_ever(col3) from T2 group by col1, col2
+    create index mv5 as select max_ever(col3) from t2 group by col1, col2
+    create index vi1 as select col1 from t1
+    create index mv7 as select min_ever(col3) from t2
+---
+- query: drop database /AGG_IDX_YAML
+---
+- query: create database /AGG_IDX_YAML
+---
+- query: create schema /AGG_IDX_YAML/test with template aggregate_index_tests_template
+---
+- connect: "jdbc:embed:/AGG_IDX_YAML?schema=TEST"
+---
+- insert: [{ID: 1, 10, 1},
+           {ID: 2, 10, 2},
+           {ID: 3, 10, 3},
+           {ID: 4, 10, 4},
+           {ID: 5, 10, 5},
+           {ID: 6, 20, 6},
+           {ID: 7, 20, 7},
+           {ID: 8, 20, 8},
+           {ID: 9, 20, 9},
+           {ID: 10, 20, 10},
+           {ID: 11, 20, 11},
+           {ID: 12, 20, 12},
+           {ID: 13, 20, 13}]
+- table: T1
+---
+- insert: [{ID: 1, COL1: 1, COL2: 1, COL3: 100},
+           {ID: 2, COL1: 1, COL2: 1, COL3: 1},
+           {ID: 3, COL1: 1, COL2: 2, COL3: 2},
+           {ID: 4, COL1: 1, COL2: 2, COL3: 200},
+           {ID: 5, COL1: 2, COL2: 1, COL3: 200},
+           {ID: 6, COL1: 2, COL2: 1, COL3: 3},
+           {ID: 7, COL1: 2, COL2: 1, COL3: 400},
+           {ID: 8, COL1: 2, COL2: 1, COL3: 400},
+           {ID: 9, COL1: 2, COL2: 1, COL3: 400}]
+- table: T2
+---
+- query: explain select col1, sum(col2) from T1 group by col1;
+- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
+---
+- query: select col1, sum(col2) from T1 group by col1;
+- result: [{!l 10, !l 15}, {!l 20, !l 76}]
+---
+- query: explain select col1 from T1 group by col1;
+- result: [{!sc "Index(VI1"}]
+---
+- query: select col1 from T1 group by col1;
+- result: [{!l 10}, {!l 20}]
+---
+- query: explain select sum(col2) from T1 group by col1;
+- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
+---
+- query: select sum(col2) from T1 group by col1;
+- result: [{!l 15}, {!l 76}]
+---
+- query: explain select col1, sum(col2) + 1 from T1 group by col1;
+- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
+---
+- query: select col1, sum(col2) + 1 from T1 group by col1;
+- result: [{!l 10, !l 16}, {!l 20, !l 77}]
+---
+- query: explain select min(col3) from T2 group by col1, col2;
+- result: [{!sc "AGGREGATE BY (min_l("}]
+---
+- query: select min(col3) from T2 group by col1, col2;
+- result: [{!l 1}, {!l 2}, {!l 3}]
+---
+- query: explain select max(col2) from t2 group by col1, col3;
+- result: [{!sc "AGGREGATE BY (max_l("}]
+---
+- query: select max(col2) from t2 group by col1, col3;
+- result: [{!l 1}, {!l 2}, {!l 1}, {!l 2}, {!l 1}, {!l 1}, {!l 1}]
+---
+# this should use the aggregate index in the future, for now, it is using streaming aggregate
+# over base table scan.
+- query: explain select max(col2) from t2;
+- result: [{!sc "AGGREGATE BY (max_l"}]
+---
+- query: select max(col2) from t2;
+- result: [{!l 2}]
+---
+- query: explain select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
+- result: [{!sc "AGGREGATE BY (sum_l"}]
+---
+- query: select max(col2) from t2 group by col1, col3;
+- result: [{!l 1}, {!l 2}, {!l 1}, {!l 2}, {!l 1}, {!l 1}, {!l 1}]
+---
+# grouping by constant is not yet supported.
+#- query: select sum(col2) from t1 group by 3,2,1;
+#- result: [{!l 220}]
+#---
+# make sure we're not choosing the aggregate index (because we aggregate by col3 not col2)
+- query: explain select max(col3) from t2 group by col1, col3;
+- result: [{!sc "AGGREGATE BY (max_l"}]
+---
+- query: select min_ever(col3) from T2 group by col1, col2;
+- result: [{!l 1}, {!l 2}, {!l 3}]
+---
+- query: select max_ever(col3) from T2 group by col1, col2;
+- result: [{!l 100}, {!l 200}, {!l 400}]
+---
+- query: select min_ever(col3) from t2
+- result: [{!l 1}]
+---
+- query: explain select min_ever(col3) from t2
+- result: [{!sc "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"}]
+---
+- query: drop schema template aggregate_index_tests_template
+---
+- query: drop database /AGG_IDX_YAML
+...

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.Options;
@@ -93,7 +94,7 @@ public interface Plan<T> {
         } catch (MetaDataException mde) {
             // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
-        } catch (VerifyException ve) {
+        } catch (VerifyException | SemanticException ve) {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
         }
     }

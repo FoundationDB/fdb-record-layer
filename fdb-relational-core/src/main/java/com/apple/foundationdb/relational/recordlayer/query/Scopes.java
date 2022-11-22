@@ -178,7 +178,7 @@ public class Scopes {
 
         @Nonnull
         private SelectExpression convertToSelectExpression() {
-            GraphExpansion.Builder builder = GraphExpansion.builder();
+            final GraphExpansion.Builder builder = GraphExpansion.builder();
             builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()))
                     .addAllResultColumns(projectionList);
             if (predicate != null) {

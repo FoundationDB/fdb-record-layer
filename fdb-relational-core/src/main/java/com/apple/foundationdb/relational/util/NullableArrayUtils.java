@@ -24,13 +24,15 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
+
 /**
  * A Utils class that holds logic related to nullable arrays.
  * Nullable Arrays are arrays that, if unset, will be NULL.
  * Non-nullable arrays are arrays that, if unset, will be empty list.
  */
 public final class NullableArrayUtils {
-    private static final String REPEATED_FIELD_NAME = "values";
+    public static final String REPEATED_FIELD_NAME = "values";
 
     private NullableArrayUtils() {
         throw new IllegalStateException("Utility class");
@@ -49,7 +51,7 @@ public final class NullableArrayUtils {
         }
     }
 
-    public static boolean isWrappedArrayDescriptor(Descriptors.Descriptor descriptor) {
+    public static boolean isWrappedArrayDescriptor(@Nonnull final Descriptors.Descriptor descriptor) {
         return descriptor.getFields().size() == 1 && REPEATED_FIELD_NAME.equals(descriptor.getFields().get(0).getName()) && descriptor.findFieldByName(REPEATED_FIELD_NAME).isRepeated();
     }
 
@@ -58,66 +60,115 @@ public final class NullableArrayUtils {
     For example, reviews.rating -> reviews.values.rating
     (TODO): Add the wrapped array structure for nullable arrays.
      */
-    public static RecordMetaDataProto.KeyExpression wrapArray(RecordMetaDataProto.KeyExpression original, Descriptors.Descriptor parentDescriptor, boolean containsNonNullableArray) {
+    public static RecordMetaDataProto.KeyExpression wrapArray(RecordMetaDataProto.KeyExpression keyExpression,
+                                                              Descriptors.Descriptor parentDescriptor,
+                                                              boolean containsNonNullableArray) {
         if (containsNonNullableArray) {
-            return original;
+            return keyExpression;
         }
-        if (original.hasThen()) {
-            RecordMetaDataProto.Then.Builder newThenBuilder = RecordMetaDataProto.Then.newBuilder();
-            for (RecordMetaDataProto.KeyExpression k : original.getThen().getChildList()) {
-                newThenBuilder.addChild(wrapArray(k, parentDescriptor, containsNonNullableArray));
+
+        return wrapArrayInternal(keyExpression, parentDescriptor);
+    }
+
+    public static RecordMetaDataProto.KeyExpression wrapArrayInternal(RecordMetaDataProto.KeyExpression keyExpression,
+                                                                      Descriptors.Descriptor parentDescriptor) {
+        // handle concat (straightforward recursion)
+        if (keyExpression.hasThen()) {
+            final var newThenBuilder = RecordMetaDataProto.Then.newBuilder();
+            for (final var child : keyExpression.getThen().getChildList()) {
+                newThenBuilder.addChild(wrapArrayInternal(child, parentDescriptor));
             }
             return RecordMetaDataProto.KeyExpression.newBuilder().setThen(newThenBuilder).build();
-        } else if (original.hasNesting()) {
-            RecordMetaDataProto.Field parent = original.getNesting().getParent();
-            RecordMetaDataProto.KeyExpression child = original.getNesting().getChild();
-            if (NullableArrayUtils.isWrappedArrayDescriptor(parent.getFieldName(), parentDescriptor)) {
-                RecordMetaDataProto.Nesting nestedParent = wrapArray(parent);
-                RecordMetaDataProto.KeyExpression newChild = RecordMetaDataProto.KeyExpression.newBuilder()
+        }
+
+        // handle nested field
+        if (keyExpression.hasNesting()) {
+            final var parent = keyExpression.getNesting().getParent();
+            final var parentFieldName = parent.getFieldName();
+            final var child = keyExpression.getNesting().getChild();
+            // check if the PB descriptor has the parent represented as field -> VALUES, if so, align the key expression.
+            if (isWrappedArrayDescriptor(parentFieldName, parentDescriptor)) {
+                final var wrappedParent = splitFieldIntoNestedWithValues(parent);
+                // recurse for child.
+                final var wrappedChild = wrapArrayInternal(child,
+                        parentDescriptor.findFieldByName(parentFieldName).getMessageType().findFieldByName(REPEATED_FIELD_NAME).getMessageType());
+                // the child is actually a grand child (since parent->child is actually parent->values->child), fix that.
+                final var newChild = RecordMetaDataProto.KeyExpression.newBuilder()
                         .setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                                .setParent(nestedParent.getChild().getField())
-                                .setChild(wrapArray(child, parentDescriptor.findFieldByName(parent.getFieldName()).getMessageType().findFieldByName(getRepeatedFieldName()).getMessageType(), containsNonNullableArray))).build();
-                return RecordMetaDataProto.KeyExpression.newBuilder().setNesting(RecordMetaDataProto.Nesting.newBuilder().setParent(nestedParent.getParent()).setChild(newChild)).build();
+                                .setParent(wrappedParent.getChild().getField())
+                                .setChild(wrappedChild))
+                        .build();
+                return RecordMetaDataProto.KeyExpression.newBuilder()
+                        .setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                                .setParent(wrappedParent.getParent())
+                                .setChild(newChild))
+                        .build();
             } else {
-                return RecordMetaDataProto.KeyExpression.newBuilder().setNesting(RecordMetaDataProto.Nesting.newBuilder().setParent(parent).setChild(wrapArray(child, parentDescriptor.findNestedTypeByName(parent.getFieldName()), containsNonNullableArray))).build();
+                final var wrappedChild = wrapArrayInternal(child, parentDescriptor.findFieldByName(parentFieldName).getMessageType());
+                return RecordMetaDataProto.KeyExpression.newBuilder()
+                        .setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                                .setParent(parent)
+                                .setChild(wrappedChild))
+                        .build();
             }
-        } else if (original.hasField()) {
-            if (NullableArrayUtils.isWrappedArrayDescriptor(original.getField().getFieldName(), parentDescriptor)) {
-                return RecordMetaDataProto.KeyExpression.newBuilder().setNesting(wrapArray(original.getField())).build();
+        }
+
+        // check key expression's field
+        if (keyExpression.hasField()) {
+            if (NullableArrayUtils.isWrappedArrayDescriptor(keyExpression.getField().getFieldName(), parentDescriptor)) {
+                return RecordMetaDataProto.KeyExpression.newBuilder().setNesting(splitFieldIntoNestedWithValues(keyExpression.getField())).build();
             } else {
-                return original;
+                return keyExpression;
             }
-        } else if (original.hasGrouping()) {
-            RecordMetaDataProto.KeyExpression newWholeKey = wrapArray(original.getGrouping().getWholeKey(), parentDescriptor, containsNonNullableArray);
-            return RecordMetaDataProto.KeyExpression.newBuilder().setGrouping(original.getGrouping().toBuilder().setWholeKey(newWholeKey)).build();
-        } else if (original.hasSplit()) {
-            RecordMetaDataProto.KeyExpression newJoined = wrapArray(original.getSplit().getJoined(), parentDescriptor, containsNonNullableArray);
-            return RecordMetaDataProto.KeyExpression.newBuilder().setSplit(original.getSplit().toBuilder().setJoined(newJoined)).build();
-        } else if (original.hasFunction()) {
-            RecordMetaDataProto.KeyExpression newArguments = wrapArray(original.getFunction().getArguments(), parentDescriptor, containsNonNullableArray);
-            return RecordMetaDataProto.KeyExpression.newBuilder().setFunction(original.getFunction().toBuilder().setArguments(newArguments)).build();
-        } else if (original.hasKeyWithValue()) {
-            RecordMetaDataProto.KeyExpression newInnerKey = wrapArray(original.getKeyWithValue().getInnerKey(), parentDescriptor, containsNonNullableArray);
-            return RecordMetaDataProto.KeyExpression.newBuilder().setKeyWithValue(original.getKeyWithValue().toBuilder().setInnerKey(newInnerKey)).build();
-        } else if (original.hasList()) {
-            RecordMetaDataProto.List.Builder newListBuilder = RecordMetaDataProto.List.newBuilder();
-            for (RecordMetaDataProto.KeyExpression k : original.getList().getChildList()) {
-                newListBuilder.addChild(wrapArray(k, parentDescriptor, containsNonNullableArray));
+        }
+
+        // grouping key expression
+        if (keyExpression.hasGrouping()) {
+            final var newWholeKey = wrapArrayInternal(keyExpression.getGrouping().getWholeKey(), parentDescriptor);
+            return RecordMetaDataProto.KeyExpression.newBuilder().setGrouping(keyExpression.getGrouping().toBuilder().setWholeKey(newWholeKey)).build();
+        }
+
+        // split key expression
+        if (keyExpression.hasSplit()) {
+            final var newJoined = wrapArrayInternal(keyExpression.getSplit().getJoined(), parentDescriptor);
+            return RecordMetaDataProto.KeyExpression.newBuilder().setSplit(keyExpression.getSplit().toBuilder().setJoined(newJoined)).build();
+        }
+
+        // function key expression.
+        if (keyExpression.hasFunction()) {
+            final var newArguments = wrapArrayInternal(keyExpression.getFunction().getArguments(), parentDescriptor);
+            return RecordMetaDataProto.KeyExpression.newBuilder().setFunction(keyExpression.getFunction().toBuilder().setArguments(newArguments)).build();
+        }
+
+        // covering key expression.
+        if (keyExpression.hasKeyWithValue()) {
+            final var newInnerKey = wrapArrayInternal(keyExpression.getKeyWithValue().getInnerKey(), parentDescriptor);
+            return RecordMetaDataProto.KeyExpression.newBuilder().setKeyWithValue(keyExpression.getKeyWithValue().toBuilder().setInnerKey(newInnerKey)).build();
+        }
+
+        // key expression containing list.
+        if (keyExpression.hasList()) {
+            final var newListBuilder = RecordMetaDataProto.List.newBuilder();
+            for (final var listItem : keyExpression.getList().getChildList()) {
+                newListBuilder.addChild(wrapArrayInternal(listItem, parentDescriptor));
             }
             return RecordMetaDataProto.KeyExpression.newBuilder().setList(newListBuilder).build();
-        } else {
-            return original;
         }
+
+        return keyExpression;
     }
 
     // wrap repeated fields in a Field type keyExpression
-    private static RecordMetaDataProto.Nesting wrapArray(RecordMetaDataProto.Field original) {
-        RecordMetaDataProto.Field.Builder nestedArrayBuilder = RecordMetaDataProto.Field.newBuilder()
+    private static RecordMetaDataProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordMetaDataProto.Field original) {
+        final var nestedArrayBuilder = RecordMetaDataProto.Field.newBuilder()
                 .setFieldName(original.getFieldName())
                 .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
                 .setNullInterpretation(original.getNullInterpretation());
-        RecordMetaDataProto.KeyExpression.Builder arrayValueBuilder = RecordMetaDataProto.KeyExpression.newBuilder()
-                .setField(RecordMetaDataProto.Field.newBuilder().setFieldName(getRepeatedFieldName()).setFanType(original.getFanType()).setNullInterpretation(original.getNullInterpretation()));
+        final var arrayValueBuilder = RecordMetaDataProto.KeyExpression.newBuilder()
+                .setField(RecordMetaDataProto.Field.newBuilder()
+                        .setFieldName(REPEATED_FIELD_NAME)
+                        .setFanType(original.getFanType())
+                        .setNullInterpretation(original.getNullInterpretation()));
         return RecordMetaDataProto.Nesting.newBuilder().setParent(nestedArrayBuilder).setChild(arrayValueBuilder).build();
     }
 }

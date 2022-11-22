@@ -23,18 +23,16 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
 import static com.apple.foundationdb.relational.yamltests.Matchers.*;
@@ -96,7 +94,10 @@ public class Generators {
                                  BiConsumer<Object, Object> typeConsumer,
                                  DynamicMessageBuilder dataBuilder,
                                  boolean allowArrays) throws RelationalException {
-        if (isArray(value)) {
+        if (value == null) {
+            // do not set the value!
+            return;
+        } else if (isArray(value)) {
             if (!allowArrays) {
                 throw new RelationalException("Cannot nest arrays within arrays!", ErrorCode.INVALID_PARAMETER);
             }

@@ -34,16 +34,18 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +55,8 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.tuple.Pair;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -63,9 +67,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -124,9 +125,10 @@ public final class ParserUtils {
         functionMap.put("MAX", new NumericAggregationValue.MaxFn());
         functionMap.put("MIN", new NumericAggregationValue.MinFn());
         functionMap.put("AVG", new NumericAggregationValue.AvgFn());
+        functionMap.put("MAX_EVER", new IndexOnlyAggregateValue.MaxEverLongFn());
+        functionMap.put("MIN_EVER", new IndexOnlyAggregateValue.MinEverLongFn());
         functionMap.put("SUM", new NumericAggregationValue.SumFn());
         functionMap.put("COUNT", new CountValue.CountFn());
-        functionMap.put("COUNT*", new CountValue.CountStarFn()); // small hack done here, should be fixed in RL.
     }
 
     @Nonnull
@@ -337,7 +339,7 @@ public final class ParserUtils {
         final var accessorPathBuilder = ImmutableList.<Type.Record.Field>builder();
         var currentType = inputType;
         for (final var accessor : accessors) {
-            final var fieldName = accessor.getFieldName();
+            final var fieldName = accessor.getName();
             if (currentType.getTypeCode() != Type.TypeCode.RECORD) {
                 return false;
             }
@@ -351,8 +353,8 @@ public final class ParserUtils {
                 field = fieldNameFieldMap.get(fieldName);
             } else {
                 // field is not accessed by field but by ordinal number
-                Verify.verify(accessor.getOrdinalFieldNumber() >= 0);
-                field = recordType.getFields().get(accessor.getOrdinalFieldNumber());
+                Verify.verify(accessor.getOrdinal() >= 0);
+                field = recordType.getFields().get(accessor.getOrdinal());
             }
             accessorPathBuilder.add(field);
             currentType = field.getFieldType();
@@ -454,7 +456,9 @@ public final class ParserUtils {
     @Nonnull
     public static Column<Value> toColumn(@Nonnull final Value value) {
         if (value instanceof FieldValue) {
-            return toColumn(value, ((FieldValue) value).getLastField().getFieldName());
+            final var fieldName = ((FieldValue) value).getLastFieldName();
+            Assert.thatUnchecked(fieldName.isPresent());
+            return toColumn(value, fieldName.get());
         } else {
             return Column.unnamedOf(value);
         }
@@ -477,7 +481,7 @@ public final class ParserUtils {
     }
 
     public static void verifyAggregateValue(@Nonnull final AggregateValue value) {
-        final var iterator = value.filter(c -> c instanceof AggregateValue).iterator();
+        final var iterator = value.filter(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue).iterator();
         Assert.thatUnchecked(iterator.hasNext(), "internal error"); // since it must be `value` itself.
         iterator.next();
         Assert.thatUnchecked(!iterator.hasNext(),
@@ -495,6 +499,15 @@ public final class ParserUtils {
         final Type.Record record = (Type.Record) type;
         Assert.thatUnchecked(!record.getFields().isEmpty());
         return record.getFields().size() - 1;
+    }
+
+    @Nonnull
+    public static String toString(@Nonnull final Value value) {
+        if (value instanceof LiteralValue) {
+            return Objects.requireNonNull(((LiteralValue<?>) value).getLiteralValue()).toString();
+        } else {
+            return value.toString();
+        }
     }
 
     @Nonnull
@@ -518,14 +531,5 @@ public final class ParserUtils {
             stringBuilder.append("^".repeat(Math.max(0, stop - start + 1)));
         }
         return stringBuilder.toString();
-    }
-
-    @Nonnull
-    public static String toString(@Nonnull final Value value) {
-        if (value instanceof LiteralValue) {
-            return Objects.requireNonNull(((LiteralValue<?>) value).getLiteralValue()).toString();
-        } else {
-            return value.toString();
-        }
     }
 }

@@ -45,6 +45,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -389,6 +390,7 @@ public final class TypingContext {
         final var typeRepository = typeRepositoryBuilder.build();
         return getTableNames().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).flatMap(r -> r.getFields().stream())
                 .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        LinkedHashMap::new,
                         Collectors.reducing(null,
                                 (fieldDescriptor, fieldDescriptor2) -> {
                                     Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
