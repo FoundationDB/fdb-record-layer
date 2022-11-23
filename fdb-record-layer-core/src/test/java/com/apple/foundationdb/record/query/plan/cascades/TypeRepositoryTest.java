@@ -25,11 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.google.common.base.VerifyException;
 import com.google.protobuf.DynamicMessage;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -130,10 +129,6 @@ class TypeRepositoryTest {
             default:
                 throw new IllegalArgumentException("unexpected random type: " + requestedTypeCode);
         }
-    }
-
-    private static String generateRandomString() {
-        return "str" + RandomStringUtils.randomAlphanumeric(10);
     }
 
     @Test

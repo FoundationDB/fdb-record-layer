@@ -135,6 +135,11 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     }
 
     @Nonnull
+    public Value promoteToType(@Nonnull final Type type) {
+        return QuantifiedObjectValue.of(getAlias(), type);
+    }
+
+    @Nonnull
     public static QuantifiedObjectValue of(@Nonnull final Quantifier quantifier) {
         return new QuantifiedObjectValue(quantifier.getAlias(), quantifier.getFlowedObjectType());
     }

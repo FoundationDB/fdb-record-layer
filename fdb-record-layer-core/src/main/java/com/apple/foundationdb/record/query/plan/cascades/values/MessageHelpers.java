@@ -279,8 +279,8 @@ public class MessageHelpers {
                 } else {
                     final var mergedObject =
                             DynamicMessage.newBuilder(targetField.getMessageType())
-                                    .mergeFrom(existingValue)
-                                    .mergeFrom(deepCopyMessageIfNeeded(field.getMessageType(), (Message)entry.getValue()))
+                                    .mergeFrom(deepCopyMessageIfNeeded(targetField.getMessageType(), existingValue))
+                                    .mergeFrom(deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)entry.getValue()))
                                     .build();
                     builder.setField(targetField, mergedObject);
                 }

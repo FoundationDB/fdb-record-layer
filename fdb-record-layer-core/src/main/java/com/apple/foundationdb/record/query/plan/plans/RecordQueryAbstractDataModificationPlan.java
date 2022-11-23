@@ -32,9 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -43,9 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
@@ -357,57 +353,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Override
     public int getComplexity() {
         return 1 + getInnerPlan().getComplexity();
-    }
-
-    @Nullable
-    public static MessageHelpers.CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
-                                                                        @Nonnull Type currentType,
-                                                                        @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
-        if (transformationsTrie != null && transformationsTrie.getValue() != null) {
-            currentType = transformationsTrie.getValue().getResultType();
-        }
-
-        if (currentType.isPrimitive()) {
-            SemanticException.check(targetType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            if (!PromoteValue.isPromotionNeeded(currentType, targetType)) {
-                return null;
-            }
-            // this is definitely a leaf; and we need to promote
-            final var promotionFunction = PromoteValue.resolvePromotionFunction(currentType, targetType);
-            SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            return new MessageHelpers.CoercionTrieNode(promotionFunction, null);
-        }
-
-        Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
-
-        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
-            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetType).getElementType());
-            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentType).getElementType());
-            return computePromotionsTrie(targetElementType, currentElementType, null);
-        }
-
-        Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
-        final var targetRecordType = (Type.Record)targetType;
-        final var currentRecordType = (Type.Record)currentType;
-        SemanticException.check(targetRecordType.getFields().size() == currentRecordType.getFields().size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-
-        final var targetFields = targetRecordType.getFields();
-        final var currentFields = currentRecordType.getFields();
-
-        final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
-        final var childrenMapBuilder = ImmutableMap.<Integer, MessageHelpers.CoercionTrieNode>builder();
-        for (int i = 0; i < targetFields.size(); i++) {
-            final var targetField = targetFields.get(i);
-            final var currentField = currentFields.get(i);
-
-            final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(i);
-            final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentField.getFieldType(), transformationsFieldTrie);
-            if (fieldTrie != null) {
-                childrenMapBuilder.put(i, fieldTrie);
-            }
-        }
-        final var childrenMap = childrenMapBuilder.build();
-        return childrenMap.isEmpty() ? null : new MessageHelpers.CoercionTrieNode(null, childrenMap);
     }
 
     @Nonnull

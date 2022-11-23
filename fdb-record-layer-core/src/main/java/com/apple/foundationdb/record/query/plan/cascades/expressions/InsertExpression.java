@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -29,10 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
@@ -120,7 +117,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
                 targetRecordType,
                 targetType,
                 targetDescriptor,
-                makeComputationValue(physicalInner, targetType));
+                makeComputationValue(targetType));
     }
 
     @Override
@@ -192,12 +189,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Nonnull
-    private static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
-        final var oldFieldType = inner.getFlowedObjectType().nullable();
-        final var oldColumn =
-                Column.of(Type.Record.Field.of(oldFieldType, Optional.of(OLD_FIELD_NAME)), new NullValue(oldFieldType));
-        final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
-        return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
+    private static Value makeComputationValue(@Nonnull final Type targetType) {
+        return ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType);
     }
 }

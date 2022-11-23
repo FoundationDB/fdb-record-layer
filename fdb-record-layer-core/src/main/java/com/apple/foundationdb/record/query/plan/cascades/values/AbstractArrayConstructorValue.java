@@ -29,16 +29,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -75,7 +78,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    public Collection<? extends Value> getChildren() {
         return children;
     }
 
@@ -120,30 +123,30 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                     return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
-        final Type elementType = resolveElementType(null, arguments);
-        return new LightArrayConstructorValue(arguments, elementType);
+        Verify.verify(typedArgs.size() > 0);
+        final Type elementType = resolveElementType(arguments);
+        return new LightArrayConstructorValue(injectPromotions(arguments, elementType), elementType);
     }
 
-    private static Type resolveElementType(@Nullable Type defaultType, @Nonnull final Iterable<? extends Typed> argumentTypeds) {
-        Verify.verifyNotNull(defaultType != null || !Iterables.isEmpty(argumentTypeds));
-        defaultType = defaultType == null ? new Type.Any() : defaultType;
-
-        return StreamSupport.stream(argumentTypeds.spliterator(), false)
+    @Nonnull
+    private static Type resolveElementType(@Nonnull final Iterable<? extends Typed> argumentTypeds) {
+        return Verify.verifyNotNull(StreamSupport.stream(argumentTypeds.spliterator(), false)
                 .map(Typed::getResultType)
-                .reduce(defaultType, (l, r) -> {
-                    if (l instanceof Type.Any) {
+                .reduce(null, (l, r) -> {
+                    if (l == null) {
                         return r;
                     }
+                    Verify.verifyNotNull(r);
 
-                    if (r instanceof Type.Any) {
-                        return l;
-                    }
+                    return Type.maximumType(l, r);
+                }));
+    }
 
-                    // TODO type promotion
-                    Verify.verify(l.equals(r), "types of children must be equal");
-
-                    return l;
-                });
+    @Nonnull
+    private static List<? extends Value> injectPromotions(@Nonnull Iterable<? extends Value> children, @Nonnull final Type elementType) {
+        return Streams.stream(children)
+                .map(child -> PromoteValue.inject(child, elementType))
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**
@@ -152,7 +155,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
     @SuppressWarnings("java:S2160")
     public static class LightArrayConstructorValue extends AbstractArrayConstructorValue {
         private LightArrayConstructorValue(@Nonnull final List<? extends Value> children) {
-            this(children, AbstractArrayConstructorValue.resolveElementType(null, children));
+            this(children, AbstractArrayConstructorValue.resolveElementType(children));
         }
 
         private LightArrayConstructorValue(@Nonnull final Type elementType) {
@@ -167,7 +170,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         @Override
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            return StreamSupport.stream(getChildren().spliterator(), false)
+            return getChildren().stream()
                     .map(child -> child.eval(store, context))
                     .collect(ImmutableList.toImmutableList());
         }
@@ -178,8 +181,24 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
             if (Iterables.isEmpty(newChildren)) {
                 return this;
             }
-            Verify.verify(resolveElementType(null, newChildren).equals(getElementType()));
-            return new LightArrayConstructorValue(ImmutableList.copyOf(newChildren), getElementType());
+            Verify.verify(resolveElementType(newChildren).equals(getElementType()));
+            return new LightArrayConstructorValue(AbstractArrayConstructorValue.injectPromotions(newChildren, getElementType()), getElementType());
+        }
+
+        @Nonnull
+        @Override
+        public boolean canBePromotedToType(@Nonnull final Type type) {
+            if (!getChildren().isEmpty()) {
+                return false;
+            }
+            return type.isUnresolved();
+        }
+
+        @Nonnull
+        @Override
+        public Value promoteToType(@Nonnull final Type type) {
+            Verify.verify(getChildren().isEmpty());
+            return emptyArray(type); // only empty arrays are currently promotable
         }
 
         @Nonnull

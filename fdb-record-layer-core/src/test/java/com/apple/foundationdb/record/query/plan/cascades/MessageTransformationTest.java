@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -111,7 +110,7 @@ class MessageTransformationTest {
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
                 transformMap);
         Assertions.assertThrows(SemanticException.class,
-                () -> RecordQueryAbstractDataModificationPlan.computePromotionsTrie(inValue.getResultType(), inValue.getResultType(), transformationsTrie));
+                () -> PromoteValue.computePromotionsTrie(inValue.getResultType(), inValue.getResultType(), transformationsTrie));
     }
 
     @Test
@@ -407,7 +406,7 @@ class MessageTransformationTest {
         final var transformationsTrie =
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
-        final var promotionsTrie = RecordQueryAbstractDataModificationPlan.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
+        final var promotionsTrie = PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
         final var inRecord = (Message)inValue.eval(null, evaluationContext);

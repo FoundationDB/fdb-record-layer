@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -111,5 +112,21 @@ public class NullValue implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public boolean canBePromotedToType(@Nonnull final Type type) {
+        if (!type.isNullable()) {
+            return false;
+        }
+        return resultType.isUnresolved() || resultType.getTypeCode() == Type.TypeCode.ANY;
+    }
+
+    @Nonnull
+    @Override
+    public Value promoteToType(@Nonnull final Type type) {
+        Verify.verify(type.isNullable());
+        return new NullValue(type);
     }
 }

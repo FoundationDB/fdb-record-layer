@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -62,6 +63,12 @@ import java.util.stream.IntStream;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public interface Type extends Narrowable<Type> {
+    @Nonnull
+    Null NULL = new Null();
+
+    @Nonnull
+    None NONE = new None();
+
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
@@ -126,6 +133,11 @@ public interface Type extends Narrowable<Type> {
         return getTypeCode().isNumeric();
     }
 
+    default boolean isUnresolved() {
+        final var typeCode = getTypeCode();
+        return typeCode == TypeCode.UNKNOWN;
+    }
+
     @Nonnull
     default String describe(@Nonnull final Formatter formatter) {
         // TODO make better
@@ -163,6 +175,7 @@ public interface Type extends Narrowable<Type> {
      *
      * @return A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
+    @Nonnull
     static Map<Class<?>, TypeCode> getClassToTypeCodeMap() {
         return CLASS_TO_TYPE_CODE_SUPPLIER.get();
     }
@@ -176,6 +189,16 @@ public interface Type extends Narrowable<Type> {
     static String fieldName(final Object fieldSuffix) {
         // do this in the style of Scala
         return "_" + fieldSuffix;
+    }
+
+    @Nonnull
+    static Null nullType() {
+        return Type.NULL;
+    }
+
+    @Nonnull
+    static None noneType() {
+        return Type.NONE;
     }
 
     /**
@@ -376,12 +399,85 @@ public interface Type extends Narrowable<Type> {
         }
     }
 
+    @Nullable
+    static Type maximumType(@Nonnull final Type t1, @Nonnull final Type t2) {
+        Verify.verify(!t1.isUnresolved());
+        Verify.verify(!t2.isUnresolved());
+
+        if (t1.isPrimitive() != t2.isPrimitive()) {
+            return null;
+        }
+
+        boolean isResultNullable = t1.isNullable() || t2.isNullable();
+
+        if (t1.isPrimitive()) {
+            if (t1.getTypeCode() == t2.getTypeCode()) {
+                return t1.withNullability(isResultNullable);
+            }
+            if (PromoteValue.resolvePromotionFunction(t1, t2) != null) {
+                return t2.withNullability(isResultNullable);
+            }
+
+            if (PromoteValue.isPromotionNeeded(t2, t1)) {
+                return t2.withNullability(isResultNullable);
+            }
+
+            throw new RecordCoreException("should not be here");
+        }
+
+        if (t1.getTypeCode() != t2.getTypeCode()) {
+            return null;
+        }
+
+        switch (t1.getTypeCode()) {
+            case RECORD:
+                final var t1Fields = ((Type.Record)t1).getFields();
+                final var t2Fields = ((Type.Record)t2).getFields();
+
+                if (t1Fields.size() != t2Fields.size()) {
+                    return null;
+                }
+
+                final var resultFieldsBuilder = ImmutableList.<Type.Record.Field>builder();
+                for (int i = 0; i < t1Fields.size(); i++) {
+                    final var t1Field = t1Fields.get(i);
+                    final var t2Field = t2Fields.get(i);
+                    
+                    final var resultFieldType = maximumType(t1Field.getFieldType(), t2Field.getFieldType());
+                    if (resultFieldType == null) {
+                        return null;
+                    }
+
+                    final Optional<String> resultFieldNameOptional =
+                            !t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional())
+                            ? t1Field.getFieldNameOptional()
+                            : Optional.empty();
+
+                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional));
+                }
+                return Type.Record.fromFields(isResultNullable, resultFieldsBuilder.build());
+
+            case ARRAY:
+                final var t1ElementType = Verify.verifyNotNull(((Type.Array)t1).getElementType());
+                final var t2ElementType = Verify.verifyNotNull(((Type.Array)t2).getElementType());
+                final var resultElementType = maximumType(t1ElementType, t2ElementType);
+                if (resultElementType == null) {
+                    return null;
+                }
+                return new Type.Array(isResultNullable, resultElementType);
+
+            default:
+                throw new RecordCoreException("do not know how to handle type code");
+        }
+    }
+
     /**
      * All supported {@link Type}s.
      */
     enum TypeCode {
         UNKNOWN(null, null, true, false),
         ANY(Object.class, null, false, false),
+        NULL(Void.class, null, true, false),
         BOOLEAN(Boolean.class, FieldDescriptorProto.Type.TYPE_BOOL, true, false),
         BYTES(ByteString.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         DOUBLE(Double.class, FieldDescriptorProto.Type.TYPE_DOUBLE, true, true),
@@ -528,6 +624,80 @@ public interface Type extends Narrowable<Type> {
                 default:
                     throw new IllegalArgumentException("unknown protobuf type " + protobufType);
             }
+        }
+    }
+
+    /**
+     * Null-Type.
+     */
+    class Null implements Type {
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.NULL;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            Verify.verify(newIsNullable);
+            return this;
+        }
+
+        @Override
+        public boolean isUnresolved() {
+            return true;
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber, @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional, @Nonnull final FieldDescriptorProto.Label label) {
+            throw new RecordCoreException("should not be called");
+        }
+
+        @Override
+        public String toString() {
+            return "null";
+        }
+    }
+
+    /**
+     * Null-Type.
+     */
+    class None implements Type {
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.ARRAY;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            Verify.verify(!newIsNullable);
+            return this;
+        }
+
+        @Override
+        public boolean isUnresolved() {
+            return true;
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber, @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional, @Nonnull final FieldDescriptorProto.Label label) {
+            throw new RecordCoreException("should not be called");
+        }
+
+        @Override
+        public String toString() {
+            return "none";
         }
     }
 
