@@ -350,11 +350,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
 
     private void ensureActiveTransaction() throws SQLException {
         if (!conn.inActiveTransaction()) {
-            try {
-                conn.beginTransaction();
-            } catch (RelationalException e) {
-                throw e.toSqlException();
-            }
+            conn.beginTransaction();
         }
     }
 

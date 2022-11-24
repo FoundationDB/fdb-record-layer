@@ -96,7 +96,7 @@ public class TableWithNoPkTest {
                         .setField("B", 19)
                         .build();
 
-                RelationalAssertions.assertThrows(() -> s.executeInsert("NO_PK", row2))
+                RelationalAssertions.assertThrowsSqlException(() -> s.executeInsert("NO_PK", row2))
                         .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
 
                 KeySet key = new KeySet();

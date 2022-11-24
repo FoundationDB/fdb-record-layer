@@ -21,16 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+
+import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
 
 public class QueryTestUtils {
 
-    public static Message insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws RelationalException {
+    public static Message insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {
         Message result = statement.getDataBuilder("T1")
                 .setField("PK", pk)
                 .setField("A", a)

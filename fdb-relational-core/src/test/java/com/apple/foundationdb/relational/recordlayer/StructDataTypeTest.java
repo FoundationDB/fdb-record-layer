@@ -78,7 +78,7 @@ public class StructDataTypeTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @BeforeEach
-    void setUp() throws RelationalException {
+    void setUp() throws SQLException {
         final DynamicMessageBuilder t1 = statement.getDataBuilder("T");
         Message m = t1.setField("NAME", "test_record_1")
                 .setField("ST1", t1.getNestedMessageBuilder("ST1").setField("A", "Hello").build())

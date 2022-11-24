@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.ResultSetMetaDataAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -38,7 +37,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,7 +80,7 @@ public abstract class ResultSetMetaDataTest {
     }
 
     @Test
-    void canGetColumnNamesCorrectly() throws SQLException, RelationalException {
+    void canGetColumnNamesCorrectly() throws Exception {
         String[] expectedColums = new String[]{
                 "REST_NO", "NAME", "LOCATION", "REVIEWS", "TAGS", "CUSTOMER", "ENCODED_BYTES"
         };
@@ -92,7 +90,7 @@ public abstract class ResultSetMetaDataTest {
     }
 
     @Test
-    void canGetColumnTypesCorrectly() throws SQLException, RelationalException {
+    void canGetColumnTypesCorrectly() throws Exception {
         Map<String, Integer> columnTypes = Map.of(
                 "REST_NO", Types.BIGINT,
                 "NAME", Types.VARCHAR,
@@ -132,12 +130,12 @@ public abstract class ResultSetMetaDataTest {
         }
     }
 
-    protected abstract RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws RelationalException, SQLException;
+    protected abstract RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws Exception;
 
     public static class DirectAccessTest extends ResultSetMetaDataTest {
 
         @Override
-        protected RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws RelationalException {
+        protected RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws Exception {
             return statement.executeScan(tableName, new KeySet(), Options.NONE);
         }
     }
@@ -145,7 +143,7 @@ public abstract class ResultSetMetaDataTest {
     public static class QueryTest extends ResultSetMetaDataTest {
 
         @Override
-        protected RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws SQLException {
+        protected RelationalResultSet selectAll(RelationalStatement statement, String tableName) throws Exception {
             return statement.executeQuery("select * from " + tableName);
         }
     }

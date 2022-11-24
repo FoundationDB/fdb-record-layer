@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,7 +65,7 @@ public class StructFieldGenerator implements FieldGenerator {
     }
 
     @Override
-    public void generateValue(DynamicMessageBuilder destination) throws RelationalException {
+    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
         final DynamicMessageBuilder structBuilder = destination.getNestedMessageBuilder(fieldName);
         for (FieldGenerator fieldGen : nestedFieldGenerators) {
             fieldGen.generateValue(structBuilder);

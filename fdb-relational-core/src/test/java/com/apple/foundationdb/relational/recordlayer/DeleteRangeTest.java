@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -65,11 +64,11 @@ public class DeleteRangeTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @BeforeEach
-    void insertData() throws RelationalException {
+    void insertData() throws Exception {
         insertData(statement);
     }
 
-    private void insertData(RelationalStatement stmt) throws RelationalException {
+    private void insertData(RelationalStatement stmt) throws Exception {
         for (int i = 0; i < 12; i++) {
             Message toInsert = stmt.getDataBuilder("T1")
                     .setField("ID", i % 2)
@@ -191,7 +190,7 @@ public class DeleteRangeTest {
         KeySet toDelete = new KeySet()
                 .setKeyColumn("ID", 0)
                 .setKeyColumn("whatColumn", "0");
-        RelationalAssertions.assertThrows(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessageContaining("Unknown keys for primary");
     }
@@ -201,7 +200,7 @@ public class DeleteRangeTest {
         KeySet toDelete = new KeySet()
                 .setKeyColumn("ID", 0)
                 .setKeyColumn("B", "0");
-        RelationalAssertions.assertThrows(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessageContaining("missing key at position");
     }
@@ -213,7 +212,7 @@ public class DeleteRangeTest {
                 .setKeyColumn("A", "0")
                 .setKeyColumn("B", "0")
                 .setKeyColumn("C", "0");
-        RelationalAssertions.assertThrows(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeDeleteRange("T1", toDelete, Options.NONE))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessageContaining("Unknown keys for primary key");
     }

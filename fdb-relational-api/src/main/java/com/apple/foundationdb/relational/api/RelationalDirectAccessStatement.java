@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -75,10 +74,10 @@ public interface RelationalDirectAccessStatement {
      * @param keyPrefix the key prefix to use when scanning entries.
      * @param options      options that can be used to configure the scan.
      * @return a ResultSet containing the entire record in the underlying scan.
-     * @throws RelationalException if something goes wrong. Use the Error code to determine exactly what.
+     * @throws SQLException if something goes wrong. Use the Error code to determine exactly what.
      */
     @Nonnull
-    RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws RelationalException;
+    RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException;
 
     /**
      * Get a single record from the system by key.
@@ -92,17 +91,17 @@ public interface RelationalDirectAccessStatement {
      * @param options   the options for the GET operation.
      * @return a ResultSet containing the entire record from the resulting GET, either 1 row or 0. If the row does
      * not exist the ResultSet will be empty
-     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
      */
     @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException;
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException;
 
     // syntactic sugar to make it easier to insert a single record
-    default int executeInsert(@Nonnull String tableName, Message message) throws RelationalException {
+    default int executeInsert(@Nonnull String tableName, Message message) throws SQLException {
         return executeInsert(tableName, Collections.singleton(message).iterator(), Options.NONE);
     }
 
-    default int executeInsert(@Nonnull String tableName, Message message, Options options) throws RelationalException {
+    default int executeInsert(@Nonnull String tableName, Message message, Options options) throws SQLException {
         return executeInsert(tableName, Collections.singleton(message).iterator(), options);
     }
 
@@ -115,9 +114,9 @@ public interface RelationalDirectAccessStatement {
      * @param tableName the name of the table to insert into.
      * @param data      the data to insert.
      * @return the number of records inserted.
-     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
      */
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data) throws RelationalException {
+    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data) throws SQLException {
         return executeInsert(tableName, data.iterator());
     }
 
@@ -127,15 +126,15 @@ public interface RelationalDirectAccessStatement {
      * @param tableName the name of the table to insert into.
      * @param data      the data to insert.
      * @return the number of records inserted.
-     * @throws RelationalException If something geos wrong. Use the error code to determine exactly what.
+     * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
      */
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws RelationalException {
+    default int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws SQLException {
         return executeInsert(tableName, data, Options.NONE);
     }
 
-    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
+    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException;
 
-    DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException;
+    DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException;
 
     /**
      * Delete one or more records from the specified table, specified by key, if such records exist.
@@ -147,13 +146,13 @@ public interface RelationalDirectAccessStatement {
      * @param tableName the name of the table to delete from
      * @param keys      the keys to delete
      * @return the number of records deleted
-     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys) throws RelationalException {
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys) throws SQLException {
         return executeDelete(tableName, keys.iterator(), Options.NONE);
     }
 
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys, @Nonnull Options options) throws RelationalException {
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys, @Nonnull Options options) throws SQLException {
         return executeDelete(tableName, keys.iterator(), options);
     }
 
@@ -163,13 +162,13 @@ public interface RelationalDirectAccessStatement {
      * @param tableName the name of the table to delete from
      * @param keys      the keys to delete
      * @return the number of records deleted
-     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws RelationalException {
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws SQLException {
         return executeDelete(tableName, keys, Options.NONE);
     }
 
-    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException;
+    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException;
 
     /**
      * This can be used to delete contiguous rows on a table based on a certain PK range.
@@ -204,7 +203,7 @@ public interface RelationalDirectAccessStatement {
      * @param tableName the name of the table to delete from
      * @param keyPrefix the key prefix to use when deleting entries
      * @param options options that can be used to configure the delete
-     * @throws RelationalException if something goes wrong. Use the error code to determine exactly what.
+     * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws RelationalException;
+    void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException;
 }

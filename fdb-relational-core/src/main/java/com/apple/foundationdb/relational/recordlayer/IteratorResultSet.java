@@ -49,7 +49,7 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public Continuation getContinuation() throws RelationalException {
+    public Continuation getContinuation() throws SQLException {
         boolean hasNext = rowIter.hasNext();
         boolean beginning = currentRowPosition == 0;
         int currPos = currentRowPosition + 1;

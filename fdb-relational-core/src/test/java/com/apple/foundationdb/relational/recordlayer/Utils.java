@@ -21,10 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -58,8 +59,8 @@ public final class Utils {
                     .addRepeatedFields("TAGS", generateList(numTags, () -> generateTag(statement)))
                     .addRepeatedFields("CUSTOMER", generateList(numCustomers, () -> "cust" + r.nextInt()))
                     .build();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
@@ -70,8 +71,8 @@ public final class Utils {
                     .setField("LATITUDE", "lat" + r.nextInt())
                     .setField("LONGITUDE", "long" + r.nextInt())
                     .build();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
@@ -81,8 +82,8 @@ public final class Utils {
                     .setField("RATING", r.nextInt(5))
                     .setField("REVIEWER", r.nextInt())
                     .build();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
@@ -92,8 +93,8 @@ public final class Utils {
                     .setField("TAG", "tag" + r.nextInt())
                     .setField("WEIGHT", r.nextInt())
                     .build();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 

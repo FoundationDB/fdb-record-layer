@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -211,11 +210,11 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Continuation getContinuation() throws RelationalException {
+    public Continuation getContinuation() throws SQLException {
         try {
             return delegate.getContinuation();
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 

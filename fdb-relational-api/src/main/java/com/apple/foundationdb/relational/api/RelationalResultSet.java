@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.io.InputStream;
@@ -57,9 +56,9 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      * A {@code Continuation} that can be used for retrieving the rest of the rows.
      *
      * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
-     * @throws RelationalException if the continuation cannot be retrieved.
+     * @throws SQLException if the continuation cannot be retrieved.
      */
-    Continuation getContinuation() throws RelationalException;
+    Continuation getContinuation() throws SQLException;
 
     RelationalStruct getStruct(String columnLabel) throws SQLException;
 

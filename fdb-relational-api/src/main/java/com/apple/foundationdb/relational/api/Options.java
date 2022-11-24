@@ -21,14 +21,13 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
 
 import com.google.common.collect.ImmutableMap;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
@@ -90,9 +89,9 @@ public final class Options {
     }
 
     @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
-    public static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) {
+    public static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) throws SQLException {
         if (childOptions.parentOptions != null) {
-            throw new InternalErrorException("Cannot override parent options").toUncheckedWrappedException();
+            throw new SQLException("Cannot override parent options", ErrorCode.INTERNAL_ERROR.getErrorCode());
         }
         if (parentOptions == childOptions) {
             // We should not combine options with itself
@@ -113,18 +112,18 @@ public final class Options {
         private Builder() {
         }
 
-        public Builder withOption(Name name, Object value) throws RelationalException {
+        public Builder withOption(Name name, Object value) throws SQLException {
             validateOption(name, value);
             optionsMapBuilder.put(name, value);
             return this;
         }
 
-        public Builder fromOptions(Options options) throws RelationalException {
+        public Builder fromOptions(Options options) throws SQLException {
             optionsMapBuilder.putAll(options.optionsMap);
             if (parentOptions != null) {
                 // Replace Assert.that(parentOptions == null);
                 // ... so we don't have to have recordlayer in this module.
-                throw new RelationalException("parentOptions are NOT null", ErrorCode.INTERNAL_ERROR);
+                throw new SQLException("parentOptions are NOT null", ErrorCode.INTERNAL_ERROR.getErrorCode());
             }
             parentOptions = options.parentOptions;
             return this;
@@ -135,7 +134,7 @@ public final class Options {
         }
     }
 
-    private static void validateOption(Name name, Object value) throws RelationalException {
+    private static void validateOption(Name name, Object value) throws SQLException {
         for (OptionContract contract : contracts.get(name)) {
             contract.validate(name, value);
         }

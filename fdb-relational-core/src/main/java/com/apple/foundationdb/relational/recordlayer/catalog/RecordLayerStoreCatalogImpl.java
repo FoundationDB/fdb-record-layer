@@ -68,6 +68,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import java.net.URI;
+import java.sql.SQLException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -299,7 +300,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
             Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
             recordStore.saveRecord(m);
-        } catch (RecordCoreException ex) {
+        } catch (RecordCoreException | SQLException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
     }
@@ -385,14 +386,14 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     private void updateSchemaData(Schema schema, FDBRecordStore recordStore) throws RelationalException {
-        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
-        Message m = pmd.setField("DATABASE_ID", schema.getDatabaseId())
-                .setField("SCHEMA_NAME", schema.getSchemaName())
-                .setField("TEMPLATE_NAME", schema.getSchemaTemplateName())
-                .setField("TEMPLATE_VERSION", schema.getTemplateVersion())
-                .setField("META_DATA", schema.getMetaData().toByteString())
-                .build();
         try {
+            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
+            Message m = pmd.setField("DATABASE_ID", schema.getDatabaseId())
+                    .setField("SCHEMA_NAME", schema.getSchemaName())
+                    .setField("TEMPLATE_NAME", schema.getSchemaTemplateName())
+                    .setField("TEMPLATE_VERSION", schema.getTemplateVersion())
+                    .setField("META_DATA", schema.getMetaData().toByteString())
+                    .build();
             recordStore.saveRecord(m);
         } catch (RecordCoreException e) {
             if (e.getMessage().contains("Record is too long")) {
@@ -400,16 +401,18 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             } else {
                 throw ExceptionUtil.toRelationalException(e);
             }
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e);
         }
     }
 
     private void updateSchemaTemplateData(SchemaTemplate schemaTemplate, FDBRecordStore recordStore) throws RelationalException {
-        ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME).getDescriptor());
-        Message m = pmd.setField("TEMPLATE_NAME", schemaTemplate.getUniqueId())
-                .setField("TEMPLATE_VERSION", schemaTemplate.getVersion())
-                .setField("META_DATA", schemaTemplate.getMetaData().toByteString())
-                .build();
         try {
+            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME).getDescriptor());
+            Message m = pmd.setField("TEMPLATE_NAME", schemaTemplate.getUniqueId())
+                    .setField("TEMPLATE_VERSION", schemaTemplate.getVersion())
+                    .setField("META_DATA", schemaTemplate.getMetaData().toByteString())
+                    .build();
             recordStore.saveRecord(m);
         } catch (RecordCoreException e) {
             if (e.getMessage().contains("Record is too long")) {
@@ -417,6 +420,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             } else {
                 throw ExceptionUtil.toRelationalException(e);
             }
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e);
         }
     }
 

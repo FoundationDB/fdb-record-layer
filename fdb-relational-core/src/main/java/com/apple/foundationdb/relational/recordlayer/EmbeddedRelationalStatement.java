@@ -157,157 +157,181 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
-        ensureTransactionActive();
-        options = Options.combine(conn.getOptions(), options);
+    public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+        try {
+            ensureTransactionActive();
+            options = Options.combine(conn.getOptions(), options);
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1]);
+            Table table = schema.loadTable(schemaAndTable[1]);
 
-        String indexName = options.getOption(Options.Name.INDEX_HINT);
-        DirectScannable source = getSourceScannable(indexName, table);
+            String indexName = options.getOption(Options.Name.INDEX_HINT);
+            DirectScannable source = getSourceScannable(indexName, table);
 
-        KeyBuilder keyBuilder = source.getKeyBuilder();
-        Row row = keyBuilder.buildKey(prefix.toMap(), false);
+            KeyBuilder keyBuilder = source.getKeyBuilder();
+            Row row = keyBuilder.buildKey(prefix.toMap(), false);
 
-        StructMetaData sourceMetaData = source.getMetaData();
-        return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
-                source.openScan(row, options), conn));
+            StructMetaData sourceMetaData = source.getMetaData();
+            return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
+                    source.openScan(row, options), conn));
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
     public @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
-        options = Options.combine(conn.getOptions(), options);
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
+        try {
+            options = Options.combine(conn.getOptions(), options);
 
-        ensureTransactionActive();
+            ensureTransactionActive();
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
-        Table table = schema.loadTable(schemaAndTable[1]);
+            Table table = schema.loadTable(schemaAndTable[1]);
 
-        String indexName = options.getOption(Options.Name.INDEX_HINT);
-        DirectScannable source = getSourceScannable(indexName, table);
-        source.validate(options);
+            String indexName = options.getOption(Options.Name.INDEX_HINT);
+            DirectScannable source = getSourceScannable(indexName, table);
+            source.validate(options);
 
-        Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true);
+            Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true);
 
-        final Row row = source.get(conn.transaction, tuple, options);
+            final Row row = source.get(conn.transaction, tuple, options);
 
-        final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
-        return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
-    }
-
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
-        ensureTransactionActive();
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-        return schema.getDataBuilder(schemaAndTable[1]);
-    }
-
-    @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
-        options = Options.combine(conn.getOptions(), options);
-        //do this check first because otherwise we might start an expensive transaction that does nothing
-        if (!data.hasNext()) {
-            return 0;
+            final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
+            return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-
-        ensureTransactionActive();
-
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-
-        Table table = schema.loadTable(schemaAndTable[1]);
-        table.validateTable(options);
-        final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
-
-        return executeMutation(() -> {
-            int rowCount = 0;
-            while (data.hasNext()) {
-                Message message = data.next();
-                if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
-                    rowCount++;
-                }
-            }
-            return rowCount;
-        });
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
-        options = Options.combine(conn.getOptions(), options);
-        if (!keys.hasNext()) {
-            return 0;
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+        try {
+            ensureTransactionActive();
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            return schema.getDataBuilder(schemaAndTable[1]);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
+    }
 
-        ensureTransactionActive();
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-
-        Table table = schema.loadTable(schemaAndTable[1]);
-        table.validateTable(options);
-
-        return executeMutation(() -> {
-            int count = 0;
-            Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
-            while (toDelete != null) {
-                if (table.deleteRecord(toDelete)) {
-                    count++;
-                }
-                toDelete = null;
-                if (keys.hasNext()) {
-                    toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
-                }
+    @Override
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+        try {
+            options = Options.combine(conn.getOptions(), options);
+            //do this check first because otherwise we might start an expensive transaction that does nothing
+            if (!data.hasNext()) {
+                return 0;
             }
-            return count;
-        });
+
+            ensureTransactionActive();
+
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+
+            Table table = schema.loadTable(schemaAndTable[1]);
+            table.validateTable(options);
+            final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
+
+            return executeMutation(() -> {
+                int rowCount = 0;
+                while (data.hasNext()) {
+                    Message message = data.next();
+                    if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
+                        rowCount++;
+                    }
+                }
+                return rowCount;
+            });
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
+        try {
+            options = Options.combine(conn.getOptions(), options);
+            if (!keys.hasNext()) {
+                return 0;
+            }
+
+            ensureTransactionActive();
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+
+            Table table = schema.loadTable(schemaAndTable[1]);
+            table.validateTable(options);
+
+            return executeMutation(() -> {
+                int count = 0;
+                Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
+                while (toDelete != null) {
+                    if (table.deleteRecord(toDelete)) {
+                        count++;
+                    }
+                    toDelete = null;
+                    if (keys.hasNext()) {
+                        toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
+                    }
+                }
+                return count;
+            });
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
-        ensureTransactionActive();
-        options = Options.combine(conn.getOptions(), options);
-
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-        Table table = schema.loadTable(schemaAndTable[1]);
-        table.validateTable(options);
-
-        Map<String, Object> deletePrefixColumns = prefix.toMap();
-        KeyBuilder keyBuilder = table.getKeyBuilder();
-        Row row = keyBuilder.buildKey(deletePrefixColumns, false);
-        int keyLength = row.getNumFields();
-        if (row.getNumFields() == keyBuilder.getKeySize()) {
-            if (row.getObject(keyLength - 1) != null) {
-                // We have a complete key. Delete only the one record
-                table.deleteRecord(row);
-                return;
-            }
-        }
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
-            table.deleteRange(deletePrefixColumns);
-        } catch (Query.InvalidExpressionException ex) {
-            // To work around a record layer limitation, we execute point deletes at this point if we cannot execute a range delete
-            // This may be caused by the fact that an index does not share the same prefix as the table we're trying to range delete from
-            Continuation continuation = Continuation.BEGIN;
-            ResumableIterator<Row> scannedRows;
-            do {
-                Options newOptions = Options.combine(options, Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
-                scannedRows = table.openScan(row, newOptions);
-                while (scannedRows.hasNext()) {
-                    Row scannedRow = scannedRows.next();
-                    if (!table.deleteRecord(keyBuilder.buildKey(scannedRow))) {
-                        throw new RelationalException("Cannot delete record during fallback deleteRange", ErrorCode.INTERNAL_ERROR);
-                    }
+            ensureTransactionActive();
+            options = Options.combine(conn.getOptions(), options);
+
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            Table table = schema.loadTable(schemaAndTable[1]);
+            table.validateTable(options);
+
+            Map<String, Object> deletePrefixColumns = prefix.toMap();
+            KeyBuilder keyBuilder = table.getKeyBuilder();
+            Row row = keyBuilder.buildKey(deletePrefixColumns, false);
+            int keyLength = row.getNumFields();
+            if (row.getNumFields() == keyBuilder.getKeySize()) {
+                if (row.getObject(keyLength - 1) != null) {
+                    // We have a complete key. Delete only the one record
+                    table.deleteRecord(row);
+                    return;
                 }
-                continuation = scannedRows.getContinuation();
-            } while (scannedRows.terminatedEarly());
+            }
+            try {
+                table.deleteRange(deletePrefixColumns);
+            } catch (Query.InvalidExpressionException ex) {
+                // To work around a record layer limitation, we execute point deletes at this point if we cannot execute a range delete
+                // This may be caused by the fact that an index does not share the same prefix as the table we're trying to range delete from
+                Continuation continuation = Continuation.BEGIN;
+                ResumableIterator<Row> scannedRows;
+                do {
+                    Options newOptions = Options.combine(options, Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
+                    scannedRows = table.openScan(row, newOptions);
+                    while (scannedRows.hasNext()) {
+                        Row scannedRow = scannedRows.next();
+                        if (!table.deleteRecord(keyBuilder.buildKey(scannedRow))) {
+                            throw new RelationalException("Cannot delete record during fallback deleteRange", ErrorCode.INTERNAL_ERROR);
+                        }
+                    }
+                    continuation = scannedRows.getContinuation();
+                } while (scannedRows.terminatedEarly());
+            }
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
     }
 
@@ -349,7 +373,11 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     private void ensureTransactionActive() throws RelationalException {
         if (!conn.inActiveTransaction()) {
             if (conn.getAutoCommit()) {
-                conn.beginTransaction();
+                try {
+                    conn.beginTransaction();
+                } catch (SQLException e) {
+                    throw ExceptionUtil.toRelationalException(e);
+                }
             } else {
                 throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
             }

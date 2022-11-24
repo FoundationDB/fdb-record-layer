@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 /**
  * Generator function for generating a field type.
@@ -31,5 +32,5 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
  */
 public interface FieldGenerator {
 
-    void generateValue(DynamicMessageBuilder destination) throws RelationalException;
+    void generateValue(DynamicMessageBuilder destination) throws SQLException;
 }

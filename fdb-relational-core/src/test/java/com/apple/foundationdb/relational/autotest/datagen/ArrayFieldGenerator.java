@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 public class ArrayFieldGenerator implements FieldGenerator {
     private final FieldGenerator arrayGenerator;
@@ -37,7 +38,7 @@ public class ArrayFieldGenerator implements FieldGenerator {
     }
 
     @Override
-    public void generateValue(DynamicMessageBuilder destination) throws RelationalException {
+    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
         int numFields = randomSource.nextInt(0, maxSize);
         for (int i = 0; i < numFields; i++) {
             arrayGenerator.generateValue(destination);

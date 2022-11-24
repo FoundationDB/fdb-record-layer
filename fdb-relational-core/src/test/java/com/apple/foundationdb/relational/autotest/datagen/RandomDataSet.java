@@ -21,11 +21,12 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.autotest.DataSet;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -58,8 +59,8 @@ public class RandomDataSet implements DataSet {
                 tableGenerator.generateValue(messageBuilder);
                 counter.getAndIncrement();
                 return messageBuilder.build();
-            } catch (RelationalException e) {
-                throw e.toUncheckedWrappedException();
+            } catch (SQLException e) {
+                throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
             }
         };
         Message first = dataGenerator.apply(null);

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.net.URI;
@@ -79,14 +78,14 @@ public interface RelationalConnection extends java.sql.Connection {
      *     Note that transactions are typically required to last less than 5 seconds, due to constraints
      *     from underlying data storage systems (such as FDB).
      * </p>
-     * @throws RelationalException if the transaction cannot be completed for any reason.
+     * @throws SQLException if the transaction cannot be completed for any reason.
      */
-    void beginTransaction() throws RelationalException;
+    void beginTransaction() throws SQLException;
 
     @Nonnull
     Options getOptions();
 
-    void setOption(Options.Name name, Object value) throws RelationalException;
+    void setOption(Options.Name name, Object value) throws SQLException;
 
     URI getPath();
 

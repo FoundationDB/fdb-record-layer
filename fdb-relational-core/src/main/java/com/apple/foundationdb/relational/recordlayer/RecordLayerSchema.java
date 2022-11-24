@@ -28,9 +28,11 @@ import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -97,7 +99,11 @@ public class RecordLayerSchema implements DatabaseSchema {
     public FDBRecordStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
             if (this.conn.getAutoCommit()) {
-                this.conn.beginTransaction();
+                try {
+                    this.conn.beginTransaction();
+                } catch (SQLException e) {
+                    throw ExceptionUtil.toRelationalException(e);
+                }
             } else {
                 throw new RelationalException("cannot load schema without an active transaction",
                         ErrorCode.TRANSACTION_INACTIVE);

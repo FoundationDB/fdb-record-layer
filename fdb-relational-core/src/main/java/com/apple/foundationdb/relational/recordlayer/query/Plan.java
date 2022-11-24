@@ -33,11 +33,13 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.base.VerifyException;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
 
 public interface Plan<T> {
 

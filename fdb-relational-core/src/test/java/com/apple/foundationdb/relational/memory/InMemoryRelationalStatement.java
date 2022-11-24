@@ -97,49 +97,65 @@ public class InMemoryRelationalStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
-        final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
-        if (inMemoryTable == null) {
-            throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+        try {
+            final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
+            if (inMemoryTable == null) {
+                throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+            }
+            Stream<Message> m = inMemoryTable.scan(prefix.toMap(), prefix.toMap());
+            Iterator<? extends Row> iterator = m.map(MessageTuple::new).iterator();
+            return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-        Stream<Message> m = inMemoryTable.scan(prefix.toMap(), prefix.toMap());
-        Iterator<? extends Row> iterator = m.map(MessageTuple::new).iterator();
-        return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
     }
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
-        final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
-        if (inMemoryTable == null) {
-            throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
+        try {
+            final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
+            if (inMemoryTable == null) {
+                throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+            }
+            Message m = inMemoryTable.get(key);
+            String[] columns = new String[inMemoryTable.getDescriptor().getFields().size()];
+            for (Descriptors.FieldDescriptor fd : inMemoryTable.getDescriptor().getFields()) {
+                columns[fd.getIndex()] = fd.getName();
+            }
+            Iterator<Row> iterator = m != null ? Collections.<Row>singleton(new MessageTuple(m)).iterator() : Collections.emptyIterator();
+            return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-        Message m = inMemoryTable.get(key);
-        String[] columns = new String[inMemoryTable.getDescriptor().getFields().size()];
-        for (Descriptors.FieldDescriptor fd : inMemoryTable.getDescriptor().getFields()) {
-            columns[fd.getIndex()] = fd.getName();
-        }
-        Iterator<Row> iterator = m != null ? Collections.<Row>singleton(new MessageTuple(m)).iterator() : Collections.emptyIterator();
-        return new IteratorResultSet(inMemoryTable.getMetaData(), iterator, 0);
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
-        final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
-        if (inMemoryTable == null) {
-            throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+        try {
+            final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
+            if (inMemoryTable == null) {
+                throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
+            }
+            return inMemoryTable.add(data);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-        return inMemoryTable.add(data);
     }
 
     @Nonnull
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
-        final InMemoryTable inMemoryTable = relationalConn.loadTable(typeName);
-        if (inMemoryTable == null) {
-            throw new RelationalException("Unknown table <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+        try {
+            final InMemoryTable inMemoryTable = relationalConn.loadTable(typeName);
+            if (inMemoryTable == null) {
+                throw new RelationalException("Unknown table <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+            }
+            return new ProtobufDataBuilder(inMemoryTable.getDescriptor());
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
-        return new ProtobufDataBuilder(inMemoryTable.getDescriptor());
     }
 
     @Override
@@ -148,7 +164,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) {
     }
 
     @Override

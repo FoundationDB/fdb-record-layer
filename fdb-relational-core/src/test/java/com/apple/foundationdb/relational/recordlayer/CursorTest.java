@@ -72,19 +72,19 @@ public class CursorTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    public void canIterateOverAllResults() throws RelationalException {
+    public void canIterateOverAllResults() throws SQLException {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
             try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
-            } catch (SQLException | RelationalException e) {
+            } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void canIterateWithContinuation() throws RelationalException {
+    public void canIterateWithContinuation() throws SQLException {
         havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
             // 1/2 scan all records
             List<Row> actual = new ArrayList<>();
@@ -102,7 +102,7 @@ public class CursorTest {
                         cont = resultSet.getContinuation();
                     }
                 }
-            } catch (SQLException | RelationalException e) {
+            } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
             RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);
@@ -111,7 +111,7 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEdgesOfRecordCollection() throws RelationalException {
+    public void continuationOnEdgesOfRecordCollection() throws SQLException {
 
         havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
             try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
@@ -146,7 +146,7 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEmptyCollection() throws RelationalException {
+    public void continuationOnEmptyCollection() throws SQLException {
         havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
             RelationalResultSet resultSet = null;
             try {
@@ -156,7 +156,7 @@ public class CursorTest {
                 Assertions.assertTrue(continuation.atEnd());
                 Assertions.assertTrue(continuation.atBeginning());
                 Assertions.assertFalse(resultSet.next());
-            } catch (RelationalException | SQLException e) {
+            } catch (SQLException e) {
                 throw new RuntimeException(e);
             } finally {
                 if (resultSet != null) {
@@ -173,7 +173,7 @@ public class CursorTest {
     // helper methods
 
     private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Message>, RelationalStatement> test) throws RelationalException {
+                                         BiConsumer<Iterable<Message>, RelationalStatement> test) throws SQLException {
         // 1/2 add all records to table insert_test.main.Restaurant.RESTAURANT
         Iterable<Message> records = Utils.generateRestaurantRecords(numRecords, statement);
         final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RESTAURANT");
@@ -181,7 +181,7 @@ public class CursorTest {
                 .map(m -> {
                     try {
                         return dataBuilder.convertMessage(m);
-                    } catch (RelationalException e) {
+                    } catch (SQLException e) {
                         throw new RuntimeException(e);
                     }
                 })

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -38,7 +37,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,7 +67,7 @@ public class TableTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    void canInsertAndGetASingleRecord() throws RelationalException, SQLException {
+    void canInsertAndGetASingleRecord() throws Exception {
         long restNo = newRestNo();
         Message inserted = insertRestaurantRecord(statement, restNo);
 
@@ -85,8 +83,9 @@ public class TableTest {
     }
 
     @Test
-    void wrongSizeOfPrimaryKeyInGet() throws Exception {
-        RelationalAssertions.assertThrows(() -> statement.executeGet("RESTAURANT", new KeySet(), Options.NONE))
+    void wrongSizeOfPrimaryKeyInGet() {
+        RelationalAssertions.assertThrowsSqlException(
+                () -> statement.executeGet("RESTAURANT", new KeySet(), Options.NONE))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER);
     }
 
@@ -94,16 +93,18 @@ public class TableTest {
     void wrongSizeOfPrimaryKeyInGetLongerKey() throws Exception {
         try (var ddl = Ddl.builder().database("TableTest2").relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A int64, B int64, C int64, PRIMARY KEY(C, A))").build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                RelationalAssertions.assertThrows(() -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
-                RelationalAssertions.assertThrows(() -> statement.executeGet("FOO", new KeySet().setKeyColumn("A", 5), Options.NONE))
+                RelationalAssertions.assertThrowsSqlException(
+                        () -> statement.executeGet("FOO", new KeySet().setKeyColumn("A", 5), Options.NONE))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
             }
         }
     }
 
     @Test
-    void canDeleteASingleRecord() throws RelationalException, SQLException {
+    void canDeleteASingleRecord() throws Exception {
         long restNo = newRestNo();
         Message inserted = insertRestaurantRecord(statement, restNo);
 
@@ -127,7 +128,7 @@ public class TableTest {
     }
 
     @Test
-    void deleteNoRecord() throws RelationalException, SQLException {
+    void deleteNoRecord() throws Exception {
         long restNo = newRestNo();
         Message inserted = insertRestaurantRecord(statement, restNo);
 
@@ -154,7 +155,7 @@ public class TableTest {
     }
 
     @Test
-    void canDeleteMultipleRecord() throws RelationalException, SQLException {
+    void canDeleteMultipleRecord() throws Exception {
         long[] restNo = {newRestNo(), newRestNo()};
         Message[] inserted = {
                 insertRestaurantRecord(statement, restNo[0]),
@@ -220,10 +221,8 @@ public class TableTest {
 
         KeySet keys = new KeySet().setKeyColumn("name", restName(restNo));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeGet("RESTAURANT", keys, Options.builder().withOption(Options.Name.INDEX_HINT, "RestaurantRecord$NOT_AN_INDEX").build()))
-                .isInstanceOf(RelationalException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.UNDEFINED_INDEX);
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeGet("RESTAURANT", keys, Options.builder().withOption(Options.Name.INDEX_HINT, "RestaurantRecord$NOT_AN_INDEX").build()))
+                .hasErrorCode(ErrorCode.UNDEFINED_INDEX);
     }
 
     @Test
@@ -249,7 +248,7 @@ public class TableTest {
     }
 
     @Test
-    void get() throws RelationalException, SQLException {
+    void get() throws Exception {
         long restNo = newRestNo();
         insertRestaurantRecord(statement, restNo);
 
@@ -268,7 +267,7 @@ public class TableTest {
     }
 
     @Test
-    void getViaIndex() throws RelationalException, SQLException {
+    void getViaIndex() throws Exception {
         long restNo = newRestNo();
         Message r = insertRestaurantRecord(statement, restNo);
 
@@ -284,7 +283,7 @@ public class TableTest {
     }
 
     @Test
-    void scanPrimaryKey() throws RelationalException, SQLException {
+    void scanPrimaryKey() throws Exception {
         long restNo = newRestNo();
         Message r = insertRestaurantRecord(statement, restNo);
 
@@ -298,7 +297,7 @@ public class TableTest {
     }
 
     @Test
-    void scanIndex() throws RelationalException, SQLException {
+    void scanIndex() throws Exception {
         long restNo = newRestNo();
         insertRestaurantRecord(statement, restNo);
 
@@ -379,7 +378,7 @@ public class TableTest {
     }
 
     @Test
-    void delete() throws RelationalException, SQLException {
+    void delete() throws Exception {
         long restNo = newRestNo();
         insertRestaurantRecord(statement, restNo);
 
@@ -396,7 +395,7 @@ public class TableTest {
         }
     }
 
-    private Message insertRestaurantRecord(RelationalStatement s, long id) throws RelationalException {
+    private Message insertRestaurantRecord(RelationalStatement s, long id) throws Exception {
         Message restaurant = statement.getDataBuilder("RESTAURANT")
                 .setField("NAME", restName(id))
                 .setField("REST_NO", id)

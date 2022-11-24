@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.spanner.v1.ResultSet;
@@ -295,7 +294,7 @@ class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Continuation getContinuation() throws RelationalException {
+    public Continuation getContinuation() throws SQLException {
         return null;
     }
 

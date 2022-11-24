@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
+
 import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;

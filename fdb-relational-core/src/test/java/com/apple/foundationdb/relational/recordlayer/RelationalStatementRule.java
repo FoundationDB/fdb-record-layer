@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -58,33 +57,33 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         return statement.executeScan(tableName, prefix, options);
     }
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         return statement.executeGet(tableName, key, options);
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
         return statement.getDataBuilder(typeName);
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
         return statement.executeInsert(tableName, data, options);
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
         return statement.executeDelete(tableName, keys);
     }
 
     @Override
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         statement.executeDeleteRange(tableName, prefix, options);
     }
 
@@ -111,9 +110,5 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public void close() throws SQLException {
         statement.close();
-    }
-
-    public RelationalStatement getUnderlying() {
-        return statement;
     }
 }

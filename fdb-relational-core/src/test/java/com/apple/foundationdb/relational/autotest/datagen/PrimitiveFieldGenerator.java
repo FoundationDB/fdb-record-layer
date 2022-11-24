@@ -21,9 +21,10 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
+
+import java.sql.SQLException;
 
 public class PrimitiveFieldGenerator implements FieldGenerator {
     private final String fieldName;
@@ -42,7 +43,7 @@ public class PrimitiveFieldGenerator implements FieldGenerator {
     }
 
     @Override
-    public void generateValue(DynamicMessageBuilder destination) throws RelationalException {
+    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
         Object o;
         switch (fieldType) {
             case INT:

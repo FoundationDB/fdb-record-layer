@@ -132,7 +132,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
             return pos < numRecords;
         }
 
-        public void next(DynamicMessageBuilder destination) throws RelationalException {
+        public void next(DynamicMessageBuilder destination) throws SQLException {
             //create the data
             destination.setField("ID", "id" + pos);
             byte[] bytes = new byte[20];

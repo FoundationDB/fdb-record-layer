@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -834,23 +833,23 @@ public class StandardQueryTests {
 
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
         return insertRestaurantComplexRecord(s, 10L);
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, boolean containsNonNullableArray) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, boolean containsNonNullableArray) throws SQLException {
         return insertRestaurantComplexRecord(s, 10L, "testName", List.of(), containsNonNullableArray);
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws SQLException {
         return insertRestaurantComplexRecord(s, recordNumber, "testName");
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
         return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of(), false);
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews, boolean containsNonNullableArray) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews, boolean containsNonNullableArray) throws SQLException {
         final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
                 .setField("REST_NO", recordNumber)
                 .setField("NAME", recordName)
@@ -867,7 +866,7 @@ public class StandardQueryTests {
                         .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
                             try {
                                 return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (RelationalException e) {
+                            } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
                         }).collect(Collectors.toList()), false)
@@ -882,7 +881,7 @@ public class StandardQueryTests {
                         .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
                             try {
                                 return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (RelationalException e) {
+                            } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
                         }).collect(Collectors.toList()))
@@ -897,7 +896,7 @@ public class StandardQueryTests {
         return rec;
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws RelationalException {
+    private Message insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
         Message result = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
                 .setField("REST_NO", recordNumber)
                 .setField("NAME", recordName)

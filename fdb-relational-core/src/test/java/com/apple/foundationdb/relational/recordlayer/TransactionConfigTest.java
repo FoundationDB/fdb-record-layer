@@ -53,7 +53,7 @@ public class TransactionConfigTest {
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                RelationalAssertions.assertThrows(
+                RelationalAssertions.assertThrowsSqlException(
                         () -> s.getDataBuilder("RESTAURANT").setField("NAME", "testRest" + id).setField("REST_NO", id).build())
                         .hasErrorCode(ErrorCode.TRANSACTION_TIMEOUT);
             }

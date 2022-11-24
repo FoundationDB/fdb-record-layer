@@ -22,7 +22,8 @@ package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 public class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
@@ -30,25 +31,22 @@ public class RangeContract<T extends Comparable<T>> implements OptionContract {
 
     public RangeContract(T min, T max) {
         if (min == null) {
-            throw new RelationalException("Min is null", ErrorCode.INTERNAL_ERROR)
-                    .toUncheckedWrappedException();
+            throw new IllegalArgumentException("RangeContract: Min is null");
         }
         this.min = min;
         if (max == null) {
-            throw new RelationalException("Max is null", ErrorCode.INTERNAL_ERROR)
-                    .toUncheckedWrappedException();
+            throw new IllegalArgumentException("RangeContract: Max is null");
         }
         if (min.compareTo(max) > 0) {
-            throw new RelationalException("Min is not <= Max", ErrorCode.INTERNAL_ERROR)
-                    .toUncheckedWrappedException();
+            throw new IllegalArgumentException("RangeContract: Min is not <= Max");
         }
         this.max = max;
     }
 
     @Override
-    public void validate(Options.Name name, Object value) throws RelationalException {
+    public void validate(Options.Name name, Object value) throws SQLException {
         if (min.compareTo((T) value) > 0 || max.compareTo((T) value) < 0) {
-            throw new RelationalException("Option " + name + " should be in range [" + min + ", " + max + "] but is " + value, ErrorCode.INVALID_PARAMETER);
+            throw new SQLException("Option " + name + " should be in range [" + min + ", " + max + "] but is " + value, ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
     }
 }

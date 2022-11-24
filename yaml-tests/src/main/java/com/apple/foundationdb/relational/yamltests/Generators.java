@@ -23,10 +23,12 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -63,8 +65,8 @@ public class Generators {
                 } else {
                     typeBuilder.setField(string(fieldAccessor), fieldValue);
                 }
-            } catch (RelationalException e) {
-                throw e.toUncheckedWrappedException();
+            } catch (SQLException e) {
+                throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
             }
         };
         int counter = 1;
@@ -85,51 +87,55 @@ public class Generators {
                                  BiConsumer<Object, Object> typeConsumer,
                                  DynamicMessageBuilder dataBuilder,
                                  boolean allowArrays) throws RelationalException {
-        if (value instanceof YamlRunner.NullPlaceholder) {
-            // do not set the value!
-            return;
-        } else if (isArray(value)) {
-            if (!allowArrays) {
-                throw new RelationalException("Cannot nest arrays within arrays!", ErrorCode.INVALID_PARAMETER);
-            }
-            DynamicMessageBuilder wrappedArrayBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
-            final List<?> array = arrayList(value);
-            for (Object arrayValue : array) {
-                setField("values", arrayValue, (fieldIndicator, fieldValue) -> {
-                    try {
-                        if (fieldIndicator instanceof Integer) {
-                            wrappedArrayBuilder.addRepeatedField((int) fieldIndicator, fieldValue);
-                        } else {
-                            wrappedArrayBuilder.addRepeatedField(string(fieldIndicator, "field descriptor"), fieldValue);
+        try {
+            if (value instanceof YamlRunner.NullPlaceholder) {
+                // do not set the value!
+                return;
+            } else if (isArray(value)) {
+                if (!allowArrays) {
+                    throw new RelationalException("Cannot nest arrays within arrays!", ErrorCode.INVALID_PARAMETER);
+                }
+                DynamicMessageBuilder wrappedArrayBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
+                final List<?> array = arrayList(value);
+                for (Object arrayValue : array) {
+                    setField("values", arrayValue, (fieldIndicator, fieldValue) -> {
+                        try {
+                            if (fieldIndicator instanceof Integer) {
+                                wrappedArrayBuilder.addRepeatedField((int) fieldIndicator, fieldValue);
+                            } else {
+                                wrappedArrayBuilder.addRepeatedField(string(fieldIndicator, "field descriptor"), fieldValue);
+                            }
+                        } catch (SQLException e) {
+                            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
                         }
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
-                    }
-                }, wrappedArrayBuilder, false);
-                typeConsumer.accept(key, wrappedArrayBuilder.build());
+                    }, wrappedArrayBuilder, false);
+                    typeConsumer.accept(key, wrappedArrayBuilder.build());
+                }
+                return;
+            } else if (isMap(value)) {
+                DynamicMessageBuilder nestedBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
+                Message underlying = parseObject(map(value), nestedBuilder);
+                typeConsumer.accept(key, underlying);
+                return;
+            } else if (isString(value)) {
+                typeConsumer.accept(key, string(value));
+                return;
+            } else if (isBoolean(value)) {
+                typeConsumer.accept(key, bool(value));
+                return;
+            } else if (isLong(value)) {
+                typeConsumer.accept(key, longValue(value));
+                return;
+            } else if (isInt(value)) {
+                typeConsumer.accept(key, intValue(value));
+                return;
+            } else if (isDouble(value)) {
+                typeConsumer.accept(key, doubleValue(value));
+                return;
             }
-            return;
-        } else if (isMap(value)) {
-            DynamicMessageBuilder nestedBuilder = (key instanceof Integer) ? dataBuilder.getNestedMessageBuilder((int) key) : dataBuilder.getNestedMessageBuilder(string(key, "field descriptor"));
-            Message underlying = parseObject(map(value), nestedBuilder);
-            typeConsumer.accept(key, underlying);
-            return;
-        } else if (isString(value)) {
-            typeConsumer.accept(key, string(value));
-            return;
-        } else if (isBoolean(value)) {
-            typeConsumer.accept(key, bool(value));
-            return;
-        } else if (isLong(value)) {
-            typeConsumer.accept(key, longValue(value));
-            return;
-        } else if (isInt(value)) {
-            typeConsumer.accept(key, intValue(value));
-            return;
-        } else if (isDouble(value)) {
-            typeConsumer.accept(key, doubleValue(value));
-            return;
+            fail(String.format("unexpected type %s", value));
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e);
         }
-        fail(String.format("unexpected type %s", value));
     }
 }

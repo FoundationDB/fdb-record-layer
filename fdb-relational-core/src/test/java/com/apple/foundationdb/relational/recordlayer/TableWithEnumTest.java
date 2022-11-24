@@ -24,11 +24,12 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
-import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Order;
@@ -64,7 +65,7 @@ public class TableWithEnumTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    void canInsertAndGetSingleRecord() throws RelationalException, SQLException {
+    void canInsertAndGetSingleRecord() throws Exception {
         Message inserted = insertCard(42, "HEARTS", 8);
         assertThat(inserted.getField(inserted.getDescriptorForType().findFieldByName("SUIT")))
                 .as("inserted value should set enum field")
@@ -82,7 +83,7 @@ public class TableWithEnumTest {
     }
 
     @Test
-    void canInsertFiftyTwoCards() throws RelationalException, SQLException {
+    void canInsertFiftyTwoCards() throws Exception {
         insert52Cards();
 
         long cardId = 0;
@@ -112,23 +113,23 @@ public class TableWithEnumTest {
 
     @Test
     void insertUnexpectedEnumValue() {
-        assertThatThrownBy(() -> statement.getDataBuilder("CARD")
+        RelationalAssertions.assertThrowsSqlException(() -> statement.getDataBuilder("CARD")
                 .setField("ID", -1)
                 .setField("SUIT", "TAILORED")
                 .build())
-                .isInstanceOf(InvalidTypeException.class)
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE)
                 .hasMessageContaining("Invalid enum value");
 
-        assertThatThrownBy(() -> statement.getDataBuilder("CARD")
+        RelationalAssertions.assertThrowsSqlException(() -> statement.getDataBuilder("CARD")
                 .setField("ID", -1)
                 .setField("SUIT", 2)
                 .build())
-                .isInstanceOf(InvalidTypeException.class)
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE)
                 .hasMessageContaining("Invalid enum value");
     }
 
     @Test
-    void sortBySuit() throws RelationalException, SQLException {
+    void sortBySuit() throws Exception {
         insert52Cards();
         // Currently unsupported, but when it is, this should return results ordered by the suit definitions
         // in the enum
@@ -138,7 +139,7 @@ public class TableWithEnumTest {
     }
 
     @Test
-    void filterBySuit() throws RelationalException, SQLException {
+    void filterBySuit() throws Exception {
         insert52Cards();
 
         // TODO: Enums need to be supported for comparison in the type repository for these queries to work
@@ -183,7 +184,7 @@ public class TableWithEnumTest {
                 .hasMessageContaining("query is not supported");
     }
 
-    private void insert52Cards() throws RelationalException, SQLException {
+    private void insert52Cards() throws Exception {
         connection.setAutoCommit(false);
         int cardId = 0;
         for (String suit : SUITS) {
@@ -199,7 +200,7 @@ public class TableWithEnumTest {
                 .isEqualTo(52);
     }
 
-    private Message insertCard(long id, String suit, int rank) throws RelationalException {
+    private Message insertCard(long id, String suit, int rank) throws Exception {
         Message card = statement.getDataBuilder("CARD")
                 .setField("ID", id)
                 .setField("SUIT", suit)

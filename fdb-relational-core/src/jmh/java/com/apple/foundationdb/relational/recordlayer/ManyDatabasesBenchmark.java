@@ -132,8 +132,8 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
                     .setField("rest_no", recordId)
                     .setField("name", "restaurant #" + recordId)
                     .build();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 

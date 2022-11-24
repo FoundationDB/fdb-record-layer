@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -961,7 +960,7 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Continuation getContinuation() throws RelationalException {
+    public Continuation getContinuation() throws SQLException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 

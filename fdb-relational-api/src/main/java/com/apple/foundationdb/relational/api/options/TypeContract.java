@@ -22,7 +22,8 @@ package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 public class TypeContract<T> implements OptionContract {
     private final Class<T> clazz;
@@ -33,9 +34,9 @@ public class TypeContract<T> implements OptionContract {
     }
 
     @Override
-    public void validate(Options.Name name, Object value) throws RelationalException {
+    public void validate(Options.Name name, Object value) throws SQLException {
         if (!clazz.isInstance(value)) {
-            throw new RelationalException("Option " + name + " should be of type " + clazz + " but is " + value.getClass(), ErrorCode.INVALID_PARAMETER);
+            throw new SQLException("Option " + name + " should be of type " + clazz + " but is " + value.getClass(), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
     }
 }

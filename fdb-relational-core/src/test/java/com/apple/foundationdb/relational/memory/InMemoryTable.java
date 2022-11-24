@@ -33,10 +33,12 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -119,8 +121,8 @@ public class InMemoryTable {
                     try {
                         startDmb.setField(fd.getName(), value);
                         break;
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
+                    } catch (SQLException e) {
+                        throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
                     }
                 }
             }

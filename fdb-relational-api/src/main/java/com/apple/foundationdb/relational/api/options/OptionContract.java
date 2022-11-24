@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import java.sql.SQLException;
 
 public interface OptionContract {
-    void validate(Options.Name name, Object value) throws RelationalException;
+    void validate(Options.Name name, Object value) throws SQLException;
 }

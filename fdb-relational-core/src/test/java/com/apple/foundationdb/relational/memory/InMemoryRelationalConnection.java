@@ -114,7 +114,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void beginTransaction() throws RelationalException {
+    public void beginTransaction() throws SQLException {
 
     }
 

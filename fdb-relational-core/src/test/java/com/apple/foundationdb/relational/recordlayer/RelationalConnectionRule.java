@@ -124,7 +124,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
-    public void beginTransaction() throws RelationalException {
+    public void beginTransaction() throws SQLException {
         connection.beginTransaction();
     }
 
@@ -135,7 +135,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
-    public void setOption(Options.Name name, Object value) throws RelationalException {
+    public void setOption(Options.Name name, Object value) throws SQLException {
         connection.setOption(name, value);
     }
 

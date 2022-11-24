@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.DescriptorProtos;
@@ -34,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.sql.SQLException;
 import java.util.stream.Stream;
 
 class ProtobufDataBuilderTest {
@@ -161,7 +161,7 @@ class ProtobufDataBuilderTest {
 
     @ParameterizedTest
     @MethodSource("possibleFields")
-    void worksForFieldTypes(DescriptorProtos.FieldDescriptorProto field, Object value) throws Descriptors.DescriptorValidationException, RelationalException {
+    void worksForFieldTypes(DescriptorProtos.FieldDescriptorProto field, Object value) throws Descriptors.DescriptorValidationException, SQLException {
         DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
                 .setName("test")
                 .addField(field).build();
@@ -175,25 +175,25 @@ class ProtobufDataBuilderTest {
     }
 
     @Test
-    void failsForMissingField() throws Descriptors.DescriptorValidationException, RelationalException {
+    void failsForMissingField() throws Descriptors.DescriptorValidationException {
         DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
                 .setName("test")
                 .addField(newDescriptor("blah", JavaType.STRING, null, false)).build();
         Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descProto).build(), new Descriptors.FileDescriptor[]{});
         ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> dataBuilder.setField("noSuchField", "12"));
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode());
+        RelationalAssertions.assertThrowsSqlException(() -> dataBuilder.setField("noSuchField", "12"))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER);
     }
 
     @Test
-    void failsForNonRepeatingField() throws Descriptors.DescriptorValidationException, RelationalException {
+    void failsForNonRepeatingField() throws Descriptors.DescriptorValidationException {
         DescriptorProtos.DescriptorProto descProto = DescriptorProtos.DescriptorProto.newBuilder()
                 .setName("test")
                 .addField(newDescriptor("blah", JavaType.STRING, null, false)).build();
         Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descProto).build(), new Descriptors.FileDescriptor[]{});
         ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> dataBuilder.addRepeatedField("noSuchField", "12"));
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode());
+        RelationalAssertions.assertThrowsSqlException(() -> dataBuilder.addRepeatedField("noSuchField", "12"))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER);
     }
 
     @Test
@@ -203,8 +203,8 @@ class ProtobufDataBuilderTest {
                 .addField(newDescriptor("blah", JavaType.STRING, null, false)).build();
         Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descProto).build(), new Descriptors.FileDescriptor[]{});
         ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> dataBuilder.getNestedMessageBuilder("blah"));
-        Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, ve.getErrorCode());
+        RelationalAssertions.assertThrowsSqlException(() -> dataBuilder.getNestedMessageBuilder("blah"))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER);
     }
 
     @Test
@@ -214,7 +214,7 @@ class ProtobufDataBuilderTest {
                 .addField(newDescriptor("field1", JavaType.STRING, null, false)).build();
         Descriptors.FileDescriptor file = Descriptors.FileDescriptor.buildFrom(DescriptorProtos.FileDescriptorProto.newBuilder().addMessageType(descProto).build(), new Descriptors.FileDescriptor[]{});
         ProtobufDataBuilder dataBuilder = new ProtobufDataBuilder(file.findMessageTypeByName("test"));
-        RelationalAssertions.assertThrows(() -> dataBuilder.addRepeatedField("field1", "foo"))
+        RelationalAssertions.assertThrowsSqlException(() -> dataBuilder.addRepeatedField("field1", "foo"))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessageContaining("is not repeated");
     }

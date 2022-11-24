@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -85,7 +86,7 @@ public class RecordTypeKeyTest {
     }
 
     @Test
-    void testScanningWithUnknownKeys() throws RelationalException {
+    void testScanningWithUnknownKeys() throws Exception {
         Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
                 .setField("REVIEWER", 678910)
                 .setField("RATING", 2)
@@ -95,11 +96,9 @@ public class RecordTypeKeyTest {
 
         KeySet keySet = new KeySet().setKeyColumn("REVIEWER", 678910);
         // Scan is expected to rejected because it uses fields which are not included in primary key
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> statement.executeScan("RESTAURANT_REVIEW", keySet, Options.NONE))
-                .hasMessageContaining("Unknown keys for primary key of <RESTAURANT_REVIEW>, unknown keys: <REVIEWER>")
-                .isInstanceOf(RelationalException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeScan("RESTAURANT_REVIEW", keySet, Options.NONE))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER)
+                .hasMessageContaining("Unknown keys for primary key of <RESTAURANT_REVIEW>, unknown keys: <REVIEWER>");
     }
 
     @Test

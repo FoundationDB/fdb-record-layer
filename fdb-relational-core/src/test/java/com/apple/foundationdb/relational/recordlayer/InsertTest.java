@@ -155,7 +155,7 @@ public class InsertTest {
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", id).setField("NAME", "restRecord" + id).build();
-                RelationalAssertions.assertThrows(
+                RelationalAssertions.assertThrowsSqlException(
                         () -> s.executeInsert("RESTAURANT_REVIEWER", record))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
             }
@@ -206,7 +206,7 @@ public class InsertTest {
             try (RelationalStatement s = conn.createStatement()) {
                 Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).build();
                 s.executeInsert("RESTAURANT", record);
-                RelationalAssertions.assertThrows(() -> s.executeInsert("RESTAURANT", record))
+                RelationalAssertions.assertThrowsSqlException(() -> s.executeInsert("RESTAURANT", record))
                         .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
             }
         }
@@ -221,7 +221,7 @@ public class InsertTest {
             customers.add("A");
             customers.add(null);
             try (RelationalStatement s = conn.createStatement()) {
-                RelationalAssertions.assertThrows(() -> s.getDataBuilder("RESTAURANT")
+                RelationalAssertions.assertThrowsSqlException(() -> s.getDataBuilder("RESTAURANT")
                         .setField("REST_NO", 0)
                         .addRepeatedFields("CUSTOMER", customers)
                         .build()).hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);

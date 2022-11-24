@@ -21,11 +21,11 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import java.sql.SQLException;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -44,33 +44,33 @@ public interface DynamicMessageBuilder {
      *
      * @param fieldName the name of the field to get the type for
      * @return the string name of the type that the field is.
-     * @throws RelationalException with {@link ErrorCode#INVALID_PARAMETER} if the field does not exist.
+     * @throws SQLException with {@link ErrorCode#INVALID_PARAMETER} if the field does not exist.
      */
-    String getFieldType(String fieldName) throws RelationalException;
+    String getFieldType(String fieldName) throws SQLException;
 
-    boolean isPrimitive(int fieldNumber) throws RelationalException;
+    boolean isPrimitive(int fieldNumber) throws SQLException;
 
-    DynamicMessageBuilder setField(String fieldName, Object value) throws RelationalException;
+    DynamicMessageBuilder setField(String fieldName, Object value) throws SQLException;
 
-    DynamicMessageBuilder setField(int fieldNumber, Object value) throws RelationalException;
+    DynamicMessageBuilder setField(int fieldNumber, Object value) throws SQLException;
 
-    DynamicMessageBuilder addRepeatedField(String fieldName, Object value) throws RelationalException;
+    DynamicMessageBuilder addRepeatedField(String fieldName, Object value) throws SQLException;
 
-    DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws RelationalException;
+    DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws SQLException;
 
-    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value, boolean isNullableArray) throws RelationalException;
+    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value, boolean isNullableArray) throws SQLException;
 
-    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value) throws RelationalException;
+    DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> value) throws SQLException;
 
-    DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> value) throws RelationalException;
+    DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> value) throws SQLException;
 
     Message build();
 
-    <T extends Message> Message convertMessage(T m) throws RelationalException;
+    <T extends Message> Message convertMessage(T m) throws SQLException;
 
-    DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws RelationalException;
+    DynamicMessageBuilder getNestedMessageBuilder(String fieldName) throws SQLException;
 
-    DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws RelationalException;
+    DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws SQLException;
 
     Descriptors.Descriptor getDescriptor();
 

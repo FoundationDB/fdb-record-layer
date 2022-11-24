@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.autotest.datagen.DataSample;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 
@@ -337,8 +338,8 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                 Iterator<Message> theBatch = messages.stream().map(m -> {
                     try {
                         return dataBuilder.convertMessage(m);
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
+                    } catch (SQLException e) {
+                        throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
                     }
                 }).iterator();
                 statement.executeInsert(tableName, theBatch);
@@ -346,7 +347,8 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
             //add to the sample here, only after we guarantee that the write actually succeeded
             messages.forEach(reservoir::add);
             messages.clear();
-        } catch (RelationalException ve) {
+        } catch (SQLException e) {
+            RelationalException ve = ExceptionUtil.toRelationalException(e);
             //ignore PK violations for now
             //TODO(bfines) better data generation to avoid duplicate keys
             if (!ve.getErrorCode().equals(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION)) {

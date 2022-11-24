@@ -195,13 +195,15 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void beginTransaction() throws RelationalException {
+    public void beginTransaction() throws SQLException {
         try {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
             }
         } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
     }
 
@@ -212,7 +214,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void setOption(Options.Name name, Object value) throws RelationalException {
+    public void setOption(Options.Name name, Object value) throws SQLException {
         options = Options.builder().fromOptions(options).withOption(name, value).build();
     }
 

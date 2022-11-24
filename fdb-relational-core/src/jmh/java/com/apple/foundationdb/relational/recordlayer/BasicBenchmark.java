@@ -132,11 +132,11 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private Message newRestaurantRecord(RelationalStatement statement) throws RelationalException {
+    private Message newRestaurantRecord(RelationalStatement statement) throws SQLException {
         return newRestaurantRecord(restNo.incrementAndGet(), statement);
     }
 
-    private Message newRestaurantRecord(int recordId, RelationalStatement statement) throws RelationalException {
+    private Message newRestaurantRecord(int recordId, RelationalStatement statement) throws SQLException {
         return statement.getDataBuilder(restaurantRecordTable)
                 .setField("rest_no", recordId)
                 .setField("name", "testName")

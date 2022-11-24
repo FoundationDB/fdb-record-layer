@@ -25,17 +25,19 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.TrieNode;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * a {@link TrieNode} implementation having a {@link FieldValue.ResolvedAccessor} as key.
@@ -60,7 +62,7 @@ public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Va
         if (!(o instanceof FieldValueTrieNode)) {
             return false;
         }
-        final FieldValueTrieNode transformationTrieNode = (FieldValueTrieNode)o;
+        final FieldValueTrieNode transformationTrieNode = (FieldValueTrieNode) o;
         return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
                 Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
     }
@@ -73,7 +75,7 @@ public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Va
         if (!(other instanceof FieldValueTrieNode)) {
             return false;
         }
-        final FieldValueTrieNode otherFieldValueTrieNode = (FieldValueTrieNode)other;
+        final FieldValueTrieNode otherFieldValueTrieNode = (FieldValueTrieNode) other;
 
         return equalsNullable(getValue(), otherFieldValueTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
                 equalsNullable(getChildrenMap(), otherFieldValueTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));

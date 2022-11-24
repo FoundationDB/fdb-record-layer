@@ -60,7 +60,7 @@ public class QueryPropertiesTest {
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
-    void verifyExecuteAndScanPropertiesGivenQueryProperties() throws RelationalException {
+    void verifyExecuteAndScanPropertiesGivenQueryProperties() throws SQLException {
         Options options = Options.NONE;
 
         final ExecuteState trackingExecuteState = new ExecuteState(RecordScanLimiterFactory.tracking(), ByteScanLimiterFactory.tracking());

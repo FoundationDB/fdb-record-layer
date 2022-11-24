@@ -55,14 +55,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -72,6 +71,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -206,7 +208,7 @@ public final class KeyExpressionGenerator {
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
         final KeyExpression groupedValue;
         final GroupingKeyExpression keyExpression;
-        if (aggregateValue instanceof CountValue && child instanceof RecordConstructorValue && ((RecordConstructorValue)child).getColumns().isEmpty()) {
+        if (aggregateValue instanceof CountValue && child instanceof RecordConstructorValue && ((RecordConstructorValue) child).getColumns().isEmpty()) {
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = new GroupingKeyExpression(maybeGroupingExpression.get(), 0);
             } else {

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -77,57 +76,57 @@ public class ErrorCapturingStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
             return delegate.executeScan(tableName, prefix, options);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
     @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         try {
             return delegate.executeGet(tableName, key, options);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
         try {
             return delegate.executeInsert(tableName, data, options);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws RelationalException {
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
         try {
             return delegate.getDataBuilder(typeName);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
         try {
             return delegate.executeDelete(tableName, keys, options);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
     @Override
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws RelationalException {
+    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
             delegate.executeDeleteRange(tableName, prefix, options);
         } catch (RuntimeException re) {
-            throw ExceptionUtil.toRelationalException(re);
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
     }
 
