@@ -24,18 +24,17 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -197,6 +196,62 @@ public class Matchers {
         return null;
     }
 
+    @Nonnull
+    public static Object keyOrValue(@Nonnull final Map.Entry<?,?> entry) {
+        if (isNull(entry.getKey()) && isNull(entry.getValue())) {
+            fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", YamlRunner.NullPlaceholder.INSTANCE));
+        }
+        return (entry.getValue() == null) ? entry.getKey() : entry.getValue();
+    }
+
+    @Nonnull
+    public static Function<Integer, Object> valueByIndex(@Nonnull final RelationalResultSet resultSet) {
+        return i -> {
+            try {
+                return resultSet.getObject(i);
+            } catch (SQLException e) {
+                fail(e.getMessage());
+            }
+            return null;
+        };
+    }
+
+    @Nonnull
+    public static Function<Integer, Object> valueByIndex(@Nonnull final RelationalStruct resultSet) {
+        return i -> {
+            try {
+                return resultSet.getObject(i);
+            } catch (SQLException e) {
+                fail(e.getMessage());
+            }
+            return null;
+        };
+    }
+
+    @Nonnull
+    public static Function<String, Object> valueByName(@Nonnull final RelationalResultSet resultSet) {
+        return i -> {
+            try {
+                return resultSet.getObject(i);
+            } catch (SQLException e) {
+                fail(e.getMessage());
+            }
+            return null;
+        };
+    }
+
+    @Nonnull
+    public static Function<String, Object> valueByName(@Nonnull final RelationalStruct resultSet) {
+        return i -> {
+            try {
+                return resultSet.getObject(i);
+            } catch (SQLException e) {
+                fail(e.getMessage());
+            }
+            return null;
+        };
+    }
+
     static final class ResultSetMatchResult {
 
         private static final ResultSetMatchResult SUCCESS = new ResultSetMatchResult(true, null, null);
@@ -334,7 +389,10 @@ public class Matchers {
             }
             resultSetPrettyPrinter.newRow();
             final var expectedMap = notNull(map(expected), "expected result set");
-            return matchMessage(expectedMap, actual, resultSetPrettyPrinter);
+            final var matchResult = matchMap(expectedMap, actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
+            if (!matchResult.equals(ResultSetMatchResult.SUCCESS)) {
+                printRemaining(actual, resultSetPrettyPrinter);
+            }
         } else {
             if (!isArray(expected)) {
                 printRemaining(actual, resultSetPrettyPrinter);
@@ -350,8 +408,7 @@ public class Matchers {
                     printRemaining(actual, resultSetPrettyPrinter);
                     return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
                 }
-                final var expectedMap = map(expectedRow);
-                final var matchResult = matchMessage(expectedMap, actual, resultSetPrettyPrinter);
+                final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
                 if (!matchResult.equals(ResultSetMatchResult.success())) {
                     printRemaining(actual, resultSetPrettyPrinter);
                     return matchResult; // fail.
@@ -380,63 +437,57 @@ public class Matchers {
         return thereWasRemainingRows;
     }
 
-    private static void printRemainingCells(@Nonnull final RelationalResultSet resultSet, @Nonnull final ResultSetPrettyPrinter printer, int startIndex) throws SQLException {
-        final var colCount = resultSet.getMetaData().getColumnCount();
-        for (int i = startIndex; i <= colCount; i++) {
-            printer.addCell(resultSet.getObject(i));
-        }
-    }
-
-    private static ResultSetMatchResult matchMessage(@Nonnull final Map<?, ?> expected,
-                                                     @Nonnull final RelationalResultSet currentRow,
-                                                     @Nonnull final ResultSetPrettyPrinter resultSetPrettyPrinter) throws SQLException {
+    @Nonnull
+    private static ResultSetMatchResult matchMap(@Nonnull final Map<?, ?> expected,
+                                                 final int actualEntriesCount,
+                                                 @Nonnull final Function<String, Object> entryByNameAccessor,
+                                                 @Nonnull final Function<Integer, Object> entryByNumberAccessor,
+                                                 @Nonnull final ResultSetPrettyPrinter printer,
+                                                 boolean addCellToPrinter) throws SQLException {
         int counter = 1;
-        final var actualColCount = currentRow.getMetaData().getColumnCount();
         final var expectedColCount = expected.entrySet().size();
-        if (actualColCount != expectedColCount) {
-            printRemainingCells(currentRow, resultSetPrettyPrinter, counter);
-            printRemaining(currentRow, resultSetPrettyPrinter);
-            return ResultSetMatchResult.fail(String.format("column mismatch! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualColCount), resultSetPrettyPrinter);
+        if (actualEntriesCount != expectedColCount) {
+            if (addCellToPrinter) {
+                for (int i = 1; i <= actualEntriesCount; i++) {
+                    printer.addCell(entryByNumberAccessor.apply(i));
+                }
+            }
+            return ResultSetMatchResult.fail(String.format("column mismatch! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualEntriesCount), printer);
         }
         for (final var entry : expected.entrySet()) {
-            if (entry.getValue() == null) { // unnamed, match by field number
-                final var expectedField = entry.getKey();
-                final var actualField = currentRow.getObject(counter);
-                resultSetPrettyPrinter.addCell(actualField);
-                final var matchResult = matchField(expectedField, actualField, resultSetPrettyPrinter);
-                if (!matchResult.equals(ResultSetMatchResult.success())) {
-                    printRemainingCells(currentRow, resultSetPrettyPrinter, counter + 1);
-                    printRemaining(currentRow, resultSetPrettyPrinter);
-                    return matchResult; // fail.
+            final var expectedField = keyOrValue(entry);
+            final var actualField = (entry.getValue() == null) ? entryByNumberAccessor.apply(counter) : entryByNameAccessor.apply(string(entry.getKey()));
+            final var matchResult = matchField(expectedField, actualField, printer);
+            if (!matchResult.equals(ResultSetMatchResult.success())) {
+                if (addCellToPrinter) {
+                    for (int i = counter; i <= actualEntriesCount; i++) {
+                        printer.addCell(entryByNumberAccessor.apply(i));
+                    }
                 }
-            } else { // named field, check the name exists, then match values, maybe we should enable either-or (i.e. named XOR unnamed)
-                final var fieldName = string(entry.getKey());
-                final var expectedField = entry.getValue();
-                final var actualField = currentRow.getObject(fieldName);
-                resultSetPrettyPrinter.addCell(actualField);
-                final var matchResult = matchField(expectedField, actualField, resultSetPrettyPrinter);
-                if (!matchResult.equals(ResultSetMatchResult.success())) {
-                    printRemainingCells(currentRow, resultSetPrettyPrinter, counter + 1);
-                    printRemaining(currentRow, resultSetPrettyPrinter);
-                    return matchResult; // fail.
-                }
+                return matchResult; // propagate failure.
+            }
+            if (addCellToPrinter) {
+                printer.addCell(actualField);
             }
             counter++;
         }
         return ResultSetMatchResult.success();
     }
 
-    private static ResultSetMatchResult matchField(final Object expected,
-                                                   final Object actual,
+    private static ResultSetMatchResult matchField(@Nullable final Object expected,
+                                                   @Nullable final Object actual,
                                                    @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
+        // the test does not care about the incoming value.
         if (expected instanceof YamlRunner.DontCare) {
             return ResultSetMatchResult.success();
         }
-        if (expected == null && actual == null) {
+        final var expectedIsNull = expected instanceof YamlRunner.NullPlaceholder;
+
+        if (expectedIsNull && actual == null) {
             return ResultSetMatchResult.success();
         }
-        if (expected == null || actual == null) {
-            if (expected == null) {
+        if (expectedIsNull || actual == null) {
+            if (expectedIsNull) {
                 return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set", printer);
             } else {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", printer);
@@ -446,38 +497,16 @@ public class Matchers {
             return ((YamlRunner.StringContains) expected).matchWith(actual, printer);
         }
 
+        // (nested) message
         if (expected instanceof Map<?, ?>) {
-            final var expectedMap = map(expected);
             if (!(actual instanceof RelationalStruct)) {
                 return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 to match a struct, got 🟡 instead.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
             }
             final var struct = (RelationalStruct) (actual);
-            int counter = 1;
-            if (struct.getAttributes().length != expectedMap.size()) {
-                return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 (containing %d fields) does not match 🟡 (containing %d fields).%n🟢 %s%n🟡 %s",
-                        printer.getRowCount(), expectedMap.size(), ((RelationalStruct) actual).getAttributes().length, expected, actual), printer);
-            }
-            for (final var entry : expectedMap.entrySet()) {
-                if (entry.getValue() == null) { // unnamed, match by field number
-                    final var expectedField = entry.getKey();
-                    final var actualField = struct.getObject(counter);
-                    final var matchResult = matchField(expectedField, actualField, printer);
-                    if (!matchResult.equals(ResultSetMatchResult.success())) {
-                        return matchResult; // fail.
-                    }
-                } else { // named field, check the name exists, then match values.
-                    final var fieldName = string(entry.getKey());
-                    final var expectedField = entry.getValue();
-                    final var actualField = struct.getObject(fieldName);
-                    final var matchResult = matchField(expectedField, actualField, printer);
-                    if (!matchResult.equals(ResultSetMatchResult.success())) {
-                        return matchResult; // fail.
-                    }
-                }
-                counter++;
-            }
-            return ResultSetMatchResult.success();
+            return matchMap(map(expected), struct.getAttributes().length, valueByName(struct), valueByIndex(struct), printer, false);
         }
+
+        // (nested) array
         if (expected instanceof List<?>) {
             final var expectedArray = (List<?>) (expected);
             if (!(actual instanceof RelationalArray)) {
@@ -493,15 +522,42 @@ public class Matchers {
                 final var actualObject = actualArrayContent.getObject(i);
                 final var matchResult = matchField(expectedArray.get(i), actualObject, printer);
                 if (!matchResult.equals(ResultSetMatchResult.success())) {
-                    return matchResult; // fail.
+                    return matchResult; // propagate failure.
                 }
             }
         }
-        if (expected instanceof Integer && actual instanceof Long && actual.equals(((Integer) expected).longValue()) ||
-                Objects.equals(expected, actual)) {
+
+        // integer comparison (with possible promotion)
+        if (expected instanceof Integer) {
+            return matchIntField((Integer) expected, actual, printer);
+        }
+
+        // exact comparison.
+        if (Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();
         } else {
             return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 does not match 🟡.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
         }
+    }
+
+    /**
+     * Performs integer matching against integer, or against long (with promotion).
+     * @param expected expected value.
+     * @param actual actual value.
+     * @return {@code true} if {@code expected} matches {@code actual}, otherwise {@code false}.
+     */
+    @Nonnull
+    private static ResultSetMatchResult matchIntField(@Nonnull final Integer expected, @Nonnull final Object actual, @Nonnull final ResultSetPrettyPrinter printer) {
+        if (actual instanceof Integer) {
+            if (Objects.equals(expected, actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+        if (actual instanceof Long) {
+            if (Objects.equals(expected.longValue(), actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+        return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 does not match 🟡.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
     }
 }

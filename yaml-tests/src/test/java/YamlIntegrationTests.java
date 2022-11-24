@@ -102,4 +102,9 @@ public class YamlIntegrationTests {
     public void limit() throws Exception {
         doRun("limit.yaml");
     }
+
+    @Test
+    public void nested() throws Exception {
+        doRun("nested-tests.yaml");
+    }
 }

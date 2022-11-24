@@ -1,0 +1,61 @@
+#
+# nested-tests.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template standard_tests_template
+---
+- query: create schema template standard_tests_template
+    create struct s1(a int64, b int64)
+    create struct s2(c int64, d int64)
+    create struct s3(e s1, f s2)
+    create table t1(id int64, g int64, h s3, primary key(id))
+    create table t2(id int64, g int64, h s3, primary key(id))
+---
+- query: drop database /STANDARD_YAML
+---
+- query: create database /STANDARD_YAML
+---
+- query: create schema /STANDARD_YAML/test with template standard_tests_template
+---
+- connect: "jdbc:embed:/STANDARD_YAML?schema=TEST"
+---
+- insert: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
+           {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
+- table: T1
+---
+- query: select * from t1;
+- result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
+           {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
+---
+# use !null placeholder (with a space afterwards) to set the field to null.
+- insert: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
+           {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
+- table: T2
+---
+# multiple !null placeholders in the same level should be named.
+- query: select * from t2;
+- result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
+           {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
+---
+- query: drop schema template standard_tests_template
+---
+- query: drop database /STANDARD_YAML
+...

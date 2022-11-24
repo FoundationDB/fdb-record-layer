@@ -56,33 +56,24 @@ public class Generators {
     }
 
     private static Message parseObject(@Nonnull final Map<?, ?> data, @Nonnull final DynamicMessageBuilder typeBuilder) throws RelationalException {
+        final BiConsumer<Object, Object> fieldSetter = (fieldAccessor, fieldValue) -> {
+            try {
+                if (fieldAccessor instanceof Integer) {
+                    typeBuilder.setField((Integer)fieldAccessor, fieldValue);
+                } else {
+                    typeBuilder.setField(string(fieldAccessor), fieldValue);
+                }
+            } catch (RelationalException e) {
+                throw e.toUncheckedWrappedException();
+            }
+        };
         int counter = 1;
         for (Map.Entry<?, ?> entry : data.entrySet()) {
             if (isNull(entry.getValue())) { // unnamed field.
-                setField(counter, entry.getKey(), (fieldAccessor, fieldValue) -> {
-                    try {
-                        if (fieldAccessor instanceof Integer) {
-                            typeBuilder.setField((Integer) fieldAccessor, fieldValue);
-                        } else {
-                            typeBuilder.setField(string(fieldAccessor), fieldValue);
-                        }
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
-                    }
-                }, typeBuilder, true);
+                setField(counter, entry.getKey(), fieldSetter, typeBuilder, true);
             } else { // named field.
                 String key = string(entry.getKey(), "field key");
-                setField(key, entry.getValue(), (fieldAccessor, fieldValue) -> {
-                    try {
-                        if (fieldAccessor instanceof Integer) {
-                            typeBuilder.setField((Integer) fieldAccessor, fieldValue);
-                        } else {
-                            typeBuilder.setField(string(fieldAccessor), fieldValue);
-                        }
-                    } catch (RelationalException e) {
-                        throw e.toUncheckedWrappedException();
-                    }
-                }, typeBuilder, true);
+                setField(key, entry.getValue(), fieldSetter, typeBuilder, true);
             }
             ++counter;
         }
@@ -94,7 +85,7 @@ public class Generators {
                                  BiConsumer<Object, Object> typeConsumer,
                                  DynamicMessageBuilder dataBuilder,
                                  boolean allowArrays) throws RelationalException {
-        if (value == null) {
+        if (value instanceof YamlRunner.NullPlaceholder) {
             // do not set the value!
             return;
         } else if (isArray(value)) {
