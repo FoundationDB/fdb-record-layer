@@ -123,7 +123,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                     return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
-        Verify.verify(typedArgs.size() > 0);
+        Verify.verify(!typedArgs.isEmpty());
         final Type elementType = resolveElementType(arguments);
         return new LightArrayConstructorValue(injectPromotions(arguments, elementType), elementType);
     }

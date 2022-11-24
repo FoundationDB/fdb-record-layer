@@ -399,7 +399,38 @@ public interface Type extends Narrowable<Type> {
         }
     }
 
+    /**
+     * Find the maximum type of two types. The maximum type is the type that can describe all values adhering to both
+     * sides passed in. Some combinations are not defined.
+     * Primitive types are treated using the SQL-like promotion rules to form a promotion ladder meaning that
+     * <pre>
+     * {@code
+     * INT --> LONG --> FLOAT --> DOUBLE
+     * }
+     * </pre>
+     * can be promoted up (the values can be substituted without loss).
+     * <pre>
+     * Examples
+     * {@code
+     * int, int --> int
+     * int, float --> float
+     * int, string --> undefined
+     * record(int as a, int as b), record(int as a, int as b) --> record(int as a, int as b)
+     * record(int as a, int as b), record(int as c, int as d) --> record(int, int) (unnamed)
+     * record(int, int), record(float, float) --> record(float, float)
+     * record(int, float), record(float, int) --> record(float, float)
+     * record(int, array(float)), record(int, array(double)) --> record(int, array(double))
+     * record(int, string), record(float, int) --> undefined
+     * record(int), record(int, int) --> undefined
+     * }
+     * </pre>
+     *
+     * @param t1 one type
+     * @param t2 another type
+     * @return the maximum type of {@code t1} and type {@code t2} or {@code null} if the maximum type is not defined
+     */
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     static Type maximumType(@Nonnull final Type t1, @Nonnull final Type t2) {
         Verify.verify(!t1.isUnresolved());
         Verify.verify(!t2.isUnresolved());
@@ -628,7 +659,14 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
-     * Null-Type.
+     * The null type is an unresolved type meaning that an entity returning a null type should resolve the
+     * type to a regular type as the runtime does not support a null-typed data producer. Note that a type can be
+     * nullable but that's not the same as to be null-typed. Only the constant {@code null} is actually of type null,
+     * however, that type is changed to an actual type during type resolution that then just happens to be nullable.
+     * It is correct to say that the null type (just as {@link None} type) are types that have no instances.
+     * It is still useful use this type for modelling purposes. Just as in Scala, the null-type is implicitly, a
+     * subtype of every other type in a sense that the substitution principle holds, e.g. {@code null} can be substituted
+     * for any value of type {@code int}, or {@code string}, etc...
      */
     class Null implements Type {
         @Override
@@ -665,7 +703,14 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
-     * Null-Type.
+     * The none type is an unresolved type meaning that an entity returning a none type should resolve the
+     * type to a regular type as the runtime does not support a none-typed data producer. Only the empty array constant
+     * is actually of type {@code none}, however, that type is changed to an actual type during type resolution (to an
+     * array of some regular type).
+     * It is correct to say that the none type (just as {@link Null} type) are types that have no instances.
+     * It is still useful use this type for modelling purposes. Just as in Scala, the none-type is implicitly, a
+     * subtype of every other type in a sense that the substitution principle holds, e.g. {@code none} can be substituted
+     * for any value of an array type.
      */
     class None implements Type {
         @Override

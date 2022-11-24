@@ -206,17 +206,14 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
-                final var newRecordField = recordDescriptor.findFieldByName("new");
-                final var newRecordDescriptor = newRecordField.getMessageType();
-                final var newRecord = (Message)record.getField(newRecordField);
-                final var rest_no = newRecordDescriptor.findFieldByName("rest_no");
-                final var name = newRecordDescriptor.findFieldByName("name");
-                switch ((int)(long)newRecord.getField(rest_no)) {
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                switch ((int)(long)record.getField(rest_no)) {
                     case 100:
-                        Assertions.assertEquals("Burger King", newRecord.getField(name));
+                        Assertions.assertEquals("Burger King", record.getField(name));
                         break;
                     case 200:
-                        Assertions.assertEquals("Heirloom Cafe", newRecord.getField(name));
+                        Assertions.assertEquals("Heirloom Cafe", record.getField(name));
                         break;
                     default:
                         Assertions.fail("unexpected record");
@@ -618,13 +615,10 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
-                final var newRecordField = recordDescriptor.findFieldByName("new");
-                final var newRecordDescriptor = newRecordField.getMessageType();
-                final var newRecord = (Message)record.getField(newRecordField);
-                final var rest_no = newRecordDescriptor.findFieldByName("rest_no");
-                final var name = newRecordDescriptor.findFieldByName("name");
-                if ((int)(long)newRecord.getField(rest_no) == 400) {
-                    Assertions.assertEquals("Bonita Burrito", newRecord.getField(name));
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                if ((int)(long)record.getField(rest_no) == 400) {
+                    Assertions.assertEquals("Bonita Burrito", record.getField(name));
                 } else {
                     Assertions.fail("unexpected record");
                 }

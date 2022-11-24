@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.google.common.base.VerifyException;
 import com.google.protobuf.DynamicMessage;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -202,13 +201,7 @@ class TypeRepositoryTest {
 
     @Test
     void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
-        try {
-            new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/));
-            Assertions.fail("expected an exception to be thrown");
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof VerifyException);
-            Assertions.assertTrue(e.getMessage().contains("types of children must be equal"));
-        }
+        Assertions.assertThrows(SemanticException.class, () -> new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/)));
     }
 
     @Test

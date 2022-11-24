@@ -135,6 +135,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     }
 
     @Nonnull
+    @Override
     public Value promoteToType(@Nonnull final Type type) {
         return QuantifiedObjectValue.of(getAlias(), type);
     }

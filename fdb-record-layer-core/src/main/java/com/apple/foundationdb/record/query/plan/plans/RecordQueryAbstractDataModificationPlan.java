@@ -173,7 +173,16 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return computationValue.getDynamicTypes();
+        final var dynamicTypesBuilder = ImmutableSet.<Type>builder();
+
+        dynamicTypesBuilder.addAll(computationValue.getDynamicTypes());
+
+        if (transformationsTrie != null) {
+            transformationsTrie.values()
+                    .forEach(value -> dynamicTypesBuilder.addAll(value.getDynamicTypes()));
+        }
+
+        return dynamicTypesBuilder.build();
     }
 
     @Nonnull
