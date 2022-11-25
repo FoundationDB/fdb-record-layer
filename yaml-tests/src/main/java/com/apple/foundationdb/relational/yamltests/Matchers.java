@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -353,7 +354,7 @@ public class Matchers {
                 }
             }
             for (final var row : resultSet) {
-                at.addRow(row);
+                at.addRow(row.stream().map(String::trim).collect(Collectors.toList()));
                 at.addRule();
             }
             if (at.getRawContent().size() == 1) { //workaround for /0 bug in AsciiTable
