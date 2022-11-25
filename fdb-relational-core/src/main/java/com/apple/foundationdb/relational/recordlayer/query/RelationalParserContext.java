@@ -22,14 +22,12 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 // TODO(yhatem) unify with ParserContext now that is moved from RecordLayer to Relational.
 

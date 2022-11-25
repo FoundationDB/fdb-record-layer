@@ -89,7 +89,6 @@ public interface Plan<T> {
         try {
             final Object maybePlan = astWalker.visit(ast);
             Assert.that(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
-            planContext.getPostProcessor().accept(astWalker);
             return (Plan<?>) maybePlan;
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();

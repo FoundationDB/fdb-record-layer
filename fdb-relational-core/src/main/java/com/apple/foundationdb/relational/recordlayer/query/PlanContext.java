@@ -29,10 +29,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
-import java.net.URI;
-import java.util.function.Consumer;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 public final class PlanContext {
     @Nonnull
@@ -45,8 +43,6 @@ public final class PlanContext {
     private final DdlQueryFactory ddlQueryFactory;
     @Nonnull
     private final URI dbUri;
-    @Nonnull
-    private final Consumer<AstVisitor> postProcessor;
 
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
@@ -55,16 +51,14 @@ public final class PlanContext {
      * @param storeState            The record store state.
      * @param constantActionFactory The constant action factory used for DDL and metadata queries
      * @param dbUri                 The URI of the database.
-     * @param postProcessor         A post-processing hook that is activated after the generation of the logical plan.
      *
      */
-    private PlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState storeState, @Nonnull ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri, @Nonnull Consumer<AstVisitor> postProcessor) {
+    private PlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState storeState, @Nonnull ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) {
         this.metaData = metaData;
         this.storeState = storeState;
         this.constantActionFactory = constantActionFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
-        this.postProcessor = postProcessor;
     }
 
     @Nonnull
@@ -88,10 +82,6 @@ public final class PlanContext {
         return dbUri;
     }
 
-    public Consumer<AstVisitor> getPostProcessor() {
-        return postProcessor;
-    }
-
     public static final class Builder {
 
         private RecordMetaData metaData;
@@ -103,9 +93,6 @@ public final class PlanContext {
         private DdlQueryFactory ddlQueryFactory;
 
         private URI dbUri;
-
-        private Consumer<AstVisitor> postProcessor = ignored -> {
-        };
 
         private Builder() {
         }
@@ -141,12 +128,6 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder withPostProcessor(@Nonnull final Consumer<AstVisitor> postProcessor) {
-            this.postProcessor = postProcessor;
-            return this;
-        }
-
-        @Nonnull
         public Builder fromRecordStore(@Nonnull final FDBRecordStore recordStore) {
             return withStoreState(recordStore.getRecordStoreState()).withMetadata(recordStore.getRecordMetaData());
         }
@@ -169,7 +150,7 @@ public final class PlanContext {
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, storeState, constantActionFactory, ddlQueryFactory, dbUri, postProcessor);
+            return new PlanContext(metaData, storeState, constantActionFactory, ddlQueryFactory, dbUri);
         }
 
         @Nonnull
@@ -181,7 +162,6 @@ public final class PlanContext {
             return create().withConstantActionFactory(planContext.constantActionFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)
-                    .withPostProcessor(planContext.postProcessor)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withStoreState(planContext.storeState);
         }

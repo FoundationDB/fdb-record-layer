@@ -173,10 +173,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
             Assert.notNullUnchecked(continuationStr, "continuation can not be null.");
             Assert.thatUnchecked(parserContext.getOffset() == 0, "Offset cannot be specified with continuation.");
-            return QueryPlan.QpQueryplan.of(result, query, parserContext.getLimit(), parserContext.getOffset(),
+            return QueryPlan.LogicalQueryPlan.of(result, query, false, parserContext.getLimit(), parserContext.getOffset(),
                     Base64.getDecoder().decode(continuationStr));
         } else {
-            return QueryPlan.QpQueryplan.of(result, query, parserContext.getLimit(), parserContext.getOffset());
+            return QueryPlan.LogicalQueryPlan.of(result, query, parserContext.getLimit(), parserContext.getOffset());
         }
     }
 
@@ -185,8 +185,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         Assert.thatUnchecked(query.stripLeading().toUpperCase(Locale.ROOT).startsWith("EXPLAIN"));
-        return new QueryPlan.ExplainPlan(QueryPlan.QpQueryplan.of(result, query.stripLeading().substring(7),
-                parserContext.getLimit(), parserContext.getOffset()));
+        return QueryPlan.LogicalQueryPlan.of(result, query.stripLeading().substring(7), true, parserContext.getLimit(), parserContext.getOffset());
     }
 
     @Override

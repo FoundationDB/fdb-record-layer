@@ -29,9 +29,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
@@ -45,7 +44,7 @@ public class TransactionConfigTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfigTest.class, TestSchemas.restaurant());
 
-    @Test
+    @Disabled // TODO (Bug: sporadic failure in `testRecordInsertionWithTimeOutInConfig`)
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
