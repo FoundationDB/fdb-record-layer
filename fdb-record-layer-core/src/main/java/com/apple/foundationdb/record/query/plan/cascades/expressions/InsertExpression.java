@@ -77,7 +77,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
-        this.resultValue = new QueriedValue(computeResultType(inner.getFlowedObjectType(), targetType));
+        this.resultValue = new QueriedValue(targetType);
     }
 
     @Override

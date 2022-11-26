@@ -480,7 +480,7 @@ public interface Type extends Narrowable<Type> {
                     }
 
                     final Optional<String> resultFieldNameOptional =
-                            !t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional())
+                            t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional())
                             ? t1Field.getFieldNameOptional()
                             : Optional.empty();
 

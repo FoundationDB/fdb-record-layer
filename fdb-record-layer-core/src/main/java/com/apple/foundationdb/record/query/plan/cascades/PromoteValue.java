@@ -32,13 +32,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * A value that promotes an object of a type to an object of another type. Promotions in general agree with
@@ -48,13 +49,13 @@ import java.util.function.Function;
 public class PromoteValue implements ValueWithChild {
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
-    private static final Map<Pair<Type.TypeCode, Type.TypeCode>, Function<Object, Object>> PROMOTION_MAP =
-            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), in -> Long.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), in -> Float.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), in -> Double.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), in -> Float.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), in -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), in -> Double.valueOf((Float)in));
+    private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =
+            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
+                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
+                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in));
     /**
      * The hash value of this expression.
      */
@@ -180,9 +181,16 @@ public class PromoteValue implements ValueWithChild {
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
         if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
-            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetType).getElementType());
-            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentType).getElementType());
-            return computePromotionsTrie(targetElementType, currentElementType, null);
+            final var targetArrayType = (Type.Array)targetType;
+            final var currentArrayType = (Type.Array)currentType;
+            final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
+            final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
+            final var elementsTrie = computePromotionsTrie(targetElementType, currentElementType, null);
+            if (elementsTrie == null && currentType.isNullable() == targetType.isNullable()) {
+                return null;
+            }
+            return new MessageHelpers.CoercionTrieNode(arrayCoercionFunction(targetArrayType, currentArrayType, elementsTrie),
+                    elementsTrie == null ? null : ImmutableMap.of(-1, elementsTrie));
         }
 
         Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
@@ -210,6 +218,13 @@ public class PromoteValue implements ValueWithChild {
     }
 
     @Nonnull
+    private static BiFunction<Descriptors.Descriptor, Object, Object> arrayCoercionFunction(@Nonnull final Type.Array targetArrayType,
+                                                                                            @Nonnull final Type.Array currentArrayType,
+                                                                                            @Nullable final MessageHelpers.CoercionTrieNode elementsTrie) {
+        return (targetDescriptor, current) -> MessageHelpers.coerceArray(targetArrayType, currentArrayType, targetDescriptor, elementsTrie, current);
+    }
+
+    @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
         final var inType = inValue.getResultType();
         if (inType.equals(promoteToType)) {
@@ -220,7 +235,7 @@ public class PromoteValue implements ValueWithChild {
     }
 
     @Nullable
-    public static Function<Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static BiFunction<Descriptors.Descriptor, Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
         return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 

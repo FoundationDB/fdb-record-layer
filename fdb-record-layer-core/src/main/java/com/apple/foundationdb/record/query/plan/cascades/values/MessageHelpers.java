@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * A utility class for extracting data and meta-data from Protocol Buffer {@link Message}s, as used in the Record Layer.
@@ -392,48 +391,31 @@ public class MessageHelpers {
             return null;
         }
 
+        if (coercionsTrie == null) {
+            if (targetDescriptor != null && current instanceof Message) {
+                return deepCopyMessageIfNeeded(targetDescriptor, (Message)current);
+            }
+            return current;
+        }
+
         //
         // This is the leaf case: If the target is primitive return the application of the coercion function to current
         // if the function exists; otherwise just return the object;
         //
         if (targetType.isPrimitive()) {
-            if (coercionsTrie == null) {
-                return current;
-            }
-
+            Verify.verify(currentType.isPrimitive());
             final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
-            return Verify.verifyNotNull(coercionFunction.apply(current));
+            return Verify.verifyNotNull(coercionFunction.apply(null, current));
         }
 
         //
         // This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
         // vice versa, we need to change the wrapping in protobuf.
         //
-        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
-            Verify.verify(targetType.getTypeCode() == Type.TypeCode.ARRAY);
-            final var targetElementType = Verify.verifyNotNull(((Type.Array)targetType).getElementType());
-            final var currentElementType = Verify.verifyNotNull(((Type.Array)currentType).getElementType());
-
-            final var currentObjects = (List<?>)current;
-            final var coercedObjectsBuilder = ImmutableList.builder();
-            for (final var currentObject : currentObjects) {
-                // NULL as elements of a collection are currently not supported
-                SemanticException.check(currentObject != null, SemanticException.ErrorCode.UNSUPPORTED);
-                final var coercedObject =
-                        Verify.verifyNotNull(coerceObject(coercionsTrie, targetElementType, targetDescriptor, currentElementType, currentObject));
-                coercedObjectsBuilder.add(coercedObject);
-            }
-            final var coercedArray = coercedObjectsBuilder.build();
-
-            if (currentType.isNullable()) {
-                // the target descriptor is the wrapping holder
-                final var verifiedTargetDescriptor = Verify.verifyNotNull(targetDescriptor);
-                final var wrapperBuilder = DynamicMessage.newBuilder(verifiedTargetDescriptor);
-                wrapperBuilder.setField(verifiedTargetDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), coercedArray);
-                return wrapperBuilder.build();
-            } else {
-                return coercedArray;
-            }
+        if (targetType.getTypeCode() == Type.TypeCode.ARRAY) {
+            Verify.verify(currentType.getTypeCode() == Type.TypeCode.ARRAY);
+            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
         if (targetType.getTypeCode() == Type.TypeCode.RECORD) {
@@ -441,6 +423,59 @@ public class MessageHelpers {
         }
 
         throw new IllegalStateException("unsupported java type for record field");
+    }
+
+    /**
+     * Method to coerce an array.
+     * This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
+     * vice versa, we need to change the wrapping in protobuf.
+     *
+     * @param targetArrayType target array type
+     * @param currentArrayType current array type
+     * @param targetDescriptor target protobuf descriptor
+     * @param elementsTrie a trie describing the coercions of the elements data structures
+     * @param current the current object
+     * @return a coerced array adjusted for nullability-differences of current versus target
+     */
+    @Nonnull
+    public static Object coerceArray(@Nonnull final Type.Array targetArrayType,
+                                     @Nonnull final Type.Array currentArrayType,
+                                     @Nullable Descriptors.Descriptor targetDescriptor,
+                                     @Nullable final CoercionTrieNode elementsTrie,
+                                     @Nonnull final Object current) {
+        final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
+        final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
+
+        final Descriptors.FieldDescriptor targetElementFieldDescriptor;
+        if (targetArrayType.isNullable()) {
+            targetElementFieldDescriptor = Verify.verifyNotNull(targetDescriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+        } else {
+            targetElementFieldDescriptor = null;
+        }
+
+        final var currentObjects = (List<?>)current;
+        final var coercedObjectsBuilder = ImmutableList.builder();
+        for (final var currentObject : currentObjects) {
+            // NULL as elements of a collection are currently not supported
+            SemanticException.check(currentObject != null, SemanticException.ErrorCode.UNSUPPORTED);
+
+            final var coercedObject =
+                    Verify.verifyNotNull(coerceObject(elementsTrie,
+                            targetElementType,
+                            targetElementFieldDescriptor == null ? targetDescriptor : targetElementFieldDescriptor.getMessageType(),
+                            currentElementType,
+                            currentObject));
+            coercedObjectsBuilder.add(coercedObject);
+        }
+        final var coercedArray = coercedObjectsBuilder.build();
+
+        if (targetArrayType.isNullable()) {
+            // the target descriptor is the wrapping holder
+            final var wrapperBuilder = DynamicMessage.newBuilder(Verify.verifyNotNull(targetDescriptor));
+            wrapperBuilder.setField(Verify.verifyNotNull(targetElementFieldDescriptor), coercedArray);
+            return wrapperBuilder.build();
+        }
+        return coercedArray;
     }
 
     @Nonnull
@@ -561,8 +596,8 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, Function<Object, Object>, CoercionTrieNode> {
-        public CoercionTrieNode(@Nullable final Function<Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
+    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> {
+        public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
 
