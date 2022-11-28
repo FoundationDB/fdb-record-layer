@@ -161,7 +161,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             return null;
         }
 
-        if (fieldType.isPrimitive()) {
+        if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
             return field;
         }
 
