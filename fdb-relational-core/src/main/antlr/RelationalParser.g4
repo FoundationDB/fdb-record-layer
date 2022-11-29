@@ -145,7 +145,7 @@ columnConstraint
     ;
 
 primaryKeyDefinition
-    : PRIMARY KEY '(' uid (COMMA uid)* ')'
+    : PRIMARY KEY '(' fullId (COMMA fullId)* ')'
     | SINGLE ROW ONLY
     ;
 

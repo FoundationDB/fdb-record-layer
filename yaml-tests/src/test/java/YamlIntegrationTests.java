@@ -107,4 +107,9 @@ public class YamlIntegrationTests {
     public void nested() throws Exception {
         doRun("nested-tests.yaml");
     }
+
+    @Test
+    public void primaryKey() throws Exception {
+        doRun("primary-key-tests.yaml");
+    }
 }

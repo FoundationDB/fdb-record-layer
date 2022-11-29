@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +46,6 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -552,9 +550,9 @@ public class RecordLayerStoreCatalogImplTest {
         TypingContext ctx = TypingContext.create();
 
         TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
-        ctx.addType(new TypingContext.TypeDefinition("test_table1", List.of(aField), true, Optional.of(List.of("A"))));
+        ctx.addType(new TypingContext.TypeDefinition("test_table1", List.of(aField), true, List.of(List.of("A"))));
 
-        ctx.addType(new TypingContext.TypeDefinition("test_table2", List.of(aField), true, Optional.of(List.of("A"))));
+        ctx.addType(new TypingContext.TypeDefinition("test_table2", List.of(aField), true, List.of(List.of("A"))));
 
         ctx.addAllToTypeRepository();
         return ctx.generateSchemaTemplate(schemaTemplateName, version);

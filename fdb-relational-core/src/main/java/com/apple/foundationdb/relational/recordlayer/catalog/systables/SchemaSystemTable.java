@@ -25,10 +25,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
-import java.util.List;
-import java.util.Optional;
-
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * This class represents the {@code Schema} system table. This system table contains information
@@ -64,7 +62,7 @@ public class SchemaSystemTable implements SystemTable {
         final TypingContext.FieldDefinition templatNameField = new TypingContext.FieldDefinition(TEMPLATE_NAME, Type.TypeCode.STRING, null, false);
         final TypingContext.FieldDefinition versionField = new TypingContext.FieldDefinition(TEMPLATE_VERSION, Type.TypeCode.LONG, null, false);
         final TypingContext.FieldDefinition metadataField = new TypingContext.FieldDefinition(METADATA, Type.TypeCode.BYTES, null, false);
-        final Optional<List<String>> pkFields = Optional.of(List.of(DATABASE_ID, SCHEMA_NAME));
+        final List<List<String>> pkFields = List.of(List.of(DATABASE_ID), List.of(SCHEMA_NAME));
         return new TypingContext.TypeDefinition(TABLE_NAME, List.of(dbField, nameField, templatNameField, versionField, metadataField), true, pkFields);
     }
 

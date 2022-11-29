@@ -84,6 +84,13 @@ public class Matchers {
         return obj.get(1);
     }
 
+    public static Object third(@Nonnull final List<?> obj) {
+        if (obj.size() <= 2) {
+            fail(String.format("Expecting %s to contain at least three elements, however it contains %s element", obj, obj.size()));
+        }
+        return obj.get(2);
+    }
+
     public static String string(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof String) {
             // <NULL> should return null maybe?

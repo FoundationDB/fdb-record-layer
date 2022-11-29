@@ -32,14 +32,12 @@ import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.utils.DescriptorAssert;
-
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Tests around the StoreCatalogMetaData provider logic. The intent here is to test that
@@ -91,7 +89,7 @@ class CatalogMetaDataProviderTest {
     private SchemaTemplate createSchemaTemplate() throws RelationalException {
         TypingContext.FieldDefinition fieldDefinition = new TypingContext.FieldDefinition("col1", Type.TypeCode.STRING, "RESTAURANT", false);
 
-        TypingContext.TypeDefinition typeDefinition = new TypingContext.TypeDefinition("RESTAURANT", List.of(fieldDefinition), true, Optional.of(List.of("col1")));
+        TypingContext.TypeDefinition typeDefinition = new TypingContext.TypeDefinition("RESTAURANT", List.of(fieldDefinition), true, List.of(List.of("col1")));
 
         TypingContext typingContext = TypingContext.create();
         typingContext.addType(typeDefinition);

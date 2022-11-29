@@ -26,12 +26,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 public class CatalogValidatorTest {
     @Test
@@ -95,7 +93,7 @@ public class CatalogValidatorTest {
         TypingContext ctx = TypingContext.create();
 
         TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
-        ctx.addType(new TypingContext.TypeDefinition("test_table", List.of(aField), true, Optional.of(List.of("A"))));
+        ctx.addType(new TypingContext.TypeDefinition("test_table", List.of(aField), true, List.of(List.of("A"))));
 
         ctx.addAllToTypeRepository();
         final SchemaTemplate template = ctx.generateSchemaTemplate("test_template", 1L);

@@ -24,11 +24,11 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nonnull;
-
+// todo (yhatem) remove this class.
 public final class QualifiedIdentifierValue extends LiteralValue<String> {
     @Nonnull
     private final String[] parts;

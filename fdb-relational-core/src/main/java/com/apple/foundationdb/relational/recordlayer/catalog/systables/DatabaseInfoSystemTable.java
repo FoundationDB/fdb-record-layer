@@ -25,10 +25,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
-import java.util.List;
-import java.util.Optional;
-
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * This class represents the {@code DatabaseInfo} system table. This system table contains information
@@ -54,7 +52,7 @@ public class DatabaseInfoSystemTable implements SystemTable {
     @Override
     public TypingContext.TypeDefinition getType() {
         final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
-        return new TypingContext.TypeDefinition(getName(), List.of(f1), true, Optional.of(List.of(DATABASE_ID)));
+        return new TypingContext.TypeDefinition(getName(), List.of(f1), true, List.of(List.of(DATABASE_ID)));
     }
 
     @Nonnull

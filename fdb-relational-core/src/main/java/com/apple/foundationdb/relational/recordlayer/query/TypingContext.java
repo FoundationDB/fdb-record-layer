@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +42,8 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import org.apache.commons.lang3.tuple.Pair;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -56,9 +57,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Holds information about Relational tables and Relational types that incrementally build during parsing.
@@ -104,7 +102,7 @@ public final class TypingContext {
                 .filter(type -> type.isTable)
                 .map(typeDef -> {
                     List<RecordMetaDataProto.Index> tableIndexes = indexes.get(typeDef.name).stream().map(Pair::getLeft).collect(Collectors.toList());
-                    KeyExpression primaryKey = createKeyExpression(typeDef);
+                    final @Nonnull KeyExpression primaryKey = createKeyExpression(typeDef);
                     return new TableInfo(typeDef.name, primaryKey,
                             tableIndexes, Objects.requireNonNull(repository.getMessageDescriptor(typeDef.name)).toProto());
                 })
@@ -123,18 +121,29 @@ public final class TypingContext {
         return new SchemaTemplateDescriptor(name, new LinkedHashSet<>(tableInfos), allTypeInfos, enumInfos, version);
     }
 
-    private KeyExpression createKeyExpression(TypeDefinition typeDef) {
+    @Nonnull
+    private static KeyExpression createKeyExpression(@Nonnull final TypeDefinition typeDef) {
         if (typeDef.primaryKey.isEmpty()) {
             return Key.Expressions.recordType();
         } else {
-            List<String> pkFields = typeDef.primaryKey.get();
-            if (pkFields.isEmpty()) {
-                return Key.Expressions.recordType();
-            } else {
-                Stream<KeyExpression> fieldExprs = pkFields.stream().map(Key.Expressions::field);
-                return Key.Expressions.concat(Stream.concat(Stream.of(Key.Expressions.recordType()), fieldExprs).collect(Collectors.toList()));
-            }
+            final var fieldExprs = typeDef.primaryKey.stream().filter(l -> !l.isEmpty()).map(TypingContext::toKeyExpression);
+            return Key.Expressions.concat(Stream.concat(Stream.of(Key.Expressions.recordType()), fieldExprs).collect(Collectors.toList()));
         }
+    }
+
+    @Nonnull
+    private static KeyExpression toKeyExpression(@Nonnull final List<String> fields) {
+        Assert.thatUnchecked(!fields.isEmpty());
+        return toKeyExpression(fields, 0);
+    }
+
+    @Nonnull
+    private static KeyExpression toKeyExpression(@Nonnull final List<String> fields, int i) {
+        Assert.thatUnchecked(0 <= i && i < fields.size());
+        if (i == fields.size() - 1) {
+            return Key.Expressions.field(fields.get(i));
+        }
+        return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
     }
 
     public void addAllToTypeRepository() {
@@ -252,9 +261,9 @@ public final class TypingContext {
         final boolean isTable;
 
         @Nonnull
-        final Optional<List<String>> primaryKey;
+        final List<List<String>> primaryKey;
 
-        public TypeDefinition(@Nonnull final String name, @Nonnull final List<FieldDefinition> fields, boolean isRelationalTable, Optional<List<String>> primaryKey) {
+        public TypeDefinition(@Nonnull final String name, @Nonnull final List<FieldDefinition> fields, boolean isRelationalTable, @Nonnull final List<List<String>> primaryKey) {
             this.name = name;
             this.fields = fields;
             this.isTable = isRelationalTable;

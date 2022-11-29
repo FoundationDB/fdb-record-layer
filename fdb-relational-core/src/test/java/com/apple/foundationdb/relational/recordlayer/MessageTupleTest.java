@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceEx
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,19 +108,19 @@ class MessageTupleTest {
                 new TypingContext.FieldDefinition("LATITUDE", Type.TypeCode.STRING, null, false),
                 new TypingContext.FieldDefinition("LONGITUDE", Type.TypeCode.STRING, null, false)
         );
-        TypingContext.TypeDefinition location = new TypingContext.TypeDefinition("LOCATION", locationColumns, false, Optional.empty());
+        TypingContext.TypeDefinition location = new TypingContext.TypeDefinition("LOCATION", locationColumns, false, List.of());
 
         List<TypingContext.FieldDefinition> restaurantReviewColumns = List.of(
                 new TypingContext.FieldDefinition("REVIEWER", Type.TypeCode.LONG, null, false),
                 new TypingContext.FieldDefinition("RATING", Type.TypeCode.LONG, null, false)
         );
-        TypingContext.TypeDefinition restaurantReview = new TypingContext.TypeDefinition("RESTAURANT_REVIEW", restaurantReviewColumns, false, Optional.empty());
+        TypingContext.TypeDefinition restaurantReview = new TypingContext.TypeDefinition("RESTAURANT_REVIEW", restaurantReviewColumns, false, List.of());
 
         List<TypingContext.FieldDefinition> restaurantTagColumns = List.of(
                 new TypingContext.FieldDefinition("TAG", Type.TypeCode.STRING, null, false),
                 new TypingContext.FieldDefinition("WEIGHT", Type.TypeCode.LONG, null, false)
         );
-        TypingContext.TypeDefinition restaurantTag = new TypingContext.TypeDefinition("RESTAURANT_TAG", restaurantTagColumns, false, Optional.empty());
+        TypingContext.TypeDefinition restaurantTag = new TypingContext.TypeDefinition("RESTAURANT_TAG", restaurantTagColumns, false, List.of());
 
         List<TypingContext.FieldDefinition> restaurantColumns = List.of(
                 new TypingContext.FieldDefinition("REST_NO", Type.TypeCode.LONG, null, false),
@@ -133,7 +131,7 @@ class MessageTupleTest {
                 new TypingContext.FieldDefinition("CUSTOMER", Type.TypeCode.STRING, null, true),
                 new TypingContext.FieldDefinition("ENCODED_BYTES", Type.TypeCode.BYTES, null, false)
         );
-        TypingContext.TypeDefinition restaurant = new TypingContext.TypeDefinition("RESTAURANT", restaurantColumns, true, Optional.of(List.of("REST_NO")));
+        TypingContext.TypeDefinition restaurant = new TypingContext.TypeDefinition("RESTAURANT", restaurantColumns, true, List.of(List.of("REST_NO")));
 
         TypingContext typingContext = TypingContext.create();
         typingContext.addType(location);

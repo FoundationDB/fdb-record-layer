@@ -1,5 +1,5 @@
 /*
- * CommandQuery.java
+ * QueryCommand.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,18 +28,16 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nonnull;
-
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
-class CommandQuery extends Command {
+class QueryCommand extends Command {
 
     private enum QueryConfig {
         RESULT("result"),
@@ -119,37 +117,6 @@ class CommandQuery extends Command {
         return currentQuery;
     }
 
-    private Continuation checkForError(Object queryResults, SQLException sqlException,
-                                       QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
-        if (queryResults != null) {
-            Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
-            Assert.that(queryResults instanceof ErrorCapturingResultSet,
-                    String.format("‼️ another error is encountered while trying to print to" +
-                            "print unexpected query result!%n" +
-                            "unexpected query result of type '%s' (expecting '%s')",
-                            queryResults.getClass().getSimpleName(),
-                            ErrorCapturingResultSet.class.getSimpleName()));
-            Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
-            Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a result set%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "%s%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                    resultSetPrettyPrinter)
-            );
-        }
-        debug(String.format("checking error code resulted from executing '%s'", query));
-        if (sqlException == null) {
-            Assert.fail("‼️ unexpected NULL SQLException!");
-        }
-        final var errorCode = Matchers.string(queryConfigWithValue.val, "expected error code");
-        if (!sqlException.getSQLState().equals(errorCode)) {
-            Assertions.fail(String.format("‼️ expecting '%s' error code, got '%s' instead!", errorCode, sqlException.getSQLState()));
-        } else {
-            debug(String.format("✔️ error codes '%s' match!", errorCode));
-        }
-        return Continuation.EMPTY_SET;
-    }
-
     private Continuation checkForResult(Object queryResults, SQLException sqlException,
                                         QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
         if (sqlException != null) {
@@ -194,7 +161,7 @@ class CommandQuery extends Command {
                 continuation = checkForResult(queryResults, sqlException, queryConfigWithValue, query);
                 break;
             case ERROR:
-                continuation = checkForError(queryResults, sqlException, queryConfigWithValue, query);
+                continuation = checkForError(queryResults, sqlException, Matchers.string(queryConfigWithValue.val, "expected error code"), query);
                 break;
             default:
                 Assert.fail(String.format("‼️ no handler for query configuration '%s'", queryConfigWithValue.config.label));
