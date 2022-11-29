@@ -43,7 +43,6 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -52,10 +51,6 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
  */
 public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
-
-    private static final String OLD_FIELD_NAME = "old";
-
-    private static final String NEW_FIELD_NAME = "new";
 
     @Nonnull
     private final Quantifier.ForEach inner;
@@ -179,13 +174,6 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
                         ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
-    }
-
-    @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Type inType, @Nonnull final Type targetType) {
-        return Type.Record.fromFields(false,
-                ImmutableList.of(Type.Record.Field.of(inType, Optional.of(OLD_FIELD_NAME)),
-                        Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME))));
     }
 
     @Nonnull
