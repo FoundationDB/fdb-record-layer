@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -215,7 +216,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 targetType,
                 targetDescriptor,
                 transformationsTrie,
-                computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
+                PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
                 computationValue);
     }
 

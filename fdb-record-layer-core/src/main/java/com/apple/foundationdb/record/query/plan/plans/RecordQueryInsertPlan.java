@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -157,7 +158,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 recordType,
                 targetType,
                 targetDescriptor,
-                computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
+                PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue);
     }
 }

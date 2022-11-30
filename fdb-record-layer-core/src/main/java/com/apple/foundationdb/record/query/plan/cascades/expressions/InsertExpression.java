@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -29,10 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
@@ -46,7 +43,6 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -55,10 +51,6 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
  */
 public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
-
-    private static final String OLD_FIELD_NAME = "old";
-
-    private static final String NEW_FIELD_NAME = "new";
 
     @Nonnull
     private final Quantifier.ForEach inner;
@@ -80,7 +72,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.targetDescriptor = targetDescriptor;
-        this.resultValue = new QueriedValue(computeResultType(inner.getFlowedObjectType(), targetType));
+        this.resultValue = new QueriedValue(targetType);
     }
 
     @Override
@@ -120,7 +112,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
                 targetRecordType,
                 targetType,
                 targetDescriptor,
-                makeComputationValue(physicalInner, targetType));
+                makeComputationValue(targetType));
     }
 
     @Override
@@ -185,19 +177,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Type inType, @Nonnull final Type targetType) {
-        return Type.Record.fromFields(false,
-                ImmutableList.of(Type.Record.Field.of(inType, Optional.of(OLD_FIELD_NAME)),
-                        Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME))));
-    }
-
-    @Nonnull
-    private static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
-        final var oldFieldType = inner.getFlowedObjectType().nullable();
-        final var oldColumn =
-                Column.of(Type.Record.Field.of(oldFieldType, Optional.of(OLD_FIELD_NAME)), new NullValue(oldFieldType));
-        final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
-        return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
+    private static Value makeComputationValue(@Nonnull final Type targetType) {
+        return ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType);
     }
 }

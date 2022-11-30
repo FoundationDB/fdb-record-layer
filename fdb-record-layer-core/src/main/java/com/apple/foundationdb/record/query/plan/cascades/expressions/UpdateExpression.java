@@ -116,7 +116,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     }
 
     @Nonnull
-    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+    private Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return transformMap.values()
                 .stream()
                 .flatMap(value -> value.getCorrelatedTo().stream())

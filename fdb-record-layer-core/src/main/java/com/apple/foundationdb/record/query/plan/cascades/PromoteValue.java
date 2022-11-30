@@ -27,16 +27,19 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * A value that promotes an object of a type to an object of another type. Promotions in general agree with
@@ -46,13 +49,13 @@ import java.util.function.Function;
 public class PromoteValue implements ValueWithChild {
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
-    private static final Map<Pair<Type.TypeCode, Type.TypeCode>, Function<Object, Object>> PROMOTION_MAP =
-            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), in -> Long.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), in -> Float.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), in -> Double.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), in -> Float.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), in -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), in -> Double.valueOf((Float)in));
+    private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =
+            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
+                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
+                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
+                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in));
     /**
      * The hash value of this expression.
      */
@@ -70,8 +73,8 @@ public class PromoteValue implements ValueWithChild {
     @Nonnull
     private final Type promoteToType;
 
-    @Nonnull
-    private final Function<Object, Object> promotionFunction;
+    @Nullable
+    private final MessageHelpers.CoercionTrieNode promotionTrie;
 
     /**
      * Constructs a new {@link PromoteValue} instance. Note that the actual promotion that is carried out is viewed
@@ -80,12 +83,12 @@ public class PromoteValue implements ValueWithChild {
      * java type).
      * @param inValue the child expression
      * @param promoteToType the type to promote to
-     * @param promotionFunction the promotion function carrying out the actual promotion of the object
+     * @param promotionTrie the promotion trie defining the actual promotion of the object
      */
-    public PromoteValue(@Nonnull final Value inValue, @Nonnull final Type promoteToType, @Nonnull final Function<Object, Object> promotionFunction) {
+    public PromoteValue(@Nonnull final Value inValue, @Nonnull final Type promoteToType, @Nullable final MessageHelpers.CoercionTrieNode promotionTrie) {
         this.inValue = inValue;
         this.promoteToType = promoteToType;
-        this.promotionFunction = promotionFunction;
+        this.promotionTrie = promotionTrie;
     }
 
     @Nonnull
@@ -97,7 +100,7 @@ public class PromoteValue implements ValueWithChild {
     @Nonnull
     @Override
     public PromoteValue withNewChild(@Nonnull final Value newChild) {
-        return new PromoteValue(inValue, promoteToType, promotionFunction);
+        return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 
     @Nullable
@@ -108,7 +111,19 @@ public class PromoteValue implements ValueWithChild {
         if (result == null) {
             return null;
         }
-        return promotionFunction.apply(result);
+
+        if (promotionTrie == null) {
+            return result;
+        }
+
+        final var typeRepository = context.getTypeRepository();
+        final var promoteToDescriptor = typeRepository.getMessageDescriptor(promoteToType);
+
+        return MessageHelpers.coerceObject(promotionTrie,
+                promoteToType,
+                promoteToDescriptor,
+                inValue.getResultType(),
+                result);
     }
 
     @Override
@@ -144,16 +159,83 @@ public class PromoteValue implements ValueWithChild {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nullable
+    public static MessageHelpers.CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
+                                                                        @Nonnull Type currentType,
+                                                                        @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
+        if (transformationsTrie != null && transformationsTrie.getValue() != null) {
+            currentType = transformationsTrie.getValue().getResultType();
+        }
+
+        if (currentType.isPrimitive()) {
+            SemanticException.check(targetType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            if (!isPromotionNeeded(currentType, targetType)) {
+                return null;
+            }
+            // this is definitely a leaf; and we need to promote
+            final var promotionFunction = resolvePromotionFunction(currentType, targetType);
+            SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return new MessageHelpers.CoercionTrieNode(promotionFunction, null);
+        }
+
+        Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
+
+        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
+            final var targetArrayType = (Type.Array)targetType;
+            final var currentArrayType = (Type.Array)currentType;
+            final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
+            final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
+            final var elementsTrie = computePromotionsTrie(targetElementType, currentElementType, null);
+            if (elementsTrie == null && currentType.isNullable() == targetType.isNullable()) {
+                return null;
+            }
+            return new MessageHelpers.CoercionTrieNode(arrayCoercionFunction(targetArrayType, currentArrayType, elementsTrie),
+                    elementsTrie == null ? null : ImmutableMap.of(-1, elementsTrie));
+        }
+
+        Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
+        final var targetRecordType = (Type.Record)targetType;
+        final var currentRecordType = (Type.Record)currentType;
+        SemanticException.check(targetRecordType.getFields().size() == currentRecordType.getFields().size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+
+        final var targetFields = targetRecordType.getFields();
+        final var currentFields = currentRecordType.getFields();
+
+        final var transformationsChildrenMap = transformationsTrie == null ? null : transformationsTrie.getChildrenMap();
+        final var childrenMapBuilder = ImmutableMap.<Integer, MessageHelpers.CoercionTrieNode>builder();
+        for (int i = 0; i < targetFields.size(); i++) {
+            final var targetField = targetFields.get(i);
+            final var currentField = currentFields.get(i);
+
+            final var transformationsFieldTrie = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(i);
+            final var fieldTrie = computePromotionsTrie(targetField.getFieldType(), currentField.getFieldType(), transformationsFieldTrie);
+            if (fieldTrie != null) {
+                childrenMapBuilder.put(i, fieldTrie);
+            }
+        }
+        final var childrenMap = childrenMapBuilder.build();
+        return childrenMap.isEmpty() ? null : new MessageHelpers.CoercionTrieNode(null, childrenMap);
+    }
+
+    @Nonnull
+    private static BiFunction<Descriptors.Descriptor, Object, Object> arrayCoercionFunction(@Nonnull final Type.Array targetArrayType,
+                                                                                            @Nonnull final Type.Array currentArrayType,
+                                                                                            @Nullable final MessageHelpers.CoercionTrieNode elementsTrie) {
+        return (targetDescriptor, current) -> MessageHelpers.coerceArray(targetArrayType, currentArrayType, targetDescriptor, elementsTrie, current);
+    }
+
     @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
         final var inType = inValue.getResultType();
-        final var promotionFunction = resolvePromotionFunction(inType, promoteToType);
-        SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        return new PromoteValue(inValue, promoteToType, promotionFunction);
+        if (inType.equals(promoteToType)) {
+            return inValue;
+        }
+        final var promotionTrie = computePromotionsTrie(promoteToType, inType, null);
+        return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 
     @Nullable
-    public static Function<Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static BiFunction<Descriptors.Descriptor, Object, Object> resolvePromotionFunction(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
         return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 

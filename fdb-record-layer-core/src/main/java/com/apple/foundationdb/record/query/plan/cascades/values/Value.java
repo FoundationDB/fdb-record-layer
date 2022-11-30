@@ -68,6 +68,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -365,6 +366,24 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         return other.getClass() == getClass();
+    }
+
+    @Nonnull
+    default boolean canBePromotedToType(@Nonnull final Type type) {
+        return false;
+    }
+
+    @Nonnull
+    default Value promoteToType(@Nonnull final Type type) {
+        throw new RecordCoreException("cannot promote to type"); // TODO coerce type here
+    }
+
+    @Nonnull
+    default Optional<Value> promoteToTypeMaybe(@Nonnull final Type type) {
+        if (canBePromotedToType(type)) {
+            return Optional.of(promoteToType(type));
+        }
+        return Optional.empty();
     }
 
     static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
