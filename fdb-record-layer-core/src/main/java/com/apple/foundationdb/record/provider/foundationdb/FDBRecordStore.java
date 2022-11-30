@@ -1311,7 +1311,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             versionFutureOptional = loadRecordVersionAsync(indexedRawRecord.getIndexEntry().getPrimaryKey());
         }
         if (byteScanLimiter != null) {
-            byteScanLimiter.registerScannedBytes(indexedRawRecord.getIndexEntry().getKeySize());
+            // Only count the bytes of the RawRecord - the index entry bytes are accounted for by the KeyValueCursor
             byteScanLimiter.registerScannedBytes((long)sizeInfo.getKeySize() + (long)sizeInfo.getValueSize());
         }
 

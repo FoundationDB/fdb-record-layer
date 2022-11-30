@@ -41,7 +41,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -243,27 +242,30 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchByteLimitContinuation(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
-    @Disabled("This test is inconsistently failing when running as part of the larger suite")
     void indexPrefetchByteLimitContinuation(IndexFetchMethod useIndexPrefetch) throws Exception {
         RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, useIndexPrefetch);
-        // TODO: Why should the index prefetch take so many more bytes to scan the same number of records? Maybe the index scan counts the records and the fetch does not?
-        int scanBytesLimit = (useIndexPrefetch == IndexFetchMethod.SCAN_AND_FETCH) ? 350 : 1300;
+        // There is a slight difference between the scan and remote fetch way of counting bytes. Scan starts a few fetches
+        // concurrently while remote fetch counts bytes that were already fetched. As a result, scan will continue to return
+        // records that arrive (even if they are above the limit), while remote fetch will stop as soon as the limit has
+        // been reached.
+        // For this test, we set the limit artificially small, to ensure it is honored (reached immediately, therefore
+        // returning one record).
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setScannedBytesLimit(scanBytesLimit)
+                .setScannedBytesLimit(1)
                 .build();
-
-        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 8, (rec, i) -> {
+        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 1, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
         }, splitRecordsHook);
+        // Now set the limit high to allow for the rest of the records to be reasd
         executeProperties = ExecuteProperties.newBuilder()
-                .setScannedBytesLimit(500)
+                .setScannedBytesLimit(5000)
                 .build();
 
-        continuation = executeAndVerifyData(plan, continuation, executeProperties, 2, (rec, i) -> {
-            int primaryKey = 1 - i;
+        continuation = executeAndVerifyData(plan, continuation, executeProperties, 9, (rec, i) -> {
+            int primaryKey = 8 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, strValue, numValue, "MySimpleRecord$num_value_unique", (long)numValue, primaryKey);
