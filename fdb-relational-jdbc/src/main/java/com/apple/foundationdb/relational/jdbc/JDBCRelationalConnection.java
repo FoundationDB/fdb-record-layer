@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
@@ -30,25 +34,14 @@ import io.grpc.ManagedChannelBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.CallableStatement;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.NClob;
-import java.sql.PreparedStatement;
-import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.sql.Struct;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.Nonnull;
 
 /**
  * Connect to a Relational Database Server.
@@ -61,7 +54,21 @@ import java.util.concurrent.TimeUnit;
 // spans databases). This argues that this Connection be able to do 'switch' between databases and that when
 // we do, it would be better if we didn't have to set up a whole new rpc and stub. For now we are a Database
 // per Connection. TODO.
-class JDBCRelationalConnection implements Connection {
+class JDBCRelationalConnection implements RelationalConnection {
+    /**
+     * This is a lie for now. TODO: Fix.
+     * Choosing dbeaver default for now until properly implemented.
+     * See https://docs.oracle.com/javadb/10.8.3.0/devguide/cdevconcepts15366.html
+     */
+    private volatile int transactionIsolationLevel = Connection.TRANSACTION_REPEATABLE_READ;
+    /**
+     * TODO: implement.
+     */
+    private volatile boolean readOnly;
+    /**
+     * TODO: implement.
+     */
+    private volatile boolean autoCommit = true;
     private volatile boolean closed;
     private final ManagedChannel managedChannel;
     private final String database;
@@ -112,53 +119,54 @@ class JDBCRelationalConnection implements Connection {
         return this.database;
     }
 
+    /**
+     * Create a {@link RelationalStatement}.
+     * @return A RelationalStatement instead of a plain JDBC Statement (Here we deviate form pure JDBC for the
+     * user's convenience; users will be interested in the Relational facility and will be annoyed having to go through
+     * extra steps to extract Relational types from base JDBC).
+     * @throws SQLException Exception on failed create.
+     */
     @Override
-    public Statement createStatement() throws SQLException {
+    public RelationalStatement createStatement() throws SQLException {
         return new JDBCRelationalStatement(this);
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public CallableStatement prepareCall(String sql) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public String nativeSQL(String sql) throws SQLException {
-        throw new SQLException("Not implemented");
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         // https://www.baeldung.com/java-jdbc-auto-commit
-        throw new SQLException("Not implemented");
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public boolean getAutoCommit() throws SQLException {
-        // https://www.baeldung.com/java-jdbc-auto-commit
-        throw new SQLException("Not implemented");
+        return this.autoCommit;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void commit() throws SQLException {
-        throw new SQLException("Not implemented");
+    public void setReadOnly(boolean readOnly) throws SQLException {
+        this.readOnly = readOnly;
+    }
+ 
+    @Override
+    public boolean isReadOnly() throws SQLException {
+        return this.readOnly;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void rollback() throws SQLException {
-        throw new SQLException("Not implemented");
+    public int getTransactionIsolation() throws SQLException {
+        return this.transactionIsolationLevel;
+    }
+
+    @Override
+    public SQLWarning getWarnings() throws SQLException {
+        // TODO: For now just return null
+        return null;
+    }
+ 
+    @Override
+    public void clearWarnings() throws SQLException {
+        // TODO: Implement
     }
 
     @Override
@@ -187,217 +195,26 @@ class JDBCRelationalConnection implements Connection {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public void setReadOnly(boolean readOnly) throws SQLException {
-        throw new SQLException("Not implemented");
+    public void beginTransaction() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
+    @Nonnull
     @Override
-    public boolean isReadOnly() throws SQLException {
-        return getMetaData().isReadOnly();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setCatalog(String catalog) throws SQLException {
-        throw new SQLException("Not implemented");
+    public Options getOptions() {
+        return Options.NONE;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public String getCatalog() throws SQLException {
-        throw new SQLException("Not implemented");
+    public void setOption(Options.Name name, Object value) throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public void setTransactionIsolation(int level) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getTransactionIsolation() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public SQLWarning getWarnings() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void clearWarnings() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Map<String, Class<?>> getTypeMap() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setHoldability(int holdability) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getHoldability() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Savepoint setSavepoint() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Savepoint setSavepoint(String name) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void rollback(Savepoint savepoint) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Clob createClob() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Blob createBlob() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public NClob createNClob() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public SQLXML createSQLXML() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean isValid(int timeout) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setClientInfo(String name, String value) throws SQLClientInfoException {
-        throw new SQLClientInfoException();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setClientInfo(Properties properties) throws SQLClientInfoException {
-        throw new SQLClientInfoException();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public String getClientInfo(String name) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Properties getClientInfo() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        throw new SQLException("Not implemented");
+    public URI getPath() {
+        return null;
     }
 
     @Override
@@ -411,24 +228,6 @@ class JDBCRelationalConnection implements Connection {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void abort(Executor executor) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getNetworkTimeout() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         return iface.cast(this);
     }
@@ -436,5 +235,18 @@ class JDBCRelationalConnection implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public void commit() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented",
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    public void rollback() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented",
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 }

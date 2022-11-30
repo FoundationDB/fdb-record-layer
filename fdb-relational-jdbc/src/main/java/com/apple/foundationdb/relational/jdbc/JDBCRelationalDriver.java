@@ -39,6 +39,7 @@ import java.util.logging.Logger;
  * Use mysql/postgres URL format; i.e. jdbc:relational://HOST[:PORT].
  */
 @SuppressWarnings({"PMD.SystemPrintln"}) // Used in extreme when a failure to register Driver
+// TODO: Implement RelationalDriver after it inherits from Driver.
 public class JDBCRelationalDriver implements Driver {
     /**
      * Base URL.
@@ -66,7 +67,7 @@ public class JDBCRelationalDriver implements Driver {
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
         if (!acceptsURL(url)) {
-            throw new SQLException("Not a relational JDBC url: " + url);
+            throw new SQLException("Not an acceptable relational JDBC url: " + url);
         }
         // Pass the 'url' string and let the JDBCRelationalConnection try to
         // make sense of it and its parts (host, port, db, etc.) as it sees fit.

@@ -51,10 +51,6 @@ import java.sql.Types;
 public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
     private final FRL frl;
 
-    private JDBCService() {
-        this(null);
-    }
-
     public JDBCService(FRL frl) {
         this.frl = frl;
     }
@@ -94,6 +90,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         for (int i = 0; i < relationalResultSetMetaData.getColumnCount(); i++) {
             int index = i + 1; /*JDBC is 1-based here!*/
             var columnType = relationalResultSetMetaData.getColumnType(index);
+            // TODO: This should be the columnname when get and columnname when sql query.
             var columName = relationalResultSetMetaData.getColumnName(index);
             var field = StructType.Field.newBuilder().setName(columName)
                     .setType(Type.newBuilder().setCode(toTypeCode(columnType)).build()).build();
@@ -103,7 +100,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         return resultSetBuilder.build();
     }
 
-    private static Value toValue(int columnType, int columnIndex, RelationalResultSet relationalResultSet) throws SQLException {
+    static Value toValue(int columnType, int columnIndex, RelationalResultSet relationalResultSet) throws SQLException {
         Value value = null;
         switch (columnType) {
             case Types.BOOLEAN:
@@ -173,7 +170,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
                 .addDetails(Any.pack(map(sqlException))).build();
     }
 
-    boolean checkStatementRequest(StatementRequest statementRequest,
+    static boolean checkStatementRequest(StatementRequest statementRequest,
                                   StreamObserver<StatementResponse> responseObserver) {
         if (statementRequest.getDatabase().isEmpty()) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty database name")

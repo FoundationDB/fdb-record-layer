@@ -59,15 +59,18 @@ public interface RelationalConnection extends java.sql.Connection {
      * If this connection instance is closed, this RelationalStatement becomes invalid and should be discarded. Using a
      * RelationalStatement object after it's backing Connection is closed is a programmer error.
      *
+     * Note that this override specializes the createStatement return to make it a RelationalStatement rather than a
+     * plain JDBC Statement. This change is non-additive as are the other methods in this extension to the
+     * JDBC Connection Interface; it is a change made to make usage of the API go down easier. The supposition is that
+     * the bulk of usage will be concerned with RelationalStatement rather than plain Statement and so we skirt the
+     * need for a Statement#unwrap to get access to the Relational facility. We may come back to redo this convenience
+     * later if this API 'anomaly' on the JDBC API proves a thorn.
+     *
      * @return A new statement entity to manipulate the database with.
      * @throws SQLException if something goes wrong while creating a statement.
      */
     @Override
     RelationalStatement createStatement() throws SQLException;
-
-    @Override
-    @Nonnull
-    RelationalDatabaseMetaData getMetaData() throws SQLException;
 
     //TODO(bfines) We would probably want to implement and support an "AsyncStatement" here, which
     // can capture the asyncronous operations necessary
@@ -317,7 +320,6 @@ public interface RelationalConnection extends java.sql.Connection {
     @ExcludeFromJacocoGeneratedReport
     default void setClientInfo(String name, String value) throws SQLClientInfoException {
         throw new SQLClientInfoException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode(), null);
-
     }
 
     @Override

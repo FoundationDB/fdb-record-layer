@@ -25,9 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
+
+import javax.annotation.Nonnull;
 
 /**
  * Context for query parsing, including meta-data, generated types, and the state of available indexes.

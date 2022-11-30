@@ -24,10 +24,9 @@ import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +34,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
 import static com.apple.foundationdb.relational.yamltests.Matchers.*;
@@ -61,7 +63,7 @@ public class Generators {
         final BiConsumer<Object, Object> fieldSetter = (fieldAccessor, fieldValue) -> {
             try {
                 if (fieldAccessor instanceof Integer) {
-                    typeBuilder.setField((Integer)fieldAccessor, fieldValue);
+                    typeBuilder.setField((Integer) fieldAccessor, fieldValue);
                 } else {
                     typeBuilder.setField(string(fieldAccessor), fieldValue);
                 }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -78,10 +79,6 @@ public class RelationalServer implements Closeable {
     private Server server;
     private final int port;
     private FRL frl;
-
-    public RelationalServer() {
-        this(GrpcConstants.DEFAULT_SERVER_PORT);
-    }
 
     public RelationalServer(int port) {
         this.port = port;
@@ -178,6 +175,7 @@ public class RelationalServer implements Closeable {
         }
     }
 
+    @ExcludeFromJacocoGeneratedReport
     public static void main(String[] args) throws IOException, InterruptedException {
         Options options = new Options();
         Option help = new Option("h", "help", false, "Output this help message.");

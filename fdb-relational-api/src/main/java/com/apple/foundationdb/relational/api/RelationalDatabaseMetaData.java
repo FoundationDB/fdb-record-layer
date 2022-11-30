@@ -1184,14 +1184,12 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default <T> T unwrap(Class<T> iface) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return iface.cast(this);
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default boolean isWrapperFor(Class<?> iface) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return iface.isInstance(this);
     }
 }

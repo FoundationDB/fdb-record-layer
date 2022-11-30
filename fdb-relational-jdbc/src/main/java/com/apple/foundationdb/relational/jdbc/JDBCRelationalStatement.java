@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.protobuf.Message;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.Iterator;
@@ -79,7 +78,8 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public RelationalResultSet executeQuery(String sql) throws SQLException {
-        return execute(sql, Options.NONE);
+        this.currentResultSet = execute(sql, Options.NONE);
+        return this.currentResultSet;
     }
 
     @Override
@@ -93,75 +93,25 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getMaxFieldSize() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setMaxFieldSize(int max) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getMaxRows() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setMaxRows(int max) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setEscapeProcessing(boolean enable) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getQueryTimeout() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setQueryTimeout(int seconds) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     public void cancel() throws SQLException {
-        throw new SQLException("Not implemented");
+        // TODO: For now swallow until there is something to cancel.
     }
-
+ 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public SQLWarning getWarnings() throws SQLException {
-        throw new SQLException("Not implemented");
+        // TODO: For now just return null.
+        return null;
     }
-
+ 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void clearWarnings() throws SQLException {
-        throw new SQLException("Not implemented");
+        // TODO: For now, do nothing.
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setCursorName(String name) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     public boolean execute(String sql) throws SQLException {
-        throw new SQLException("Not implemented");
+        this.currentResultSet = this.execute(sql, Options.NONE);
+        return this.currentResultSet != null;
     }
 
     @Override
@@ -173,103 +123,8 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getUpdateCount() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean getMoreResults() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setFetchDirection(int direction) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getFetchDirection() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setFetchSize(int rows) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getFetchSize() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getResultSetConcurrency() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getResultSetType() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void addBatch(String sql) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void clearBatch() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int[] executeBatch() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
     public Connection getConnection() throws SQLException {
         return this.connection;
-    }
-
-    @Override
-    public boolean getMoreResults(int current) throws SQLException {
-        return false;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public ResultSet getGeneratedKeys() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException("Not implemented");
     }
 
     @Override
@@ -285,60 +140,8 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean execute(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public int getResultSetHoldability() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
     public boolean isClosed() throws SQLException {
         return this.closed;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void setPoolable(boolean poolable) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean isPoolable() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void closeOnCompletion() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public boolean isCloseOnCompletion() throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Override
-    public <T> T unwrap(Class<T> iface) throws SQLException {
-        return iface.cast(this);
-    }
-
-    @Override
-    public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return iface.isInstance(this);
     }
 
     @Nonnull

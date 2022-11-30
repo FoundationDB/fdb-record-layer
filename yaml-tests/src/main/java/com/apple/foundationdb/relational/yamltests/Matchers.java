@@ -24,11 +24,10 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +35,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -205,7 +207,7 @@ public class Matchers {
     }
 
     @Nonnull
-    public static Object keyOrValue(@Nonnull final Map.Entry<?,?> entry) {
+    public static Object keyOrValue(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
             fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", YamlRunner.NullPlaceholder.INSTANCE));
         }

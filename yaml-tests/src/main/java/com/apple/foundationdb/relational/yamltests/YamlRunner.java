@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.cli.DbState;
 import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.yaml.snakeyaml.DumperOptions;
@@ -39,10 +40,11 @@ import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
-import javax.annotation.Nonnull;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
+
+import javax.annotation.Nonnull;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner implements AutoCloseable {

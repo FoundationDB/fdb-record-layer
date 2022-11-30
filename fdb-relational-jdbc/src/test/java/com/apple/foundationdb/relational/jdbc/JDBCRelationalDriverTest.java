@@ -35,6 +35,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.ServiceLoader;
 
@@ -78,6 +79,21 @@ public class JDBCRelationalDriverTest {
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational://example.org:1234/db"));
         Assertions.assertFalse(driver.acceptsURL("jdbc:rubbish://example.org:1234/db"));
         Assertions.assertFalse(driver.acceptsURL("jdbc:relational:WAH"));
+        SQLException sqlException = null;
+        // Assert bad connection url throws.
+        try {
+            driver.connect("jdbc:bad_url://", null);
+        } catch (SQLException e) {
+            sqlException = e;
+        }
+        Assertions.assertNotNull(sqlException);
+    }
+
+    public void testDriverMiscellaneous() throws SQLException {
+        Assertions.assertFalse(driver.jdbcCompliant());
+        // Currently getPropertyInfo doesn't do anything.
+        DriverPropertyInfo[] driverPropertyInfos = driver.getPropertyInfo("anyOldString", null);
+        Assertions.assertEquals(0, driverPropertyInfos.length);
     }
 
     @Test
@@ -90,8 +106,14 @@ public class JDBCRelationalDriverTest {
                 DatabaseMetaData databaseMetaData = connection.getMetaData();
                 // These should be the same. One version is read from the server, the
                 // other is read by looking at the classpath. Ditto for the URL.
+                // They'll be the same in test context. They will likely not be the same in production,
+                // at least sometimes.
                 Assertions.assertEquals(BuildVersion.getInstance().getVersion(),
                         databaseMetaData.getDatabaseProductVersion());
+                Assertions.assertEquals(BuildVersion.getInstance().getMajorVersion(),
+                        databaseMetaData.getDatabaseMajorVersion());
+                Assertions.assertEquals(BuildVersion.getInstance().getMinorVersion(),
+                        databaseMetaData.getDatabaseMinorVersion());
                 Assertions.assertEquals(BuildVersion.getInstance().getURL(),
                         databaseMetaData.getURL());
             }

@@ -48,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
@@ -125,8 +126,10 @@ public class FRL implements AutoCloseable {
         try (RelationalConnection connection =
                 Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
             connection.setSchema(schema);
-            try (RelationalStatement relationalStatement = connection.createStatement()) {
-                return relationalStatement.execute(sql) ? relationalStatement.getResultSet() : null;
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    return relationalStatement.execute(sql) ? relationalStatement.getResultSet() : null;
+                }
             }
         } catch (RelationalException e) {
             throw e.toSqlException();
@@ -137,8 +140,10 @@ public class FRL implements AutoCloseable {
         try (RelationalConnection connection =
                 Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
             connection.setSchema(schema);
-            try (RelationalStatement relationalStatement = connection.createStatement()) {
-                return relationalStatement.executeUpdate(sql);
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    return relationalStatement.executeUpdate(sql);
+                }
             }
         } catch (RelationalException ve) {
             throw ve.toSqlException();

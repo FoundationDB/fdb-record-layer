@@ -28,7 +28,7 @@ import java.util.Iterator;
 
 import javax.annotation.Nonnull;
 
-public interface RelationalDirectAccessStatement {
+public interface RelationalDirectAccessStatement extends AutoCloseable {
     /**
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
      * the results of the scan.

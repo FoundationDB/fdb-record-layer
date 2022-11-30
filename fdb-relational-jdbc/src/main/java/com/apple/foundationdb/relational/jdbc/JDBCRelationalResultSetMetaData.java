@@ -62,6 +62,12 @@ public class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaD
     }
 
     @Override
+    public String getColumnLabel(int column) throws SQLException {
+        // TODO: For now, return name.
+        return getColumnName(column);
+    }
+
+    @Override
     public int getColumnType(int column) throws SQLException {
         // Presume column is JDBC 1-based index.
         return toType(this.delegate.getRowType().getFields(column - 1).getType().getCode());

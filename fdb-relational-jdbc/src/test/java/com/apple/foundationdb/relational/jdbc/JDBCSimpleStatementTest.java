@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
@@ -30,18 +33,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Types;
 
 /**
  * Run some simple Statement updates/executes against a remote Relational DB.
  */
 public class JDBCSimpleStatementTest {
-    private static Driver driver;
     private static final String SYSDB = "/__SYS";
     private static final String SCHEMA = "CATALOG";
     private static final String TESTDB = "/test_db";
@@ -53,7 +51,8 @@ public class JDBCSimpleStatementTest {
      */
     @BeforeAll
     public static void beforeAll() throws SQLException, IOException {
-        driver = JDBCRelationalDriverTest.getDriver();
+        // Load driver.
+        JDBCRelationalDriverTest.getDriver();
         relationalServer = ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
     }
 
@@ -70,36 +69,49 @@ public class JDBCSimpleStatementTest {
     @Test
     public void simpleStatement() throws SQLException, IOException {
         var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getPort() + SYSDB + "?schema=" + SCHEMA;
-        try (Connection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)) {
-            try (Statement statement = connection.createStatement()) {
-                JDBCRelationalStatement jdbcRelationalStatement = statement.unwrap(JDBCRelationalStatement.class);
+        try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
+                .unwrap(RelationalConnection.class)) {
+            try (RelationalStatement statement = connection.createStatement()) {
+                // Exercise some methods to up our test coverage metrics
+                Assertions.assertEquals(connection, statement.getConnection());
                 // Make this better... currently returns zero how ever many rows we touch.
+                Assertions.assertEquals(0, statement.executeUpdate("Drop database \"" + TESTDB + "\""));
                 Assertions.assertEquals(0,
-                        jdbcRelationalStatement.executeUpdate("Drop database \"" + TESTDB + "\""));
-                Assertions.assertEquals(0,
-                        jdbcRelationalStatement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
+                        statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
                                 "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no))"));
-                Assertions.assertEquals(0,
-                        jdbcRelationalStatement.executeUpdate("create database \"" + TESTDB + "\""));
-                Assertions.assertEquals(0,
-                        jdbcRelationalStatement.executeUpdate("create schema \"" + TESTDB +
-                                "/test_schema\" with template test_template"));
-                try (ResultSet resultSet = jdbcRelationalStatement.executeQuery("select * from databases;")) {
+                Assertions.assertEquals(0, statement.executeUpdate("create database \"" + TESTDB + "\""));
+                Assertions.assertEquals(0, statement.executeUpdate("create schema \"" + TESTDB +
+                        "/test_schema\" with template test_template"));
+                // Call some of the statement methods for the sake of exercising coverage.
+                Assertions.assertNull(statement.getWarnings());
+                // Does nothing.
+                statement.clearWarnings();
+                // Cancel currently does nothing.
+                statement.cancel();
+                Assertions.assertFalse(statement.isClosed());
+                try (RelationalResultSet resultSet = statement.executeQuery("select * from databases;")) {
                     Assertions.assertNotNull(resultSet);
-                    var jdbcRelationalResultSet = resultSet.unwrap(JDBCRelationalResultSet.class);
+                    Assertions.assertEquals(resultSet, statement.getResultSet());
+                    Assertions.assertTrue(resultSet.isWrapperFor(JDBCRelationalResultSet.class));
                     // Exercise some metadata methods to get our jacoco coverage up.
-                    Assertions.assertFalse(jdbcRelationalResultSet.isClosed());
-                    Assertions.assertEquals(1, jdbcRelationalResultSet.getMetaData().getColumnCount());
-                    Assertions.assertEquals("DATABASE_ID",
-                            jdbcRelationalResultSet.getMetaData().getColumnName(1));
-                    Assertions.assertEquals(Types.VARCHAR, jdbcRelationalResultSet.getMetaData().getColumnType(1));
-                    Assertions.assertTrue(jdbcRelationalResultSet.next());
-                    Assertions.assertEquals(SYSDB, jdbcRelationalResultSet.getString(1));
-                    Assertions.assertTrue(jdbcRelationalResultSet.next());
-                    Assertions.assertEquals(TESTDB, jdbcRelationalResultSet.getString(1));
-                    Assertions.assertFalse(jdbcRelationalResultSet.next());
+                    Assertions.assertEquals(1, resultSet.getMetaData().getColumnCount());
+                    String columnName = "DATABASE_ID";
+                    Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnName(1));
+                    // Label == name for now.
+                    Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnLabel(1));
+                    Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(SYSDB, resultSet.getString(1));
+                    Assertions.assertEquals(SYSDB, resultSet.getString(SYSDB));
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(TESTDB, resultSet.getString(1));
+                    Assertions.assertEquals(TESTDB, resultSet.getString(TESTDB));
+                    Assertions.assertFalse(resultSet.next());
                     Assertions.assertEquals(0,
-                            jdbcRelationalStatement.executeUpdate("Drop database \"" + TESTDB + "\""));
+                            statement.executeUpdate("Drop database \"" + TESTDB + "\""));
+                    resultSet.clearWarnings(); // Does nothing.
+                    // For now they are empty.
+                    Assertions.assertNull(resultSet.getWarnings());
                 }
             }
         }

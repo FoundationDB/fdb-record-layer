@@ -205,7 +205,7 @@ public class CaseSensitivityTest {
                                 table, table));
                     }
                 }
-                RelationalDatabaseMetaData md = conn.getMetaData();
+                RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String table : tables) {
                     try (RelationalResultSet rs = md.getTables("/VARIOUS_TABLES_DB", "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT), null, null)) {
                         List<Row> row = List.of(new ArrayRow(
@@ -247,7 +247,7 @@ public class CaseSensitivityTest {
                                 column, column));
                     }
                 }
-                RelationalDatabaseMetaData md = conn.getMetaData();
+                RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String column : columns) {
                     try (RelationalResultSet rs = md.getColumns("/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null)) {
                         ResultSetAssert.assertThat(rs).hasNextRow().hasColumn("COLUMN_NAME", quoted ? column : column.toUpperCase(Locale.ROOT));

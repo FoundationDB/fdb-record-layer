@@ -110,7 +110,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
-        return connection.getMetaData();
+        return connection.getMetaData().unwrap(RelationalDatabaseMetaData.class);
     }
 
     @Override

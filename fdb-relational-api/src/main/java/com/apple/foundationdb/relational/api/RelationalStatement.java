@@ -303,14 +303,12 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default <T> T unwrap(Class<T> iface) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return iface.cast(this);
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default boolean isWrapperFor(Class<?> iface) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return iface.isInstance(this);
     }
 }

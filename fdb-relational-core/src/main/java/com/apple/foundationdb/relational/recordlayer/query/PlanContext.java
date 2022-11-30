@@ -29,8 +29,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
+
+import javax.annotation.Nonnull;
 
 public final class PlanContext {
     @Nonnull
@@ -51,8 +52,8 @@ public final class PlanContext {
      * @param storeState            The record store state.
      * @param constantActionFactory The constant action factory used for DDL and metadata queries
      * @param dbUri                 The URI of the database.
-     *
-     */
+     
+     **/
     private PlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState storeState, @Nonnull ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) {
         this.metaData = metaData;
         this.storeState = storeState;
