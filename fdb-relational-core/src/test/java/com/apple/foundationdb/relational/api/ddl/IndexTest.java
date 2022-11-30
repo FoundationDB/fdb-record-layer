@@ -489,4 +489,31 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT MAX_EVER(col2) FROM T1 group by col1";
         shouldFailWith(stmt, ErrorCode.INTERNAL_ERROR, "unknown reason only numeric types allowed in max_ever_long aggregation operation");
     }
+
+    @Test
+    void createIndexWithOrderByInFromSelect() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE TABLE T(p int64, a A array, primary key(p))" +
+                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
+    }
+
+    @Test
+    void createIndexWithOrderByInExistsSelect() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE TABLE T(p int64, a A array, primary key(p))" +
+                "CREATE INDEX mv1 AS SELECT t.p from T AS t where exists (select M.x from t.a AS M order by M.x)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
+    }
+
+    @Test
+    void createIndexWithOrderByExpression() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE STRUCT A(x int64) " +
+                "CREATE TABLE T(p int64, a A array, primary key(p))" +
+                "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "Arbitrary expressions are not allowed in order by clause");
+    }
 }

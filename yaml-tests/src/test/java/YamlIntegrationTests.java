@@ -109,6 +109,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void orderBy() throws Exception {
+        doRun("orderby.yaml");
+    }
+
+    @Test
     public void primaryKey() throws Exception {
         doRun("primary-key-tests.yaml");
     }

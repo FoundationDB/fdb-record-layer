@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -183,9 +184,11 @@ public final class KeyExpressionGenerator {
     private List<Value> getOrderByValues(@Nonnull final RelationalExpression relationalExpression) {
         if (relationalExpression instanceof LogicalSortExpression) {
             final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
+            final var reverseAliasMap = AliasMap.of(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
             return logicalSortExpression.getSortValues()
                     .stream()
                     .flatMap(v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v).stream() : Stream.of(v))
+                    .map(v -> v.rebase(reverseAliasMap))
                     .map(this::dereference)
                     .map(v -> v.simplify(AliasMap.emptyMap(), Set.of()))
                     .collect(ImmutableList.toImmutableList());

@@ -1,0 +1,235 @@
+#
+# orderby.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template orderby_tests_schema_template
+---
+- query: create schema template orderby_tests_schema_template_1
+    create table t1(a int64, b int64, c int64, primary key(a))
+    create index i1 as select b, c from t1 order by b
+    create index i2 as select b, c from t1 order by c
+    create index i3 as select b, c from t1 order by c, b
+    create struct st_1(a int64, b int64)
+    create table t2(p int64, q st_1, primary key(p))
+    create index i4 as select q.b, q.a from t2 order by q.a
+    create index i5 as select q.b, q.a from t2 order by q.b, q.a
+    create table t3(a int64, b int64, c int64, d int64, p int64, primary key(p))
+    create index i6 as select d, c, b, a from t3 order by a, b, c, d
+    create struct st_2(ast st_1)
+    create struct st_3(bst st_2)
+    create struct st_4(cst st_3)
+    create struct st_5(dst st_4)
+    create struct st_6(est st_5)
+    create table t4(p int64, q st_6, primary key(p))
+    create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
+---
+- query: drop database /ORDERBY_YAML
+---
+- query: create database /ORDERBY_YAML
+---
+- query: create schema /ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
+---
+- connect: "jdbc:embed:/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
+---
+- insert: [{A: 1, 10, 5},
+           {A: 2, 9, 5},
+           {A: 3, 8, 5},
+           {A: 4, 7, 8},
+           {A: 5, 6, 8},
+           {A: 6, 5, 8},
+           {A: 7, 4, 1},
+           {A: 8, 3, 1},
+           {A: 9, 2, 0},
+           {A: 10, 1, 0}]
+- table: T1
+---
+- insert: [{P: 1, {A: 8, 1}},
+           {P: 2, {A: 7, 2}},
+           {P: 3, {A: 6, 1}},
+           {P: 4, {A: 5, 2}},
+           {P: 5, {A: 4, 1}},
+           {P: 6, {A: 3, 2}},
+           {P: 7, {A: 2, 1}},
+           {P: 8, {A: 1, 2}}]
+- table: T2
+---
+- insert: [{A: 9, B: 5, C: 7, D: 2, P: 1},
+           {A: 9, B: 5, C: 7, D: 1, P: 2},
+           {A: 9, B: 5, C: 6, D: 0, P: 3},
+           {A: 9, B: 5, C: 6, D: 8, P: 4},
+           {A: 9, B: 0, C: 1, D: 2, P: 5},
+           {A: 9, B: 0, C: 1, D: 8, P: 6},
+           {A: 9, B: 0, C: 5, D: 1, P: 7},
+           {A: 9, B: 0, C: 5, D: 4, P: 8},
+           {A: 3, B: 8, C: 2, D: 1, P: 9},
+           {A: 3, B: 8, C: 2, D: 5, P: 10},
+           {A: 3, B: 8, C: 5, D: 0, P: 11},
+           {A: 3, B: 8, C: 5, D: 9, P: 12},
+           {A: 3, B: 6, C: 9, D: 2, P: 13},
+           {A: 3, B: 6, C: 9, D: 0, P: 14},
+           {A: 3, B: 6, C: 7, D: 0, P: 15},
+           {A: 3, B: 6, C: 7, D: 4, P: 16},]
+- table: T3
+---
+- insert: [{P: 0, Q: {EST: {DST: {CST: {BST: {AST: {A: 9, B: 0}}}}}}},
+           {P: 1, Q: {EST: {DST: {CST: {BST: {AST: {A: 8, B: 2}}}}}}},
+           {P: 2, Q: {EST: {DST: {CST: {BST: {AST: {A: 7, B: 4}}}}}}},
+           {P: 3, Q: {EST: {DST: {CST: {BST: {AST: {A: 6, B: 6}}}}}}},
+           {P: 4, Q: {EST: {DST: {CST: {BST: {AST: {A: 5, B: 8}}}}}}},
+           {P: 5, Q: {EST: {DST: {CST: {BST: {AST: {A: 4, B: 1}}}}}}},
+           {P: 6, Q: {EST: {DST: {CST: {BST: {AST: {A: 3, B: 3}}}}}}},
+           {P: 7, Q: {EST: {DST: {CST: {BST: {AST: {A: 2, B: 5}}}}}}},
+           {P: 8, Q: {EST: {DST: {CST: {BST: {AST: {A: 1, B: 7}}}}}}},
+           {P: 9, Q: {EST: {DST: {CST: {BST: {AST: {A: 0, B: 9}}}}}}}]
+- table: T4
+---
+- query: select b, c from t1 order by b, b
+- error: "42701"
+---
+# Simple ordering on 1 variable
+- query: select b, c from t1 order by b
+- result: [{1, 0}, {2, 0}, {3, 1}, {4, 1}, {5, 8}, {6, 8}, {7, 8}, {8, 5}, {9, 5}, {10, 5}]
+---
+# Simple ordering on 1 variable, reversed
+- query: select b, c from t1 order by b desc
+- result: [{10, 5}, {9, 5}, {8, 5}, {7, 8}, {6, 8}, {5, 8}, {4, 1}, {3, 1}, {2, 0}, {1, 0}]
+---
+# Simple ordering on 1 variable, range filter on index key value
+- query: select b, c from t1 where b >= 5 order by b;
+- result: [{5, 8}, {6, 8}, {7, 8}, {8, 5}, {9, 5}, {10, 5}]
+---
+# Simple ordering on 1 variable, range filter on index key value, reversed
+- query: select b, c from t1 where b >= 5 order by b desc;
+- result: [{10, 5}, {9, 5}, {8, 5}, {7, 8}, {6, 8}, {5, 8}]
+---
+# Simple ordering on 1 variable, point filter on index key value
+- query: select b, c from t1 where b = 5 order by b;
+- result: [{5, 8}]
+---
+# Simple ordering on 1 variable, with limit
+- query: select b, c from t1 order by b limit 4;
+- result: [{1, 0}, {2, 0}, {3, 1}, {4, 1}]
+---
+# Simple ordering on 1 variable, with limit and offset
+- query: select b, c from t1 order by b limit 4 offset 2;
+- result: [{3, 1}, {4, 1}, {5, 8}, {6, 8}]
+---
+# Simple ordering on 1 variable, with continuation
+- query: select b, c from t1 order by b limit 1;
+- result: [{1, 0}]
+- result: [{2, 0}]
+- result: [{3, 1}]
+- result: [{4, 1}]
+---
+# Simple ordering on 1 variable, range filter on index key value, filter on other field
+- query: select b, c from t1 where b >= 5 and c = 5 order by b;
+- result: [{8, 5}, {9, 5}, {10, 5}]
+---
+# Simple ordering on 1 variable, range filter on index key value, filter on other field, reversed
+- query: select b, c from t1 where b >= 5 and c = 5 order by b desc;
+- result: [{10, 5}, {9, 5}, {8, 5}]
+---
+# Simple ordering on 1 variable with repetitive values
+- query: select c, b from t1 order by c;
+- result: [{0, !dc x}, {0, !dc x}, {1, !dc x}, {1, !dc x}, {5, !dc x}, {5, !dc x}, {5, !dc x}, {8, !dc x}, {8, !dc x}, {8, !dc x}]
+---
+# Simple ordering on 2 variable
+- query: select c, b from t1 order by c, b;
+- result: [{0, 1}, {0, 2}, {1, 3}, {1, 4}, {5, 8}, {5, 9}, {5, 10}, {8, 5}, {8, 6}, {8, 7}]
+---
+# Simple ordering on 2 variable, explicit ascending
+- query: select c, b from t1 order by c asc, b asc;
+- result: [{0, 1}, {0, 2}, {1, 3}, {1, 4}, {5, 8}, {5, 9}, {5, 10}, {8, 5}, {8, 6}, {8, 7}]
+---
+# Simple ordering on 2 variable, reversed
+- query: select c, b from t1 order by c desc, b desc;
+- result: [{8, 7}, {8, 6}, {8, 5}, {5, 10}, {5, 9}, {5, 8}, {1, 4}, {1, 3}, {0, 2}, {0, 1}]
+---
+# Simple ordering on 2 variable, arbitrary ordering exception
+- query: select c, b from t1 order by c, b desc;
+- error: 0A000
+---
+# Simple ordering on 2 variable, arbitrary ordering exception
+- query: select c, b from t1 order by c asc, b desc;
+- error: 0A000
+---
+# Simple ordering on 2 variable, arbitrary ordering exception
+- query: select c, b from t1 order by c desc, b;
+- error: 0A000
+---
+# Simple ordering on 2 variable, point filter on outer
+- query: select c, b from t1 where c = 8 order by c, b;
+- result: [{8, 5}, {8, 6}, {8, 7}]
+---
+# Simple ordering on 2 variable, range filter on outer, reversed
+- query: select c, b from t1 where c < 5 order by c desc, b desc;
+- result: [{1, 4}, {1, 3}, {0, 2}, {0, 1}]
+---
+# Simple ordering on 2 variable, point filter on outer, range filter on inner
+- query: select c, b from t1 where c < 5 and b > 2 order by c desc, b desc;
+- result: [{1, 4}, {1, 3}]
+---
+# Simple ordering on 1 nested struct variable
+- query: select q.a, p from t2 order by q.a
+- result: [{1, 8}, {2, 7}, {3, 6}, {4, 5}, {5, 4}, {6, 3}, {7, 2}, {8, 1}]
+---
+# Simple ordering on 2 nested struct variable
+- query: select p, q.a, q.b from t2 order by q.b, q.a
+- result: [{7, 2, 1}, {5, 4, 1}, {3, 6, 1}, {P: 1, A: 8, B: 1}, {8, 1, 2}, {6, 3, 2}, {4, 5, 2}, {P: 2, A: 7, B: 2}]
+---
+# Simple ordering that uses a more strictly ordered index to satisfy less strict ordering requirement
+- query: select a from t3 order by a
+- result: [{3}, {3}, {3}, {3}, {3}, {3}, {3}, {3}, {9}, {9}, {9}, {9}, {9}, {9}, {9}, {9}]
+---
+# Simple ordering that uses a more strictly ordered index to satisfy less strict ordering requirement
+- query: select a, b from t3 order by a, b
+- result: [{3, 6}, {3, 6}, {3, 6}, {3, 6}, {3, 8}, {3, 8}, {3, 8}, {3, 8},
+           {9, 0}, {9, 0}, {9, 0}, {9, 0}, {9, 5}, {9, 5}, {9, 5}, {9, 5}]
+---
+# Simple ordering that uses a more strictly ordered index to satisfy less strict ordering requirement
+- query: select a, b, c from t3 order by a, b, c
+- result: [{3, 6, 7}, {3, 6, 7}, {3, 6, 9}, {3, 6, 9}, {3, 8, 2}, {3, 8, 2}, {3, 8, 5}, {3, 8, 5},
+           {9, 0, 1}, {9, 0, 1}, {9, 0, 5}, {9, 0, 5}, {9, 5, 6}, {9, 5, 6}, {9, 5, 7}, {9, 5, 7}]
+---
+# Simple ordering with select *
+- query: select * from t3 order by a, b, c, d
+- result: [{3, 6, 7, 0, 15}, {3, 6, 7, 4, 16}, {3, 6, 9, 0, 14}, {3, 6, 9, 2, 13},
+           {3, 8, 2, 1, 9},  {3, 8, 2, 5, 10}, {3, 8, 5, 0, 11}, {3, 8, 5, 9, 12},
+           {9, 0, 1, 2, 5}, {9, 0, 1, 8, 6}, {9, 0, 5, 1, 7}, {9, 0, 5, 4, 8},
+           {9, 5, 6, 0, 3}, {9, 5, 6, 8, 4}, {9, 5, 7, 1, 2}, {9, 5, 7, 2, 1}]
+---
+# Ordering by variable in nested struct of arbitrary depth
+- query: select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
+- result: [{A: 0, B: 9}, {A: 1, B: 7}, {A: 2, B: 5}, {A: 3, B: 3}, {A: 4, B: 1},
+           {A: 5, B: 8}, {A: 6, B: 6}, {A: 7, B: 4}, {A: 8, B: 2}, {A: 9, B: 0}]
+---
+# Ordering in nested select is not allowed
+- query: select b from t1, (select * from t1 order by b) as n
+- error: "0A000"
+---
+# Ordering in nested select is not allowed
+- query: select b from t1 where exists (select * from t1 order by b limit 1)
+- error: "0A000"
+---
+- query: drop schema template orderby_tests_schema_template
+---
+- query: drop database /ORDERBY_YAML
+...

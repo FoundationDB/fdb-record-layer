@@ -26,12 +26,14 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -129,13 +131,20 @@ public class TableWithEnumTest {
     }
 
     @Test
+    @Disabled // TODO (bug: (fdb-record-layer) add support for enum in deepCopyIfNeeded() in RecordConstructorValue)
     void sortBySuit() throws Exception {
         insert52Cards();
-        // Currently unsupported, but when it is, this should return results ordered by the suit definitions
-        // in the enum
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM Card ORDER BY suit"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("query is not supported");
+        Assert.that(statement.execute("SELECT * FROM Card ORDER BY suit"), "Did not return a result set when one was expected");
+        try (final RelationalResultSet resultSet = statement.getResultSet()) {
+            var assertion = ResultSetAssert.assertThat(resultSet);
+            int pk = 1;
+            for (String suit : SUITS) {
+                for (int rank = 1; rank < 14; rank++) {
+                    assertion.hasNextRow();
+                    assertion.hasRowExactly((long) pk++, "SPADES");
+                }
+            }
+        }
     }
 
     @Test

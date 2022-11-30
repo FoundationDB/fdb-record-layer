@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -123,7 +124,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                         () -> GroupExpressionRef.of(relationalExpression),
                         Optional.empty(),
                         IndexQueryabilityFilter.TRUE,
-                        false, ParameterRelationshipGraph.empty());
+                        ((LogicalSortExpression) relationalExpression).isReverse(), ParameterRelationshipGraph.empty());
             } catch (UncheckedRelationalException uve) {
                 throw uve.unwrap();
             }

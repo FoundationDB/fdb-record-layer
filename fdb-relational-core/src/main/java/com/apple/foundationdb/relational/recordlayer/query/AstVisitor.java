@@ -221,7 +221,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
         return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
@@ -232,7 +231,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
-        //Assert.isNullUnchecked(ctx.orderByClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
         return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
@@ -355,7 +353,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             scope.setGroupByType(groupByExpressionType);
             scope.getProjectList().clear();
             visit(selectElements);
-            orderByColumns.ifPresent(columns -> columns.forEach(scope::addOrderByColumn));
+            orderByColumns.ifPresent(columns -> columns.forEach(column -> scope.addOrderByColumn(column, false)));
             if (limitClause != null) {
                 visit(limitClause);
             }
@@ -504,17 +502,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitOrderByClause(RelationalParser.OrderByClauseContext ctx) {
-        ctx.orderByExpression().forEach(expression -> {
-            Column<? extends Value> column = (Column<? extends Value>) expression.accept(this);
-            parserContext.getCurrentScope().addOrderByColumn(column);
+        ctx.orderByExpression().forEach(orderByExpression -> {
+            var isReverse = (orderByExpression.ASC() == null) && (orderByExpression.DESC() != null);
+            var column = ParserUtils.toColumn((Value) orderByExpression.expression().accept(this));
+            parserContext.getCurrentScope().addOrderByColumn(column, isReverse);
         });
         return null;
-    }
-
-    @Override
-    public Column<Value> visitOrderByExpression(RelationalParser.OrderByExpressionContext ctx) {
-        Assert.isNullUnchecked(ctx.DESC(), "Unsupported DESC order", ErrorCode.UNSUPPORTED_OPERATION);
-        return ParserUtils.toColumn((Value) ctx.expression().accept(this));
     }
 
     @Override

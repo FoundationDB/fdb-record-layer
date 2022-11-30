@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -140,8 +142,9 @@ public class Scopes {
         @Nonnull
         private final List<Column<? extends Value>> projectionList;
 
-        @Nonnull
-        private final List<Column<? extends Value>> orderByList;
+        private final List<Integer> orderByCardinals;
+
+        private boolean isReverse;
 
         @Nullable
         private QueryPredicate predicate;
@@ -161,19 +164,18 @@ public class Scopes {
                       @Nullable final Scope sibling,
                       @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers,
                       @Nonnull final List<Column<? extends Value>> projectionList,
-                      @Nonnull final List<Column<? extends Value>> orderByList,
                       @Nullable final QueryPredicate predicate) {
             this.parent = parent;
             this.sibling = sibling;
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
-            this.orderByList = orderByList;
             this.predicate = predicate;
             this.flags = new HashSet<>();
             this.aggCounter = 0;
             this.groupByQuantifierCorrelation = null;
             this.groupByType = null;
             this.aggregateValues = new ArrayList<>();
+            this.orderByCardinals = new ArrayList<>();
         }
 
         @Nonnull
@@ -190,18 +192,19 @@ public class Scopes {
         @Nonnull
         private LogicalSortExpression convertToLogicalSortExpression() {
             SelectExpression selectExpression = convertToSelectExpression();
-            List<Value> orderByValues = orderByList.stream()
-                    .map(Column::getValue)
+            final var qun = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+            final var orderByValues = orderByCardinals.stream()
+                    .map(i -> FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), i))
                     .collect(Collectors.toList());
-
-            final Quantifier qun = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-            return new LogicalSortExpression(orderByValues, false, qun);
+            final var aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+            final var rebasedOrderByValues = orderByValues.stream().map(val -> val.rebase(aliasMap)).collect(Collectors.toList());
+            return new LogicalSortExpression(rebasedOrderByValues, isReverse, qun);
         }
 
         @Nonnull
         public RelationalExpression convertToRelationalExpression() {
-            if (getParent() != null) {
-                Assert.thatUnchecked(orderByList.isEmpty(), "ORDER BY is only supported for top level selects", ErrorCode.UNSUPPORTED_OPERATION);
+            if (getParent() != null || getSibling() != null) {
+                Assert.thatUnchecked(orderByCardinals.isEmpty(), "ORDER BY is only supported for top level selects", ErrorCode.UNSUPPORTED_OPERATION);
                 return convertToSelectExpression();
             } else {
                 return convertToLogicalSortExpression();
@@ -268,9 +271,18 @@ public class Scopes {
             projectionList.add(column);
         }
 
-        public void addOrderByColumn(@Nonnull final Column<? extends Value> column) {
-            Assert.thatUnchecked(projectionList.contains(column), "Cannot order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
-            orderByList.add(column);
+        public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
+            Assert.thatUnchecked(column.getValue() instanceof FieldValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
+            Assert.thatUnchecked(getProjectList().contains(column), "Cannot order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
+            if (orderByCardinals.isEmpty()) {
+                isReverse = isDesc;
+            } else {
+                Assert.thatUnchecked(isReverse == isDesc, "Combination of ASC and DESC directions in orderBy clauses is not supported", ErrorCode.UNSUPPORTED_OPERATION);
+            }
+            var orderByCardinalInProjectionList = projectionList.indexOf(column);
+            Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
+                    String.format("Order by column %s is duplicated in the order by clause", column.getField().getFieldName()), ErrorCode.COLUMN_ALREADY_EXISTS);
+            orderByCardinals.add(projectionList.indexOf(column));
         }
 
         @Nonnull
@@ -348,7 +360,7 @@ public class Scopes {
         }
 
         public static Scope withParentAndSibling(@Nullable final Scope parent, @Nullable final Scope sibling) {
-            return new Scope(parent, sibling, new LinkedHashMap<>(), new ArrayList<>(), new ArrayList<>(), null);
+            return new Scope(parent, sibling, new LinkedHashMap<>(), new ArrayList<>(), null);
         }
     }
 }
