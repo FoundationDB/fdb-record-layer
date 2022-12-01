@@ -44,6 +44,8 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
 /**
  * Represents the results of a query against the system.
  */
@@ -58,6 +60,7 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
      * @throws SQLException if the continuation cannot be retrieved.
      */
+    @Nonnull
     Continuation getContinuation() throws SQLException;
 
     RelationalStruct getStruct(String columnLabel) throws SQLException;

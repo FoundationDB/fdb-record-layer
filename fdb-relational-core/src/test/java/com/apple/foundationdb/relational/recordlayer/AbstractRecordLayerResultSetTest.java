@@ -46,6 +46,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.annotation.Nonnull;
+
 
 class AbstractRecordLayerResultSetTest {
 
@@ -180,6 +182,7 @@ class AbstractRecordLayerResultSetTest {
             }
 
             @Override
+            @Nonnull
             public Continuation getContinuation() {
                 return Continuation.BEGIN;
             }

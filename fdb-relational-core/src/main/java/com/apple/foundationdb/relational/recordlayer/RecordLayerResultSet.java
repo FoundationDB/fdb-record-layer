@@ -83,6 +83,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
             return currentCursor.getContinuation();

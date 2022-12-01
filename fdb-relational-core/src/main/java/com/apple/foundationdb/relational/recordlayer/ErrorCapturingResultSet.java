@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.sql.SQLException;
 
+import javax.annotation.Nonnull;
+
 @ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
 public class ErrorCapturingResultSet implements RelationalResultSet {
     private final RelationalResultSet delegate;
@@ -210,6 +212,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
             return delegate.getContinuation();

@@ -34,6 +34,8 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
 public class JDBCRelationalResultSet implements RelationalResultSet {
     private final ResultSet delegate;
 
@@ -960,6 +962,7 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nonnull
     public Continuation getContinuation() throws SQLException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }

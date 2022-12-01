@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Iterator;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -49,6 +50,7 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    @Nonnull
     public Continuation getContinuation() throws SQLException {
         boolean hasNext = rowIter.hasNext();
         boolean beginning = currentRowPosition == 0;

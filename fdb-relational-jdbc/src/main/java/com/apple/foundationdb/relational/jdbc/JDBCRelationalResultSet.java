@@ -35,6 +35,8 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 
+import javax.annotation.Nonnull;
+
 class JDBCRelationalResultSet implements RelationalResultSet {
     private final ResultSet delegate;
     private final int rows;
@@ -170,8 +172,9 @@ class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
+    @Nonnull
     public Continuation getContinuation() throws SQLException {
-        return null;
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override
