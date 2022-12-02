@@ -154,10 +154,11 @@ enumDefinition
     ;
 
 indexDefinition
-    : INDEX indexName=uid AS querySpecificationNointo
+    : (UNIQUE)? INDEX indexName=uid AS querySpecificationNointo
     ;
 
 idxField
+
     : uid
     ;
 

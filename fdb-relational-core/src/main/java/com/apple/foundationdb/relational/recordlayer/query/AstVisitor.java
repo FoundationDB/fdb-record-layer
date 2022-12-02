@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -1237,11 +1238,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression);
         final var generator = KeyExpressionGenerator.from(viewPlan);
         final var indexExpressionAndType = generator.transform();
-        typingContext.addIndex(generator.getRecordTypeName(), RecordMetaDataProto.Index.newBuilder().setRootExpression(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(),
-                typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(generator.getRecordTypeName()), containsNonNullableArray))
+        final var protoBuilder = RecordMetaDataProto.Index.newBuilder()
+                .setRootExpression(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(),
+                        typingContext.getTypeRepositoryBuilder().build().getMessageDescriptor(generator.getRecordTypeName()), containsNonNullableArray))
                 .setName(indexName)
-                .setType(indexExpressionAndType.getRight())
-                .build(), List.of());
+                .setType(indexExpressionAndType.getRight());
+        if (ctx.UNIQUE() != null) {
+            protoBuilder.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(IndexOptions.UNIQUE_OPTION).setValue(Boolean.TRUE.toString()));
+        }
+        typingContext.addIndex(generator.getRecordTypeName(), protoBuilder.build(), List.of());
         return null;
     }
 

@@ -178,6 +178,7 @@ class QueryCommand extends Command {
         final var regionWithoutQuery = region.stream().skip(1).collect(Collectors.toList());
         if (regionWithoutQuery.isEmpty()) {
             executeNoCheckStatement(queryString, factory);
+            return;
         }
         Continuation continuation = null;
         var configIterator = regionWithoutQuery.listIterator();
