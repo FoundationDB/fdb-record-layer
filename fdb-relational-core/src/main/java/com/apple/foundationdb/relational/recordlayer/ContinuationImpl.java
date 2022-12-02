@@ -27,10 +27,9 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.primitives.Ints;
 
-import java.util.Arrays;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 
 public final class ContinuationImpl implements Continuation {
     private final byte[] continuationBytes;

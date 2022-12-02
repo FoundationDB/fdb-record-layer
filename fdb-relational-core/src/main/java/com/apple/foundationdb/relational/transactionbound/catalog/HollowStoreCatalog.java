@@ -30,9 +30,8 @@ import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport
 public class HollowStoreCatalog implements StoreCatalog {

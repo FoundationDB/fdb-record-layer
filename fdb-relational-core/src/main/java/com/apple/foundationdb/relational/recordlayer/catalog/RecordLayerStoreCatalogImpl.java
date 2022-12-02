@@ -67,11 +67,10 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import java.net.URI;
-import java.sql.SQLException;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
+import java.sql.SQLException;
 
 /**
  * This class constructs the record store that holds the catalog metadata.

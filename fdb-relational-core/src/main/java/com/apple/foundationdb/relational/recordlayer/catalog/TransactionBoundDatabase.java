@@ -36,10 +36,9 @@ import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContext
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
 
 /**
  * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection

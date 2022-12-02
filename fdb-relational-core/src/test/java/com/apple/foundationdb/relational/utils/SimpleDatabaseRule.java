@@ -26,9 +26,8 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 /**
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.

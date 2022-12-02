@@ -30,10 +30,9 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
-
-import javax.annotation.Nonnull;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is

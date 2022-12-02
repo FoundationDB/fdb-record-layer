@@ -40,13 +40,12 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
     public RecordLayerCatalogQueryFactory(StoreCatalog catalog, SchemaTemplateCatalog templateCatalog) {

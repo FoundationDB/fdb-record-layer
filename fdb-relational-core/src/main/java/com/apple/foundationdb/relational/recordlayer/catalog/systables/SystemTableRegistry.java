@@ -22,9 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.util.Map;
-
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * A static registry of all available {@link SystemTable}s, the purpose of this interface

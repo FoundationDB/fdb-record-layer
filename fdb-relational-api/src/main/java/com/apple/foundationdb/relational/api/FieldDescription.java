@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
-import java.sql.Types;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.Types;
 
 /**
  * A description of an individual field.

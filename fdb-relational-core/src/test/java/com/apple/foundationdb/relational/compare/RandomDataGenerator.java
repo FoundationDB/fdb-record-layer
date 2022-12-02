@@ -25,11 +25,10 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Random;
-
-import javax.annotation.Nullable;
 
 /**
  *  Generates random data to fill all the fields in a specific data type, recursively generating random

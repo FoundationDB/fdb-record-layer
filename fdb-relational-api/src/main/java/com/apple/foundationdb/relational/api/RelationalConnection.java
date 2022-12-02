@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Blob;
@@ -41,8 +42,6 @@ import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-
-import javax.annotation.Nonnull;
 
 /**
  * A connection to a Relational database.

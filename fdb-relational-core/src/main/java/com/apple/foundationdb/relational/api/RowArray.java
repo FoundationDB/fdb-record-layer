@@ -24,14 +24,13 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import javax.annotation.Nonnull;
 
 /**
  * An implementation of a RelationalArray using a collection of {@link Row} objects as backing storage.

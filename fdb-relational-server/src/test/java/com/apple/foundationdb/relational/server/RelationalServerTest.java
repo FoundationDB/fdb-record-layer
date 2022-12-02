@@ -40,11 +40,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 public class RelationalServerTest {
     private static final Logger logger = Logger.getLogger(RelationalServerTest.class.getName());

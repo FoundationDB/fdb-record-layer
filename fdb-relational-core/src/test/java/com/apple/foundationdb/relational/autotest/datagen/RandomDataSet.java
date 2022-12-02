@@ -26,12 +26,11 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
 
 public class RandomDataSet implements DataSet {
     private final long seed;

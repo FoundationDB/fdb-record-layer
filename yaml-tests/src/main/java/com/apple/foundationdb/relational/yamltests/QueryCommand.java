@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -36,7 +37,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
+@SuppressWarnings({"PMD.GuardLogStatement"})
+// It already is, but PMD is confused and reporting error in unrelated locations.
 class QueryCommand extends Command {
 
     private enum QueryConfig {

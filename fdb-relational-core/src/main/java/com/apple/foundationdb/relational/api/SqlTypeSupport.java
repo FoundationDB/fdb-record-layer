@@ -25,11 +25,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
+import javax.annotation.Nonnull;
 import java.sql.Types;
 import java.util.Objects;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 public final class SqlTypeSupport {
     //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now

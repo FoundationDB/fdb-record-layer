@@ -23,10 +23,9 @@ package com.apple.foundationdb.relational.compare;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-
-import javax.annotation.Nullable;
 
 class Table {
     private final String tableName;

@@ -23,13 +23,12 @@ package com.apple.foundationdb.relational.compare;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 
+import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
-
-import javax.annotation.Nonnull;
 
 public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
     private final DatabaseMetaData metaData;

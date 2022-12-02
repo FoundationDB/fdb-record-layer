@@ -24,10 +24,9 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
 
 public class EmbeddedRelationalDriver implements RelationalDriver {
     private final EmbeddedRelationalEngine engine;

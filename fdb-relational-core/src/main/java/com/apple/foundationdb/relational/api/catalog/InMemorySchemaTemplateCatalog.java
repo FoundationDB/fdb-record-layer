@@ -31,14 +31,13 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 
+import javax.annotation.Nonnull;
 import java.sql.Types;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 /**
  * Quick and dirty in-memory implementation of a SchemaTemplate catalog, for use in testing.

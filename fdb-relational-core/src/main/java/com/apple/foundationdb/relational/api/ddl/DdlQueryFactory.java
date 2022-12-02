@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 /**
  * Placeholder factory for creating DdlQuery entities.

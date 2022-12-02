@@ -31,11 +31,10 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.protobuf.Value;
 import com.google.spanner.v1.ResultSet;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
-
-import javax.annotation.Nonnull;
 
 class JDBCRelationalResultSet implements RelationalResultSet {
     private final ResultSet delegate;

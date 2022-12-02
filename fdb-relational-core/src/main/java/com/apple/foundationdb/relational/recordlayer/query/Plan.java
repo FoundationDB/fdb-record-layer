@@ -37,9 +37,8 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.google.common.base.VerifyException;
 import com.google.protobuf.Descriptors;
 
-import java.util.stream.Collectors;
-
 import javax.annotation.Nonnull;
+import java.util.stream.Collectors;
 
 public interface Plan<T> {
 

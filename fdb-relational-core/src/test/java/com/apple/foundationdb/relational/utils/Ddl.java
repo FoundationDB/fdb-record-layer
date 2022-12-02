@@ -28,12 +28,11 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class Ddl implements AutoCloseable {
     @Nonnull

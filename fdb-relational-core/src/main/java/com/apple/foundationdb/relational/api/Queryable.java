@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
-import java.util.List;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * Abstract representation of a Query data structure.

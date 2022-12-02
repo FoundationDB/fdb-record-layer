@@ -26,10 +26,9 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.sql.SQLException;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 

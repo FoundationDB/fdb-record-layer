@@ -27,11 +27,10 @@ import com.apple.foundationdb.relational.api.options.TypeContract;
 
 import com.google.common.collect.ImmutableMap;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-
-import javax.annotation.Nonnull;
 
 public final class Options {
     public enum Name {

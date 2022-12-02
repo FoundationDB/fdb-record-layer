@@ -40,12 +40,11 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class SchemaTemplateDescriptor implements SchemaTemplate {
     private final String name;

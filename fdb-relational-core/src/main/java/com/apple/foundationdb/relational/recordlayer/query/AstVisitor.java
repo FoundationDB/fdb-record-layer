@@ -59,6 +59,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -1182,7 +1183,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var fields = ctx.columnDefinition().stream().map(c -> (TypingContext.FieldDefinition) c.accept(this)).collect(Collectors.toList());
         final var isTable = ctx.STRUCT() == null;
         if (ctx.primaryKeyDefinition() != null) {
-            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, (List<List<String>>)ctx.primaryKeyDefinition().accept(this)));
+            typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, (List<List<String>>) ctx.primaryKeyDefinition().accept(this)));
         } else {
             typingContext.addType(new TypingContext.TypeDefinition(name, fields, isTable, List.of()));
         }
@@ -1215,7 +1216,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.fullId().size() == 0) {
             return List.of();
         }
-        return ctx.fullId().stream().map(this::visit).map(f -> ((QualifiedIdentifierValue)(f)).getParts()).map(Arrays::asList).collect(Collectors.toList());
+        return ctx.fullId().stream().map(this::visit).map(f -> ((QualifiedIdentifierValue) (f)).getParts()).map(Arrays::asList).collect(Collectors.toList());
     }
 
     @Override

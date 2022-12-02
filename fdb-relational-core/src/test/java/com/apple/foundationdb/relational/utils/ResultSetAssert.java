@@ -42,6 +42,7 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.SoftAssertions;
 
+import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -55,8 +56,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import javax.annotation.Nonnull;
 
 public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalResultSet> {
 

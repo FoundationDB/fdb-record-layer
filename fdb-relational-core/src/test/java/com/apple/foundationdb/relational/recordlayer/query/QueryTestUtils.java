@@ -25,9 +25,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 
-import java.sql.SQLException;
-
 import javax.annotation.Nonnull;
+import java.sql.SQLException;
 
 public class QueryTestUtils {
 

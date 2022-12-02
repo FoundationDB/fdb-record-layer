@@ -20,13 +20,12 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * An exception intended to carry over additional context within a SQLException.

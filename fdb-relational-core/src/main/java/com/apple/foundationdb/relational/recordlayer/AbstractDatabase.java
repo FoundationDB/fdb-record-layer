@@ -28,11 +28,10 @@ import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.annotation.Nonnull;
 
 public abstract class AbstractDatabase implements RelationalDatabase {
 

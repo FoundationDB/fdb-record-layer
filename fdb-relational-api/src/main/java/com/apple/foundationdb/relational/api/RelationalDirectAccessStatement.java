@@ -22,11 +22,10 @@ package com.apple.foundationdb.relational.api;
 
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
-
-import javax.annotation.Nonnull;
 
 public interface RelationalDirectAccessStatement extends AutoCloseable {
     /**

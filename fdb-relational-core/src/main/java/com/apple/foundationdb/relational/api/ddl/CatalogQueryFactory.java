@@ -30,11 +30,10 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public abstract class CatalogQueryFactory implements DdlQueryFactory {
 

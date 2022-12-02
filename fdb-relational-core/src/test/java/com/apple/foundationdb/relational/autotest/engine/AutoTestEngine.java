@@ -38,10 +38,9 @@ import org.junit.platform.engine.discovery.ClasspathRootSelector;
 import org.junit.platform.engine.discovery.PackageSelector;
 import org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.function.Predicate;
-
-import javax.annotation.Nonnull;
 
 public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutionContext> {
     private static final Predicate<Class<?>> IS_AUTO_TEST_CONTAINER

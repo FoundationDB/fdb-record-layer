@@ -22,9 +22,8 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
 public abstract class AbstractQueryFactory implements DdlQueryFactory {

@@ -25,12 +25,11 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Suppliers;
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A referential enum is a {@link Type.Enum} whose {@code name} is part of its identity for equality. This

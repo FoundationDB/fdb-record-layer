@@ -27,10 +27,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.DescriptorProtos;
 
+import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 /**
  * Represents a SchemaTemplate.

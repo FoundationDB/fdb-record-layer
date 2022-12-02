@@ -25,12 +25,11 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.base.Suppliers;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A referential record is a {@link Type.Record} whose {@code name} is part of its identity for equality.

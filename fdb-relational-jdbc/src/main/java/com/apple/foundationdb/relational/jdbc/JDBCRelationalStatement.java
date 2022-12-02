@@ -32,13 +32,12 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.Iterator;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 class JDBCRelationalStatement implements RelationalStatement {
     private volatile boolean closed;

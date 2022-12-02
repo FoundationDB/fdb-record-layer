@@ -25,9 +25,6 @@ import com.apple.foundationdb.relational.generated.CliParserBaseVisitor;
 
 import org.antlr.v4.runtime.misc.Pair;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
@@ -36,6 +33,8 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonString;
 import javax.json.JsonValue;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
 class CliJsonVisitor extends CliParserBaseVisitor<Object> {
 

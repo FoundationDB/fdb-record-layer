@@ -26,10 +26,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Map;
-
-import javax.annotation.Nonnull;
 
 public interface ParameterizedQuery {
     RelationalResultSet executeQuery(@Nonnull RelationalStatement statement,

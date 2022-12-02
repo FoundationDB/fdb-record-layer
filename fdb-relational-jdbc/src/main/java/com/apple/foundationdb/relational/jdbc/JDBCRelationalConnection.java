@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -40,8 +41,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Nonnull;
 
 /**
  * Connect to a Relational Database Server.

@@ -34,12 +34,11 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActi
 
 import com.codahale.metrics.MetricRegistry;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public final class RecordLayerEngine {
 

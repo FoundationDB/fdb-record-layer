@@ -31,11 +31,10 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
     private final Descriptors.Descriptor typeDescriptor;

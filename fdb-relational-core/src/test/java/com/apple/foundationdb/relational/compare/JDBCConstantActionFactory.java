@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,8 +39,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 public class JDBCConstantActionFactory implements ConstantActionFactory {
     private final SchemaTemplateCatalog templateCatalog;

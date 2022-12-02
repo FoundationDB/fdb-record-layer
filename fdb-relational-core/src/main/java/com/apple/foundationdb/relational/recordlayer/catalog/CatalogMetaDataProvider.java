@@ -27,9 +27,8 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 public class CatalogMetaDataProvider implements RecordMetaDataProvider {
     //TODO(bfines) there should probably be a cleaner way to deal with this

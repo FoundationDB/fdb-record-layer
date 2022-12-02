@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import com.google.protobuf.Descriptors;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -53,8 +54,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
 
 
 public class CatalogMetaData implements RelationalDatabaseMetaData {

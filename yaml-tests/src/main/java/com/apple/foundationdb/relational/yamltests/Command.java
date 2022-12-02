@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.cli.DbState;
 import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -57,15 +58,15 @@ public abstract class Command {
             Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
             Assert.that(queryResults instanceof ErrorCapturingResultSet,
                     String.format("‼️ another error is encountered while trying to print to" +
-                                    "print unexpected query result!%n" +
-                                    "unexpected query result of type '%s' (expecting '%s')",
+                            "print unexpected query result!%n" +
+                            "unexpected query result of type '%s' (expecting '%s')",
                             queryResults.getClass().getSimpleName(),
                             ErrorCapturingResultSet.class.getSimpleName()));
             Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
             Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a result set%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "%s%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                    "%s%n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                     resultSetPrettyPrinter)
             );
         }
@@ -97,7 +98,7 @@ public abstract class Command {
                     debug(String.format("connected to '%s'", uri));
                 }
             };
-        // todo (yhatem) refactor tests and remove this once REL-269 is in.
+            // todo (yhatem) refactor tests and remove this once REL-269 is in.
         } else if ("insert".equals(commandString)) {
             return new Command() {
                 @Override

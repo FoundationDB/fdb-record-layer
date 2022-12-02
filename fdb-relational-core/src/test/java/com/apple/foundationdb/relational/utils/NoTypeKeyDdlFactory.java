@@ -28,11 +28,10 @@ import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class NoTypeKeyDdlFactory {
     public static RecordLayerConstantActionFactory.Builder newBuilder() {

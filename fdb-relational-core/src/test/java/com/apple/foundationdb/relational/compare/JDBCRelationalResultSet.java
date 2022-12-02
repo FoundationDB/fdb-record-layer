@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
+import javax.annotation.Nonnull;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -33,8 +34,6 @@ import java.net.URL;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-
-import javax.annotation.Nonnull;
 
 public class JDBCRelationalResultSet implements RelationalResultSet {
     private final ResultSet delegate;

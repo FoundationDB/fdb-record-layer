@@ -30,9 +30,8 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     public static final int DEFAULT_FORMAT_VERSION = 8;

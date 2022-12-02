@@ -28,13 +28,12 @@ import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-import javax.annotation.Nonnull;
 
 class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
     private final DatabaseMetaDataResponse pbDatabaseMetaDataResponse;

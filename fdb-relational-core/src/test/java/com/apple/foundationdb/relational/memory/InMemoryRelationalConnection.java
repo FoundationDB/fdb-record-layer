@@ -43,11 +43,10 @@ import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTab
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.concurrent.CompletableFuture;
-
-import javax.annotation.Nonnull;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;

@@ -26,10 +26,9 @@ import com.apple.foundationdb.record.util.MapUtils;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 
-import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An implementation of {@link com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer} that defers

@@ -44,12 +44,11 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Throwables;
 
-import java.net.URI;
-import java.sql.SQLException;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.net.URI;
+import java.sql.SQLException;
 
 @NotThreadSafe
 public class RecordLayerDatabase extends AbstractDatabase {

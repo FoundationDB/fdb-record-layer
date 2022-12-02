@@ -45,14 +45,13 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCat
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
-
-import javax.annotation.Nullable;
 
 /**
  * Temporary class. "The Relational Database".

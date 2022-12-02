@@ -25,11 +25,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.primitives.Ints;
 
-import java.util.Iterator;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.util.Iterator;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INVALID_PARAMETER;
 

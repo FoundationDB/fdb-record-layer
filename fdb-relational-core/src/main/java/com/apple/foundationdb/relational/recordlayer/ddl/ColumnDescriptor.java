@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import java.util.Objects;
-
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Descriptor for a Column type.

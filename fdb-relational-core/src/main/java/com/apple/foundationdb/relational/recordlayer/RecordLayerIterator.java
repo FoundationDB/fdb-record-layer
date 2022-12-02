@@ -28,9 +28,8 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import java.util.function.Function;
-
 import javax.annotation.Nonnull;
+import java.util.function.Function;
 
 public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private final RecordCursor<T> recordCursor;

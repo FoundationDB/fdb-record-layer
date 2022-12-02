@@ -22,10 +22,9 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Objects;
-
-import javax.annotation.Nonnull;
 
 /**
  * An implementation of {@link RelationalStruct} which is backed by a {@link Row} object.

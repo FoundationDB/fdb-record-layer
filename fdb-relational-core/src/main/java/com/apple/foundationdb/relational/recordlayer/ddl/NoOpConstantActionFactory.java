@@ -28,9 +28,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
 public final class NoOpConstantActionFactory implements ConstantActionFactory {

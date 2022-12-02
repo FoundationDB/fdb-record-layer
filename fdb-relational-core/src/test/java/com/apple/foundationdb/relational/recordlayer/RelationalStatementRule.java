@@ -32,10 +32,9 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
-
-import javax.annotation.Nonnull;
 
 public class RelationalStatementRule implements BeforeEachCallback, AfterEachCallback, RelationalStatement {
     RelationalConnection connection;

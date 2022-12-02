@@ -28,10 +28,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase;
 
-import java.net.URI;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
 
 /**
  * A thin implementation of {@link StorageCluster} creates a new {@link TransactionBoundDatabase}

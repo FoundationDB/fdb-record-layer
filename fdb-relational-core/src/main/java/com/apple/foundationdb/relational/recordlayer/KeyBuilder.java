@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Joiner;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,8 +46,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Stack;
 import java.util.stream.IntStream;
-
-import javax.annotation.Nonnull;
 
 public class KeyBuilder {
     private final RecordType typeForKey;

@@ -30,10 +30,9 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
-
-import javax.annotation.Nonnull;
 
 /**
  * A Delegating statement whose job is just to catch Runtime exceptions that don't match our expected

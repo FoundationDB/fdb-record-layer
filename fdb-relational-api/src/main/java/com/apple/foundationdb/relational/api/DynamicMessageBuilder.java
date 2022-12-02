@@ -25,11 +25,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import java.sql.SQLException;
-import java.util.Set;
-
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.sql.SQLException;
+import java.util.Set;
 
 /**
  * Interface to hide away the annoying details of building a Dynamic Message from a descriptor.
