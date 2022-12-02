@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.grpc.GrpcSQLException;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
@@ -30,10 +31,8 @@ import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
-import com.google.protobuf.Any;
 import com.google.protobuf.ListValue;
 import com.google.protobuf.Value;
-import com.google.rpc.Code;
 import com.google.spanner.v1.ResultSetMetadata;
 import com.google.spanner.v1.StructType;
 import com.google.spanner.v1.Type;
@@ -138,38 +137,6 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         return typeCode;
     }
 
-    static com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException map(SQLException sqlException) {
-        // From https://techdozo.dev/getting-error-handling-right-in-grpc/
-        // and https://www.vinsguru.com/grpc-error-handling/
-        com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException.Builder sqlExceptionBuilder =
-                com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException.newBuilder();
-        sqlExceptionBuilder.setName(sqlException.getClass().getSimpleName());
-        sqlExceptionBuilder.setErrorCode(sqlException.getErrorCode());
-        sqlExceptionBuilder.setMessage(sqlException.getMessage());
-        if (sqlException.getSQLState() != null) {
-            sqlExceptionBuilder.setSqlState(sqlException.getSQLState());
-        }
-        if (sqlException.getCause() != null) {
-            Throwable t = sqlException.getCause();
-            String cause = t.getClass().getSimpleName();
-            if (t.getMessage() != null) {
-                cause = cause + ": " + t.getMessage();
-            }
-            sqlExceptionBuilder.setCause(cause);
-        }
-        return sqlExceptionBuilder.build();
-    }
-
-    static com.google.rpc.Status toStatus(SQLException sqlException) {
-        // From https://techdozo.dev/getting-error-handling-right-in-grpc/
-        // and https://www.vinsguru.com/grpc-error-handling/
-        return com.google.rpc.Status.newBuilder()
-                .setCode(Code.INTERNAL.getNumber())
-                .setMessage(sqlException.getMessage() != null ?
-                        sqlException.getClass().getSimpleName() + ": " + sqlException.getMessage() : "")
-                .addDetails(Any.pack(map(sqlException))).build();
-    }
-
     static boolean checkStatementRequest(StatementRequest statementRequest,
                                   StreamObserver<StatementResponse> responseObserver) {
         if (statementRequest.getDatabase().isEmpty()) {
@@ -183,7 +150,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return false;
         }
         if (statementRequest.getSql().isEmpty()) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty sql")
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty sql statement")
                     .asRuntimeException());
             return false;
         }
@@ -201,7 +168,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(toStatus(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
         }
     }
 
@@ -216,7 +183,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(toStatus(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
         }
     }
 }

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.services.HealthStatusManager;
@@ -44,7 +45,9 @@ import org.apache.commons.cli.ParseException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -52,10 +55,6 @@ import java.util.stream.Collectors;
  * Relational Server.
  * Hosts the JDBC GRPC Service.
  */
-// TODO: NEXT. Exceptions over RPC. Currently they do not come out nicely.
-// TODO: Fix the JDBCRelationalStatement on the jdbc-side. Currently they let out RExceptions (because they implement
-// RelationalStatement. I don't think we want this. Discuss.'
-// TODO: Allow setting schema and option on connect to database as in jdbc:relational://localhost:1234/DATABASE?schema=XYZ&option=NONE, etc.
 // TODO: Add remote 'safe' shutdown of server (or via signal?).
 // Revisit signal handling (to load config and to do 'safe' shutdown?)
 // It looks like CTRL-C is caught and we run the shutdown handler. What else is caught?
@@ -114,7 +113,8 @@ public class RelationalServer implements Closeable {
         this.server = ServerBuilder.forPort(port)
                 .addService(healthStatusManager.getHealthService())
                 .addService(ProtoReflectionService.newInstance())
-                .addService(new JDBCService(frl))
+                .addService(ServerInterceptors.intercept(new JDBCService(frl),
+                        new UNKNOWNStatusInterceptor(Arrays.asList(SQLException.class))))
                 .build();
         this.server.start();
         String services = this.server.getServices().stream()

@@ -27,22 +27,7 @@ import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
-
 public class JDBCServiceTest {
-    @Test
-    public void testToStatus() {
-        final String message = "Some old status message";
-        com.google.rpc.Status status = JDBCService.toStatus(new SQLException(message));
-        Assertions.assertTrue(status.getMessage().contains(message));
-    }
-
-    @Test
-    public void testToMap() {
-        final String message = "Some old map message";
-        com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException exception = JDBCService.map(new SQLException(message));
-        Assertions.assertTrue(exception.getMessage().contains(message));
-    }
 
     @Test
     public void testCheckStatementRequest() {

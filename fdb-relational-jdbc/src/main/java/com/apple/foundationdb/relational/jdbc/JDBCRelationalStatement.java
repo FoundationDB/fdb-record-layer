@@ -25,12 +25,14 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.grpc.GrpcSQLException;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Message;
+import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,10 +56,19 @@ class JDBCRelationalStatement implements RelationalStatement {
     private RelationalResultSet execute(@Nonnull String sql, @Nonnull Options options)
             throws SQLException {
         // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse =
-                this.connection.getStub().execute(StatementRequest.newBuilder()
-                        .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
-                        .build());
+        StatementResponse statementResponse = null;
+        try {
+            statementResponse = this.connection.getStub().execute(StatementRequest.newBuilder()
+                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
+                    .build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
         return statementResponse.hasResultSet() ? new JDBCRelationalResultSet(statementResponse.getResultSet()) : null;
     }
 
@@ -65,10 +76,19 @@ class JDBCRelationalStatement implements RelationalStatement {
     private int update(@Nonnull String sql, @Nonnull Options options)
             throws SQLException {
         // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse =
-                this.connection.getStub().execute(StatementRequest.newBuilder()
-                        .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
-                        .build());
+        StatementResponse statementResponse = null;
+        try {
+            statementResponse = this.connection.getStub().execute(StatementRequest.newBuilder()
+                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
+                    .build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
         if (statementResponse.hasResultSet()) {
             throw new SQLException(String.format("Query '%s' returns a ResultSet; use JDBC executeQuery instead", sql));
         }

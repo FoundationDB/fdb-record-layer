@@ -31,7 +31,7 @@ import com.google.spanner.v1.TypeCode;
 import java.sql.SQLException;
 import java.sql.Types;
 
-public class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaData  {
+class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaData  {
     private final ResultSetMetadata delegate;
 
     JDBCRelationalResultSetMetaData(ResultSetMetadata delegate) {

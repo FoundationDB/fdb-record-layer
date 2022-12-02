@@ -19,7 +19,29 @@
  */
 
 /**
- * Relational JDBC Driver.
- * Same URL format as mysql/postgres JDBC drivers; i.e. jdbc:relational://HOST[:PORT].
+ * <h1>Relational JDBC Driver</h1>
+ * Use same JDBC URL format as mysql/postgres JDBC drivers; i.e. <code>jdbc:relational://HOST[:PORT]</code>.
+ *
+ * <h2>Exceptions</h2>
+ * Exceptions will for the most part come up out of RPC or will originate over on the server.
+ * There are two types currently; handled {@link java.sql.SQLException}s and unhandled grpc
+ * {@link io.grpc.StatusRuntimeException}; the latter will usually be opaque UNKNOWNs or INTERNALS at least until we
+ * develop better handling.
+ * <h3>Server-Side/Client-Side SQLExceptions</h3>
+ * SQLExceptions thrown on the server-side will manifest on the client-side as SQLExceptions populated with the
+ * originals' messages, SQLCodes, and "vendor" error code if present. The client-side type may be that of the original
+ * but it may also be just a flat {@link java.sql.SQLException} if the type is not publicly accessible to the grpc
+ * module managing the transforms (fdb-relational-api is NOT a dependency of fdb-relational-grpc currently so the likes of
+ * ContextualSQLException are not available to the transform code; we could change this if wanted).
+ * <p>The client-side * manifestation currently has no markings to indicate it a reflection of a server-side throw; its
+ * presumed server-side is the origin. We could fix this easy enough; e.g. server-side originating exceptions show in
+ * the client as a ServerSideOriginatingSQLException (or any other such marker).
+ * <p>Do we want client-side SQLException to include <code>cause</code> if present (currently it does)? Do we want
+ * the client-side to include server-side stack trace (probably not)?
+ * <h3>StatusRuntimeException</h3>
+ * Server- or network-originated unhandled exceptions will bubble up on the client-side as instances of
+ * {@link io.grpc.StatusRuntimeException}; i.e. RuntimeExceptions (this behavior is of GRCP). We'll tamper this
+ * phenomenon as we learn of the type of exceptions we'll be seeing. We've installed an interceptor for the JDBCService
+ * to catch unhandled SQLExceptions and which we can enhance as we learn more about the types of problems we'll see.
  */
 package com.apple.foundationdb.relational.jdbc;

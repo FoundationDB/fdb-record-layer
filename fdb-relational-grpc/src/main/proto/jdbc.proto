@@ -36,17 +36,6 @@ service JDBCService {
   rpc update(StatementRequest) returns (StatementResponse) {}
 }
 
-/**
- * Message to carry a SQLException over rpc.
- */
-message SQLException {
-  string name = 1;
-  int32 error_code = 2;
-  string message = 3;
-  string sql_state = 4;
-  string cause = 5;
-}
-
 message StatementRequest {
   string sql = 1;
   string database = 2;

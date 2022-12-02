@@ -22,11 +22,9 @@ package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.SQLException;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 
-import com.google.protobuf.Any;
 import com.google.protobuf.TextFormat;
 import com.google.spanner.v1.ResultSet;
 import io.grpc.ManagedChannel;
@@ -113,16 +111,7 @@ public class RelationalServerTest {
         } catch (Throwable t) {
             com.google.rpc.Status status = StatusProto.fromThrowable(t);
             if (status != null) {
-                SQLException sqlException = null;
-                for (Any any : status.getDetailsList()) {
-                    if (!any.is(SQLException.class)) {
-                        continue;
-                    }
-                    sqlException = any.unpack(SQLException.class);
-                    break;
-                }
-                logger.severe(sqlException.getMessage());
-                logger.severe(t + ", " + TextFormat.shortDebugString(sqlException));
+                logger.severe(t + ", " + TextFormat.shortDebugString(status));
             }
             throw t;
         } finally {
