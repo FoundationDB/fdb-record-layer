@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -55,10 +56,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -68,7 +71,6 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -230,15 +232,24 @@ public class VersionIndexTest extends FDBTestBase {
         metaDataBuilder.addIndex("MySimpleRecord", maxEverVersionIndex);
     };
 
-    // Provide a combination of format versions relevant to versionstamps along with
-    // information as to whether large records are split
-    private static Stream<Arguments> formatVersionArguments() {
+    private static Stream<Integer> formatVersionsOfInterest() {
         return Stream.of(
                 FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1,
                 FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION,
                 FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION,
                 FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION
-        ).flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, true), Arguments.of(formatVersion, false)));
+        );
+    }
+
+    private static Stream<Integer> formatVersionsOfInterest(int minVersion) {
+        return formatVersionsOfInterest().filter(version -> version >= minVersion);
+    }
+
+    // Provide a combination of format versions relevant to versionstamps along with
+    // information as to whether large records are split
+    private static Stream<Arguments> formatVersionArguments() {
+        return formatVersionsOfInterest()
+                .flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, true), Arguments.of(formatVersion, false)));
     }
 
     // Provide a combination of format versions, split and a remote fetch option
@@ -423,7 +434,10 @@ public class VersionIndexTest extends FDBTestBase {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         hook.apply(metaDataBuilder);
 
-        FDBRecordContext context = fdb.openContext();
+        FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTimer(new FDBStoreTimer())
+                .build();
+        FDBRecordContext context = fdb.openContext(config);
         recordStore = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaDataBuilder)
                 .setContext(context)
@@ -1082,6 +1096,73 @@ public class VersionIndexTest extends FDBTestBase {
                         Tuple.from(43, FDBRecordVersion.complete(versionstamp, 0).toVersionstamp(), 1066L)),
                     scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN)
             );
+        }
+    }
+
+    @SuppressWarnings("unused") // used as parameter source for parameterized test
+    static Stream<Arguments> updateFormatVersionAndVersionStorage() {
+        return formatVersionsOfInterest().flatMap(firstFormatVersion ->
+                formatVersionsOfInterest(firstFormatVersion).flatMap(secondFormatVersion ->
+                        formatVersionsOfInterest(secondFormatVersion).flatMap(thirdFormatVersion ->
+                                Stream.of(false, true).map(testSplitLongRecords -> Arguments.of(firstFormatVersion, secondFormatVersion, thirdFormatVersion, testSplitLongRecords)))));
+    }
+
+    @ParameterizedTest(name = "updateFormatVersionAndVersionStorage[firstFormatVersion={0}, secondFormatVersion={1}, thirdFormatVersion={2}, splitLongRecords={2}]")
+    @MethodSource
+    public void updateFormatVersionAndVersionStorage(int firstFormatVersion, int secondFormatVersion, int thirdFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = firstFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final RecordMetaDataHook noVersionHook = metaDataBuilder -> {
+            simpleVersionHook.apply(metaDataBuilder);
+            metaDataBuilder.removeIndex("globalVersion");
+            metaDataBuilder.removeIndex("MySimpleRecord$num2-version");
+            metaDataBuilder.setStoreRecordVersions(false);
+        };
+
+        // Save records with versions
+        final MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066).setNumValue2(42).build();
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            recordStore.saveRecord(record1);
+            context.commit();
+        }
+
+        formatVersion = secondFormatVersion;
+
+        FDBRecordVersion version;
+        boolean inLegacyVersionSpace;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            version = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
+            assertNotNull(version);
+            inLegacyVersionSpace = context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext();
+            boolean shouldHaveVersionInOldSpace = (secondFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION)
+                    || (!testSplitLongRecords && firstFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION);
+            assertEquals(shouldHaveVersionInOldSpace, inLegacyVersionSpace);
+            context.commit();
+        }
+
+        formatVersion = thirdFormatVersion;
+
+        try (FDBRecordContext context = openContext(noVersionHook)) {
+            FDBRecordVersion newVersion = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
+            if (inLegacyVersionSpace) {
+                // We clear out the legacy version space if versions are removed, so this should be null
+                assertNull(newVersion);
+            } else {
+                // We leave the version if it's stored with the record
+                assertEquals(version, newVersion);
+            }
+            // There should be 4 range deletes per former index, plus 1 for the version space, if required.
+            // This assert may need to change if additional indexes subspaces are created
+            long rangeDeletes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
+            if (inLegacyVersionSpace) {
+                assertEquals(9L, rangeDeletes);
+            } else {
+                assertEquals(8L, rangeDeletes);
+            }
+            // The legacy version space should be empty now, either because it was deleted or because the version was
+            // never there
+            assertFalse(context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext());
         }
     }
 

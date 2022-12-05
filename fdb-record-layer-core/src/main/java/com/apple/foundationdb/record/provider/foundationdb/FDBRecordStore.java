@@ -331,10 +331,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private boolean useOldVersionFormat() {
+        return useOldVersionFormat(getFormatVersion(), omitUnsplitRecordSuffix);
+    }
+
+    private static boolean useOldVersionFormat(int formatVersion, boolean omitUnsplitRecordSuffix) {
         // If the store is either explicitly using the older format version or if
         // it is using a newer one, but because of how the data were originally stored
         // in this record store, then use the older location for record versions.
-        return getFormatVersion() < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION || omitUnsplitRecordSuffix;
+        return formatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION || omitUnsplitRecordSuffix;
     }
 
     /**
@@ -2042,11 +2046,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
                                                      @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
-        final boolean newStore = info.getFormatVersion() == 0;
-        final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         if (userVersionChecker == null) {
             return AsyncUtil.DONE;
         }
+        final boolean newStore = info.getFormatVersion() == 0;
+        final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         return userVersionChecker.checkUserVersion(storeHeader, metaDataProvider)
                 .thenApply(newUserVersion -> {
                     userVersion = newUserVersion;
@@ -3920,7 +3924,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean metaDataVersionChanged = oldMetaDataVersion != newMetaDataVersion;
         if (metaDataVersionChanged) {
             // Clear the version table if we are no longer storing record versions.
-            if (!metaData.isStoreRecordVersions()) {
+            // This can be skipped if the store is new (in which case there is no data), or if the old
+            // store did not use the old version format to store record versions
+            if (!metaData.isStoreRecordVersions() && !newStore
+                    && useOldVersionFormat(oldFormatVersion, omitUnsplitRecordSuffix)) {
                 final Transaction tr = ensureContextActive();
                 tr.clear(getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY)).range());
             }
