@@ -194,9 +194,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
-        return getChildren()
-                .stream().flatMap(k -> k.normalizeKeyForPositions().stream())
-                .collect(Collectors.toList());
+        List<KeyExpression> list = new ArrayList<>();
+        for (KeyExpression k : getChildren()) {
+            list.addAll(k.normalizeKeyForPositions());
+        }
+        return list;
     }
 
     @Override
