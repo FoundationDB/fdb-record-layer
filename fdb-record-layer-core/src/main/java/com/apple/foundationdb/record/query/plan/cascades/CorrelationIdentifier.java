@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -90,7 +91,7 @@ public class CorrelationIdentifier {
         final CorrelationIdentifier id =
                 Debugger.getIndexOptional(clazz)
                         .map(i -> CorrelationIdentifier.of(prefix + i))
-                        .orElseGet(() -> new CorrelationIdentifier(Type.uniqueCompliantTypeName()));
+                        .orElseGet(() -> new CorrelationIdentifier(ProtoUtils.uniqueCorrelationName()));
         Debugger.updateIndex(clazz, i -> i + 1);
         return id;
     }
