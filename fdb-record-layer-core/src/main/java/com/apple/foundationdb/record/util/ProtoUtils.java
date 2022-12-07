@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.util;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 
 /**
  * Utility functions for interacting with protobuf.
@@ -50,6 +48,6 @@ public class ProtoUtils {
 
     private static String uniqueName(String prefix) {
         final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
-        return "__type__" + safeUuid;
+        return prefix + safeUuid;
     }
 }
