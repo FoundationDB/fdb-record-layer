@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -301,15 +301,6 @@ public interface Type extends Narrowable<Type> {
         return typedList.stream()
                 .map(Typed::getResultType)
                 .collect(ImmutableList.toImmutableList());
-    }
-
-    /**
-     * Generates a JVM-wide unique type name.
-     * @return a unique type name.
-     */
-    static String uniqueCompliantTypeName() {
-        final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
-        return "__type__" + safeUuid;
     }
 
     /**
@@ -891,7 +882,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void defineProtoType(@Nonnull final TypeRepository.Builder typeRepositoryBuilder) {
             Verify.verify(!isErased());
-            final var typeName = name == null ? uniqueCompliantTypeName() : name;
+            final var typeName = name == null ? ProtoUtils.uniqueTypeName() : name;
             final var enumDescriptorProtoBuilder = DescriptorProtos.EnumDescriptorProto.newBuilder();
             enumDescriptorProtoBuilder.setName(typeName);
 
@@ -1222,7 +1213,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(fields);
-            final var typeName = name == null ? uniqueCompliantTypeName() : name;
+            final var typeName = name == null ? ProtoUtils.uniqueTypeName() : name;
             final var recordMsgBuilder = DescriptorProto.newBuilder();
             recordMsgBuilder.setName(typeName);
 
@@ -1812,7 +1803,7 @@ public interface Type extends Narrowable<Type> {
         @Override
         public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
             Objects.requireNonNull(elementType);
-            final var typeName = uniqueCompliantTypeName();
+            final var typeName = ProtoUtils.uniqueTypeName();
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
             if (isNullable && elementType.getTypeCode() != TypeCode.UNKNOWN) {
                 Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
