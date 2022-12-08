@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.RowArray;
@@ -32,6 +30,7 @@ import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -96,10 +95,7 @@ public class StandardQueryTests {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     public StandardQueryTests() {
-        if (Debugger.getDebugger() == null) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-        }
-        Debugger.setup();
+        Utils.enableCascadesDebugger();
     }
 
     @Test

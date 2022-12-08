@@ -21,8 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -75,10 +73,7 @@ public class PlanGenerationStackTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     public PlanGenerationStackTest() {
-        if (Debugger.getDebugger() == null) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-        }
-        Debugger.setup();
+        Utils.enableCascadesDebugger();
     }
 
     static class RandomQueryProvider implements ArgumentsProvider {

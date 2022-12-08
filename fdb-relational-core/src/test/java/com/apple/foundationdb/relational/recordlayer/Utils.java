@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -108,6 +110,13 @@ public final class Utils {
         }
 
         return result;
+    }
+
+    public static void enableCascadesDebugger() {
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
     }
 
     private Utils() {

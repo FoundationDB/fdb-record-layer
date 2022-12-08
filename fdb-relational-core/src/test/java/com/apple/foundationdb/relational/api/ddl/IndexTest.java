@@ -26,11 +26,10 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
@@ -57,10 +56,7 @@ import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED
 public class IndexTest {
     @BeforeAll
     public static void setup() {
-        if (Debugger.getDebugger() == null) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-        }
-        Debugger.setup();
+        Utils.enableCascadesDebugger();
     }
 
     private final PlanContext fakePlanContext;

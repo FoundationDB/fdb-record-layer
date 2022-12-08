@@ -33,7 +33,7 @@ public class YamlIntegrationTests {
     private static final Logger LOG = LogManager.getLogger(YamlIntegrationTests.class);
 
     public YamlIntegrationTests() {
-        if (Debugger.getDebugger() == null) {
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
         Debugger.setup();

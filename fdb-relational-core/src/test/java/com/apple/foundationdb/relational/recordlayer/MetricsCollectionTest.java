@@ -52,7 +52,6 @@ public class MetricsCollectionTest {
                 .containsKey("JNI_CALLS")
                 .containsKey("FETCHES")
                 .containsKey("BYTES_WRITTEN")
-                .containsKey("RANGE_DELETES")
                 .containsKey("RANGE_READS");
     }
 
