@@ -372,6 +372,22 @@ public class StandardQueryTests {
     }
 
     @Test
+    void selectWithContinuationBeginEndShouldFail() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+                insertRestaurantComplexRecord(statement, 42L, "rest1");
+                final String begin = "select * from RestaurantComplexRecord where rest_no > 40 with continuation null";
+                RelationalAssertions.assertThrowsSqlException( () -> statement.executeQuery(begin))
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation ''";
+                RelationalAssertions.assertThrowsSqlException( () -> statement.executeQuery(end))
+                        .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
+            }
+        }
+    }
+
+    @Test
     void testSelectWithIndexHint() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

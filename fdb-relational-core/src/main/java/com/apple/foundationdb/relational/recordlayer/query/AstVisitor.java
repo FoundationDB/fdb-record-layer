@@ -171,7 +171,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         if (ctx.CONTINUATION() != null) {
             final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
-            Assert.notNullUnchecked(continuationStr, "continuation can not be null.");
+            Assert.notNullUnchecked(continuationStr, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
+            Assert.thatUnchecked(!continuationStr.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
             Assert.thatUnchecked(parserContext.getOffset() == 0, "Offset cannot be specified with continuation.");
             return QueryPlan.LogicalQueryPlan.of(result, query, false, parserContext.getLimit(), parserContext.getOffset(),
                     Base64.getDecoder().decode(continuationStr));

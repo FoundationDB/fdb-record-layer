@@ -83,6 +83,7 @@ public enum ErrorCode {
 
     // Class 24 - Invalid Cursor State
     INVALID_CURSOR_STATE("24000"),
+    INVALID_CONTINUATION("24F00"),
 
     // Class 25 - Invalid Transaction State
     TRANSACTION_INACTIVE("25F01"),
