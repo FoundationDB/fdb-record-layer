@@ -42,7 +42,7 @@ public final class FDBRecordStoreProperties {
      * more efficient if the underlying FDB storage engine can more efficiently handle single-key clears.
      */
     public static final RecordLayerPropertyKey<Boolean> UNROLL_SINGLE_RECORD_DELETES = RecordLayerPropertyKey.booleanPropertyKey(
-            "com.apple.foundationdb.record.recordstore.unroll_single_record_deletes", false);
+            "com.apple.foundationdb.record.recordstore.unroll_single_record_deletes", true);
 
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");
