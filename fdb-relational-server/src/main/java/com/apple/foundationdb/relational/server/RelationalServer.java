@@ -55,6 +55,9 @@ import java.util.stream.Collectors;
  * Relational Server.
  * Hosts the JDBC GRPC Service.
  */
+// Logging? RL is slf4j, customers are log4j2, fdb is 'native' or none? log4j2? Can bridge to slf4j if needed (or have slf4j
+// bridge over to log4j2?)
+// Exceptions ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
 // TODO: Add remote 'safe' shutdown of server (or via signal?).
 // Revisit signal handling (to load config and to do 'safe' shutdown?)
 // It looks like CTRL-C is caught and we run the shutdown handler. What else is caught?
