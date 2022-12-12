@@ -15,7 +15,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Refactor ThenKeyExpression#normalizeKeyForPositions to reduce hotspot detected by removing stream() implementation to reduce new object creation [(Issue #1940)](https://github.com/FoundationDB/fdb-record-layer/issues/1940)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
