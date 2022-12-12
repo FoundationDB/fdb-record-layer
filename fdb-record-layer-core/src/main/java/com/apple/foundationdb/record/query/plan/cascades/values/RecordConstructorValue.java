@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -154,14 +155,14 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
      */
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
+    public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
                                     @Nonnull final Type fieldType,
                                     @Nullable final Object field) {
         if (field == null) {
             return null;
         }
 
-        if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
+        if (fieldType.isPrimitive()) {
             return field;
         }
 
@@ -176,6 +177,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 resultBuilder.add(Verify.verifyNotNull(deepCopyIfNeeded(typeRepository, elementType, object)));
             }
             return resultBuilder.build();
+        }
+
+        if (fieldType instanceof Type.Enum) {
+            var typeName = typeRepository.getProtoTypeName(fieldType);
+            return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 
         Verify.verify(fieldType instanceof Type.Record);
