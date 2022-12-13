@@ -51,6 +51,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -387,7 +388,7 @@ public final class ParserUtils {
             final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
             final var allAvailableRecordTypes = meldTableTypes(context.asDml().getRecordLayerSchemaTemplate());
             final Set<String> allAvailableRecordTypeNames = context.asDml().getScannableRecordTypeNames();
-            final Optional<Type> recordType = context.asDml().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable)t).getType());
+            final Optional<Type> recordType = context.asDml().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
             Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
@@ -482,8 +483,7 @@ public final class ParserUtils {
             case "BYTES":
                 type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
                 break;
-            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
-            {
+            default: { // assume it is a custom type, will fail in upper layers if the type can not be resolved.
                 // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
                 final var maybeFound = metadataBuilder.findType(typeString);
                 // if we can not find the type now, mark it, we will try to resolve it later on via a second pass.
@@ -497,7 +497,6 @@ public final class ParserUtils {
         } else {
             return type;
         }
-
 
     }
 

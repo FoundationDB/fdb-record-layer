@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 

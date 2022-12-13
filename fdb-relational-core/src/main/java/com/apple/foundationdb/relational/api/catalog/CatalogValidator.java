@@ -28,7 +28,6 @@ import javax.annotation.Nonnull;
 
 public final class CatalogValidator {
 
-
     // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
     public static void validateSchema(@Nonnull Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required

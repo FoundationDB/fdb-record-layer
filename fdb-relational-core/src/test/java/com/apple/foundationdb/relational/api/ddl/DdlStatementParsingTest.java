@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
+
 import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -129,7 +130,7 @@ public class DdlStatementParsingTest {
     @Nonnull
     private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
         Assertions.assertTrue(schemaTemplate instanceof RecordLayerSchemaTemplate);
-        final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate)schemaTemplate;
+        final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
         try {
             return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
         } catch (RelationalException e) {
@@ -357,7 +358,7 @@ public class DdlStatementParsingTest {
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
-                final var actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
+                final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -403,7 +404,7 @@ public class DdlStatementParsingTest {
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
+                RecordMetaDataProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
                 final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 

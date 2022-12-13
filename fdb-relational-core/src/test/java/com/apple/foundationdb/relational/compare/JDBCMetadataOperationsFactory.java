@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -83,7 +84,7 @@ public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory 
                     SchemaTemplate template = templateCatalog.loadTemplate(txn, templateId);
 
                     Assert.thatUnchecked(template instanceof RecordLayerSchemaTemplate);
-                    final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate)template;
+                    final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
                     final var fileDesc = recLayerSchemaTemplate.toRecordMetadata().getRecordsDescriptor();
                     Set<Descriptors.Descriptor> tableStructures = new HashSet<>();
                     for (Descriptors.Descriptor typeDesc : fileDesc.getMessageTypes()) {

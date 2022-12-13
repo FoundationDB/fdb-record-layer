@@ -61,14 +61,14 @@ public class SchemaSystemTable implements SystemTable {
     public RecordLayerTable getType() {
         return RecordLayerTable
                 .newBuilder()
-                    .setName(TABLE_NAME)
-                    .addColumn(RecordLayerColumn.newBuilder().setName(DATABASE_ID).setDataType(DataType.Primitives.STRING.type()).build())
-                    .addColumn(RecordLayerColumn.newBuilder().setName(SCHEMA_NAME).setDataType(DataType.Primitives.STRING.type()).build())
-                    .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
-                    .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
-                    .addColumn(RecordLayerColumn.newBuilder().setName(METADATA).setDataType(DataType.Primitives.BYTES.type()).build())
-                    .addPrimaryKeyPart(List.of(DATABASE_ID))
-                    .addPrimaryKeyPart(List.of(SCHEMA_NAME))
+                .setName(TABLE_NAME)
+                .addColumn(RecordLayerColumn.newBuilder().setName(DATABASE_ID).setDataType(DataType.Primitives.STRING.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(SCHEMA_NAME).setDataType(DataType.Primitives.STRING.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(METADATA).setDataType(DataType.Primitives.BYTES.type()).build())
+                .addPrimaryKeyPart(List.of(DATABASE_ID))
+                .addPrimaryKeyPart(List.of(SCHEMA_NAME))
                 .build();
     }
 

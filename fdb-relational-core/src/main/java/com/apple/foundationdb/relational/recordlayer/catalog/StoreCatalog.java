@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-
 import javax.annotation.Nonnull;
 import java.net.URI;
 

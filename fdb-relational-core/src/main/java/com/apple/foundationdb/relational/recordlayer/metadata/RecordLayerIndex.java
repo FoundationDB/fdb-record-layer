@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
 
-public class RecordLayerIndex implements Index  {
+public final class RecordLayerIndex implements Index  {
 
     @Nonnull
     private final String tableName;

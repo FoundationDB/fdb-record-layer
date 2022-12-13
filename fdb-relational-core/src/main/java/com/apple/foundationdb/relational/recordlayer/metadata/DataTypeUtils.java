@@ -24,11 +24,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -56,14 +58,14 @@ public class DataTypeUtils {
 
         switch (type.getTypeCode()) {
             case RECORD:
-                final var record = (Type.Record)type;
+                final var record = (Type.Record) type;
                 final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()))).collect(Collectors.toList());
                 return DataType.StructType.from(record.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : record.getName(), columns, record.isNullable());
             case ARRAY:
-                final var asArray = (Type.Array)type;
+                final var asArray = (Type.Array) type;
                 return DataType.ArrayType.from(toRelationalType(Assert.notNullUnchecked(asArray.getElementType())), asArray.isNullable());
             case ENUM:
-                final var asEnum = (Type.Enum)type;
+                final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(Type.Enum.EnumValue::getName).collect(Collectors.toList());
                 return DataType.EnumType.from(asEnum.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : asEnum.getName(), enumValues, asEnum.isNullable());
             default:
@@ -101,17 +103,17 @@ public class DataTypeUtils {
 
         switch (type.getCode()) {
             case STRUCT:
-                final var struct = (DataType.StructType)type;
+                final var struct = (DataType.StructType) type;
                 final var fields = struct.getFields().stream().map(field -> Type.Record.Field.of(DataTypeUtils.toRecordLayerType(field.getType()), Optional.of(field.getName()))).collect(Collectors.toList());
                 return Type.Record.fromFieldsWithName(struct.getName(), struct.isNullable(), fields);
             case ARRAY:
-                final var asArray = (DataType.ArrayType)type;
+                final var asArray = (DataType.ArrayType) type;
                 return new Type.Array(asArray.isNullable(), toRecordLayerType(asArray.getElementType()));
             case ENUM:
-                final var asEnum = (DataType.EnumType)type;
-                final var enumValues = new ArrayList<Type.Enum.EnumValue>(asEnum.getValues().size());
-                for (int i = 1; i <= asEnum.getValues().size(); ++i) {
-                    enumValues.add(new Type.Record.Enum.EnumValue(asEnum.getValues().get(i - 1), i));
+                final var asEnum = (DataType.EnumType) type;
+                final List<Type.Enum.EnumValue> enumValues = new ArrayList<>(asEnum.getValues().size());
+                for (int i = 1; i <= asEnum.getValues().size(); i++) {
+                    enumValues.add(new Type.Enum.EnumValue(asEnum.getValues().get(i - 1), i));
                 }
                 return new Type.Enum(asEnum.isNullable(), enumValues, asEnum.getName());
             case UNKNOWN:

@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;

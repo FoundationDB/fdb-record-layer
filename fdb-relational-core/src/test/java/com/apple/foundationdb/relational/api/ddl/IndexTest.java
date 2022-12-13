@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -66,7 +67,6 @@ public class IndexTest {
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
         final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1L).build();
-        final var schema = schemaTemplate.generateSchema("__SYS", "CATALOG");
         final var metadataProto = schemaTemplate.toRecordMetadata();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(metadataProto)
@@ -107,7 +107,7 @@ public class IndexTest {
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
-                final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex)index).getKeyExpression().toKeyExpression());
+                final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
                 Assertions.assertEquals(expectedKey, actualKey);
                 return txn -> {
                 };

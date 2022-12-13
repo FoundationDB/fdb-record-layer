@@ -62,6 +62,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -1199,7 +1200,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final String columnName = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.colName), String.class));
         boolean isNullable = true;
         if (ctx.columnConstraint() != null) {
-            isNullable = (Boolean)ctx.columnConstraint().accept(this);
+            isNullable = (Boolean) ctx.columnConstraint().accept(this);
             if (!isNullable) {
                 containsNonNullableArray = true;
             }

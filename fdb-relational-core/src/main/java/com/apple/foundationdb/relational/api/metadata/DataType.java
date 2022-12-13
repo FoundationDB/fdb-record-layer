@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api.metadata;
 
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.BiMap;
@@ -597,7 +598,7 @@ public abstract class DataType {
         @Override
         public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
             Assert.thatUnchecked(resolutionMap.containsKey(name), String.format("Could not find type '%s'", name));
-            return ((DataType)resolutionMap.get(name)).withNullable(isNullable());
+            return ((DataType) resolutionMap.get(name)).withNullable(isNullable());
         }
     }
 

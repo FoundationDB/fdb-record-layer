@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescript
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
@@ -44,7 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class RecordLayerSchemaTemplate implements SchemaTemplate {
+public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private final String name;
@@ -116,7 +117,7 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
         return iface.cast(this);
     }
 
-    public static class Builder {
+    public static final class Builder {
         private String name;
 
         private long version;
@@ -210,7 +211,7 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (auxiliaryTypes.containsKey(name)) {
-                return Optional.of((DataType)auxiliaryTypes.get(name));
+                return Optional.of((DataType) auxiliaryTypes.get(name));
             }
 
             return Optional.empty();
@@ -231,7 +232,7 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (!needsResolution) {
                 for (final var auxiliaryType : auxiliaryTypes.values()) {
-                    if (!((DataType)auxiliaryType).isResolved()) {
+                    if (!((DataType) auxiliaryType).isResolved()) {
                         needsResolution = true;
                         break;
                     }
@@ -252,7 +253,7 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
                 mapBuilder.put(table.getName(), table.getDatatype());
             }
             for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                mapBuilder.put(auxiliaryType.getKey(), (DataType)auxiliaryType.getValue());
+                mapBuilder.put(auxiliaryType.getKey(), (DataType) auxiliaryType.getValue());
             }
             final var namedTypes = mapBuilder.build();
 
@@ -262,7 +263,7 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
                 depsBuilder.put(table.getDatatype(), getDependencies(table.getDatatype(), namedTypes));
             }
             for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                depsBuilder.put((DataType)auxiliaryType.getValue(), getDependencies((DataType)auxiliaryType.getValue(), namedTypes));
+                depsBuilder.put((DataType) auxiliaryType.getValue(), getDependencies((DataType) auxiliaryType.getValue(), namedTypes));
             }
             final var deps = depsBuilder.build();
 
@@ -301,9 +302,9 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
             for (final var auxiliarytype : auxiliaryTypes.entrySet()) {
-                final var dataType = (DataType)auxiliarytype.getValue();
+                final var dataType = (DataType) auxiliarytype.getValue();
                 if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), (DataType.Named)((DataType)resolvedTypes.get(auxiliarytype.getKey())).withNullable(dataType.isNullable()));
+                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliarytype.getKey())).withNullable(dataType.isNullable()));
                 } else {
                     resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), auxiliarytype.getValue());
                 }
@@ -319,25 +320,25 @@ public class RecordLayerSchemaTemplate implements SchemaTemplate {
             //               moreover, this does not work with inlined types, but this is ok since we don't support them anyway.
             switch (dataType.getCode()) {
                 case ARRAY:
-                    return getDependencies(((DataType.ArrayType)dataType).getElementType(), types);
+                    return getDependencies(((DataType.ArrayType) dataType).getElementType(), types);
                 case STRUCT:
                     final var mapBuilder = ImmutableSet.<DataType>builder();
-                    for (final var field : ((DataType.StructType)dataType).getFields()) {
+                    for (final var field : ((DataType.StructType) dataType).getFields()) {
                         final var fieldType = field.getType();
                         if (fieldType instanceof DataType.Named) {
-                            final var depName = ((DataType.Named)fieldType).getName();
+                            final var depName = ((DataType.Named) fieldType).getName();
                             Assert.thatUnchecked(types.containsKey(depName), String.format("could not find type '%s'", depName));
                             mapBuilder.add(types.get(depName));
-                        } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType)fieldType).getElementType() instanceof DataType.Named) {
-                            final var asArray = (DataType.ArrayType)fieldType;
-                            final var depName = ((DataType.Named)asArray.getElementType()).getName();
+                        } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
+                            final var asArray = (DataType.ArrayType) fieldType;
+                            final var depName = ((DataType.Named) asArray.getElementType()).getName();
                             Assert.thatUnchecked(types.containsKey(depName), String.format("could not find type '%s'", depName));
                             mapBuilder.add(types.get(depName));
                         }
                     }
                     return mapBuilder.build();
                 case UNKNOWN:
-                    final var typeName = ((DataType.UnknownType)dataType).getName();
+                    final var typeName = ((DataType.UnknownType) dataType).getName();
                     Assert.thatUnchecked(types.containsKey(typeName), String.format("could not find type '%s'", typeName));
                     return Set.of(types.get(typeName));
                 default:

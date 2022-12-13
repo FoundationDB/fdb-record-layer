@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
@@ -69,7 +70,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull final Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
-        final var recordLayerTable = (RecordLayerTable)table;
+        final var recordLayerTable = (RecordLayerTable) table;
         final var type = recordLayerTable.getType();
         final var typeDescriptor = registerTypeDescriptors(type);
 

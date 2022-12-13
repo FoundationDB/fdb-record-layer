@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -131,7 +132,7 @@ public class RecordLayerSchema implements DatabaseSchema {
             }
         }
         Assert.notNullUnchecked(currentDescriptor, "Unknown type: <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
-        for (int i = 1; i < fieldAccessor.length; ++i) {
+        for (int i = 1; i < fieldAccessor.length; i++) {
             for (final var field : currentDescriptor.getFields()) {
                 if (field.getName().equals(fieldAccessor[i])) {
                     currentDescriptor = field.getMessageType();

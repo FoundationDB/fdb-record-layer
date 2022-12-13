@@ -53,7 +53,7 @@ public class PlanGenerationContext {
     @Nonnull
     public DMLContext pushDmlContext(@Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
         this.context = new DMLContext(context, recordLayerSchemaTemplate);
-        return (DMLContext)context;
+        return (DMLContext) context;
     }
 
     @Nonnull
@@ -82,7 +82,7 @@ public class PlanGenerationContext {
     public DDLContext asDdl() {
         Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DDLContext.class.getName()));
         if (context instanceof DDLContext) {
-            return (DDLContext)context;
+            return (DDLContext) context;
         }
         Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", context.getClass().getName(), DDLContext.class.getName()));
         return null; // make compiler happy.
@@ -93,13 +93,13 @@ public class PlanGenerationContext {
     public DMLContext asDml() {
         Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DMLContext.class.getName()));
         if (context instanceof DMLContext) {
-            return (DMLContext)context;
+            return (DMLContext) context;
         }
         Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", context.getClass().getName(), DMLContext.class.getName()));
         return null; // make compiler happy.
     }
 
-    public static class Builder {
+    public static final class Builder {
         private MetadataOperationsFactory metadataFactory;
 
         private Builder() {
@@ -192,7 +192,7 @@ public class PlanGenerationContext {
         }
     }
 
-    public static class DDLContext extends AbstractContext {
+    public static final class DDLContext extends AbstractContext {
 
         @Nonnull
         private final RecordLayerSchemaTemplate.Builder builder;

@@ -51,7 +51,6 @@ public class RecordLayerSchema implements Schema {
         this.schemaTemplate = schemaTemplate;
     }
 
-
     @Nonnull
     @Override
     public String getName() {

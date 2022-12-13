@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 

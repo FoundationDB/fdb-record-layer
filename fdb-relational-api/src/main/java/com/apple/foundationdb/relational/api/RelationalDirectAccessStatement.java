@@ -26,7 +26,6 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
-
 import java.util.List;
 
 public interface RelationalDirectAccessStatement extends AutoCloseable {

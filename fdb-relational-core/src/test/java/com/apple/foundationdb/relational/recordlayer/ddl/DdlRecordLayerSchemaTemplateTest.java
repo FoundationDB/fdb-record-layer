@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

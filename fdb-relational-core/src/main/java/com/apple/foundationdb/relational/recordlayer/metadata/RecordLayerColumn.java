@@ -53,7 +53,7 @@ public class RecordLayerColumn implements Column {
         return dataType;
     }
 
-    public static class Builder {
+    public static final class Builder {
         private String name;
         private DataType dataType;
 

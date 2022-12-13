@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -42,7 +43,7 @@ import java.util.stream.Collectors;
 /**
  * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
  */
-public class RecordLayerTable implements Table {
+public final class RecordLayerTable implements Table {
 
     @Nonnull
     private final String name;
@@ -159,7 +160,7 @@ public class RecordLayerTable implements Table {
 
     @Nonnull
     private Type.Record calculateRecordLayerType() {
-        return (Type.Record)DataTypeUtils.toRecordLayerType(getDatatype());
+        return (Type.Record) DataTypeUtils.toRecordLayerType(getDatatype());
     }
 
     @Nonnull
@@ -213,10 +214,10 @@ public class RecordLayerTable implements Table {
             return false;
         }
 
-        return this.getName().equals(((RecordLayerTable)obj).getName());
+        return this.getName().equals(((RecordLayerTable) obj).getName());
     }
 
-    public static class Builder {
+    public static final class Builder {
         private String name;
 
         @Nonnull

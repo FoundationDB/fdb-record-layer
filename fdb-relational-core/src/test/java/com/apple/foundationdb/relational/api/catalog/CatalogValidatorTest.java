@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +44,7 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetRecordLayerSchemaName() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_name field
-        RecordLayerSchema schemaWithUnsetRecordLayerSchemaName = (RecordLayerSchema)goodSchema.getSchemaTemplate().generateSchema(goodSchema.getDatabaseName(), null);
+        RecordLayerSchema schemaWithUnsetRecordLayerSchemaName = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(goodSchema.getDatabaseName(), null);
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
                 CatalogValidator.validateSchema(schemaWithUnsetRecordLayerSchemaName));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
@@ -54,7 +55,7 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetDatabaseId() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear database_id field
-        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
 
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badRecordLayerSchema);
@@ -65,9 +66,8 @@ public class CatalogValidatorTest {
 
     @Test
     void testValidateWithUnsetTemplateName() throws RelationalException {
-        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_template_name field
-        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)generateBadSchemaWithEmptySchemaTemplateName().getSchemaTemplate().generateSchema("foo", "bar");
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) generateBadSchemaWithEmptySchemaTemplateName().getSchemaTemplate().generateSchema("foo", "bar");
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badRecordLayerSchema);
         });
@@ -77,9 +77,8 @@ public class CatalogValidatorTest {
 
     @Test
     void testValidateWithUnsetVersion() throws RelationalException {
-        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_version field
-        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)generateBadSchemaWithWrongVersion().getSchemaTemplate().generateSchema("foo", "bar");
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) generateBadSchemaWithWrongVersion().getSchemaTemplate().generateSchema("foo", "bar");
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
             CatalogValidator.validateSchema(badRecordLayerSchema);
         });

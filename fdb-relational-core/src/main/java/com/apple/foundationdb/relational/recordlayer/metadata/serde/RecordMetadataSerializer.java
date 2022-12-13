@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -55,7 +56,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
-        final var recLayerTable = (RecordLayerTable)table;
+        final var recLayerTable = (RecordLayerTable) table;
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
         final RecordTypeBuilder recordType = getBuilder().getRecordType(table.getName());
         recordType.setRecordTypeKey(recordTypeCounter++);
@@ -66,9 +67,9 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
         getBuilder().addIndex(index.getTableName(), new Index(index.getName(),
-                ((RecordLayerIndex)index).getKeyExpression(),
+                ((RecordLayerIndex) index).getKeyExpression(),
                 index.getIndexType(),
-                Map.of(IndexOptions.UNIQUE_OPTION, Boolean.valueOf(index.isUnique()).toString())));
+                Map.of(IndexOptions.UNIQUE_OPTION, Boolean.toString(index.isUnique()))));
     }
 
     @Nonnull

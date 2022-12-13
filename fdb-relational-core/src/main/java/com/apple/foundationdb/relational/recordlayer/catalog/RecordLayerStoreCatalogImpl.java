@@ -63,6 +63,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
@@ -204,7 +205,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 ErrorCode.INTERNAL_ERROR);
         try {
             final var recordStore = openFDBRecordStore(txn);
-            saveSchema((RecordLayerSchema)schema, recordStore);
+            saveSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -273,7 +274,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public void saveSchemaTemplate(@Nonnull final Transaction txn,
                                    @Nonnull final SchemaTemplate schemaTemplate) throws RelationalException {
         try {
-            final var recordSchemaTemplate = (RecordLayerSchemaTemplate)schemaTemplate;
+            final var recordSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
             FDBRecordStore recordStore = openFDBRecordStore(txn);
             long lastVersion = 0L;
             try {

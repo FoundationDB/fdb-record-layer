@@ -129,7 +129,6 @@ class MessageTupleTest {
                         RecordLayerColumn.newBuilder().setName("WEIGHT").setDataType(DataType.Primitives.LONG.type()).build()))
                 .build();
 
-
         final var restaurant = RecordLayerTable.newBuilder()
                 .setName("RESTAURANT")
                 .addColumns(List.of(
