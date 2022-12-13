@@ -53,7 +53,6 @@ public class RecordConstructorValueTest {
         final var enumType = getCardsEnum();
         var type = Type.Record.fromFieldsWithName("simpleType", false, List.of(Type.Record.Field.of(enumType, Optional.of("suit"))));
         var repo = TypeRepository.newBuilder();
-        enumType.defineProtoType(repo);
         type.defineProtoType(repo);
 
         final var typeRepoSrc = repo.build();
@@ -97,7 +96,6 @@ public class RecordConstructorValueTest {
         var arrayType = new Type.Array(false, enumType);
         var type = Type.Record.fromFieldsWithName("simpleType", false, List.of(Type.Record.Field.of(arrayType, Optional.of("suits"))));
         var repo = TypeRepository.newBuilder();
-        enumType.defineProtoType(repo);
         arrayType.defineProtoType(repo);
         type.defineProtoType(repo);
 
@@ -128,7 +126,6 @@ public class RecordConstructorValueTest {
         final var enumType = getCardsEnum();
         var arrayType = new Type.Array(false, enumType);
         var repo = TypeRepository.newBuilder();
-        enumType.defineProtoType(repo);
         arrayType.defineProtoType(repo);
 
         final var typeRepoSrc = repo.build();

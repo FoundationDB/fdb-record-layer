@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -153,6 +154,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
      * @return an object that is either {@code field} if a copy could be avoided or a new copy of {@code field} whose
      *         constituent messages are {@link DynamicMessage}s based on dynamically-created descriptors.
      */
+    @VisibleForTesting
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
@@ -180,7 +182,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         }
 
         if (fieldType instanceof Type.Enum) {
-            var typeName = typeRepository.getProtoTypeName(fieldType);
+            final var typeName = typeRepository.getProtoTypeName(fieldType);
             return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 

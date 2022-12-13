@@ -268,7 +268,7 @@ public class MessageHelpers {
                     if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                         builder.addRepeatedField(targetField, deepCopyMessageIfNeeded(targetField.getMessageType(), (Message)element));
                     } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM) {
-                        var enumValue = ((Descriptors.EnumValueDescriptor) element).getName();
+                        final var enumValue = ((Descriptors.EnumValueDescriptor) element).getName();
                         builder.addRepeatedField(targetField, targetField.getEnumType().findValueByName(enumValue));
                     } else {
                         builder.addRepeatedField(targetField, element);
@@ -287,7 +287,7 @@ public class MessageHelpers {
                     builder.setField(targetField, mergedObject);
                 }
             } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM) {
-                var enumValue = ((Descriptors.EnumValueDescriptor) entry.getValue()).getName();
+                final var enumValue = ((Descriptors.EnumValueDescriptor) entry.getValue()).getName();
                 builder.setField(targetField, targetField.getEnumType().findValueByName(enumValue));
             } else {
                 builder.setField(targetField, entry.getValue());
