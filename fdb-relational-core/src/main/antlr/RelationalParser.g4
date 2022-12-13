@@ -318,10 +318,6 @@ selectStatement
         orderByClause? limitClause? lockClause?                     #unionParenthesisSelect // done (unsupported)
     ;
 
-updateStatement
-    : singleUpdateStatement | multipleUpdateStatement
-    ;
-
 // details
 
 insertStatementValue
@@ -387,16 +383,10 @@ handlerCloseStatement
     : HANDLER tableName CLOSE
     ;
 
-singleUpdateStatement
-    : UPDATE priority=LOW_PRIORITY? IGNORE? tableName (AS? uid)?
+updateStatement
+    : UPDATE tableName (AS? uid)?
       SET updatedElement (',' updatedElement)*
       (WHERE expression)? orderByClause? limitClause?
-    ;
-
-multipleUpdateStatement
-    : UPDATE priority=LOW_PRIORITY? IGNORE? tableSources
-      SET updatedElement (',' updatedElement)*
-      (WHERE expression)?
     ;
 
 // details
