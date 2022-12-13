@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -48,7 +48,7 @@ public interface RelationalDatabase extends AutoCloseable {
     DatabaseSchema loadSchema(@Nonnull String schemaId) throws RelationalException;
 
     @Nonnull
-    ConstantActionFactory getDdlFactory();
+    MetadataOperationsFactory getDdlFactory();
 
     @Override
     void close() throws RelationalException;

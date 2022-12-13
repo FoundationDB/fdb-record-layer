@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -56,7 +59,9 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
         RecordMetaData metaData = cachedMetaData;
         if (metaData == null) {
             try {
-                final RecordMetaDataProto.MetaData schema = storeCatalog.loadSchema(txn, dbUri, schemaName).getMetaData();
+                final var recLayerSchema = storeCatalog.loadSchema(txn, dbUri, schemaName);
+                Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
+                final RecordMetaDataProto.MetaData schema = recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto();
                 metaData = RecordMetaData.build(schema);
                 cachedMetaData = metaData;
             } catch (RelationalException e) {

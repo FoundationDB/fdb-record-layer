@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -46,6 +45,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -209,12 +209,27 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
         try {
             ensureTransactionActive();
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), typeName);
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
             return schema.getDataBuilder(schemaAndTable[1]);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    @Nonnull
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
+        try {
+            ensureTransactionActive();
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), maybeQualifiedTableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            final var typeAccessor = new java.util.ArrayList<>(List.of(schemaAndTable[1]));
+            typeAccessor.addAll(nestedFields);
+            return schema.getDataBuilder(String.join(".", typeAccessor));
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
@@ -383,6 +398,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         }
     }
 
+    // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
+    //               instead of this string processing since that is error-prone and somewhat very low-level.
     private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) throws RelationalException {
         String schema = schemaName;
         String tableN = tableName;

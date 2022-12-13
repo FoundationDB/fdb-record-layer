@@ -27,12 +27,13 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
+import java.util.List;
+
 
 /**
  * A Delegating statement whose job is just to catch Runtime exceptions that don't match our expected
@@ -103,9 +104,18 @@ public class ErrorCapturingStatement implements RelationalStatement {
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
         try {
-            return delegate.getDataBuilder(typeName);
+            return delegate.getDataBuilder(tableName);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
+        try {
+            return delegate.getDataBuilder(maybeQualifiedTableName, nestedFields);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }

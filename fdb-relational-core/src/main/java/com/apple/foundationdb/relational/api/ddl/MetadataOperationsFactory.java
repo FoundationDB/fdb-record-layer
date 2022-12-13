@@ -1,5 +1,5 @@
 /*
- * ConstantActionFactory.java
+ * MetadataOperationsFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,14 +21,13 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 
 @ThreadSafe
-public interface ConstantActionFactory {
+public interface MetadataOperationsFactory {
 
     @Nonnull
     ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);

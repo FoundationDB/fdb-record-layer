@@ -39,7 +39,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
@@ -114,7 +114,7 @@ public abstract class EmbeddedRelationalBenchmark {
             catalog = rlCatalog;
             SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
             RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
-            RecordLayerConstantActionFactory ddlFactory = new RecordLayerConstantActionFactory.Builder()
+            RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                     .setRlConfig(rlConfig)
                     .setBaseKeySpace(keySpace)
                     .setTemplateCatalog(templateCatalog)

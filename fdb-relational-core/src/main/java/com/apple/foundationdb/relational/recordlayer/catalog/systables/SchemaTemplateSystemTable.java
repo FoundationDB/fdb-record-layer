@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -42,18 +44,22 @@ public class SchemaTemplateSystemTable implements SystemTable {
     }
 
     @Override
-    public void addDefinition(@Nonnull final TypingContext typingContext) {
-        // construct the Index type.
-        typingContext.addType(getType());
+    public void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder) {
+        // construct the table type.
+        schemaBuilder.addTable(getType());
     }
 
     @Override
-    public TypingContext.TypeDefinition getType() {
-        final TypingContext.FieldDefinition templateNameField = new TypingContext.FieldDefinition(TEMPLATE_NAME, Type.TypeCode.STRING, null, false);
-        final TypingContext.FieldDefinition versionField = new TypingContext.FieldDefinition(TEMPLATE_VERSION, Type.TypeCode.LONG, null, false);
-        final TypingContext.FieldDefinition metadataField = new TypingContext.FieldDefinition(METADATA, Type.TypeCode.BYTES, null, false);
-        final List<List<String>> pkFields = List.of(List.of(TEMPLATE_NAME), List.of(TEMPLATE_VERSION));
-        return new TypingContext.TypeDefinition(TABLE_NAME, List.of(templateNameField, versionField, metadataField), true, pkFields);
+    public RecordLayerTable getType() {
+        return RecordLayerTable
+                .newBuilder()
+                .setName(TABLE_NAME)
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(METADATA).setDataType(DataType.Primitives.BYTES.type()).build())
+                .addPrimaryKeyPart(List.of(TEMPLATE_NAME))
+                .addPrimaryKeyPart(List.of(TEMPLATE_VERSION))
+                .build();
     }
 
     @Nonnull

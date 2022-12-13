@@ -195,7 +195,7 @@ public class TransactionBoundDatabaseWithEnumTest {
                                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName("Card")
-                                .setName("_Card")
+                                .setName("Card")
                                 .setNumber(1)
                         )
                 )

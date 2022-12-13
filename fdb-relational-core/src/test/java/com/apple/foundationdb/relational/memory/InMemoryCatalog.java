@@ -27,9 +27,10 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -51,7 +52,7 @@ public class InMemoryCatalog implements StoreCatalog {
             throw new RelationalException("No such database <" + databaseId + ">", ErrorCode.UNDEFINED_SCHEMA);
         }
         for (InMemorySchema schema : schemas) {
-            if (schema.schema.getSchemaName().equalsIgnoreCase(schemaName)) {
+            if (schema.schema.getName().equalsIgnoreCase(schemaName)) {
                 return schema.schema;
             }
         }
@@ -59,15 +60,14 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) {
-        final URI key = URI.create(dataToWrite.getDatabaseId());
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException {
+        final URI key = URI.create(dataToWrite.getDatabaseName());
         List<InMemorySchema> schemas = dbToSchemas.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()));
 
         for (InMemorySchema schema : schemas) {
-            if (schema.schema.getSchemaName().equalsIgnoreCase(dataToWrite.getSchemaName())) {
+            if (schema.schema.getName().equalsIgnoreCase(dataToWrite.getName())) {
                 schema.schema = dataToWrite;
                 schema.createTables();
-                return true;
             }
         }
 
@@ -76,7 +76,6 @@ public class InMemoryCatalog implements StoreCatalog {
         schem.schema = dataToWrite;
         schem.createTables();
         schemas.add(schem);
-        return true;
     }
 
     @Override
@@ -102,8 +101,8 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean updateSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) {
-        return false;
+    public void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) {
+        // no-op
     }
 
     @Override
@@ -137,7 +136,7 @@ public class InMemoryCatalog implements StoreCatalog {
 
     @Override
     public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) {
-        return doesDatabaseExist(txn, dbUri) && dbToSchemas.get(dbUri).stream().map(s -> s.schema.getSchemaName()).anyMatch(schemaName::equals);
+        return doesDatabaseExist(txn, dbUri) && dbToSchemas.get(dbUri).stream().map(s -> s.schema.getName()).anyMatch(schemaName::equals);
     }
 
     @Override
@@ -151,7 +150,7 @@ public class InMemoryCatalog implements StoreCatalog {
             throw new RelationalException("No such database <" + database.getPath() + ">", ErrorCode.UNKNOWN_TYPE);
         }
         for (InMemorySchema schema : inMemorySchemas) {
-            if (schema.schema.getSchemaName().equalsIgnoreCase(schemaName)) {
+            if (schema.schema.getName().equalsIgnoreCase(schemaName)) {
                 InMemoryTable tbl = schema.tables.get(tableName);
                 if (tbl == null) {
                     throw new RelationalException("No such table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
@@ -166,10 +165,11 @@ public class InMemoryCatalog implements StoreCatalog {
         Schema schema;
         private final Map<String, InMemoryTable> tables = new ConcurrentHashMap<>();
 
-        public void createTables() {
+        public void createTables() throws RelationalException {
             tables.clear();
 
-            final RecordMetaData recordMetaData = RecordMetaData.build(schema.getMetaData());
+            final RecordMetaData recordMetaData;
+            recordMetaData = RecordMetaData.build((schema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().getRecordsDescriptor()));
             for (Map.Entry<String, RecordType> typeEntry : recordMetaData.getRecordTypes().entrySet()) {
                 tables.put(typeEntry.getKey(), new InMemoryTable(typeEntry.getValue()));
             }

@@ -1,5 +1,5 @@
 /*
- * AbstractConstantActionFactory.java
+ * AbstractMetadataOperationsFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
@@ -32,41 +32,41 @@ import java.net.URI;
  * Skeleton implementation of a ConstantActionFactory.
  */
 @ExcludeFromJacocoGeneratedReport //excluded because it doesn't do anything by default, so there's nothing to test
-public abstract class AbstractConstantActionFactory implements ConstantActionFactory {
+public abstract class AbstractMetadataOperationsFactory implements MetadataOperationsFactory {
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaTemplateConstantAction(template, templateProperties);
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateSchemaTemplateConstantAction(template, templateProperties);
     }
 
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath,  @Nonnull Options constantActionOptions) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath,  constantActionOptions);
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath,  constantActionOptions);
     }
 
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(dbUri, schemaName, templateId, constantActionOptions);
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateSchemaConstantAction(dbUri, schemaName, templateId, constantActionOptions);
     }
 
     @Nonnull
     @Override
     public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return NoOpConstantActionFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
     }
 
     @Nonnull
     @Override
     public ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schema, @Nonnull Options options) {
-        return NoOpConstantActionFactory.INSTANCE.getDropSchemaConstantAction(dbPath, schema, options);
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropSchemaConstantAction(dbPath, schema, options);
     }
 
     @Nonnull
     @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
-        return NoOpConstantActionFactory.INSTANCE.getDropSchemaTemplateConstantAction(templateId, options);
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropSchemaTemplateConstantAction(templateId, options);
     }
 
 }

@@ -22,24 +22,27 @@ package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
+import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
 
 public final class CatalogValidator {
+
+
+    // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
     public static void validateSchema(@Nonnull Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required
-        if (schema.getSchemaName() == null || schema.getSchemaName().isEmpty()) {
+        if (schema.getName() == null || schema.getName().isEmpty()) {
             throw new RelationalException("Field schema_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
-        if (schema.getDatabaseId() == null || schema.getDatabaseId().isEmpty()) {
+        if (schema.getDatabaseName() == null || schema.getDatabaseName().isEmpty()) {
             throw new RelationalException("Field database_id in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
-        if (schema.getSchemaTemplateName() == null || schema.getSchemaTemplateName().isEmpty()) {
+        if (schema.getSchemaTemplate().getName() == null || schema.getSchemaTemplate().getName().isEmpty()) {
             throw new RelationalException("Field schema_template_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
         // if not set, default value for int fields is 0
-        if (schema.getTemplateVersion() <= 0) {
+        if (schema.getSchemaTemplate().getVersion() <= 0) {
             throw new RelationalException("Field schema_version in Schema must be set, and must be > 0!", ErrorCode.INVALID_PARAMETER);
         }
         // We are assuming that the RecordMetaData field has been validated by RecordLayer

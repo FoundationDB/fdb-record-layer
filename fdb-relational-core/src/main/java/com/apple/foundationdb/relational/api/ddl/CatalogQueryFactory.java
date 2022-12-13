@@ -26,9 +26,9 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -52,8 +52,8 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
             @Override
             @Nonnull
             public Type getResultSetMetadata() {
-                final List<String> fieldNames = SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).getType().getFields().stream()
-                        .map(TypingContext.FieldDefinition::getFieldName)
+                final List<String> fieldNames = SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).getType().getColumns().stream()
+                        .map(Metadata::getName)
                         .collect(Collectors.toList());
                 return DdlQuery.constructTypeFrom(fieldNames);
             }

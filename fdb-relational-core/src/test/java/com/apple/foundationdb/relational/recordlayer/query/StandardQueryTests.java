@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -527,18 +526,18 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
                         .setField("ID", 42L)
-                        .setField("C", statement.getDataBuilder("C")
-                                .setField("D", statement.getDataBuilder("D")
-                                        .setField("E", statement.getDataBuilder("E")
+                        .setField("C", statement.getDataBuilder("TBL1", List.of("C"))
+                                .setField("D", statement.getDataBuilder("TBL1", List.of("C", "D"))
+                                        .setField("E", statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
                                                 .setField("F", 128L)
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("A", statement.getDataBuilder("A")
-                                .setField("B", statement.getDataBuilder("B")
-                                        .setField("C", statement.getDataBuilder("C")
-                                                .setField("D", statement.getDataBuilder("D")
-                                                        .setField("E", statement.getDataBuilder("E")
+                        .setField("A", statement.getDataBuilder("TBL1", List.of("A"))
+                                .setField("B", statement.getDataBuilder("TBL1", List.of("A", "B"))
+                                        .setField("C", statement.getDataBuilder("TBL1", List.of("A", "B", "C"))
+                                                .setField("D", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D"))
+                                                        .setField("E", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D", "E"))
                                                                 .setField("F", 128L)
                                                                 .build())
                                                         .build())
@@ -556,7 +555,7 @@ public class StandardQueryTests {
                 }
                 Assertions.assertTrue(statement.execute("SELECT c.d.e FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    final Message expected = statement.getDataBuilder("E")
+                    final Message expected = statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
                             .setField("F", 128L)
                             .build();
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
@@ -579,19 +578,19 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
                         .setField("ID", 42L)
-                        .setField("C", statement.getDataBuilder("C")
-                                .setField("D", statement.getDataBuilder("D")
-                                        .setField("E", statement.getDataBuilder("E")
-                                                .addRepeatedFields("F", List.of(128L))
+                        .setField("C", statement.getDataBuilder("TBL1", List.of("C"))
+                                .setField("D", statement.getDataBuilder("TBL1", List.of("C", "D"))
+                                        .setField("E", statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
+                                                .addRepeatedFields("F", List.of(128L), true)
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("A", statement.getDataBuilder("A")
-                                .setField("B", statement.getDataBuilder("B")
-                                        .setField("C", statement.getDataBuilder("C")
-                                                .setField("D", statement.getDataBuilder("D")
-                                                        .setField("E", statement.getDataBuilder("E")
-                                                                .addRepeatedFields("F", List.of(128L))
+                        .setField("A", statement.getDataBuilder("TBL1", List.of("A"))
+                                .setField("B", statement.getDataBuilder("TBL1", List.of("A", "B"))
+                                        .setField("C", statement.getDataBuilder("TBL1", List.of("A", "B", "C"))
+                                                .setField("D", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D"))
+                                                        .setField("E", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D", "E"))
+                                                                .addRepeatedFields("F", List.of(128L), true)
                                                                 .build())
                                                         .build())
                                                 .build())
@@ -725,16 +724,16 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("CONVERSATIONS")
                         .setField("ID", 0L)
-                        .setField("OTHER_PARTY", statement.getDataBuilder("CONTACT_DETAIL")
+                        .setField("OTHER_PARTY", statement.getDataBuilder("CONVERSATIONS", List.of("OTHER_PARTY"))
                                 .setField("NAME", "Arnaud")
                                 .setField("PHONE_NUMBER", 12345)
                                 .setField("ADDRESS", "6 Part Road")
                                 .build())
-                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("MESSAGES")
+                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
                                 .setField("TEXT", "Hello there!")
                                 .setField("TIMESTAMP", 10000)
                                 .setField("SENT", true)
-                                .build(), statement.getDataBuilder("MESSAGES")
+                                .build(), statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
                                 .setField("TEXT", "Hi Scott!")
                                 .setField("TIMESTAMP", 20000)
                                 .setField("SENT", false)
@@ -745,16 +744,16 @@ public class StandardQueryTests {
 
                 final Message row2 = statement.getDataBuilder("CONVERSATIONS")
                         .setField("ID", 1L)
-                        .setField("OTHER_PARTY", statement.getDataBuilder("CONTACT_DETAIL")
+                        .setField("OTHER_PARTY", statement.getDataBuilder("CONVERSATIONS", List.of("OTHER_PARTY"))
                                 .setField("NAME", "Bri")
                                 .setField("PHONE_NUMBER", 9876543)
                                 .setField("ADDRESS", "10 Chancery Lane")
                                 .build())
-                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("MESSAGES")
+                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
                                 .setField("TEXT", "Hello there")
                                 .setField("TIMESTAMP", 30000)
                                 .setField("SENT", true)
-                                .build(), statement.getDataBuilder("MESSAGES")
+                                .build(), statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
                                 .setField("TEXT", "What a nice weather today!")
                                 .setField("TIMESTAMP", 40000)
                                 .setField("SENT", true)
@@ -864,19 +863,19 @@ public class StandardQueryTests {
         final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
                 .setField("REST_NO", recordNumber)
                 .setField("NAME", recordName)
-                .setField("LOCATION", s.getDataBuilder("LOCATION")
+                .setField("LOCATION", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("LOCATION"))
                         .setField("ADDRESS", "address")
                         .setField("LATITUDE", 1)
                         .setField("LONGITUDE", 1)
                         .build());
         if (containsNonNullableArray) {
             for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
+                recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
                         .setField("REVIEWER", review.getLeft())
                         .setField("RATING", review.getMiddle())
                         .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
                             try {
-                                return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
+                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
@@ -886,12 +885,12 @@ public class StandardQueryTests {
         } else {
             List<Message> reviewList = new LinkedList<>();
             for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                reviewList.add(s.getDataBuilder("RESTAURANTCOMPLEXREVIEW")
+                reviewList.add(s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
                         .setField("REVIEWER", review.getLeft())
                         .setField("RATING", review.getMiddle())
                         .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
                             try {
-                                return s.getDataBuilder("ReviewerEndorsements").setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
+                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
@@ -912,7 +911,7 @@ public class StandardQueryTests {
                 .setField("REST_NO", recordNumber)
                 .setField("NAME", recordName)
                 .setField("ENCODED_BYTES", ByteString.copyFrom(blob))
-                .setField("LOCATION", s.getDataBuilder("LOCATION")
+                .setField("LOCATION", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("LOCATION"))
                         .setField("ADDRESS", "address")
                         .build()).build();
 

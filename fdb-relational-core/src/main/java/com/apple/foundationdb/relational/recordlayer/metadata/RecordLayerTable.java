@@ -1,0 +1,316 @@
+/*
+ * RecordLayerTable.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer.metadata;
+
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.Visitor;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
+ */
+public class RecordLayerTable implements Table {
+
+    @Nonnull
+    private final String name;
+
+    @Nonnull
+    private final Collection<RecordLayerColumn> columns;
+
+    @Nonnull
+    private final Set<RecordLayerIndex> indexes;
+
+    @Nonnull
+    private final KeyExpression primaryKey;
+
+    @Nonnull
+    private final DataType.StructType dataType;
+
+    @Nonnull
+    private final Type.Record record;
+
+    private RecordLayerTable(@Nonnull final String name,
+                             @Nonnull final Collection<RecordLayerColumn> columns,
+                             @Nonnull final Set<RecordLayerIndex> indexes,
+                             @Nonnull final KeyExpression primaryKey) {
+        this.name = name;
+        this.columns = columns;
+        this.indexes = indexes;
+        this.primaryKey = primaryKey;
+        this.dataType = calculateDataType();
+        this.record = calculateRecordLayerType();
+    }
+
+    private RecordLayerTable(@Nonnull final String name,
+                             @Nonnull final Collection<RecordLayerColumn> columns,
+                             @Nonnull final Set<RecordLayerIndex> indexes,
+                             @Nonnull final KeyExpression primaryKey,
+                             @Nonnull final DataType.StructType dataType) {
+        this.name = name;
+        this.columns = columns;
+        this.indexes = indexes;
+        this.primaryKey = primaryKey;
+        this.dataType = dataType;
+        this.record = calculateRecordLayerType();
+    }
+
+    @Nonnull
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Nonnull
+    @Override
+    public Set<RecordLayerIndex> getIndexes() {
+        return indexes;
+    }
+
+    @Nonnull
+    @Override
+    public Collection<RecordLayerColumn> getColumns() {
+        return columns;
+    }
+
+    @Nonnull
+    public Type.Record getType() {
+        return record;
+    }
+
+    @Nonnull
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
+    }
+
+    @Nonnull
+    public static RecordLayerTable from(@Nonnull final DataType.StructType structType,
+                                        @Nonnull final KeyExpression primaryKey,
+                                        @Nonnull final Set<RecordLayerIndex> indexes) {
+        return new RecordLayerTable(structType.getName(), structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList()), indexes, primaryKey, structType);
+    }
+
+    @Nonnull
+    public static RecordLayerTable from(@Nonnull final Type.Record record,
+                                        @Nonnull final KeyExpression primaryKey,
+                                        @Nonnull final Set<RecordLayerIndex> indexes) {
+        final var relationalType = DataTypeUtils.toRelationalType(record);
+        Assert.thatUnchecked(relationalType instanceof DataType.StructType);
+        final var asStruct = (DataType.StructType) relationalType;
+        // todo (yhatem): we can avoid regenerating the corresponding record layer Record
+        //       when we know that the passed record matches _exactly_ the corresponding Relational type.
+        //       this could be achieved by checking whether the record has an explicit name and all of its
+        //       fields (recursively) have explicit names, this seems to be mostly equally expensive though.
+        return from(asStruct, primaryKey, indexes);
+    }
+
+    @Nonnull
+    public static RecordLayerTable from(@Nonnull final String name,
+                                        @Nonnull final Collection<RecordLayerColumn> columns,
+                                        @Nonnull final KeyExpression primaryKey,
+                                        @Nonnull final Set<RecordLayerIndex> indexes) {
+        return new RecordLayerTable(name, columns, indexes, primaryKey);
+    }
+
+    @Override
+    public void accept(@Nonnull final Visitor visitor) {
+        visitor.visit(this);
+
+        for (final var index : getIndexes()) {
+            index.accept(visitor);
+        }
+
+        for (final var column : getColumns()) {
+            column.accept(visitor);
+        }
+    }
+
+    @Nonnull
+    private Type.Record calculateRecordLayerType() {
+        return (Type.Record)DataTypeUtils.toRecordLayerType(getDatatype());
+    }
+
+    @Nonnull
+    private DataType.StructType calculateDataType() {
+        final var columnTypes = ImmutableList.<DataType.StructType.Field>builder();
+        for (final var column : columns) {
+            columnTypes.add(DataType.StructType.Field.from(column.getName(), column.getDataType()));
+        }
+        /*
+         * TODO (yhatem): note this is not entirely correct. Currently we're not setting nullable
+         *               fields with reference types correctly. I think we need to be more smart about how
+         *               we do this considering that we have two different ways of handling nulls in Relational
+         *               Record Layer and ProtoBuf.
+         *               consider the following example:
+         *                      CREATE STRUCT B ( x int64 )
+         *                      CREATE TABLE tbl1 (id int64, v1 B null, v2 B not null, PRIMARY KEY(id))
+         *               both Relational and RecordLayer will have two different types of the _same_ B since
+         *               in one case, it is nullable (as per v1) and in another case it is not nullable (as per v2)
+         *               If we, as we do today, serialize B into a single protobuf descriptor that is referenced
+         *               by _both_ v1 and v2, we lose the nullability information.
+         *               We could solve this problem by having _two_ descriptors of B in this case, this becomes possible
+         *               with the Relational metadata API because we use internal names for referencing types instead
+         *               of relying on the user-input type. i.e. we can create two protobuf descriptors for nullable
+         *               and not-nullable referencing versions of B.
+         *               I think this makes sense because nullablility is a property the participates in defining the
+         *               identity of the type.
+          */
+
+        return DataType.StructType.from(getName(), columnTypes.build(), true);
+    }
+
+    @Nonnull
+    @Override
+    public DataType.StructType getDatatype() {
+        return dataType;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getName());
+    }
+
+    // TODO (yhatem) this does not look right and will probably need refinement.
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (!(obj instanceof RecordLayerTable)) {
+            return false;
+        }
+
+        return this.getName().equals(((RecordLayerTable)obj).getName());
+    }
+
+    public static class Builder {
+        private String name;
+
+        @Nonnull
+        private Set<RecordLayerIndex> indexes;
+
+        @Nonnull
+        private ImmutableList.Builder<RecordLayerColumn> columns;
+
+        @Nonnull
+        private KeyExpression primaryKeyParts;
+
+        private Builder() {
+            this.indexes = new HashSet<>();
+            this.columns = ImmutableList.builder();
+            this.primaryKeyParts = Key.Expressions.recordType();
+        }
+
+        private Builder(@Nonnull final String name,
+                        @Nonnull final Collection<RecordLayerColumn> columns,
+                        @Nonnull final Collection<RecordLayerIndex> indexes,
+                        @Nonnull final KeyExpression primaryKeyParts) {
+            this.name = name;
+            this.columns = ImmutableList.<RecordLayerColumn>builder().addAll(columns);
+            this.indexes = new HashSet<>(indexes);
+            this.primaryKeyParts = primaryKeyParts;
+        }
+
+        @Nonnull
+        public Builder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        @Nonnull
+        public Builder addIndex(@Nonnull final RecordLayerIndex index) {
+            Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())), String.format("attempt to add duplicate index '%s'", index.getName()), ErrorCode.INDEX_ALREADY_EXISTS);
+            this.indexes.add(index);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPrimaryKeyPart(@Nonnull final List<String> primaryKeyPart) {
+            primaryKeyParts = Key.Expressions.concat(primaryKeyParts, toKeyExpression(primaryKeyPart));
+            return this;
+        }
+
+        @Nonnull
+        public Builder addColumn(@Nonnull final RecordLayerColumn column) {
+            columns.add(column);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addColumns(@Nonnull final Collection<RecordLayerColumn> columns) {
+            this.columns.addAll(columns);
+            return this;
+        }
+
+        @Nonnull
+        private static KeyExpression toKeyExpression(@Nonnull final List<String> fields) {
+            Assert.thatUnchecked(!fields.isEmpty());
+            return toKeyExpression(fields, 0);
+        }
+
+        @Nonnull
+        private static KeyExpression toKeyExpression(@Nonnull final List<String> fields, int i) {
+            Assert.thatUnchecked(0 <= i && i < fields.size());
+            if (i == fields.size() - 1) {
+                return Key.Expressions.field(fields.get(i));
+            }
+            return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
+        }
+
+        @Nonnull
+        public RecordLayerTable build() {
+            Assert.notNullUnchecked(name, "table name is not set");
+
+            final var columnsList = columns.build();
+
+            Assert.thatUnchecked(!columnsList.isEmpty(), "attempt to create table without columns");
+
+            final var indexesSet = ImmutableSet.copyOf(indexes);
+
+            return new RecordLayerTable(name, columnsList, indexesSet, primaryKeyParts);
+        }
+    }
+
+    @Nonnull
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    @Nonnull
+    public static Builder from(@Nonnull final RecordLayerTable table) {
+        return new Builder(table.getName(), table.getColumns(), table.getIndexes(), table.getPrimaryKey());
+    }
+}

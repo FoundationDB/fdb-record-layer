@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -45,6 +44,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class InMemoryRelationalStatement implements RelationalStatement {
@@ -145,16 +145,22 @@ public class InMemoryRelationalStatement implements RelationalStatement {
 
     @Nonnull
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
         try {
-            final InMemoryTable inMemoryTable = relationalConn.loadTable(typeName);
+            final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
             if (inMemoryTable == null) {
-                throw new RelationalException("Unknown table <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+                throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
             }
             return new ProtobufDataBuilder(inMemoryTable.getDescriptor());
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
+    }
+
+    @Nonnull
+    @Override
+    public DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
+        throw new RelationalException("not implemented", ErrorCode.INTERNAL_ERROR).toSqlException();
     }
 
     @Override

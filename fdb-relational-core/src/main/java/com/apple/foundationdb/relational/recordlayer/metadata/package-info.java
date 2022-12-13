@@ -1,5 +1,5 @@
 /*
- * IndexMetaData.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+/**
+ * Metadata artefacts in Relational backed by Record Layer APIs.
+ */
 
-public interface IndexMetaData {
-}
+package com.apple.foundationdb.relational.recordlayer.metadata;

@@ -68,7 +68,7 @@ public final class Utils {
 
     private static Message generateLocation(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("LOCATION")
+            return statement.getDataBuilder("RESTAURANT", List.of("LOCATION"))
                     .setField("ADDRESS", "addr" + r.nextInt())
                     .setField("LATITUDE", "lat" + r.nextInt())
                     .setField("LONGITUDE", "long" + r.nextInt())
@@ -80,7 +80,7 @@ public final class Utils {
 
     private static Message generateReview(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("RESTAURANT_REVIEW")
+            return statement.getDataBuilder("RESTAURANT", List.of("REVIEWS"))
                     .setField("RATING", r.nextInt(5))
                     .setField("REVIEWER", r.nextInt())
                     .build();
@@ -91,7 +91,7 @@ public final class Utils {
 
     private static Message generateTag(RelationalStatement statement) {
         try {
-            return statement.getDataBuilder("RESTAURANT_TAG")
+            return statement.getDataBuilder("RESTAURANT", List.of("TAGS"))
                     .setField("TAG", "tag" + r.nextInt())
                     .setField("WEIGHT", r.nextInt())
                     .build();

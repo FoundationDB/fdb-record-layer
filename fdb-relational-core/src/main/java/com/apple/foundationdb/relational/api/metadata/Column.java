@@ -1,5 +1,5 @@
 /*
- * DataType.java
+ * Column.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,11 +18,24 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.ddl;
+package com.apple.foundationdb.relational.api.metadata;
 
-public enum DataType {
-    STRING,
-    LONG,
-    DOUBLE,
-    MESSAGE
+import javax.annotation.Nonnull;
+
+/**
+ * Represents a Relational {@code Column} metadata being part of a {@link Table}.
+ */
+public interface Column extends Metadata {
+
+    /**
+     * Returns the {@link DataType} of the column.
+     *
+     * @return The {@link DataType} of the column.
+     */
+    DataType getDatatype();
+
+    @Override
+    default void accept(@Nonnull final Visitor visitor) {
+        visitor.visit(this);
+    }
 }

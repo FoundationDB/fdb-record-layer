@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
@@ -38,7 +38,7 @@ public final class PlanContext {
     @Nonnull
     private final RecordStoreState storeState;
     @Nonnull
-    private final ConstantActionFactory constantActionFactory;
+    private final MetadataOperationsFactory metadataOperationsFactory;
     @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
     @Nonnull
@@ -49,13 +49,17 @@ public final class PlanContext {
      *
      * @param metaData              The record store metadata.
      * @param storeState            The record store state.
-     * @param constantActionFactory The constant action factory used for DDL and metadata queries
+     * @param metadataOperationsFactory The constant action factory used for DDL and metadata queries
      * @param dbUri                 The URI of the database.
      **/
-    private PlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState storeState, @Nonnull ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) {
+    private PlanContext(@Nonnull final RecordMetaData metaData,
+                        @Nonnull final RecordStoreState storeState,
+                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                        @Nonnull final DdlQueryFactory ddlQueryFactory,
+                        @Nonnull final URI dbUri) {
         this.metaData = metaData;
         this.storeState = storeState;
-        this.constantActionFactory = constantActionFactory;
+        this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
     }
@@ -65,18 +69,22 @@ public final class PlanContext {
         return metaData;
     }
 
+    @Nonnull
     public RecordStoreState getStoreState() {
         return storeState;
     }
 
-    public ConstantActionFactory getConstantActionFactory() {
-        return constantActionFactory;
+    @Nonnull
+    public MetadataOperationsFactory getConstantActionFactory() {
+        return metadataOperationsFactory;
     }
 
+    @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
     }
 
+    @Nonnull
     public URI getDbUri() {
         return dbUri;
     }
@@ -87,7 +95,7 @@ public final class PlanContext {
 
         private RecordStoreState storeState;
 
-        private ConstantActionFactory constantActionFactory;
+        private MetadataOperationsFactory metadataOperationsFactory;
 
         private DdlQueryFactory ddlQueryFactory;
 
@@ -109,8 +117,8 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder withConstantActionFactory(@Nonnull final ConstantActionFactory constantActionFactory) {
-            this.constantActionFactory = constantActionFactory;
+        public Builder withConstantActionFactory(@Nonnull final MetadataOperationsFactory metadataOperationsFactory) {
+            this.metadataOperationsFactory = metadataOperationsFactory;
             return this;
         }
 
@@ -141,7 +149,7 @@ public final class PlanContext {
         private void verify() throws RelationalException {
             Assert.notNull(metaData);
             Assert.notNull(storeState);
-            Assert.notNull(constantActionFactory);
+            Assert.notNull(metadataOperationsFactory);
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);
         }
@@ -149,7 +157,7 @@ public final class PlanContext {
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, storeState, constantActionFactory, ddlQueryFactory, dbUri);
+            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri);
         }
 
         @Nonnull
@@ -158,7 +166,7 @@ public final class PlanContext {
         }
 
         public static Builder unapply(@Nonnull final PlanContext planContext) {
-            return create().withConstantActionFactory(planContext.constantActionFactory)
+            return create().withConstantActionFactory(planContext.metadataOperationsFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)

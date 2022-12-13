@@ -20,16 +20,17 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
-
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 
 public class CatalogValidatorTest {
@@ -39,26 +40,24 @@ public class CatalogValidatorTest {
     }
 
     @Test
-    void testValidateWithUnsetSchemaName() throws RelationalException {
-        Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetRecordLayerSchemaName() {
+        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_name field
-        Schema schemaWithUnsetSchemaName = new Schema(goodSchema.getDatabaseId(), null,
-                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), goodSchema.getTemplateVersion());
+        RecordLayerSchema schemaWithUnsetRecordLayerSchemaName = (RecordLayerSchema)goodSchema.getSchemaTemplate().generateSchema(goodSchema.getDatabaseName(), null);
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
-                CatalogValidator.validateSchema(schemaWithUnsetSchemaName));
+                CatalogValidator.validateSchema(schemaWithUnsetRecordLayerSchemaName));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_name in Schema must be set!", exception.getMessage());
     }
 
     @Test
-    void testValidateWithUnsetDatabaseId() throws RelationalException {
-        Schema goodSchema = generateGoodSchema();
+    void testValidateWithUnsetDatabaseId() {
+        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear database_id field
-        Schema badSchema = new Schema(null, goodSchema.getSchemaName(),
-                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), goodSchema.getTemplateVersion());
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
 
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badSchema);
+            CatalogValidator.validateSchema(badRecordLayerSchema);
         });
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field database_id in Schema must be set!", exception.getMessage());
@@ -66,12 +65,11 @@ public class CatalogValidatorTest {
 
     @Test
     void testValidateWithUnsetTemplateName() throws RelationalException {
-        Schema goodSchema = generateGoodSchema();
+        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_template_name field
-        Schema badSchema = new Schema(goodSchema.getDatabaseId(), goodSchema.getSchemaName(),
-                goodSchema.getMetaData(), null, goodSchema.getTemplateVersion());
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)generateBadSchemaWithEmptySchemaTemplateName().getSchemaTemplate().generateSchema("foo", "bar");
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badSchema);
+            CatalogValidator.validateSchema(badRecordLayerSchema);
         });
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_template_name in Schema must be set!", exception.getMessage());
@@ -79,25 +77,79 @@ public class CatalogValidatorTest {
 
     @Test
     void testValidateWithUnsetVersion() throws RelationalException {
-        Schema goodSchema = generateGoodSchema();
+        RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_version field
-        Schema badSchema = new Schema(goodSchema.getDatabaseId(), goodSchema.getSchemaName(),
-                goodSchema.getMetaData(), goodSchema.getSchemaTemplateName(), 0);
+        RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema)generateBadSchemaWithWrongVersion().getSchemaTemplate().generateSchema("foo", "bar");
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badSchema);
+            CatalogValidator.validateSchema(badRecordLayerSchema);
         });
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_version in Schema must be set, and must be > 0!", exception.getMessage());
     }
 
-    private Schema generateGoodSchema() throws RelationalException {
-        TypingContext ctx = TypingContext.create();
+    @Nonnull
+    private RecordLayerSchema generateGoodSchema() {
+        return RecordLayerSchemaTemplate
+                .newBuilder()
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder()
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("A")
+                                                .setDataType(DataType.Primitives.STRING.type())
+                                                .build())
+                                .setName("test_table")
+                                .addPrimaryKeyPart(List.of("A"))
+                                .build())
+                .setVersion(1L)
+                .setName("test_template")
+                .build()
+                .generateSchema("test_db", "test_schema");
+    }
 
-        TypingContext.FieldDefinition aField = new TypingContext.FieldDefinition("A", Type.TypeCode.STRING, null, false);
-        ctx.addType(new TypingContext.TypeDefinition("test_table", List.of(aField), true, List.of(List.of("A"))));
+    @Nonnull
+    private RecordLayerSchema generateBadSchemaWithWrongVersion() {
+        return RecordLayerSchemaTemplate
+                .newBuilder()
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder()
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("A")
+                                                .setDataType(DataType.Primitives.STRING.type())
+                                                .build())
+                                .setName("test_table")
+                                .addPrimaryKeyPart(List.of("A"))
+                                .build())
+                .setVersion(-42L)
+                .setName("test_template")
+                .build()
+                .generateSchema("test_db", "test_schema");
+    }
 
-        ctx.addAllToTypeRepository();
-        final SchemaTemplate template = ctx.generateSchemaTemplate("test_template", 1L);
-        return template.generateSchema("test_db", "test_schema");
+    @Nonnull
+    private RecordLayerSchema generateBadSchemaWithEmptySchemaTemplateName() {
+        return RecordLayerSchemaTemplate
+                .newBuilder()
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder()
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("A")
+                                                .setDataType(DataType.Primitives.STRING.type())
+                                                .build())
+                                .setName("test_table")
+                                .addPrimaryKeyPart(List.of("A"))
+                                .build())
+                .setVersion(1L)
+                .setName("")
+                .build()
+                .generateSchema("test_db", "test_schema");
     }
 }

@@ -1,5 +1,5 @@
 /*
- * NoOpConstantActionFactory.java
+ * NoOpMetadataOperationsFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,19 +23,19 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
-public final class NoOpConstantActionFactory implements ConstantActionFactory {
-    public static final NoOpConstantActionFactory INSTANCE = new NoOpConstantActionFactory();
+public final class NoOpMetadataOperationsFactory implements MetadataOperationsFactory {
+    public static final NoOpMetadataOperationsFactory INSTANCE = new NoOpMetadataOperationsFactory();
 
-    private NoOpConstantActionFactory() {
+    private NoOpMetadataOperationsFactory() {
     }
 
     @Nonnull

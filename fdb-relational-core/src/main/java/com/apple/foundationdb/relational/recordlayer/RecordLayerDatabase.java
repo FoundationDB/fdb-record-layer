@@ -32,7 +32,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
@@ -74,7 +74,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
      * @param storeCatalog          the catalog when we need to do catalog lookups
      * @param config                general RecordLayer configurations
      * @param dbPathPrefix          the path to the database that this represents
-     * @param constantActionFactory a factory for constant actions
+     * @param metadataOperationsFactory a factory for constant actions
      * @param ddlQueryFactory       a factory for DDL queries
      * @param defaultSchema         if not null, then a pre-validated schema to start all connections with.
      * @param options               any database-level options.
@@ -84,11 +84,11 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                StoreCatalog storeCatalog,
                                RecordLayerConfig config,
                                KeySpacePath dbPathPrefix,
-                               @Nonnull final ConstantActionFactory constantActionFactory,
+                               @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                @Nonnull final DdlQueryFactory ddlQueryFactory,
                                @Nullable String defaultSchema,
                                @Nonnull Options options) {
-        super(constantActionFactory, ddlQueryFactory);
+        super(metadataOperationsFactory, ddlQueryFactory);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;

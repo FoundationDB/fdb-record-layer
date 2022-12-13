@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -32,6 +31,12 @@ import java.util.Set;
 
 /**
  * Interface to hide away the annoying details of building a Dynamic Message from a descriptor.
+ *
+ * TODO (yhatem) if we want to keep using this API, we can now heavily simplify it, because we can easily deduce the
+ *               descriptor of a nested field using the fields _name_ instead of, somewhat incorrectly, using the
+ *               descriptor name (the struct reference), since that's an internal representation.
+ *               See usages of this this API in some tests such as {@code SimpleDirectAccessInsertionTests} for more
+ *               information.
  */
 @NotThreadSafe
 public interface DynamicMessageBuilder {

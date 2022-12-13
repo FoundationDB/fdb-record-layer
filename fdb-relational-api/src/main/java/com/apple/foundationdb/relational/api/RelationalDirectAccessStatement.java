@@ -27,6 +27,8 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 
+import java.util.List;
+
 public interface RelationalDirectAccessStatement extends AutoCloseable {
     /**
      * Execute a multi-row scan against the database, returning a {@link RelationalResultSet} containing
@@ -133,7 +135,34 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
 
     int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException;
 
-    DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException;
+    DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException;
+
+    /**
+     * Creates a {@link DynamicMessageBuilder} of a specific {@code Column} in a {@code Table}. For example, say we have
+     * the following DDL of a table:
+     *
+     * <code>
+     * CREATE STRUCT DESK_INFO(FLOOR STRING, ROW INT, COL INT);
+     * CREATE STRUCT EMPLOYEE(NAME STRING, DESK DESK_INFO);
+     * CREATE TABLE REPORTS( ID INT, MANAGER EMPLOYEE NOT NULL, MANAGED EMPLOYEE NULL, PRIMARY KEY(ID) );
+     * </code>
+     * We can retrieve a {@link DynamicMessageBuilder} of "DESK" field in {@code MANAGED} field of the table "REPORTS":
+     * <pre>
+     * <code>getDataBuilder("REPORTS", List.of("MANAGED", "DESK"))</code>
+     * </pre>
+     *
+     * Or, by prefixing the table name with the schema name, as in, e.g.:
+     * <pre>
+     * <code>getDataBuilder("SCHEMA.REPORTS", List.of("MANAGED", "DESK"))</code>
+     * </pre>
+     *
+     * @param maybeQualifiedTableName Table name, optionally with a qualifying schema name.
+     * @param nestedFields the (nested) field we want to retrieve the {@link DynamicMessageBuilder} of.
+     * @return A {@link DynamicMessageBuilder} of the field.
+     * @throws SQLException In case of error (e.g. failure to open a transaction).
+     */
+    @Nonnull
+    DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException;
 
     /**
      * Delete one or more records from the specified table, specified by key, if such records exist.

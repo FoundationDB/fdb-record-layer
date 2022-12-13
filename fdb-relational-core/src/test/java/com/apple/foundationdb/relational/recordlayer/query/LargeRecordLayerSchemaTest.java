@@ -1,5 +1,5 @@
 /*
- * LargeSchemaTest.java
+ * LargeRecordLayerSchemaTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -38,22 +38,22 @@ import java.sql.ResultSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class LargeSchemaTest {
+public class LargeRecordLayerSchemaTest {
 
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
-    public LargeSchemaTest() {
+    public LargeRecordLayerSchemaTest() {
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 10, 100, 1000})
     void canCreateColumns(int colCount) throws Exception {
         StringBuilder template = new StringBuilder("CREATE TABLE T1(");
-        template.append(IntStream.range(0, colCount).mapToObj(LargeSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
+        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
-        try (var ddl = Ddl.builder().database(LargeSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
+        try (var ddl = Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (var statement = conn.createStatement()) {
                     DynamicMessageBuilder toInsert = statement.getDataBuilder("T1");
@@ -77,10 +77,10 @@ public class LargeSchemaTest {
     void tooManyColumns() {
         int colCount = 10000;
         StringBuilder template = new StringBuilder("CREATE TABLE T1(");
-        template.append(IntStream.range(0, colCount).mapToObj(LargeSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
+        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
         RelationalAssertions.assertThrowsSqlException(() ->
-                Ddl.builder().database(LargeSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build())
+                Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build())
                 .hasErrorCode(ErrorCode.TOO_MANY_COLUMNS);
     }
 

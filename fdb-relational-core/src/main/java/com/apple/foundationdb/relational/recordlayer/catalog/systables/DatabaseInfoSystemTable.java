@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -45,14 +47,18 @@ public class DatabaseInfoSystemTable implements SystemTable {
     }
 
     @Override
-    public void addDefinition(@Nonnull final TypingContext typingContext) {
-        typingContext.addType(getType());
+    public void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder typingContext) {
+        typingContext.addTable(getType());
     }
 
     @Override
-    public TypingContext.TypeDefinition getType() {
-        final TypingContext.FieldDefinition f1 = new TypingContext.FieldDefinition(DATABASE_ID, Type.TypeCode.STRING, null, false);
-        return new TypingContext.TypeDefinition(getName(), List.of(f1), true, List.of(List.of(DATABASE_ID)));
+    public RecordLayerTable getType() {
+        return RecordLayerTable
+                .newBuilder()
+                    .setName(TABLE_NAME)
+                    .addColumn(RecordLayerColumn.newBuilder().setName(DATABASE_ID).setDataType(DataType.Primitives.STRING.type()).build())
+                    .addPrimaryKeyPart(List.of(DATABASE_ID))
+                .build();
     }
 
     @Nonnull

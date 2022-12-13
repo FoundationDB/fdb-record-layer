@@ -153,7 +153,6 @@ public class BasicMetadataTest {
             final var columnTypes = assertThat(rows).flatExtracting((Tuple t) -> t.getString(4));
             columnTypes.contains("INT64", atIndex(0));
             columnTypes.contains("STRING", atIndex(1));
-            columnTypes.contains("LOCATION", atIndex(2));
             columnTypes.contains("BYTES", atIndex(6));
             //the JDBC spec says this should be 1-indexed :( what a bummer
             assertThat(rows).flatExtracting((Tuple t) -> t.getLong(5)).isEqualTo(List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L));

@@ -1,5 +1,5 @@
 /*
- * DdlSchemaTest.java
+ * DdlRecordLayerSchemaTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -47,7 +47,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-public class DdlSchemaTest {
+public class DdlRecordLayerSchemaTest {
     @RegisterExtension
     @Order(0)
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
@@ -55,13 +55,13 @@ public class DdlSchemaTest {
     @RegisterExtension
     @Order(1)
     public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational,
-            DdlSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
+            DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
 
     @Test
     void canCreateSchema() throws Exception {

@@ -20,11 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -32,13 +30,12 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Metadata;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
-
-import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -65,22 +62,18 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final Schema schema = catalog.loadSchema(txn, dbId, schemaId);
 
-                List<String> tableNames = schema.getMetaData().getRecordTypesList().stream()
-                        .map(RecordMetaDataProto.RecordType::getName)
+                final List<String> tableNames = schema.getTables().stream().map(Metadata::getName)
                         .collect(Collectors.toList());
 
-                List<String> indexNames = schema.getMetaData().getIndexesList().stream()
-                        .map(RecordMetaDataProto.Index::getName)
+                final List<String> indexNames = schema.getTables().stream().flatMap(t -> t.getIndexes().stream()).map(Metadata::getName)
                         .collect(Collectors.toList());
 
-                Row tuple = new ArrayRow(new Object[]{
-                        schema.getDatabaseId(),
-                        schema.getSchemaName(),
+                final Row tuple = new ArrayRow(schema.getDatabaseName(),
+                        schema.getName(),
                         tableNames,
-                        indexNames,
-                });
+                        indexNames);
 
-                FieldDescription[] fields = new FieldDescription[]{
+                final FieldDescription[] fields = new FieldDescription[]{
                         FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, false),
                         FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, true),
                         FieldDescription.array("TABLES", true, new RelationalStructMetaData(FieldDescription.primitive("TABLE", Types.VARCHAR, false))),
@@ -98,22 +91,14 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             @Nonnull
             @Override
             public Type getResultSetMetadata() {
-                return DdlQuery.constructTypeFrom(List.of("TEMPLATE_NAME", "TYPES", "TABLES"));
+                return DdlQuery.constructTypeFrom(List.of("TEMPLATE_NAME", "TABLES"));
             }
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
 
-                FieldDescription[] typeDescription = new FieldDescription[]{
-                        FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("COLUMNS", false, new RelationalStructMetaData(
-                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
-                        ))
-                };
-
-                FieldDescription[] tableDescription = new FieldDescription[]{
+                final FieldDescription[] tableDescription = new FieldDescription[]{
                         FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
                         FieldDescription.array("COLUMNS", false, new RelationalStructMetaData(
                                 FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
@@ -121,38 +106,20 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                         ))
                 };
 
-                List<Row> typeRows = schemaTemplate.getTypes().stream()
-                        .map(typeInfo -> new ArrayRow(new Object[]{
-                                typeInfo.getTypeName(),
-                                typeInfo.getDescriptor().getFieldList().stream()
-                                        .map(fieldProto -> new ArrayRow(new Object[]{
-                                                fieldProto.getName(),
-                                                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.fromProtobufType(Descriptors.FieldDescriptor.Type.valueOf(fieldProto.getType())))
-                                        })).collect(Collectors.toList())
-                        }))
-                        .collect(Collectors.toList());
+                final List<Row> tableRows = schemaTemplate.getTables().stream()
+                        .map(tableInfo -> new ArrayRow(tableInfo.getName(),
+                                tableInfo.getColumns().stream()
+                                        .map(field -> new ArrayRow(field.getName(), field.getDatatype().getJdbcSqlCode()))
+                                        .collect(Collectors.toList()))).collect(Collectors.toList());
 
-                List<Row> tableRows = schemaTemplate.getTables().stream()
-                        .map(tableInfo -> new ArrayRow(new Object[]{
-                                tableInfo.getTableName(),
-                                tableInfo.toDescriptor().getFieldList().stream()
-                                        .map(field -> new ArrayRow(new Object[]{
-                                                field.getName(),
-                                                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.fromProtobufType(Descriptors.FieldDescriptor.Type.valueOf(field.getType())))
-                                        }))
-                                        .collect(Collectors.toList())
-                        })).collect(Collectors.toList());
-
-                Object[] fields = new Object[]{
-                        schemaTemplate.getUniqueId(),
-                        typeRows,
+                final Object[] fields = new Object[]{
+                        schemaTemplate.getName(),
                         tableRows
                 };
 
-                Row tuple = new ArrayRow(fields);
-                FieldDescription[] fieldDescriptions = new FieldDescription[]{
+                final Row tuple = new ArrayRow(fields);
+                final FieldDescription[] fieldDescriptions = new FieldDescription[]{
                         FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("TYPES", true, new RelationalStructMetaData(typeDescription)),
                         FieldDescription.array("TABLES", true, new RelationalStructMetaData(tableDescription))
                 };
                 return new IteratorResultSet(new RelationalStructMetaData(fieldDescriptions), Collections.singleton(tuple).iterator(), 0);

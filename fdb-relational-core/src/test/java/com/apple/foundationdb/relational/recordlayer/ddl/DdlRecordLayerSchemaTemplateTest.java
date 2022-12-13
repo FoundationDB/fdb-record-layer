@@ -1,5 +1,5 @@
 /*
- * DdlSchemaTemplateTest.java
+ * DdlRecordLayerSchemaTemplateTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,10 +33,10 @@ import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ import java.util.stream.Stream;
 /**
  * End-to-end unit tests for Schema Template language in the RecordLayer.
  */
-public class DdlSchemaTemplateTest {
+public class DdlRecordLayerSchemaTemplateTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
@@ -129,20 +129,10 @@ public class DdlSchemaTemplateTest {
                                 ))
                 );
                 Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
-                Collection<Row> expectedTypes = List.of(table.getPermutationAsRow("TYP"));
-                StructMetaData expectedTypeMetaData = new RelationalStructMetaData(
-                        FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("COLUMNS", false,
-                                new RelationalStructMetaData(
-                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
-                                ))
-                );
-                Array expectedTypesArr = new RowArray(expectedTypes, expectedTypeMetaData);
 
                 ResultSetAssert.assertThat(rs)
                         .hasNextRow()
-                        .hasRowExactly(table.getName(), expectedTypesArr, expectedTablesArr)
+                        .hasRowExactly(table.getName(), expectedTablesArr)
                         .hasNoNextRow();
             }
         });
@@ -224,12 +214,9 @@ public class DdlSchemaTemplateTest {
             statement.executeUpdate(template.toString());
             try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
                 ResultSetAssert.assertThat(resultSet).hasNextRow();
-                try (RelationalResultSet types = resultSet.getArray("TYPES").getResultSet()) {
-                    int count;
-                    for (count = 0; types.next(); count++) {
-                    }
-                    Assertions.assertEquals(100, count);
-                }
+                final var type = resultSet.getArray("TABLES").getResultSet();
+                Assert.that(type.next());
+                Assert.that(!type.next());
             }
         });
     }
@@ -241,7 +228,7 @@ public class DdlSchemaTemplateTest {
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INTERNAL_ERROR) // todo: this seems like it should be INVALID_SCHEMA_TEMPLATE
-                .hasMessageContaining("could not find type UNKNOWN_TYPE"));
+                .hasMessageContaining("could not find type 'UNKNOWN_TYPE'"));
     }
 
     @Test
@@ -260,81 +247,26 @@ public class DdlSchemaTemplateTest {
         });
     }
 
-    /**
-     * This appears to be a bug, as the DDL should not allow multiple types to share the same name
-     * in the same schema template. Filed TODO (DDL appears to allow creating multiple types with the same name).
-     * Once addressed, this test should be modified to reject the schema template.
-     *
-     * @throws RelationalException from calls under test
-     * @throws SQLException from calls under test
-     */
     @Test
     void twoTypesSameNameTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name " +
                 "CREATE TABLE t1 (id int64, foo string, PRIMARY KEY(id)) " +
                 "CREATE TABLE t1 (id int64, bar string, PRIMARY KEY(id))";
 
-        run(statement -> {
-            statement.executeUpdate(template);
-
-            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE same_name")) {
-                ResultSetAssert.assertThat(resultSet).hasNextRow();
-                try (RelationalResultSet tables = resultSet.getArray("TABLES").getResultSet()) {
-                    int count;
-                    for (count = 0; tables.next(); count++) {
-                        Assertions.assertEquals("T1", tables.getString("TABLE_NAME"));
-                        try (RelationalResultSet columns = tables.getArray("COLUMNS").getResultSet()) {
-                            while (columns.next()) {
-                                String columnName = columns.getString("COLUMN_NAME");
-                                // Only the first gets added because of how the .equals method on TypeDefinition
-                                // is written, which could be a bug
-                                Assertions.assertTrue("ID".equals(columnName) || "FOO".equals(columnName),
-                                        () -> String.format("unexpected column name %s", columnName));
-                            }
-                        }
-                    }
-                    Assertions.assertEquals(1, count);
-                }
-            }
-        });
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                .hasMessageContaining("table 'T1' already exists"));
     }
 
-    /**
-     * This should be disallowed like {@link #twoTypesSameNameTest()}. This appears to be the same problem as alluded
-     * to in TODO (DDL appears to allow creating multiple types with the same name).
-     *
-     * @throws RelationalException from calls under test
-     * @throws SQLException from calls under test
-     */
     @Test
     void twoTypesSameNameMixedCase() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name_mixed_case " +
                 "CREATE TABLE aTypeName (id int64, foo string, PRIMARY KEY(id)) " +
                 "CREATE TABLE AtYPEnAME (id int64, bar string, PRIMARY KEY(id))";
 
-        run(statement -> {
-            statement.executeUpdate(template);
-
-            try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE same_name_mixed_case")) {
-                ResultSetAssert.assertThat(resultSet).hasNextRow();
-                try (RelationalResultSet tables = resultSet.getArray("TABLES").getResultSet()) {
-                    int count;
-                    for (count = 0; tables.next(); count++) {
-                        Assertions.assertEquals("ATYPENAME", tables.getString("TABLE_NAME"));
-                        try (RelationalResultSet columns = tables.getArray("COLUMNS").getResultSet()) {
-                            while (columns.next()) {
-                                String columnName = columns.getString("COLUMN_NAME");
-                                // Only the first gets added because of how the .equals method on TypeDefinition
-                                // is written, which could be a bug
-                                Assertions.assertTrue("ID".equals(columnName) || "FOO".equals(columnName),
-                                        () -> String.format("unexpected column name %s", columnName));
-                            }
-                        }
-                    }
-                    Assertions.assertEquals(1, count);
-                }
-            }
-        });
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                .hasMessageContaining("table 'ATYPENAME' already exists"));
     }
 
     @Test
@@ -345,6 +277,6 @@ public class DdlSchemaTemplateTest {
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .hasMessageContaining("name FOO cannot be used for multiple types"));
+                .hasMessageContaining("a table with name 'FOO' already exists"));
     }
 }

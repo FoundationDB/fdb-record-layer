@@ -42,7 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nullable;
@@ -86,7 +86,7 @@ public class FRL implements AutoCloseable {
 
         SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
         RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
-        RecordLayerConstantActionFactory ddlFactory = new RecordLayerConstantActionFactory.Builder()
+        RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setRlConfig(rlConfig)
                 .setBaseKeySpace(keySpace)
                 .setTemplateCatalog(templateCatalog)

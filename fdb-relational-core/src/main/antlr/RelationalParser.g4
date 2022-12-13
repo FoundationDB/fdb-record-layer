@@ -117,7 +117,7 @@ templateClause
 
 createStatement
    : CREATE SCHEMA schemaId WITH TEMPLATE templateId                                                  #createSchemaStatement
-   | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+                            #createSchemaTemplateStatement
+   | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+                                         #createSchemaTemplateStatement
    | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
 

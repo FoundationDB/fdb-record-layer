@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.protobuf.Message;
 import io.grpc.StatusRuntimeException;
 
@@ -40,6 +39,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.Iterator;
+import java.util.List;
+
 
 class JDBCRelationalStatement implements RelationalStatement {
     private volatile boolean closed;
@@ -115,13 +116,13 @@ class JDBCRelationalStatement implements RelationalStatement {
     public void cancel() throws SQLException {
         // TODO: For now swallow until there is something to cancel.
     }
- 
+
     @Override
     public SQLWarning getWarnings() throws SQLException {
         // TODO: For now just return null.
         return null;
     }
- 
+
     @Override
     public void clearWarnings() throws SQLException {
         // TODO: For now, do nothing.
@@ -187,7 +188,15 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
+        return null;
+    }
+
+    @Override
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
+    @ExcludeFromJacocoGeneratedReport
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
         return null;
     }
 

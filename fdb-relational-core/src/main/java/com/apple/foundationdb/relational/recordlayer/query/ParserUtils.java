@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -43,14 +45,15 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
@@ -59,7 +62,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -75,6 +81,10 @@ import java.util.stream.Collectors;
 public final class ParserUtils {
 
     private static final Map<String, BuiltInFunction<? extends Value>> functionMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+    // used only to be passed to expression lambdas in Record Layer (to be removed).
+    @Nonnull
+    private static final TypeRepository.Builder emptyBuilder = TypeRepository.newBuilder();
 
     private ParserUtils() {
     }
@@ -181,30 +191,29 @@ public final class ParserUtils {
         return value;
     }
 
-    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
+    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
         Assert.thatUnchecked(!fieldPath.isEmpty());
-        final var isUnderlyingSelectWhere = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
+        final var isUnderlyingSelectWhere = currentScope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         if (isUnderlyingSelectWhere) {
-            return resolveFieldGroupedQuantifier(fieldPath, parserContext);
+            return resolveFieldGroupedQuantifier(fieldPath, currentScope);
         } else {
-            return resolveFieldSimpleQuantifier(fieldPath, parserContext);
+            return resolveFieldSimpleQuantifier(fieldPath, currentScope);
         }
     }
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
+    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
         Assert.thatUnchecked(!fieldPath.isEmpty());
-        final var scope = parserContext.getCurrentScope();
         FieldValue result = null;
         var fieldAccessors = toAccessors(fieldPath);
-        final var isResolvingAggregations = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
-        final var isResolvingSelectHaving = parserContext.getCurrentScope().isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
+        final var isResolvingAggregations = currentScope.isFlagSet(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
+        final var isResolvingSelectHaving = currentScope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
         final var fieldPathStr = String.join(".", fieldPath);
 
         // Try to resolve the field by looking into the visible part of the only quantifier we have.
-        Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
-        final var qun = scope.getForEachQuantifiers().get(0);
+        Assert.thatUnchecked(currentScope.getForEachQuantifiers().size() == 1);
+        final var qun = currentScope.getForEachQuantifiers().get(0);
         final var types = splitSelectWhereType(qun.getFlowedObjectType());
 
         // todo: check qualified columns.
@@ -245,7 +254,7 @@ public final class ParserUtils {
         // should be accepted since they are effectively constants within the subquery context:
         // select * from t where exists (select max(t.col1) from t2 group by t2.col2);
         {
-            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(scope);
+            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
             Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
             if (resolved.size() == 1) {
@@ -259,8 +268,7 @@ public final class ParserUtils {
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final ParserContext parserContext) {
-        final var scope = parserContext.getCurrentScope();
+    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
         final var fieldAccessors = toAccessors(fieldPath);
         final var fieldPathStr = String.join(".", fieldPath);
 
@@ -268,7 +276,7 @@ public final class ParserUtils {
         // precedence resolves potential ambiguity with similarly named fields in top levels, i.e. do not look for ambiguity issues
         // if we already find a matching field in current scope.
         {
-            final var resolved = resolveField(scope.getForEachQuantifiers(), fieldAccessors, fieldPath);
+            final var resolved = resolveField(currentScope.getForEachQuantifiers(), fieldAccessors, fieldPath);
             Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
             if (resolved.size() == 1) {
                 return resolved.get(0);
@@ -277,7 +285,7 @@ public final class ParserUtils {
 
         // We have not found the field in current scope, look into parent scopes for potential matches
         {
-            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(scope);
+            final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
             Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
             if (resolved.size() == 1) {
@@ -367,7 +375,8 @@ public final class ParserUtils {
             "can not deduce that control flow leads to exception")
     @Nonnull
     public static RelationalExpression quantifyOver(@Nonnull final QualifiedIdentifierValue identifierValue,
-                                                    @Nonnull final RelationalParserContext parserContext,
+                                                    @Nonnull final PlanGenerationContext context,
+                                                    @Nonnull final Scopes scopes,
                                                     @Nonnull final AccessHints accessHintSet) {
         Assert.thatUnchecked(identifierValue.getParts().length <= 2);
         Assert.thatUnchecked(identifierValue.getParts().length > 0);
@@ -376,16 +385,14 @@ public final class ParserUtils {
             final String recordTypeName = identifierValue.getParts()[0];
             Assert.notNullUnchecked(recordTypeName);
             final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
-            final Map<String, Descriptors.FieldDescriptor> allAvailableRecordTypes = parserContext.getScannabledRecordTypes();
-            final Set<String> allAvailableRecordTypeNames = parserContext.getScannableRecordTypeNames();
-            final Optional<Type> recordType = parserContext.getTypeRepositoryBuilder().getTypeByName(recordTypeName);
+            final var allAvailableRecordTypes = meldTableTypes(context.asDml().getRecordLayerSchemaTemplate());
+            final Set<String> allAvailableRecordTypeNames = context.asDml().getScannableRecordTypeNames();
+            final Optional<Type> recordType = context.asDml().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable)t).getType());
             Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             return new LogicalTypeFilterExpression(recordTypeNameSet,
-                    Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames,
-                            Type.Record.fromFieldDescriptorsMap(allAvailableRecordTypes),
-                            accessHintSet))),
+                    Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames, allAvailableRecordTypes, accessHintSet))),
                     recordType.get());
         } else {
             final String qualifier = identifierValue.getParts()[0];
@@ -393,7 +400,7 @@ public final class ParserUtils {
             final String recordTypeName = identifierValue.getParts()[1];
             Assert.notNullUnchecked(recordTypeName);
             // todo: check if the qualifier is actually a schema name
-            final var maybeQun = parserContext.resolveQuantifier(qualifier, true /* PartiQL semantics */);
+            final var maybeQun = scopes.resolveQuantifier(qualifier, true /* PartiQL semantics */);
             Assert.thatUnchecked(maybeQun.isPresent(), String.format("attempt to query field %s from non-existing qualifier %s", recordTypeName, qualifier)); // TODO (yhatem) proper error code.
             final var qun = maybeQun.get();
             final QuantifiedValue value = qun.getFlowedObjectValue();
@@ -431,7 +438,7 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static Type.TypeCode toProtoType(@Nonnull final String text) {
+    public static Type.TypeCode toRecordLayerType(@Nonnull final String text) {
         switch (text.toUpperCase(Locale.ROOT)) {
             case "STRING":
                 return Type.TypeCode.STRING;
@@ -445,9 +452,53 @@ public final class ParserUtils {
                 return Type.TypeCode.BOOLEAN;
             case "BYTES":
                 return Type.TypeCode.BYTES;
-            default:
+            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
                 return Type.TypeCode.RECORD;
         }
+    }
+
+    @Nonnull
+    public static DataType toRelationalType(@Nonnull final String typeString,
+                                          boolean isNullable,
+                                          boolean isRepeated,
+                                          @Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
+        DataType type = null;
+        switch (typeString.toUpperCase(Locale.ROOT)) {
+            case "STRING":
+                type = isNullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+                break;
+            case "INT32":
+                type = isNullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+                break;
+            case "INT64":
+                type = isNullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+                break;
+            case "DOUBLE":
+                type = isNullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+                break;
+            case "BOOLEAN":
+                type = isNullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+                break;
+            case "BYTES":
+                type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+                break;
+            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+            {
+                // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
+                final var maybeFound = metadataBuilder.findType(typeString);
+                // if we can not find the type now, mark it, we will try to resolve it later on via a second pass.
+                type = maybeFound.orElseGet(() -> DataType.UnknownType.of(typeString, isNullable));
+                break;
+            }
+        }
+
+        if (isRepeated) {
+            return DataType.ArrayType.from(type, isNullable);
+        } else {
+            return type;
+        }
+
+
     }
 
     public static boolean isProperDbUri(@Nonnull final String path) {
@@ -532,5 +583,40 @@ public final class ParserUtils {
             stringBuilder.append("^".repeat(Math.max(0, stop - start + 1)));
         }
         return stringBuilder.toString();
+    }
+
+    @Nonnull
+    public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<Typed> arguments) {
+        return function.encapsulate(emptyBuilder, arguments);
+    }
+
+    // TODO (yhatem) get rid of this method once we change the way we model having multiple record types in scan operator.
+    @Nonnull
+    public static Type.Record meldTableTypes(@Nonnull final RecordLayerSchemaTemplate schemaTemplate) {
+        // todo (yhatem): should be removed once this is addressed https://github.com/FoundationDB/fdb-record-layer/issues/1884
+        final var meldedFields = schemaTemplate.getTables()
+                .stream()
+                .sorted(Comparator.comparing(RecordLayerTable::getName))
+                .filter(Objects::nonNull)
+                .flatMap(table -> table.getType().getFields().stream())
+                .collect(
+                        Collectors.groupingBy(
+                                Type.Record.Field::getFieldName,
+                                LinkedHashMap::new,
+                                Collectors.reducing(
+                                        null,
+                                        (field1, field2) -> {
+                                            if (field1 == null) {
+                                                return field2;
+                                            }
+                                            if (field2 == null) {
+                                                return field1;
+                                            }
+                                            if (field1.getFieldType().getJavaClass().equals(field2.getFieldType().getJavaClass())) {
+                                                return field1;
+                                            }
+                                            throw new IllegalArgumentException("cannot form union type of two fields sharing the same name with different types");
+                                        })));
+        return Type.Record.fromFields(new ArrayList<>(meldedFields.values()));
     }
 }

@@ -32,11 +32,11 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -83,7 +83,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?
         try {
             final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
-            String schemaTemplateName = beforeSchema.getSchemaTemplateName();
+            String schemaTemplateName = beforeSchema.getSchemaTemplate().getName();
             throw new RelationalException("Schema " + schemaName + " already exists with mapping " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
         } catch (RelationalException ve) {
             if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
@@ -97,7 +97,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
         //insert the schema into the catalog
-        catalog.updateSchema(txn, schema);
+        catalog.saveSchema(txn, schema);
 
         //now create the FDBRecordStore
         KeySpacePath ksPath = KeySpaceUtils.uriToPath(dbUri, keySpace).add("schema", schemaName);

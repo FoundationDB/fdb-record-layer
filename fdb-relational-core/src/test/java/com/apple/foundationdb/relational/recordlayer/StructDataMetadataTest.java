@@ -1,5 +1,5 @@
 /*
- * StructDataTypeTest.java
+ * StructDataMetadataTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -45,7 +45,7 @@ import java.util.Set;
 /**
  * Tests around using Struct data types in Returned ResultSets.
  */
-public class StructDataTypeTest {
+public class StructDataMetadataTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
@@ -65,7 +65,7 @@ public class StructDataTypeTest {
      */
     @RegisterExtension
     @Order(0)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, StructDataTypeTest.class, TABLE_STRUCTURE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, StructDataMetadataTest.class, TABLE_STRUCTURE);
 
     @RegisterExtension
     @Order(2)
@@ -99,7 +99,7 @@ public class StructDataTypeTest {
         statement.executeInsert("NT", m);
 
         final DynamicMessageBuilder atBuilder = statement.getDataBuilder("AT");
-        final DynamicMessageBuilder st2Builder = statement.getDataBuilder("STRUCT_3");
+        final DynamicMessageBuilder st2Builder = statement.getDataBuilder("AT", List.of("ST2"));
         System.out.println("st2Builder:" + st2Builder.getDescriptor().toProto());
         m = atBuilder.setField("A_NAME", "a_test_rec")
                 .addRepeatedFields("ST2", List.of(st2Builder.setField("C", "Hello".getBytes(StandardCharsets.UTF_8))

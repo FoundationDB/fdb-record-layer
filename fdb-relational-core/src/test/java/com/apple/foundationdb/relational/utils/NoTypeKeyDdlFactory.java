@@ -23,39 +23,36 @@ package com.apple.foundationdb.relational.utils;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
-import com.apple.foundationdb.relational.recordlayer.ddl.SchemaTemplateDescriptor;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 
 public class NoTypeKeyDdlFactory {
-    public static RecordLayerConstantActionFactory.Builder newBuilder() {
-        return new RecordLayerConstantActionFactory.Builder() {
+    public static RecordLayerMetadataOperationsFactory.Builder newBuilder() {
+        return new RecordLayerMetadataOperationsFactory.Builder() {
             @Override
-            public RecordLayerConstantActionFactory build() {
-                return new RecordLayerConstantActionFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace) {
+            public RecordLayerMetadataOperationsFactory build() {
+                return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace) {
                     @Nonnull
                     @Override
                     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-                        LinkedHashSet<TableInfo> newTables = template.getTables().stream()
-                                .map(t -> new TableInfo(
-                                        t.getTableName(),
-                                        t.getPrimaryKey().getSubKey(1, t.getPrimaryKey().getColumnSize()),
-                                        t.getIndexes(),
-                                        t.toDescriptor()))
+                        Assert.thatUnchecked(template instanceof RecordLayerSchemaTemplate);
+                        final var recordLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
+                        final LinkedHashSet<RecordLayerTable> newTables = recordLayerSchemaTemplate.getTables().stream()
+                                .map(t -> RecordLayerTable.from(t.getType(), t.getPrimaryKey().getSubKey(1, t.getPrimaryKey().getColumnSize()), t.getIndexes()))
                                 .collect(Collectors.toCollection(LinkedHashSet::new));
-                        template = new SchemaTemplateDescriptor(
-                                template.getUniqueId(),
-                                newTables,
-                                template.getTypes(),
-                                Collections.emptySet(),
-                                template.getVersion()
-                        );
+                        template = RecordLayerSchemaTemplate
+                                .newBuilder()
+                                .setName(template.getName())
+                                .addTables(newTables)
+                                .setVersion(template.getVersion())
+                                .build();
                         return new CreateSchemaTemplateConstantAction(template, templateCatalog);
                     }
                 };

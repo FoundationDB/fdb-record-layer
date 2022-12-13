@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -35,6 +34,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
+import java.util.List;
+
 
 public class RelationalStatementRule implements BeforeEachCallback, AfterEachCallback, RelationalStatement {
     RelationalConnection connection;
@@ -67,8 +68,13 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     }
 
     @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String typeName) throws SQLException {
-        return statement.getDataBuilder(typeName);
+    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
+        return statement.getDataBuilder(tableName);
+    }
+
+    @Override
+    public DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
+        return statement.getDataBuilder(maybeQualifiedTableName, nestedFields);
     }
 
     @Override

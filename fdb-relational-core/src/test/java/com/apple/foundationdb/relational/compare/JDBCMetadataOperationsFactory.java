@@ -1,5 +1,5 @@
 /*
- * JDBCConstantActionFactory.java
+ * JDBCMetadataOperationsFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,11 +24,11 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -40,11 +40,11 @@ import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Set;
 
-public class JDBCConstantActionFactory implements ConstantActionFactory {
+public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory {
     private final SchemaTemplateCatalog templateCatalog;
     private final RelationalCatalog relationalCatalog;
 
-    public JDBCConstantActionFactory(SchemaTemplateCatalog templateCatalog, RelationalCatalog relationalCatalog) {
+    public JDBCMetadataOperationsFactory(SchemaTemplateCatalog templateCatalog, RelationalCatalog relationalCatalog) {
         this.templateCatalog = templateCatalog;
         this.relationalCatalog = relationalCatalog;
     }
@@ -52,7 +52,7 @@ public class JDBCConstantActionFactory implements ConstantActionFactory {
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return txn -> templateCatalog.updateTemplate(txn, template.getUniqueId(), template);
+        return txn -> templateCatalog.updateTemplate(txn, template.getName(), template);
     }
 
     @Nonnull
@@ -81,10 +81,10 @@ public class JDBCConstantActionFactory implements ConstantActionFactory {
             try (Connection sqlConn = getConnection(dbUri)) {
                 try (Statement s = sqlConn.createStatement()) {
                     SchemaTemplate template = templateCatalog.loadTemplate(txn, templateId);
-                    final DescriptorProtos.FileDescriptorProto fdProto = template.toProtobufDescriptor();
-                    Descriptors.FileDescriptor fileDesc = Descriptors.FileDescriptor.buildFrom(fdProto,
-                            new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
 
+                    Assert.thatUnchecked(template instanceof RecordLayerSchemaTemplate);
+                    final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate)template;
+                    final var fileDesc = recLayerSchemaTemplate.toRecordMetadata().getRecordsDescriptor();
                     Set<Descriptors.Descriptor> tableStructures = new HashSet<>();
                     for (Descriptors.Descriptor typeDesc : fileDesc.getMessageTypes()) {
                         final RecordMetaDataOptionsProto.RecordTypeOptions extension = typeDesc.getOptions().getExtension(RecordMetaDataOptionsProto.record);
@@ -102,7 +102,7 @@ public class JDBCConstantActionFactory implements ConstantActionFactory {
                     relationalCatalog.createTables(s);
 
                 }
-            } catch (SQLException | Descriptors.DescriptorValidationException e) {
+            } catch (SQLException e) {
                 throw ExceptionUtil.toRelationalException(e);
             }
         };

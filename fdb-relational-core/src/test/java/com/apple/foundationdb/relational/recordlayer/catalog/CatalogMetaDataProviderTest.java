@@ -23,14 +23,17 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.utils.DescriptorAssert;
 
 import com.google.protobuf.Descriptors;
@@ -38,7 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.util.List;
 
 /**
  * Tests around the StoreCatalogMetaData provider logic. The intent here is to test that
@@ -65,19 +67,19 @@ class CatalogMetaDataProviderTest {
         URI dbUri = URI.create("/testdb");
         String schemaName = "TEST_SCHEMA" + System.currentTimeMillis();
 
-        SchemaTemplate schemaTemplate = createSchemaTemplate();
+        RecordLayerSchemaTemplate schemaTemplate = createSchemaTemplate();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
             catalog.createDatabase(txn, dbUri);
-            catalog.updateSchema(txn, schema);
+            catalog.saveSchema(txn, schema);
 
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn);
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
             final Descriptors.FileDescriptor descriptor = recordMetaData.getRecordsDescriptor();
 
             Descriptors.FileDescriptor expected = Descriptors.FileDescriptor.buildFrom(
-                    schemaTemplate.toProtobufDescriptor(),
+                    schemaTemplate.toRecordMetadata().getRecordsDescriptor().toProto(), // not sure this is correct
                     new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
 
             for (Descriptors.Descriptor message : descriptor.getMessageTypes()) {
@@ -87,15 +89,22 @@ class CatalogMetaDataProviderTest {
         }
     }
 
-    private SchemaTemplate createSchemaTemplate() throws RelationalException {
-        TypingContext.FieldDefinition fieldDefinition = new TypingContext.FieldDefinition("col1", Type.TypeCode.STRING, "RESTAURANT", false);
-
-        TypingContext.TypeDefinition typeDefinition = new TypingContext.TypeDefinition("RESTAURANT", List.of(fieldDefinition), true, List.of(List.of("col1")));
-
-        TypingContext typingContext = TypingContext.create();
-        typingContext.addType(typeDefinition);
-        typingContext.addAllToTypeRepository();
-
-        return typingContext.generateSchemaTemplate("testTemplate", 1L);
+    private RecordLayerSchemaTemplate createSchemaTemplate() throws RelationalException {
+        return RecordLayerSchemaTemplate
+                .newBuilder()
+                .addTable(
+                        RecordLayerTable
+                                .newBuilder()
+                                .addColumn(
+                                        RecordLayerColumn
+                                                .newBuilder()
+                                                .setName("col1")
+                                                .setDataType(DataType.Primitives.STRING.type())
+                                                .build())
+                                .setName("RESTAURANT")
+                                .build())
+                .setVersion(1L)
+                .setName("testTemplate")
+                .build();
     }
 }

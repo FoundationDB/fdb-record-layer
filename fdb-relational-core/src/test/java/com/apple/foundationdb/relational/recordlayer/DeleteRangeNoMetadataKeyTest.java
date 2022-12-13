@@ -1,5 +1,5 @@
 /*
- * DeleteRangeNoTypeKeyTest.java
+ * DeleteRangeNoMetadataKeyTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -44,7 +44,7 @@ import java.util.List;
 /**
  * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
  */
-public class DeleteRangeNoTypeKeyTest {
+public class DeleteRangeNoMetadataKeyTest {
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
 
     @RegisterExtension
@@ -53,7 +53,7 @@ public class DeleteRangeNoTypeKeyTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoTypeKeyTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)

@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatal
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -44,16 +44,16 @@ import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
     private final Supplier<KeySpace> keySpaceSupplier;
-    private final Supplier<RecordLayerConstantActionFactory.Builder> ddlFactoryBuilder;
+    private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
 
     public EmbeddedRelationalExtension() {
         this.keySpaceSupplier = this::createNewKeySpace;
-        this.ddlFactoryBuilder = RecordLayerConstantActionFactory::defaultFactory;
+        this.ddlFactoryBuilder = RecordLayerMetadataOperationsFactory::defaultFactory;
     }
 
-    public EmbeddedRelationalExtension(Supplier<RecordLayerConstantActionFactory.Builder> ddlFactory) {
+    public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
         this.keySpaceSupplier = this::createNewKeySpace;
         this.ddlFactoryBuilder = ddlFactory;
     }
@@ -89,7 +89,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         final KeySpace keySpace = keySpaceSupplier.get();
         RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
         SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-        RecordLayerConstantActionFactory ddlFactory = ddlFactoryBuilder.get()
+        RecordLayerMetadataOperationsFactory ddlFactory = ddlFactoryBuilder.get()
                 .setBaseKeySpace(keySpace)
                 .setRlConfig(rlCfg)
                 .setStoreCatalog(schemaCatalog)

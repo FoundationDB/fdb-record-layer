@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
-
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -53,6 +54,29 @@ public final class NullableArrayUtils {
 
     public static boolean isWrappedArrayDescriptor(@Nonnull final Descriptors.Descriptor descriptor) {
         return descriptor.getFields().size() == 1 && REPEATED_FIELD_NAME.equals(descriptor.getFields().get(0).getName()) && descriptor.findFieldByName(REPEATED_FIELD_NAME).isRepeated();
+    }
+
+
+    /**
+     * Adds the wrapped array structure in key expressions if the schema doesn't contain non-nullable array.
+     * For example, reviews.rating will change to reviews.values.rating
+     * @param keyExpression The key expression to modify.
+     * @param record The record of the table.
+     * @param containsNonNullableArray true if nullable arrays are to be found, otherwise false.
+     * @return modified key expression where any nullable array is wrapped.
+     *
+     * TODO Add the wrapped array structure for nullable arrays.
+     */
+    public static RecordMetaDataProto.KeyExpression wrapArray(RecordMetaDataProto.KeyExpression keyExpression,
+                                                              final Type.Record record,
+                                                              boolean containsNonNullableArray) {
+        if (containsNonNullableArray) {
+            return keyExpression;
+        }
+        final var typeRepositoryBuilder = TypeRepository.newBuilder();
+        record.defineProtoType(typeRepositoryBuilder);
+        final var parentDescriptor = typeRepositoryBuilder.build().getMessageDescriptor(record);
+        return wrapArray(keyExpression, parentDescriptor, containsNonNullableArray);
     }
 
     /*

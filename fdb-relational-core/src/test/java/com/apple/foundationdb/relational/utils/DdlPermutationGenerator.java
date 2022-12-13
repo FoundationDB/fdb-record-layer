@@ -68,7 +68,7 @@ public final class DdlPermutationGenerator {
             List<Row> rows = new ArrayList<>();
             int colNum = 0;
             for (String col : columnTypes) {
-                int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toProtoType(col));
+                int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toRecordLayerType(col));
                 rows.add(new ArrayRow("COL" + colNum, typeCode));
                 colNum++;
             }

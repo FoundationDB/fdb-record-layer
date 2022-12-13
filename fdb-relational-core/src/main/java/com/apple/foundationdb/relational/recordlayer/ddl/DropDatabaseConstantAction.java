@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
@@ -37,15 +37,15 @@ public class DropDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
     private final Options options;
     private final StoreCatalog catalog;
-    private final ConstantActionFactory constantActionFactory;
+    private final MetadataOperationsFactory metadataOperationsFactory;
 
     public DropDatabaseConstantAction(URI dbUrl,
                                       StoreCatalog catalog,
-                                      ConstantActionFactory constantActionFactory,
+                                      MetadataOperationsFactory metadataOperationsFactory,
                                       Options options) {
         this.dbUrl = dbUrl;
         this.options = options;
-        this.constantActionFactory = constantActionFactory;
+        this.metadataOperationsFactory = metadataOperationsFactory;
         this.catalog = catalog;
     }
 
@@ -58,7 +58,7 @@ public class DropDatabaseConstantAction implements ConstantAction {
         try (RelationalResultSet schemas = catalog.listSchemas(txn, dbUrl, Continuation.BEGIN)) {
             while (schemas.next()) {
                 String schemaName = schemas.getString("SCHEMA_NAME");
-                constantActionFactory.getDropSchemaConstantAction(dbUrl, schemaName, options).execute(txn);
+                metadataOperationsFactory.getDropSchemaConstantAction(dbUrl, schemaName, options).execute(txn);
             }
         } catch (SQLException se) {
             ErrorCode ec = ErrorCode.get(se.getSQLState());

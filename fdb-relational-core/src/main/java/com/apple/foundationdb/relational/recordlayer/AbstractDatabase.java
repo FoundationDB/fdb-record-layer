@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -36,7 +36,7 @@ import java.util.Map;
 public abstract class AbstractDatabase implements RelationalDatabase {
 
     @Nonnull
-    private final ConstantActionFactory constantActionFactory;
+    private final MetadataOperationsFactory metadataOperationsFactory;
 
     @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
@@ -44,8 +44,8 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
-    public AbstractDatabase(@Nonnull final ConstantActionFactory constantActionFactory, @Nonnull DdlQueryFactory ddlQueryFactory) {
-        this.constantActionFactory = constantActionFactory;
+    public AbstractDatabase(@Nonnull final MetadataOperationsFactory metadataOperationsFactory, @Nonnull DdlQueryFactory ddlQueryFactory) {
+        this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
     }
 
@@ -82,8 +82,8 @@ public abstract class AbstractDatabase implements RelationalDatabase {
 
     @Override
     @Nonnull
-    public ConstantActionFactory getDdlFactory() {
-        return constantActionFactory;
+    public MetadataOperationsFactory getDdlFactory() {
+        return metadataOperationsFactory;
     }
 
     @Nonnull

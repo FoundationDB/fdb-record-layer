@@ -38,7 +38,9 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
-
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -120,7 +122,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData();
+            final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
                     .map(type -> new Object[]{
                             database,  //TABLE_CAT
@@ -147,7 +149,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     public RelationalResultSet getPrimaryKeys(String database, String schema, String table) throws SQLException {
         ensureActiveTransaction();
         try {
-            final RecordMetaDataProto.MetaData schemaInfo = this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData();
+            final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             Stream<Row> rows = schemaInfo.getRecordTypesList().stream()
                     .filter(type -> type.getName().equals(table))
                     .map(type -> {
@@ -296,7 +298,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         }
         ensureActiveTransaction();
         try {
-            RecordMetaData rmd = RecordMetaData.build(this.catalog.loadSchema(conn.transaction, URI.create(database), schema).getMetaData());
+            RecordMetaData rmd = RecordMetaData.build(loadSchemaMetadata(database, schema));
             //verify that it is in fact a table
             List<Row> indexDefs;
             try {
@@ -351,6 +353,13 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (!conn.inActiveTransaction()) {
             conn.beginTransaction();
         }
+    }
+
+    @Nonnull
+    private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
+        final var recLayerSchema = this.catalog.loadSchema(conn.transaction, URI.create(database), schema);
+        Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
+        return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
     }
 
     //the position in the array is the key sequence, the value is the name of the column

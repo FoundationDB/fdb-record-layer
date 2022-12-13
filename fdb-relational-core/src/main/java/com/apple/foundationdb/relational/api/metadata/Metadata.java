@@ -1,5 +1,5 @@
 /*
- * TypeInfo.java
+ * Metadata.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,26 +18,23 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
-
-import com.google.protobuf.DescriptorProtos;
+package com.apple.foundationdb.relational.api.metadata;
 
 import javax.annotation.Nonnull;
 
-public class TypeInfo {
+/**
+ * Base interface for Relational metadata. A meta datum has a specific name, and is usually part of a metadata hierarchy
+ * that can be visited using a general {@link Visitor}.
+ */
+public interface Metadata {
+
+    /**
+     * Returns the name of the metadata.
+     *
+     * @return the name of the metadata.
+     */
     @Nonnull
-    DescriptorProtos.DescriptorProto descriptor;
+    String getName();
 
-    public TypeInfo(@Nonnull DescriptorProtos.DescriptorProto typeDesc) {
-        this.descriptor = typeDesc;
-    }
-
-    public String getTypeName() {
-        return descriptor.getName();
-    }
-
-    @Nonnull
-    public DescriptorProtos.DescriptorProto getDescriptor() {
-        return descriptor;
-    }
+    void accept(@Nonnull final Visitor visitor);
 }

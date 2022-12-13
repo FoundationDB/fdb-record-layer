@@ -258,8 +258,8 @@ public final class YamlRunner implements AutoCloseable {
             return new YamlRunner(resourcePath, inputStream, dbState, new DbStateCommandFactory(dbState));
         } catch (RelationalException ve) {
             Assert.fail(String.format("failed to create a '%s' object.", DbState.class.getSimpleName()));
+            throw ve;
         }
-        return null;
     }
 
     static void debug(@Nonnull final String message) {

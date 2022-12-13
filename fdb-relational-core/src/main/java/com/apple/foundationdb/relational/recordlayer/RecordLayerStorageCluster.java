@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQueryFactory;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -52,14 +52,14 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final FdbConnection fdb;
     private final KeySpace keySpace;
     private final SchemaTemplateCatalog schemaTemplateCatalog;
-    private final RecordLayerConstantActionFactory ddlFactory;
+    private final RecordLayerMetadataOperationsFactory ddlFactory;
 
     public RecordLayerStorageCluster(FdbConnection connection,
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
                                      SchemaTemplateCatalog schemaTemplateCatalog,
-                                     RecordLayerConstantActionFactory ddlFactory) {
+                                     RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;
         this.keySpace = keySpace;

@@ -24,6 +24,9 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -71,11 +74,10 @@ public interface StoreCatalog {
      *
      * @param txn         a Transaction
      * @param dataToWrite the new Schema
-     * @return true if the update succeeds
      * @throws RelationalException InternalError if txn is compatible type
      *                           TransactionInactive if txn is no longer active
      */
-    boolean updateSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
+    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
 
     /**
      * Updates schema to the latest template.
@@ -94,11 +96,10 @@ public interface StoreCatalog {
      *
      * @param txn         a Transaction
      * @param dataToWrite the new schema template
-     * @return true if the update succeeds
      * @throws RelationalException InternalError if txn is compatible type
      *                           TransactionInactive if txn is no longer active
      */
-    boolean updateSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException;
+    void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException;
 
     boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
 

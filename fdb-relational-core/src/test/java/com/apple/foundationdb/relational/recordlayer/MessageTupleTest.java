@@ -21,11 +21,12 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Descriptors;
@@ -34,6 +35,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -103,47 +105,50 @@ class MessageTupleTest {
         Assertions.assertEquals(recordWithNonNullableArray, tupleWithNonNullableArray.parseMessage());
     }
 
+    @Nonnull
     private DynamicMessage.Builder restaurantMessageBuilder(boolean nullableArray) throws Exception {
-        List<TypingContext.FieldDefinition> locationColumns = List.of(
-                new TypingContext.FieldDefinition("ADDRESS", Type.TypeCode.STRING, null, false),
-                new TypingContext.FieldDefinition("LATITUDE", Type.TypeCode.STRING, null, false),
-                new TypingContext.FieldDefinition("LONGITUDE", Type.TypeCode.STRING, null, false)
-        );
-        TypingContext.TypeDefinition location = new TypingContext.TypeDefinition("LOCATION", locationColumns, false, List.of());
+        final var location = RecordLayerTable.newBuilder()
+                .setName("LOCATION")
+                .addColumns(List.of(
+                        RecordLayerColumn.newBuilder().setName("ADDRESS").setDataType(DataType.Primitives.STRING.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("LATITUDE").setDataType(DataType.Primitives.STRING.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("LONGITUDE").setDataType(DataType.Primitives.STRING.type()).build()))
+                .build();
 
-        List<TypingContext.FieldDefinition> restaurantReviewColumns = List.of(
-                new TypingContext.FieldDefinition("REVIEWER", Type.TypeCode.LONG, null, false),
-                new TypingContext.FieldDefinition("RATING", Type.TypeCode.LONG, null, false)
-        );
-        TypingContext.TypeDefinition restaurantReview = new TypingContext.TypeDefinition("RESTAURANT_REVIEW", restaurantReviewColumns, false, List.of());
+        final var restaurantReview = RecordLayerTable.newBuilder()
+                .setName("RESTAURANT_REVIEW")
+                .addColumns(List.of(
+                        RecordLayerColumn.newBuilder().setName("REVIEWER").setDataType(DataType.Primitives.LONG.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("RATING").setDataType(DataType.Primitives.LONG.type()).build()))
+                .build();
 
-        List<TypingContext.FieldDefinition> restaurantTagColumns = List.of(
-                new TypingContext.FieldDefinition("TAG", Type.TypeCode.STRING, null, false),
-                new TypingContext.FieldDefinition("WEIGHT", Type.TypeCode.LONG, null, false)
-        );
-        TypingContext.TypeDefinition restaurantTag = new TypingContext.TypeDefinition("RESTAURANT_TAG", restaurantTagColumns, false, List.of());
+        final var restaurantTag = RecordLayerTable.newBuilder()
+                .setName("RESTAURANT_TAG")
+                .addColumns(List.of(
+                        RecordLayerColumn.newBuilder().setName("TAG").setDataType(DataType.Primitives.STRING.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("WEIGHT").setDataType(DataType.Primitives.LONG.type()).build()))
+                .build();
 
-        List<TypingContext.FieldDefinition> restaurantColumns = List.of(
-                new TypingContext.FieldDefinition("REST_NO", Type.TypeCode.LONG, null, false),
-                new TypingContext.FieldDefinition("NAME", Type.TypeCode.STRING, null, false),
-                new TypingContext.FieldDefinition("LOCATION", Type.TypeCode.RECORD, "LOCATION", false),
-                new TypingContext.FieldDefinition("REVIEWS", Type.TypeCode.RECORD, "RESTAURANT_REVIEW", true, nullableArray),
-                new TypingContext.FieldDefinition("TAGS", Type.TypeCode.RECORD, "RESTAURANT_TAG", true, nullableArray),
-                new TypingContext.FieldDefinition("CUSTOMER", Type.TypeCode.STRING, null, true),
-                new TypingContext.FieldDefinition("ENCODED_BYTES", Type.TypeCode.BYTES, null, false)
-        );
-        TypingContext.TypeDefinition restaurant = new TypingContext.TypeDefinition("RESTAURANT", restaurantColumns, true, List.of(List.of("REST_NO")));
 
-        TypingContext typingContext = TypingContext.create();
-        typingContext.addType(location);
-        typingContext.addType(restaurantReview);
-        typingContext.addType(restaurantTag);
-        typingContext.addType(restaurant);
-        typingContext.addAllToTypeRepository();
+        final var restaurant = RecordLayerTable.newBuilder()
+                .setName("RESTAURANT")
+                .addColumns(List.of(
+                        RecordLayerColumn.newBuilder().setName("REST_NO").setDataType(DataType.Primitives.STRING.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("NAME").setDataType(DataType.Primitives.LONG.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("LOCATION").setDataType(location.getDatatype().withNullable(false)).build(),
+                        RecordLayerColumn.newBuilder().setName("REVIEWS").setDataType(DataType.ArrayType.from(restaurantReview.getDatatype(), nullableArray)).build(),
+                        RecordLayerColumn.newBuilder().setName("TAGS").setDataType(DataType.ArrayType.from(restaurantTag.getDatatype(), nullableArray)).build(),
+                        RecordLayerColumn.newBuilder().setName("CUSTOMER").setDataType(DataType.Primitives.STRING.type()).build(),
+                        RecordLayerColumn.newBuilder().setName("ENCODED_BYTES").setDataType(DataType.Primitives.BYTES.type()).build()))
+                .build();
 
-        SchemaTemplate template = typingContext.generateSchemaTemplate("testTemplate", 1L);
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("testTemplate")
+                .setVersion(1L)
+                .addTable(restaurant)
+                .build();
 
-        Descriptors.Descriptor descriptor = Descriptors.FileDescriptor.buildFrom(template.toProtobufDescriptor(), new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()})
+        Descriptors.Descriptor descriptor = Descriptors.FileDescriptor.buildFrom(schemaTemplate.toRecordMetadata().toProto().getRecords(), new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()})
                 .getMessageTypes()
                 .stream()
                 .filter(m -> "RESTAURANT".equals(m.getName()))

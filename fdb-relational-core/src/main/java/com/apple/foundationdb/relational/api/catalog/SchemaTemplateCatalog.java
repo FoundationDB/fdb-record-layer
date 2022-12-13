@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
 
@@ -36,11 +36,11 @@ public interface SchemaTemplateCatalog {
     /**
      * Load the specified schema template.
      *
-     * @param txn the transaction
+     * @param txn        the transaction
      * @param templateId the unique id of the template to be loaded
      * @return the schema template associated with the template Id.
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
-     * or other error code if something else goes wrong.
+     *                           or other error code if something else goes wrong.
      */
     @Nonnull
     SchemaTemplate loadTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException;

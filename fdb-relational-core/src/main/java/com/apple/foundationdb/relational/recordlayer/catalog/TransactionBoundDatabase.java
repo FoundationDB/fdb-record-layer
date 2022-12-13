@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
 import javax.annotation.Nonnull;
@@ -58,7 +58,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     final Options options;
 
     public TransactionBoundDatabase(URI uri, @Nonnull Options options) {
-        super(NoOpConstantActionFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
+        super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
         this.uri = uri;
         this.options = options;
     }

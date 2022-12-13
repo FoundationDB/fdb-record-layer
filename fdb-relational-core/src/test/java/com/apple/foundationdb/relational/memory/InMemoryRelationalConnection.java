@@ -31,17 +31,17 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.recordlayer.catalog.Schema;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -153,12 +153,12 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         return catalog.loadTable(databaseUri, schema, table);
     }
 
-    public ConstantActionFactory getConstantActionFactory() {
+    public MetadataOperationsFactory getConstantActionFactory() {
         RecordLayerConfig rlCfg = new RecordLayerConfig(
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 storePath -> DynamicMessageRecordSerializer.instance(),
                 1);
-        return new RecordLayerConstantActionFactory(rlCfg, catalog, templateCatalog, createNewKeySpace()) {
+        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, templateCatalog, createNewKeySpace()) {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
@@ -169,7 +169,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
                     //insert the schema into the catalog
-                    catalog.updateSchema(txn, schema);
+                    catalog.saveSchema(txn, schema);
                 };
             }
 
@@ -208,14 +208,10 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     private RecordMetaData createRecordMetaData() throws RelationalException {
-        TypingContext ctx = TypingContext.create();
-
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(ctx);
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(ctx);
-
-        ctx.addAllToTypeRepository();
-        SchemaTemplate schemaTemplate = ctx.generateSchemaTemplate("CATALOG_TEMPLATE", 1L);
-        Schema schema = schemaTemplate.generateSchema("__SYS", "CATALOG");
-        return RecordMetaData.build(schema.getMetaData());
+        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
+        final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1L).build();
+        return RecordMetaData.build(schemaTemplate.toRecordMetadata().getRecordsDescriptor());
     }
 }

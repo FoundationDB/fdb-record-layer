@@ -28,17 +28,18 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.Index;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.catalog.TableInfo;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.TypingContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
-
 import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -76,17 +77,20 @@ public class DdlStatementParsingTest {
     };
 
     public DdlStatementParsingTest() throws RelationalException {
-        TypingContext ctx = TypingContext.create();
-        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(ctx);
-        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(ctx);
-        ctx.addAllToTypeRepository();
-        RecordMetaDataProto.MetaData md = ctx.generateSchemaTemplate("CATALOG_TEMPLATE", 1L).generateSchema("__SYS", "CATALOG").getMetaData();
+        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
+        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(schemaBuilder);
+        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(schemaBuilder);
+        RecordMetaDataProto.MetaData md = schemaBuilder
+                .setVersion(1L)
+                .setName("CATALOG_TEMPLATE")
+                .build()
+                .toRecordMetadata().toProto();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
                 .withDbUri(URI.create("/DdlStatementParsingTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
-                .withConstantActionFactory(NoOpConstantActionFactory.INSTANCE)
+                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                 .build();
     }
 
@@ -102,14 +106,14 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(query, errorCode, fakePlanContext.getConstantActionFactory());
     }
 
-    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull ConstantActionFactory constantActionFactory) throws Exception {
+    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(constantActionFactory).build()));
+                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build()));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull ConstantActionFactory constantActionFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(constantActionFactory).build());
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build());
     }
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
@@ -122,11 +126,23 @@ public class DdlStatementParsingTest {
         Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build());
     }
 
+    @Nonnull
+    private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
+        Assertions.assertTrue(schemaTemplate instanceof RecordLayerSchemaTemplate);
+        final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate)schemaTemplate;
+        try {
+            return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
+        } catch (RelationalException e) {
+            Assertions.fail("unexpected exception", e);
+        }
+        return null; // make compile happy.
+    }
+
     @Test
     void indexFailsWithNonExistingTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE INDEX t_idx as select a from foo" ;
-        shouldFailWith(stmt, ErrorCode.UNDEFINED_TABLE);
+        shouldFailWith(stmt, ErrorCode.INVALID_SCHEMA_TEMPLATE);
     }
 
     @Test
@@ -169,13 +185,14 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE my_table (id int64, enum_field my_enum, PRIMARY KEY(id))"
         ;
 
-        shouldWorkWithInjectedFactory(stmt, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "should have only 1 table");
+                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
 
-                DescriptorProtos.FileDescriptorProto fileDescriptorProto = template.toProtobufDescriptor();
+                DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
                 fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
                     Assertions.assertEquals("MY_ENUM", enumDescriptorProto.getName());
@@ -195,13 +212,12 @@ public class DdlStatementParsingTest {
         //empty template statements are invalid, and can be rejected in the parser
         final String stmt = "CREATE SCHEMA TEMPLATE test_template ";
         boolean[] visited = new boolean[]{false};
-        shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(0, template.getTables().size(), "Tables defined!");
-                Assertions.assertEquals(0, template.getTypes().size(), "Tables defined!");
                 visited[0] = true;
                 return txn -> {
                 };
@@ -214,7 +230,7 @@ public class DdlStatementParsingTest {
     void createTypeWithPrimaryKeyFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE STRUCT t (a int64, b string, PRIMARY KEY(b))";
-        shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
@@ -234,7 +250,7 @@ public class DdlStatementParsingTest {
                 "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "";
 
-        shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
@@ -253,13 +269,13 @@ public class DdlStatementParsingTest {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE BAR (col0 int64, col1 FOO, PRIMARY KEY(col0))";
-        shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
-                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
@@ -280,13 +296,13 @@ public class DdlStatementParsingTest {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE TABLE FOO " + baseTableDef;
 
-        shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
-                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
@@ -309,7 +325,7 @@ public class DdlStatementParsingTest {
                 " CREATE INDEX foo_idx as select col0 from foo order by col0" +
                 " CREATE INDEX foo_idx as select col1 from foo order by col1"; //duplicate with the same name  on same table should fail
 
-        shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
@@ -330,18 +346,18 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
 
-        shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                TableInfo info = template.getTables().stream().findFirst().orElseThrow();
+                final Table info = template.getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
+                final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
+                final var actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
                 List<RecordMetaDataProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -376,18 +392,18 @@ public class DdlStatementParsingTest {
                 " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns) ;
-        shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                TableInfo info = template.getTables().stream().findFirst().orElseThrow();
+                final Table info = template.getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final RecordMetaDataProto.Index index = info.getIndexes().get(0);
+                final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = index.getRootExpression();
+                RecordMetaDataProto.KeyExpression actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
                 final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 
@@ -422,7 +438,7 @@ public class DdlStatementParsingTest {
     void dropSchemaTemplates() throws Exception {
         final String columnStatement = "DROP SCHEMA TEMPLATE test_template";
         boolean[] called = new boolean[]{false};
-        shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
@@ -439,7 +455,7 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithNoTypesFails() throws Exception {
         final String command = "CREATE SCHEMA TEMPLATE no_types ;"; // parser rules design doesn't permit this case.
 
-        shouldFailWithInjectedFactory(command, ErrorCode.SYNTAX_ERROR, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(command, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
@@ -454,13 +470,13 @@ public class DdlStatementParsingTest {
     void createTable(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE FOO " +
                 makeColumnDefinition(columns, true);
-        shouldWorkWithInjectedFactory(columnStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
-                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
@@ -483,13 +499,13 @@ public class DdlStatementParsingTest {
                 typeDef +
                 tableDef;
 
-        shouldWorkWithInjectedFactory(templateStatement, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals("TEST_TEMPLATE", template.getUniqueId(), "incorrect template name!");
-                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(template.toProtobufDescriptor());
+                Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
                 return txn -> {
                     try {
@@ -508,12 +524,12 @@ public class DdlStatementParsingTest {
     void createDatabase() throws Exception {
         final String command = "CREATE DATABASE /db_path";
 
-        shouldWorkWithInjectedFactory(command, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(command, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
                 Assertions.assertEquals(URI.create("/DB_PATH"), dbPath, "Incorrect database path!");
-                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
+                return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
         });
     }
@@ -522,12 +538,12 @@ public class DdlStatementParsingTest {
     void createDatabaseWithInvalidPathFails() throws Exception {
         final String command = "CREATE DATABASE not_a_path";
 
-        shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
                 Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
-                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
+                return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
         });
     }
@@ -536,12 +552,12 @@ public class DdlStatementParsingTest {
     void dropDatabase() throws Exception {
         final String command = "DROP DATABASE \"/db_path\"";
 
-        shouldWorkWithInjectedFactory(command, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory(command, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
                 Assertions.assertEquals(URI.create("/db_path"), dbUrl, "Incorrect database path!");
-                return NoOpConstantActionFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
+                return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
             }
         });
     }
@@ -550,12 +566,12 @@ public class DdlStatementParsingTest {
     void dropDatabaseWithInvalidPathFails() throws Exception {
         final String command = "DROP DATABASE not_a_path";
 
-        shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractConstantActionFactory() {
+        shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
                 Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
-                return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbUrl, options);
+                return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbUrl, options);
             }
         });
     }
@@ -733,7 +749,7 @@ public class DdlStatementParsingTest {
         final String templateName = "test_template";
 
         boolean[] called = new boolean[]{false};
-        shouldWorkWithInjectedFactory("CREATE SCHEMA /test_db/" + templateName + " WITH TEMPLATE " + templateName, new AbstractConstantActionFactory() {
+        shouldWorkWithInjectedFactory("CREATE SCHEMA /test_db/" + templateName + " WITH TEMPLATE " + templateName, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri,

@@ -28,6 +28,8 @@ import javax.annotation.Nonnull;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
+ *
+ * TODO (yhatem) move to API module.
  */
 @ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 public final class Assert {

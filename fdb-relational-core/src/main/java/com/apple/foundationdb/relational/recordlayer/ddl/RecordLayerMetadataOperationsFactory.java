@@ -1,5 +1,5 @@
 /*
- * RecordLayerConstantActionFactory.java
+ * RecordLayerMetadataOperationsFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,16 +24,16 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.recordlayer.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-public class RecordLayerConstantActionFactory implements ConstantActionFactory {
+public class RecordLayerMetadataOperationsFactory implements MetadataOperationsFactory {
     public static final int DEFAULT_FORMAT_VERSION = 8;
 
     private final RecordLayerConfig rlConfig;
@@ -41,7 +41,7 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     private final SchemaTemplateCatalog templateCatalog;
     private final KeySpace baseKeySpace;
 
-    public RecordLayerConstantActionFactory(RecordLayerConfig rlConfig, StoreCatalog catalog, SchemaTemplateCatalog templateCatalog, KeySpace baseKeySpace) {
+    public RecordLayerMetadataOperationsFactory(RecordLayerConfig rlConfig, StoreCatalog catalog, SchemaTemplateCatalog templateCatalog, KeySpace baseKeySpace) {
         this.rlConfig = rlConfig;
         this.catalog = catalog;
         this.templateCatalog = templateCatalog;
@@ -112,8 +112,8 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
             return this;
         }
 
-        public RecordLayerConstantActionFactory build() {
-            return new RecordLayerConstantActionFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace);
+        public RecordLayerMetadataOperationsFactory build() {
+            return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace);
         }
     }
 
