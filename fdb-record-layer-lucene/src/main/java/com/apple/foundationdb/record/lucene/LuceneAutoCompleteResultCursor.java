@@ -429,7 +429,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 return null;
             }
             String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixToken, true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight));
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
             if (match == null) {
                 // Text not found in this field
                 return null;

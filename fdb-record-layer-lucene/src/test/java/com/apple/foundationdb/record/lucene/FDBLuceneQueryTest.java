@@ -386,6 +386,46 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void luceneQueryHighlightingPositions() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final String text = "record record record record record record " +
+                                "layer " +
+                                "record record record record record record record record record record " +
+                                "layer " +
+                                "record record " +
+                                "layer " +
+                                "record record record record record record record record";
+            TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder().setDocId(0).setGroup(0).setText(text).build();
+            recordStore.saveRecord(simpleDocument);
+
+            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
+                    "layer", false, Lists.newArrayList(), true,
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true, "", "", true, 6, false));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter)
+                    .build();
+
+            RecordQueryPlan plan = planner.plan(query);
+
+            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
+            assertEquals(1, queriedRecordList.size());
+            FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
+            
+            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord);
+            assertEquals(1, highlightedTerms.size());
+            LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
+            assertEquals("text", highlightedTerm.getFieldName());
+            assertEquals("... record record record layer record record record ... record record record layer record record layer record record record record record record ... ", highlightedTerm.getSnippet());
+            assertEquals(List.of(Pair.of(25, 30), Pair.of(77, 82), Pair.of(97, 102)), highlightedTerm.getHighlightedPositions());
+            for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
+                assertEquals("layer", highlightedTerm.getSnippet().substring(pos.getLeft(), pos.getRight()));
+            }
+        }
+    }
+
     @ParameterizedTest(name = "testSynonym[shouldDeferFetch={0}]")
     @BooleanSource
     void testSynonym(boolean shouldDeferFetch) throws Exception {

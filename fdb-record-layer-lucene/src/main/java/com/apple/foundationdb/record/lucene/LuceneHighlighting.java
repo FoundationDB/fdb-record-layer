@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -63,7 +66,8 @@ public class LuceneHighlighting {
     static String searchAllMaybeHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
                                           @Nonnull Set<String> matchedTokens, @Nullable String prefixToken,
                                           boolean allMatchingRequired,
-                                          @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                                          @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                          @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
         try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
             CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
             OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
@@ -127,7 +131,8 @@ public class LuceneHighlighting {
                             if (substring.equalsIgnoreCase(token) && !tokenAlreadyHighlighted(text, actualStartOffset, actualEndOffset,
                                     luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
                                 addWholeMatch(sb, substring,
-                                        luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag());
+                                        luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag(),
+                                        highlightedPositions);
                             } else {
                                 addNonMatch(sb, substring);
                             }
@@ -142,7 +147,8 @@ public class LuceneHighlighting {
                         if (!tokenAlreadyHighlighted(text, startOffset, endOffset,
                                 luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
                             addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
-                                    luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag());
+                                    luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag(),
+                                    highlightedPositions);
                         } else {
                             addNonMatch(sb, text.substring(startOffset, endOffset));
                         }
@@ -183,7 +189,8 @@ public class LuceneHighlighting {
     // Check this before highlighting tokens, so the highlighting is idempotent
     private static boolean tokenAlreadyHighlighted(@Nonnull String text, int startOffset, int endOffset,
                                                    @Nonnull String leftTag, @Nonnull String rightTag) {
-        return startOffset - leftTag.length() >= 0
+        return (leftTag.length() > 0 || rightTag.length() > 0)
+               && startOffset - leftTag.length() >= 0
                && endOffset + rightTag.length() <= text.length()
                && text.startsWith(leftTag, startOffset - leftTag.length())
                && text.startsWith(rightTag, endOffset);
@@ -199,39 +206,53 @@ public class LuceneHighlighting {
         sb.append(text);
     }
 
-    /** Called while highlighting a single result, to append
-     *  the whole matched token to the provided fragments list.
+    /**
+     * Called while highlighting a single result, to append
+     * the whole matched token to the provided fragments list.
+     *
      * @param sb The {@code StringBuilder} to append to
-     *  @param surface The surface form (original) text
+     * @param surface The surface form (original) text
      * @param leftTag the tag to add left to the surface
      * @param rightTag the tag to add right to the surface
      */
-    private static void addWholeMatch(StringBuilder sb, String surface, String leftTag, String rightTag) {
+    private static void addWholeMatch(StringBuilder sb, String surface, String leftTag, String rightTag,
+                                      @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
+        int start = sb.length();
         sb.append(leftTag);
         sb.append(surface);
         sb.append(rightTag);
+        if (highlightedPositions != null) {
+            highlightedPositions.add(Pair.of(start, sb.length()));
+        }
     }
 
-    /** Called while highlighting a single result, to append a
-     *  matched prefix token, to the provided fragments list.
+    /**
+     * Called while highlighting a single result, to append a
+     * matched prefix token, to the provided fragments list.
+     *
      * @param sb The {@code StringBuilder} to append to
-     *  @param surface The fragment of the surface form
-     *        (indexed during build, corresponding to
-     *        this match
+     * @param surface The fragment of the surface form
+     * (indexed during build, corresponding to
+     * this match
      * @param prefixToken The prefix of the token that matched
      * @param leftTag the tag to add left to the surface
      * @param rightTag the tag to add right to the surface
      */
-    private static void addPrefixMatch(StringBuilder sb, String surface, String prefixToken, String leftTag, String rightTag) {
+    private static void addPrefixMatch(StringBuilder sb, String surface, String prefixToken, String leftTag, String rightTag,
+                                       @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
         // TODO: apps can try to invert their analysis logic
         // here, e.g. downcase the two before checking prefix:
         if (prefixToken.length() >= surface.length()) {
-            addWholeMatch(sb, surface, leftTag, rightTag);
+            addWholeMatch(sb, surface, leftTag, rightTag, highlightedPositions);
             return;
         }
+        int start = sb.length();
         sb.append(leftTag);
         sb.append(surface.substring(0, prefixToken.length()));
         sb.append(rightTag);
+        if (highlightedPositions != null) {
+            highlightedPositions.add(Pair.of(start, sb.length()));
+        }
         sb.append(surface.substring(prefixToken.length()));
     }
 
@@ -299,7 +320,7 @@ public class LuceneHighlighting {
                                                          @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
                                                          @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         if (entryValue.equals(fieldValue) && terms.stream().anyMatch(t -> StringUtils.containsIgnoreCase((String)entryValue, t))) {
-            String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, null, false, luceneQueryHighlightParameters);
+            String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, null, false, luceneQueryHighlightParameters, null);
             source.buildMessage(highlightedText, entryDescriptor, null, null, true, index);
         }
     }
@@ -425,6 +446,75 @@ public class LuceneHighlighting {
             terms.addAll(forAll);
         }
         return terms;
+    }
+
+    /**
+     * Result of {@link #highlightedTermsForMessage}.
+     */
+    public static class HighlightedTerm {
+        private final String fieldName;
+        private final String snippet;
+        private final List<Pair<Integer, Integer>> highlightedPositions;
+
+        public HighlightedTerm(final String fieldName, final String snippet, final List<Pair<Integer, Integer>> highlightedPositions) {
+            this.fieldName = fieldName;
+            this.snippet = snippet;
+            this.highlightedPositions = highlightedPositions;
+        }
+
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public String getSnippet() {
+            return snippet;
+        }
+
+        public List<Pair<Integer, Integer>> getHighlightedPositions() {
+            return highlightedPositions;
+        }
+    }
+
+    @Nonnull
+    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nullable FDBQueriedRecord<M> queriedRecord) {
+        if (queriedRecord == null) {
+            return Collections.emptyList();
+        }
+        IndexEntry indexEntry = queriedRecord.getIndexEntry();
+        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
+            return Collections.emptyList();
+        }
+        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
+        if (!docIndexEntry.getLuceneQueryHighlightParameters().isHighlight() ||
+                docIndexEntry.getLuceneQueryHighlightParameters().isRewriteRecords()) {
+            return Collections.emptyList();
+        }
+        return highlightedTermsForMessage(queriedRecord, queriedRecord.getRecord(),
+                docIndexEntry.getIndexKey(), docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
+    }
+
+    // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
+    @Nonnull
+    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nonnull FDBRecord<M> rec, M message,
+                                                                                       @Nonnull KeyExpression expression, @Nonnull Map<String, Set<String>> termMap, @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                                                                                       @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+        List<HighlightedTerm> result = new ArrayList<>();
+        LuceneIndexExpressions.getFields(expression, new LuceneDocumentFromRecord.FDBRecordSource<>(rec, message),
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                    if (type != LuceneIndexExpressions.DocumentFieldType.TEXT) {
+                        return;
+                    }
+                    Set<String> terms = getFieldTerms(termMap, fieldName);
+                    if (terms.isEmpty()) {
+                        return;
+                    }
+                    if (value instanceof String && terms.stream().anyMatch(t -> StringUtils.containsIgnoreCase((String)value, t))) {
+                        List<Pair<Integer, Integer>> highlightedPositions = new ArrayList<>();
+                        String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)value).getAnalyzer(), (String)value, terms, null, false, luceneQueryHighlightParameters, highlightedPositions);
+                        result.add(new HighlightedTerm(fieldName, highlightedText, highlightedPositions));
+                    }
+                }, null);
+        return result;
     }
 
 }

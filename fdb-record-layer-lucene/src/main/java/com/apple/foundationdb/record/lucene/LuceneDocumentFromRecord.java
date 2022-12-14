@@ -142,6 +142,11 @@ public class LuceneDocumentFromRecord {
             this.message = message;
         }
 
+        @Nonnull
+        public Message getMessage() {
+            return message;
+        }
+
         @Override
         public Descriptors.Descriptor getDescriptor() {
             return message.getDescriptorForType();
