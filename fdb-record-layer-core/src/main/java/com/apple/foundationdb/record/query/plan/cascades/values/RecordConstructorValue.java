@@ -35,12 +35,14 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -152,9 +154,10 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
      * @return an object that is either {@code field} if a copy could be avoided or a new copy of {@code field} whose
      *         constituent messages are {@link DynamicMessage}s based on dynamically-created descriptors.
      */
+    @VisibleForTesting
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
+    public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
                                     @Nonnull final Type fieldType,
                                     @Nullable final Object field) {
         if (field == null) {
@@ -176,6 +179,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 resultBuilder.add(Verify.verifyNotNull(deepCopyIfNeeded(typeRepository, elementType, object)));
             }
             return resultBuilder.build();
+        }
+
+        if (fieldType instanceof Type.Enum) {
+            final var typeName = typeRepository.getProtoTypeName(fieldType);
+            return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 
         Verify.verify(fieldType instanceof Type.Record);
