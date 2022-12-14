@@ -123,7 +123,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
         LuceneScanParameters scanParameters = getSpecialScan(state, filterMask, queryComponent);
-        boolean hasHighlight = false;
+        boolean hasRewrite = false;
         if (scanParameters == null) {
             // Scan by means of normal Lucene search API.
             LuceneQueryClause query = getQueryForFilter(state, filter, new ArrayList<>(), filterMask);
@@ -137,7 +137,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
                     state.sort, state.storedFields, state.storedFieldTypes, highlightParameters);
-            hasHighlight = highlightParameters.isHighlight();
+            hasRewrite = highlightParameters.isHighlight() && highlightParameters.isRewriteRecords();
         }
 
         // Wrap in plan.
@@ -148,7 +148,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask.allSatisfied()) {
             filterMask.setSatisfied(true);
         }
-        if (hasHighlight) {
+        if (hasRewrite) {
             plan = new LuceneHighlightTermsPlan(plan);
         }
         return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(),  11 - filterMask.getUnsatisfiedFilters().size(),

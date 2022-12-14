@@ -369,7 +369,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
             final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true, "<a>", "</a>", true, 6));
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true, "<a>", "</a>", true, 6, true));
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(filter)
