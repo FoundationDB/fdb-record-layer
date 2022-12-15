@@ -212,6 +212,6 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
         final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1L).build();
-        return RecordMetaData.build(schemaTemplate.toRecordMetadata().getRecordsDescriptor());
+        return schemaTemplate.toRecordMetadata();
     }
 }

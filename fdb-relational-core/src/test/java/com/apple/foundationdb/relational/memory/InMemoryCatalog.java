@@ -169,7 +169,7 @@ public class InMemoryCatalog implements StoreCatalog {
             tables.clear();
 
             final RecordMetaData recordMetaData;
-            recordMetaData = RecordMetaData.build((schema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().getRecordsDescriptor()));
+            recordMetaData = schema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata();
             for (Map.Entry<String, RecordType> typeEntry : recordMetaData.getRecordTypes().entrySet()) {
                 tables.put(typeEntry.getKey(), new InMemoryTable(typeEntry.getValue()));
             }
