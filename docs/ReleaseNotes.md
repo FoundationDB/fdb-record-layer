@@ -15,7 +15,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Refactor ThenKeyExpression#normalizeKeyForPositions to reduce hotspot detected by removing stream() implementation to reduce new object creation [(Issue #1940)](https://github.com/FoundationDB/fdb-record-layer/issues/1940)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -24,7 +24,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Unrolled record deletes (introduced in [3.3.309.0](#333090) are now on by default [(Issue #1942)](https://github.com/FoundationDB/fdb-record-layer/issues/1942)
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,11 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.317.0
+
+* **Bug fix** Refactor ThenKeyExpression#normalizeKeyForPositions to reduce hotspot detected by removing stream() implementation to reduce new object creation [(Issue #1940)](https://github.com/FoundationDB/fdb-record-layer/issues/1940)
+* **Performance** Unrolled record deletes (introduced in [3.3.309.0](#333090) are now on by default [(Issue #1942)](https://github.com/FoundationDB/fdb-record-layer/issues/1942)
 
 ### 3.3.316.0
 
