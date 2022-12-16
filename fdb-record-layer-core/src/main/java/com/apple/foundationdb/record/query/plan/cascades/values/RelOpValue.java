@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -66,7 +67,7 @@ import java.util.stream.StreamSupport;
  * A {@link Value} that returns the comparison result between its children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue implements BooleanValue {
+public class RelOpValue implements BooleanValue, Value.SerializableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull
@@ -318,6 +319,78 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     private static Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> getBinaryOperatorMap() {
         return binaryOperatorMapSupplier.get();
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Expression toProto() {
+        // TODO (hatyo) memoize
+        Verify.verify(StreamSupport.stream(children.spliterator(), false).allMatch(child -> child instanceof SerializableValue),
+                "attempt to serialize non-serializable value(s)");
+
+        @Nonnull final var relOpExpression = RecordMetaDataProto.RelOpExpression.newBuilder();
+
+        for (final var child : children) {
+            relOpExpression.addChildren(((SerializableValue)child).toProto());
+        }
+
+        switch (comparisonType) {
+            case EQUALS:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.EQUALS);
+                break;
+            case NOT_EQUALS:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.NOT_EQUALS);
+                break;
+            case LESS_THAN:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.LESS_THAN);
+                break;
+            case LESS_THAN_OR_EQUALS:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.LESS_THAN_OR_EQUALS);
+                break;
+            case GREATER_THAN:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.GREATER_THAN);
+                break;
+            case GREATER_THAN_OR_EQUALS:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.GREATER_THAN_OR_EQUALS);
+                break;
+            case NOT_NULL:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.NOT_NULL);
+                break;
+            case IS_NULL:
+                relOpExpression.setComparisonType(RecordMetaDataProto.RelOpExpression.ComparisonType.IS_NULL);
+                break;
+            default:
+                throw new UnsupportedOperationException(String.format("Unsupported comparison type '%s'", comparisonType));
+        }
+
+        return RecordMetaDataProto.Expression.newBuilder().setRelOpExpression(relOpExpression.build()).build();
+    }
+
+    @Nonnull
+    public static RelOpValue fromProto(@Nonnull final TypeRepository.Builder typeRepository, @Nonnull final RecordMetaDataProto.RelOpExpression relOpExpression) {
+        // TODO (hatyo) we should cache these functions somehow.
+        final var children = relOpExpression.getChildrenList().stream().map(Value::deserialize).map(v -> (Typed)v).collect(Collectors.toList());
+
+        switch (relOpExpression.getComparisonType()) {
+            case EQUALS:
+                return (RelOpValue)(new EqualsFn().encapsulate(typeRepository, children));
+            case NOT_EQUALS:
+                return (RelOpValue)(new NotEqualsFn().encapsulate(typeRepository, children));
+            case LESS_THAN:
+                return (RelOpValue)(new LtFn().encapsulate(typeRepository, children));
+            case LESS_THAN_OR_EQUALS:
+                return (RelOpValue)(new LteFn().encapsulate(typeRepository, children));
+            case GREATER_THAN:
+                return (RelOpValue)(new GtFn().encapsulate(typeRepository, children));
+            case GREATER_THAN_OR_EQUALS:
+                return (RelOpValue)(new GteFn().encapsulate(typeRepository, children));
+            case NOT_NULL:
+                return (RelOpValue)(new NotNullFn().encapsulate(typeRepository, children));
+            case IS_NULL:
+                return (RelOpValue)(new IsNullFn().encapsulate(typeRepository, children));
+            default:
+                throw new UnsupportedOperationException(String.format("Unsupported comparison type '%s'", relOpExpression.getComparisonType()));
+        }
     }
 
     /**

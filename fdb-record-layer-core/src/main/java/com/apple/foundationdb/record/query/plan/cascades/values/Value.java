@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -143,6 +144,17 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return getCorrelatedTo().isEmpty()
                && StreamSupport.stream(filter(NondeterministicValue.class::isInstance).spliterator(), false)
                        .findAny().isEmpty(); // TODO: use CompileTime tag interface.
+    }
+
+    /**
+     * Checks whether this {@link Value} is serializable.
+     *
+     * @return {@code true} if {@link Value} is serializable, otherwise {@code false}.
+     */
+    default boolean isSerializable() {
+        return getCorrelatedTo().isEmpty()
+               && StreamSupport.stream(filter(node -> !(node instanceof SerializableValue)).spliterator(), false)
+                       .findAny().isEmpty();
     }
 
     /**
@@ -433,6 +445,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     interface NondeterministicValue extends Value {}
 
     /**
+     * Tag interface for making a {@link Value} as serializable to protobuf.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface SerializableValue extends Value {
+        @Nonnull
+        RecordMetaDataProto.Expression toProto();
+    }
+
+    /**
      * Method to simplify this value using a rule set passed in.
      * @param ruleSet a rule set
      * @param aliasMap and alias map of equalities
@@ -610,5 +631,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         return other.getClass() == getClass();
+    }
+
+    @Nonnull
+    static Value.SerializableValue deserialize(@Nonnull final RecordMetaDataProto.Expression expression) {
+        if (expression.hasLiteralExpression()) {
+            return LiteralValue.fromProto(expression.getLiteralExpression());
+        }
+        return null;
     }
 }

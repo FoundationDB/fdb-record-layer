@@ -203,3 +203,59 @@ message JoinedRecordType {
   repeated JoinConstituent join_constituents = 10;
   repeated Join joins = 11;
 }
+
+// expressions
+
+message LiteralExpression {
+  optional bool bool_value = 1;
+  optional int32 int_value = 2;
+  optional int64 long_value = 3;
+  optional float float_value = 4;
+  optional double double_value = 5;
+  optional string string_value = 6;
+  optional bytes bytes_value = 7;
+  // todo: complex types.
+}
+
+message RelOpExpression {
+  optional ComparisonType comparison_type = 1;
+  repeated Expression children = 2;
+  enum ComparisonType {
+      EQUALS = 1;
+      NOT_EQUALS = 2;
+      LESS_THAN = 3;
+      LESS_THAN_OR_EQUALS = 4;
+      GREATER_THAN = 5;
+      GREATER_THAN_OR_EQUALS = 6;
+      STARTS_WITH = 7;
+      NOT_NULL = 8;
+      IS_NULL = 9;
+      IN = 10;
+  }
+}
+
+message AndOrExpression {
+  optional OperatorType operator_type = 1;
+  optional Expression left = 2;
+  optional Expression right = 3;
+  enum OperatorType {
+    AND = 1;
+    OR = 2;
+  }
+}
+
+message FieldExpression {
+  repeated FieldAccessor fieldPath = 1;
+  message FieldAccessor {
+    optional int32 ordinal = 1;
+    optional string name = 2;
+  }
+}
+
+message Expression {
+  // exactly one of the following.
+  optional LiteralExpression literal_expression = 1;
+  optional RelOpExpression rel_op_expression = 2;
+  optional AndOrExpression and_or_expression = 3;
+  optional FieldExpression field_expression = 4;
+}

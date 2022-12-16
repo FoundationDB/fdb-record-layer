@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -51,7 +53,7 @@ import java.util.Optional;
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class AndOrValue implements BooleanValue {
+public class AndOrValue implements BooleanValue, Value.SerializableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Or-Value");
     @Nonnull
     protected final String functionName;
@@ -61,6 +63,32 @@ public class AndOrValue implements BooleanValue {
     protected final Value rightChild;
     @Nonnull
     protected final Operator operator;
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Expression toProto() {
+        // TODO (hatyo) memoize
+        Verify.verify(leftChild instanceof Value.SerializableValue, "attempt to serialize non-serializable value");
+        Verify.verify(rightChild instanceof Value.SerializableValue, "attempt to serialize non-serializable value");
+
+        @Nonnull final var andOrExpBuilder = RecordMetaDataProto.AndOrExpression.newBuilder();
+
+        andOrExpBuilder.setLeft(((SerializableValue)leftChild).toProto());
+        andOrExpBuilder.setRight(((SerializableValue)rightChild).toProto());
+
+        switch (operator) {
+            case AND:
+                andOrExpBuilder.setOperatorType(RecordMetaDataProto.AndOrExpression.OperatorType.AND);
+                break;
+            case OR:
+                andOrExpBuilder.setOperatorType(RecordMetaDataProto.AndOrExpression.OperatorType.OR);
+                break;
+            default:
+                throw new RecordCoreException(String.format("Unexpected operator type '%s'", operator));
+        }
+
+        return RecordMetaDataProto.Expression.newBuilder().setAndOrExpression(andOrExpBuilder.build()).build();
+    }
 
     private enum Operator {
         AND("AND"),

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -56,7 +57,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue implements ValueWithChild {
+public class FieldValue implements ValueWithChild, Value.SerializableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
@@ -285,6 +286,23 @@ public class FieldValue implements ValueWithChild {
             }
         }
         return Optional.of(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size()));
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Expression toProto() {
+        // TODO (hatyo) memoize
+        @Nonnull final var fieldExpBuilder = RecordMetaDataProto.FieldExpression.newBuilder();
+        for (final var fieldAccessor : getFieldPath().fieldAccessors) {
+            final var fieldAccessorBuilder = RecordMetaDataProto.FieldExpression.FieldAccessor.newBuilder();
+            @Nullable final var fieldName = fieldAccessor.getName();
+            if (fieldName != null) {
+                fieldAccessorBuilder.setName(fieldName);
+            }
+            fieldAccessorBuilder.setOrdinal(fieldAccessor.getOrdinal());
+            fieldExpBuilder.addFieldPath(fieldAccessorBuilder.build());
+        }
+        return RecordMetaDataProto.Expression.newBuilder().setFieldExpression(fieldExpBuilder.build()).build();
     }
 
     /**

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -37,7 +38,7 @@ import java.util.Set;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueriedValue implements LeafValue, Value.CompileTimeValue {
+public class QueriedValue implements LeafValue, Value.CompileTimeValue, Value.SerializableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull
@@ -105,5 +106,11 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Expression toProto() {
+
     }
 }
