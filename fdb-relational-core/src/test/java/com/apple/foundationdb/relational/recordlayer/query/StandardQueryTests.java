@@ -293,6 +293,12 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is not null")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow().hasRow(insertedRecord);
                 }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is null")) {
+                    ResultSetAssert.assertThat(resultSet).isEmpty();
+                }
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is not null")) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().hasRow(insertedRecord);
+                }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 != null")) {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
