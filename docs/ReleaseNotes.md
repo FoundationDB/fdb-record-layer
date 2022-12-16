@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.318.0
+
+
 ### 3.3.317.0
 
 * **Bug fix** Refactor ThenKeyExpression#normalizeKeyForPositions to reduce hotspot detected by removing stream() implementation to reduce new object creation [(Issue #1940)](https://github.com/FoundationDB/fdb-record-layer/issues/1940)
