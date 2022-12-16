@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -131,17 +130,18 @@ public class TableWithEnumTest {
     }
 
     @Test
-    @Disabled // TODO (bug: (fdb-record-layer) add support for enum in deepCopyIfNeeded() in RecordConstructorValue)
     void sortBySuit() throws Exception {
         insert52Cards();
         Assert.that(statement.execute("SELECT * FROM Card ORDER BY suit"), "Did not return a result set when one was expected");
         try (final RelationalResultSet resultSet = statement.getResultSet()) {
             var assertion = ResultSetAssert.assertThat(resultSet);
-            int pk = 1;
+            var pk = 1L;
             for (String suit : SUITS) {
-                for (int rank = 1; rank < 14; rank++) {
+                final var enumVal = statement.getDataBuilder("CARD").getDescriptor()
+                        .findFieldByName("SUIT").getEnumType().findValueByName(suit);
+                for (var rank = 1L; rank < 14; rank++) {
                     assertion.hasNextRow();
-                    assertion.hasRowExactly((long) pk++, "SPADES");
+                    assertion.hasRowExactly(pk++, enumVal, rank);
                 }
             }
         }

@@ -179,6 +179,9 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 } else if (expected instanceof Array) {
                     Assertions.assertThat(o).isInstanceOf(Array.class);
                     ArrayAssert.assertThat((Array) o).isEqualTo((Array) expected);
+                } else if (expected instanceof Descriptors.EnumValueDescriptor) {
+                    Assertions.assertThat(o).isInstanceOf(Descriptors.EnumValueDescriptor.class);
+                    Assertions.assertThat(((Descriptors.EnumValueDescriptor) expected).getName()).isEqualTo(((Descriptors.EnumValueDescriptor) o).getName());
                 } else {
                     Assertions.assertThat(o).as("checking column %d (zero-based) of expected row (%s)", i,
                             Arrays.stream(colValues).map(colValue -> colValue == null ? "<NULL>" : colValue.toString()).collect(Collectors.joining(","))).isEqualTo(expected);
