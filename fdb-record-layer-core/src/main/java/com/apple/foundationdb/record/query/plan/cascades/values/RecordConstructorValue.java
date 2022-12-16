@@ -286,12 +286,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             @Override
             public void accumulate(@Nullable final Object currentObject) {
                 if (childAccumulators == null) {
-                    final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
-                    for (final var child : getChildren()) {
-                        Verify.verify(child instanceof AggregateValue);
-                        childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
-                    }
-                    childAccumulators = childAccumulatorsBuilder.build();
+                    childAccumulators = buildAccumulators();
                 }
                 if (currentObject == null) {
                     childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
@@ -306,11 +301,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 }
             }
 
-            @Nullable
+            @Nonnull
             @Override
             public Object finish() {
                 if (childAccumulators == null) {
-                    return null;
+                    childAccumulators = buildAccumulators();
                 }
 
                 final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
@@ -328,6 +323,16 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 }
 
                 return resultMessageBuilder.build();
+            }
+
+            @Nonnull
+            private List<Accumulator> buildAccumulators() {
+                final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+                for (final var child : getChildren()) {
+                    Verify.verify(child instanceof AggregateValue);
+                    childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
+                }
+                return childAccumulatorsBuilder.build();
             }
         };
     }
