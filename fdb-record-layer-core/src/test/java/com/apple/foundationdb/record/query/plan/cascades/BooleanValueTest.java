@@ -69,6 +69,7 @@ class BooleanValueTest {
     private static final LiteralValue<?> UNKNOWN = new LiteralValue<>(Type.primitiveType(Type.TypeCode.UNKNOWN));
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
+    private static final LiteralValue<Boolean> BOOL_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
@@ -548,6 +549,13 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
 
+                    Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
@@ -579,6 +587,9 @@ class BooleanValueTest {
 
                     Arguments.of(List.of(INT_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
+
+                    Arguments.of(List.of(BOOL_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
 
                     Arguments.of(List.of(F), new RelOpValue.IsNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
