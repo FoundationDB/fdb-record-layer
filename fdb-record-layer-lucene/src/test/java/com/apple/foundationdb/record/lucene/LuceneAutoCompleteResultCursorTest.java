@@ -126,8 +126,8 @@ class LuceneAutoCompleteResultCursorTest {
         assertEquals(expectedPrefixToken, prefixToken);
 
         Set<String> queryTokenSet = new HashSet<>(tokens);
-        @Nullable String match = LuceneAutoCompleteResultCursor.searchAllMaybeHighlight("text", analyzer, text, queryTokenSet, prefixToken, true,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight));
+        @Nullable String match = LuceneHighlighting.searchAllMaybeHighlight("text", analyzer, text, queryTokenSet, prefixToken, true,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
         assertEquals(expectedMatch, match);
     }
 }

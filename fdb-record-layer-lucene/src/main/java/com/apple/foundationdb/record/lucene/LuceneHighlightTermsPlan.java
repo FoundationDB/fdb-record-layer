@@ -22,15 +22,11 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -83,29 +79,7 @@ public class LuceneHighlightTermsPlan implements RecordQueryPlanWithChild {
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties);
 
-        return results .map(result -> QueryResult.fromQueriedRecord(highlightTermsInRecord(result.getQueriedRecord())));
-    }
-
-    @Nullable
-    @SuppressWarnings("unchecked")
-    private <M extends Message> FDBQueriedRecord<M> highlightTermsInRecord(@Nullable FDBQueriedRecord<M> queriedRecord) {
-        if (queriedRecord == null) {
-            return queriedRecord;
-        }
-        IndexEntry indexEntry = queriedRecord.getIndexEntry();
-        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
-            return queriedRecord;
-        }
-        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
-        if (!docIndexEntry.getLuceneQueryHighlightParameters().isHighlight()) {
-            return queriedRecord;
-        }
-        M message = queriedRecord.getRecord();
-        M.Builder builder = message.toBuilder();
-        LuceneDocumentFromRecord.highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
-                docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
-        FDBStoredRecord<M> storedRecord = queriedRecord.getStoredRecord().asBuilder().setRecord((M) builder.build()).build();
-        return FDBQueriedRecord.indexed(new FDBIndexedRecord<>(indexEntry, storedRecord));
+        return results .map(result -> QueryResult.fromQueriedRecord(LuceneHighlighting.highlightTermsInRecord(result.getQueriedRecord())));
     }
 
     @Override

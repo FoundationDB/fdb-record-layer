@@ -2327,7 +2327,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
         M message = indexedRecord.getRecord();
         M.Builder builder = message.toBuilder();
-        LuceneDocumentFromRecord.highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
+        LuceneHighlighting.highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
                 docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
         return storedRecord.asBuilder().setRecord((M) builder.build()).build();
     }

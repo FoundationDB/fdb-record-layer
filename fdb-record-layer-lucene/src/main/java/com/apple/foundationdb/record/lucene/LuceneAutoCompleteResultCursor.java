@@ -72,14 +72,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -94,10 +92,6 @@ import java.util.stream.Collectors;
  */
 public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteResultCursor.class);
-
-    private static final int tokenCountBeforeHighlighted = 3;
-    private static final int tokenCountAfterHighlighted = 3;
-    private static final String highlightedTextConnector = "... ";
 
     @Nonnull
     private final Executor executor;
@@ -194,184 +188,6 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
         }
-    }
-
-    @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
-    @Nullable
-    @VisibleForTesting
-    static String searchAllMaybeHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
-                                          @Nonnull Set<String> matchedTokens, @Nullable String prefixToken,
-                                          boolean allMatchingRequired,
-                                          @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
-        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
-            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
-            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
-            ts.reset();
-            StringBuilder sb = luceneQueryHighlightParameters.isHighlight() ? new StringBuilder() : null;
-            int upto = 0;
-            Set<String> matchedInText = new HashSet<>();
-            boolean matchedPrefix = false;
-            ArrayDeque<String> pres = new ArrayDeque<>();
-            ArrayDeque<String> ends = new ArrayDeque<>();
-            int lastMatchPos = -tokenCountAfterHighlighted - 1;
-            int currentPos = 0;
-            while (ts.incrementToken()) {
-                String token = termAtt.toString();
-                int startOffset = offsetAtt.startOffset();
-                int endOffset = offsetAtt.endOffset();
-                if (upto < startOffset) {
-                    if (luceneQueryHighlightParameters.isHighlight()) {
-                        if (luceneQueryHighlightParameters.isCutSnippets()) {
-                            if (currentPos - lastMatchPos <= tokenCountAfterHighlighted + 1) {
-                                addNonMatch(sb, text.substring(upto, startOffset));
-                            } else {
-                                pres.add(text.substring(upto, startOffset));
-                                if (pres.size() > tokenCountBeforeHighlighted) {
-                                    pres.poll();
-                                }
-                                if (ends.size() < luceneQueryHighlightParameters.getSnippedSize() - tokenCountAfterHighlighted) {
-                                    ends.add(text.substring(upto, startOffset));
-                                }
-                            }
-                        } else {
-                            addNonMatch(sb, text.substring(upto, startOffset));
-                        }
-                    }
-                    upto = startOffset;
-                } else if (upto > startOffset) {
-                    continue;
-                }
-
-                if (matchedTokens.contains(token)) {
-                    // Token matches.
-                    if (luceneQueryHighlightParameters.isHighlight()) {
-                        if (luceneQueryHighlightParameters.isCutSnippets() && currentPos - lastMatchPos > tokenCountBeforeHighlighted + tokenCountAfterHighlighted + 1) {
-                            addNonMatch(sb, highlightedTextConnector);
-                        }
-                        while (!pres.isEmpty()) {
-                            addNonMatch(sb, pres.poll());
-                        }
-                        ends.clear();
-                        int start = startOffset;
-                        while (start < endOffset) {
-                            int index = text.toLowerCase(Locale.ROOT).indexOf(token, start);
-                            if (index < 0 || index >= endOffset) {
-                                addNonMatch(sb, text.substring(start, endOffset));
-                                break;
-                            }
-                            int actualStartOffset = index;
-                            int actualEndOffset = index + token.length();
-                            addNonMatch(sb, text.substring(start, index));
-                            String substring = text.substring(actualStartOffset, actualEndOffset);
-                            if (substring.equalsIgnoreCase(token) && !tokenAlreadyHighlighted(text, actualStartOffset, actualEndOffset,
-                                    luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
-                                addWholeMatch(sb, substring,
-                                        luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag());
-                            } else {
-                                addNonMatch(sb, substring);
-                            }
-                            start = actualEndOffset;
-                        }
-                    }
-                    upto = endOffset;
-                    matchedInText.add(token);
-                    lastMatchPos = currentPos;
-                } else if (prefixToken != null && token.startsWith(prefixToken)) {
-                    if (luceneQueryHighlightParameters.isHighlight()) {
-                        if (!tokenAlreadyHighlighted(text, startOffset, endOffset,
-                                luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
-                            addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
-                                    luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag());
-                        } else {
-                            addNonMatch(sb, text.substring(startOffset, endOffset));
-                        }
-                    }
-                    upto = endOffset;
-                    matchedPrefix = true;
-                }
-                currentPos++;
-            }
-            ts.end();
-
-            if (allMatchingRequired && ((prefixToken != null && !matchedPrefix) || (matchedInText.size() < matchedTokens.size()))) {
-                // Query text not actually found in document text. Return null
-                return null;
-            }
-
-            // Text was found. Return text (highlighted or not)
-            if (luceneQueryHighlightParameters.isHighlight()) {
-                int endOffset = offsetAtt.endOffset();
-                if (upto < endOffset && !luceneQueryHighlightParameters.isCutSnippets()) {
-                    addNonMatch(sb, text.substring(upto));
-                } else if (luceneQueryHighlightParameters.isCutSnippets()) {
-                    while (!ends.isEmpty()) {
-                        addNonMatch(sb, ends.poll());
-                    }
-                    addNonMatch(sb, highlightedTextConnector);
-                }
-                return sb.toString();
-            } else {
-                return text;
-            }
-
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    // Check this before highlighting tokens, so the highlighting is idempotent
-    private static boolean tokenAlreadyHighlighted(@Nonnull String text, int startOffset, int endOffset,
-                                                   @Nonnull String leftTag, @Nonnull String rightTag) {
-        return startOffset - leftTag.length() >= 0
-               && endOffset + rightTag.length() > text.length()
-               && text.startsWith(leftTag, startOffset - 3)
-               && text.startsWith(rightTag, endOffset);
-    }
-
-    /** Called while highlighting a single result, to append a
-     *  non-matching chunk of text from the suggestion to the
-     *  provided fragments list.
-     *  @param sb The {@code StringBuilder} to append to
-     *  @param text The text chunk to add
-     */
-    private static void addNonMatch(StringBuilder sb, String text) {
-        sb.append(text);
-    }
-
-    /** Called while highlighting a single result, to append
-     *  the whole matched token to the provided fragments list.
-     * @param sb The {@code StringBuilder} to append to
-     *  @param surface The surface form (original) text
-     * @param leftTag the tag to add left to the surface
-     * @param rightTag the tag to add right to the surface
-     */
-    private static void addWholeMatch(StringBuilder sb, String surface, String leftTag, String rightTag) {
-        sb.append(leftTag);
-        sb.append(surface);
-        sb.append(rightTag);
-    }
-
-    /** Called while highlighting a single result, to append a
-     *  matched prefix token, to the provided fragments list.
-     * @param sb The {@code StringBuilder} to append to
-     *  @param surface The fragment of the surface form
-     *        (indexed during build, corresponding to
-     *        this match
-     * @param prefixToken The prefix of the token that matched
-     * @param leftTag the tag to add left to the surface
-     * @param rightTag the tag to add right to the surface
-     */
-    private static void addPrefixMatch(StringBuilder sb, String surface, String prefixToken, String leftTag, String rightTag) {
-        // TODO: apps can try to invert their analysis logic
-        // here, e.g. downcase the two before checking prefix:
-        if (prefixToken.length() >= surface.length()) {
-            addWholeMatch(sb, surface, leftTag, rightTag);
-            return;
-        }
-        sb.append(leftTag);
-        sb.append(surface.substring(0, prefixToken.length()));
-        sb.append(rightTag);
-        sb.append(surface.substring(prefixToken.length()));
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -612,8 +428,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 // matched terms
                 return null;
             }
-            String match = searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixToken, true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight));
+            String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixToken, true,
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
             if (match == null) {
                 // Text not found in this field
                 return null;

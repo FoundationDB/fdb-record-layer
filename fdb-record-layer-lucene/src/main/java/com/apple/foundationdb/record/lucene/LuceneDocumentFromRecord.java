@@ -38,12 +38,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Helper class for converting {@link FDBRecord}s to Lucene documents.
@@ -134,42 +131,6 @@ public class LuceneDocumentFromRecord {
         return fields.getFields();
     }
 
-    // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
-    @Nonnull
-    public static <M extends Message> void highlightTermsInMessage(@Nonnull KeyExpression expression, @Nonnull Message.Builder builder, @Nonnull Map<String, Set<String>> termMap,
-                                                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                                                   @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
-        LuceneIndexKeyValueToPartialRecordUtils.RecordRebuildSource<M> recordRebuildSource = new LuceneIndexKeyValueToPartialRecordUtils.RecordRebuildSource<>(null, builder.getDescriptorForType(), builder, builder.build());
-
-        LuceneIndexExpressions.getFields(expression, recordRebuildSource,
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
-                    Set<String> terms = new HashSet<>();
-                    terms.addAll(termMap.getOrDefault(fieldName, Collections.emptySet()));
-                    terms.addAll(termMap.getOrDefault("", Collections.emptySet()));
-                    if (terms.isEmpty()) {
-                        return;
-                    }
-                    for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : source.message.getAllFields().entrySet()) {
-                        Object entryValue = entry.getValue();
-                        if (entryValue instanceof String && entryValue.equals(value)
-                                && terms.stream().filter(t -> ((String) entryValue).toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT))).findAny().isPresent()) {
-                            String highlightedText = LuceneAutoCompleteResultCursor.searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String) entryValue).getAnalyzer(), (String) entryValue, termMap.get(fieldName), null, false, luceneQueryHighlightParameters);
-                            source.buildMessage(highlightedText, entry.getKey(), null, null, true, 0);
-                        } else if (entryValue instanceof List) {
-                            int index = 0;
-                            for (Object entryValueElement : ((List) entryValue)) {
-                                if (entryValueElement instanceof String && entryValueElement.equals(value)
-                                        && terms.stream().filter(t -> ((String) entryValueElement).toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT))).findAny().isPresent()) {
-                                    String highlightedText = LuceneAutoCompleteResultCursor.searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String) entryValueElement).getAnalyzer(), (String) entryValueElement, termMap.get(fieldName), null, false, luceneQueryHighlightParameters);
-                                    source.buildMessage(highlightedText, entry.getKey(), null, null, true, index);
-                                }
-                                index++;
-                            }
-                        }
-                    }
-                }, null);
-    }
-
     protected static class FDBRecordSource<M extends Message> implements LuceneIndexExpressions.RecordSource<FDBRecordSource<M>> {
         @Nonnull
         private final FDBRecord<M> rec;
@@ -179,6 +140,11 @@ public class LuceneDocumentFromRecord {
         public FDBRecordSource(@Nonnull final FDBRecord<M> rec, @Nonnull final Message message) {
             this.rec = rec;
             this.message = message;
+        }
+
+        @Nonnull
+        public Message getMessage() {
+            return message;
         }
 
         @Override
