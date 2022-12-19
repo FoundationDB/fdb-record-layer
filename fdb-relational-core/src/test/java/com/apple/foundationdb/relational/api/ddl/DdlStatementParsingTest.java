@@ -164,7 +164,7 @@ public class DdlStatementParsingTest {
     @Test
     void enumFailsWithNoOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE ENUM foo () " +
+                "CREATE TYPE AS ENUM foo () " +
                 "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
         ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
@@ -173,7 +173,7 @@ public class DdlStatementParsingTest {
     @Test
     void enumFailsWithUnquotedOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE ENUM foo (OPTION_1, OPTION_2) " +
+                "CREATE TYPE AS ENUM foo (OPTION_1, OPTION_2) " +
                 "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
         ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
@@ -182,7 +182,7 @@ public class DdlStatementParsingTest {
     @Test
     void basicEnumParsedCorrectly() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE ENUM my_enum ('VAL_1', 'VAL_2') " +
+                "CREATE TYPE AS ENUM my_enum ('VAL_1', 'VAL_2') " +
                 "CREATE TABLE my_table (id int64, enum_field my_enum, PRIMARY KEY(id))"
         ;
 
@@ -230,7 +230,7 @@ public class DdlStatementParsingTest {
     @Test
     void createTypeWithPrimaryKeyFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT t (a int64, b string, PRIMARY KEY(b))";
+                "CREATE TYPE AS STRUCT t (a int64, b string, PRIMARY KEY(b))";
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -248,7 +248,7 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "";
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
@@ -268,7 +268,7 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE BAR (col0 int64, col1 FOO, PRIMARY KEY(col0))";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -343,7 +343,7 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
         final String indexColumns = String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0));
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
-                "CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
 
@@ -390,7 +390,7 @@ public class DdlStatementParsingTest {
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE STRUCT FOO " + makeColumnDefinition(columns, false) +
+                " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns) ;
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
@@ -495,7 +495,7 @@ public class DdlStatementParsingTest {
     @MethodSource("columnTypePermutations")
     void createTableAndType(List<String> columns) throws Exception {
         final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
-        final String typeDef = "CREATE STRUCT typ " + makeColumnDefinition(columns, false);
+        final String typeDef = "CREATE TYPE AS STRUCT typ " + makeColumnDefinition(columns, false);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 typeDef +
                 tableDef;

@@ -59,7 +59,7 @@ public class SchemaGenerator {
         int numStructs = random.nextInt(maxNumStructs + 1);
         for (int i = 0; i < numStructs; i++) {
             Map.Entry<String, String> struct = generateStruct(availableColumnTypes);
-            //add the structs to the column type so that you can create structs within structs
+            //add the structs to the column type so that you can CREATE TYPE AS STRUCTs within structs
             availableColumnTypes.add(struct.getKey());
             schemaEntries.add(struct.getValue());
         }
@@ -94,7 +94,7 @@ public class SchemaGenerator {
     private Map.Entry<String, String> generateStruct(List<String> availableColumnTypes) {
         List<ColumnDesc> columns = generateColumns(availableColumnTypes);
         String typeName = "struct_" + random.nextAlphaNumeric(5);
-        String sb = "CREATE STRUCT \"" + typeName + "\" (" +
+        String sb = "CREATE TYPE AS STRUCT \"" + typeName + "\" (" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
                 ")";
         return new AbstractMap.SimpleEntry<>(typeName, sb);

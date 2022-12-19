@@ -130,7 +130,7 @@ dropStatement
 // details
 
 structOrTableDefinition
-    : (STRUCT | TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (COMMA primaryKeyDefinition)? ')'
+    : (TYPE AS STRUCT| TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (COMMA primaryKeyDefinition)? ')'
     ;
 
 columnDefinition
@@ -150,7 +150,7 @@ primaryKeyDefinition
     ;
 
 enumDefinition
-    : ENUM uid '(' STRING_LITERAL (COMMA STRING_LITERAL)* ')'
+    : TYPE AS ENUM uid '(' STRING_LITERAL (COMMA STRING_LITERAL)* ')'
     ;
 
 indexDefinition

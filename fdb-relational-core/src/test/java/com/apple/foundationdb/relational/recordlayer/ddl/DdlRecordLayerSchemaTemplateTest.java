@@ -88,7 +88,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void canDropSchemaTemplates() throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template " +
-                "CREATE STRUCT FOO_TYPE (a int64)" +
+                "CREATE TYPE AS STRUCT FOO_TYPE (a int64)" +
                 " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
         run(statement -> {
@@ -113,7 +113,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @MethodSource("columnTypePermutations")
     void describeSchemaTemplate(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE " + table.getName() + "  " +
-                "CREATE STRUCT " + table.getTypeDefinition("TYP") +
+                "CREATE TYPE AS STRUCT " + table.getTypeDefinition("TYP") +
                 " CREATE TABLE " + table.getTableDefinition("TBL");
 
         run(statement -> {
@@ -143,7 +143,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @MethodSource("columnTypePermutations")
     void listSchemaTemplatesWorks(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> " +
-                "CREATE STRUCT " + table.getTypeDefinition("FOO") +
+                "CREATE TYPE AS STRUCT " + table.getTypeDefinition("FOO") +
                 " CREATE TABLE the_table(col0 int64, col1 foo, PRIMARY KEY(col0))";
 
         run(statement -> {
@@ -181,7 +181,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void createSchemaTemplateWithNoTable() throws SQLException, RelationalException {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
-                "CREATE STRUCT not_a_table(a int64);";
+                "CREATE TYPE AS STRUCT not_a_table(a int64);";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE));
@@ -190,8 +190,8 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void cyclicDependencyTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE cyclic " +
-                "CREATE STRUCT s1 (a s2) " +
-                "CREATE STRUCT s2 (a s1) " +
+                "CREATE TYPE AS STRUCT s1 (a s2) " +
+                "CREATE TYPE AS STRUCT s2 (a s1) " +
                 "CREATE TABLE t1 (id int64, a s1, b s2, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
@@ -203,7 +203,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     void manyStructsThatDoNotDependOnEachOther() throws RelationalException, SQLException {
         StringBuilder template = new StringBuilder("CREATE SCHEMA TEMPLATE many_structs ");
         for (int i = 0; i < 100; i++) {
-            template.append("CREATE STRUCT s").append(i).append("(a int64) ");
+            template.append("CREATE TYPE AS STRUCT s").append(i).append("(a int64) ");
         }
         template.append("CREATE TABLE t1 (id int64,");
         for (int i = 0; i < 100; i++) {
@@ -235,7 +235,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void basicEnumTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE basic_enum_template " +
-                "CREATE ENUM basic_enum ('FOO', 'BAR', 'BAZ') " +
+                "CREATE TYPE AS ENUM basic_enum ('FOO', 'BAR', 'BAZ') " +
                 "CREATE TABLE t1 (id int64, val basic_enum, PRIMARY KEY(id))";
 
         run(statement -> {
@@ -274,7 +274,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     void typeAndEnumSameNameTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name " +
                 "CREATE TABLE foo (id int64, foo string, PRIMARY KEY(id)) " +
-                "CREATE ENUM foo ('A', 'B', 'C')";
+                "CREATE TYPE AS ENUM foo ('A', 'B', 'C')";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)

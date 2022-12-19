@@ -173,7 +173,7 @@ public class CaseSensitivityTest {
                     for (String struct : structs) {
                         Assertions.assertDoesNotThrow(() ->
                                 statement.executeUpdate(String.format(
-                                        "CREATE SCHEMA TEMPLATE temp_various_struct_%s CREATE STRUCT %s (a int64) CREATE TABLE foo(a %s, PRIMARY KEY(a))",
+                                        "CREATE SCHEMA TEMPLATE temp_various_struct_%s CREATE TYPE AS STRUCT %s (a int64) CREATE TABLE foo(a %s, PRIMARY KEY(a))",
                                         struct, quote(struct, quoted), quoted ? quote(struct, true) : struct.toLowerCase(Locale.ROOT))));
                     }
                 }

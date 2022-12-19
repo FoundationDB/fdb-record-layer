@@ -152,7 +152,7 @@ public class DbStateInsertCommandTest {
         factory.getSetSchemaCommand("CATALOG").call(); //set schema
 
         final String cmd = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE STRUCT nested_type (k string, b boolean)" +
+                " CREATE TYPE AS STRUCT nested_type (k string, b boolean)" +
                 " CREATE TABLE test_table (rest_no int64, name string, arr nested_type ARRAY, PRIMARY KEY(rest_no))";
         Object o = factory.getQueryCommand(cmd).call();
         Assertions.assertTrue(o instanceof Integer, "Did not return an integer!");

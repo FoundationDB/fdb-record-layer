@@ -141,8 +141,8 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * the following DDL of a table:
      *
      * <code>
-     * CREATE STRUCT DESK_INFO(FLOOR STRING, ROW INT, COL INT);
-     * CREATE STRUCT EMPLOYEE(NAME STRING, DESK DESK_INFO);
+     * CREATE TYPE AS STRUCT DESK_INFO(FLOOR STRING, ROW INT, COL INT);
+     * CREATE TYPE AS STRUCT EMPLOYEE(NAME STRING, DESK DESK_INFO);
      * CREATE TABLE REPORTS( ID INT, MANAGER EMPLOYEE NOT NULL, MANAGED EMPLOYEE NULL, PRIMARY KEY(ID) );
      * </code>
      * We can retrieve a {@link DynamicMessageBuilder} of "DESK" field in {@code MANAGED} field of the table "REPORTS":

@@ -118,7 +118,7 @@ public class IndexTest {
     @Test
     void createdIndexWorksSimpleNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64, y int64) " +
+                "CREATE TYPE AS STRUCT A(x int64, y int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.F from T AS t, (select M.x as F from t.a AS M) SQ";
         indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), IndexTypes.VALUE);
@@ -127,7 +127,7 @@ public class IndexTest {
     @Test
     void createdIndexWorksSimpleNestingAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p)) " +
                 "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p";
         indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")), IndexTypes.VALUE);
@@ -136,7 +136,7 @@ public class IndexTest {
     @Test
     void createdIndexWorksSimpleNestingAndConcatDifferentOrder() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ ORDER BY t.p, SQ.x";
         indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))), IndexTypes.VALUE);
@@ -145,8 +145,8 @@ public class IndexTest {
     @Test
     void createdIndexWorksDeepNesting() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64, pp int64) " +
-                "CREATE STRUCT B(a A array) " +
+                "CREATE TYPE AS STRUCT A(x int64, pp int64) " +
+                "CREATE TYPE AS STRUCT B(a A array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x, pp from Y.a) M) SQ";
         indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))), IndexTypes.VALUE);
@@ -155,9 +155,9 @@ public class IndexTest {
     @Test
     void createdIndexWorksDeepNestingAndConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT C(z int64) " +
-                "CREATE STRUCT B(a A array, c C array) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT C(z int64) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z from " +
                 "  T AS t," +
@@ -173,9 +173,9 @@ public class IndexTest {
     @Test
     void createdIndexWorksDeepNestingAndConcatCartesian() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT C(z int64, k int64) " +
-                "CREATE STRUCT B(a A array, c C array) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT C(z int64, k int64) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ1.x,SQ2.z, SQ2.k from " +
                 "  T AS t," +
@@ -195,9 +195,9 @@ public class IndexTest {
     @Test
     void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT C(z int64) " +
-                "CREATE STRUCT B(a A array, c C array) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT C(z int64) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
                 "CREATE TABLE T(p int64, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ ORDER BY SQ.x, SQ.z";
         indexIs(stmt,
@@ -211,8 +211,8 @@ public class IndexTest {
     @Test
     void createIndexWithPredicateIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T(p int64, a A array, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT * FROM T where p > 10 order by p, a, b";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate");
@@ -221,8 +221,8 @@ public class IndexTest {
     @Test
     void createIndexWithImproperNestedFieldClusteringIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
@@ -232,8 +232,8 @@ public class IndexTest {
     @Test
     void createIndexWithJoiningMoreThanOneTableIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT * FROM T1, T2 order by t1.p1";
@@ -243,8 +243,8 @@ public class IndexTest {
     @Test
     void createIndexWithExpressionsInProjectionIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
@@ -274,7 +274,7 @@ public class IndexTest {
     @Test
     void createSimpleValueIndexOnNestedCol() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT S1(S1_1 int64, S1_2 int64) " +
+                "CREATE TYPE AS STRUCT S1(S1_1 int64, S1_2 int64) " +
                 "CREATE TABLE T1(p1 int64, a1 int64, a2 S1, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT a2.S1_1 FROM T1 order by a2.S1_1";
         indexIs(stmt, field("A2").nest(field("S1_1")),
@@ -329,8 +329,8 @@ public class IndexTest {
     @Test
     void createIndexWithImproperNestedFieldClusteringInOrderByIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
-                "CREATE STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 int64, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 int64, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,X.c1, Y.b2 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
@@ -386,8 +386,8 @@ public class IndexTest {
     @Test
     void createIndexOnNestedFields() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT Y(a int64, b int64)" +
-                "CREATE STRUCT X(s Y)" +
+                "CREATE TYPE AS STRUCT Y(a int64, b int64)" +
+                "CREATE TYPE AS STRUCT X(s Y)" +
                 "CREATE TABLE T1(col1 int64, r X, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT r.s.a, r.s.b FROM T1 order by r.s.a, r.s.b";
         indexIs(stmt,
@@ -399,13 +399,13 @@ public class IndexTest {
     @Test
     void createIndexOnDeeplyNestedFields() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(b B)" +
-                "CREATE STRUCT B(c C)" +
-                "CREATE STRUCT C(d D)" +
-                "CREATE STRUCT D(e E)" +
-                "CREATE STRUCT E(f F)" +
-                "CREATE STRUCT F(g G)" +
-                "CREATE STRUCT G(x int64, y int64)" +
+                "CREATE TYPE AS STRUCT A(b B)" +
+                "CREATE TYPE AS STRUCT B(c C)" +
+                "CREATE TYPE AS STRUCT C(d D)" +
+                "CREATE TYPE AS STRUCT D(e E)" +
+                "CREATE TYPE AS STRUCT E(f F)" +
+                "CREATE TYPE AS STRUCT F(g G)" +
+                "CREATE TYPE AS STRUCT G(x int64, y int64)" +
                 "CREATE TABLE T1(col1 int64, a A, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT a.b.c.d.e.f.g.x, a.b.c.d.e.f.g.y from T1 order by a.b.c.d.e.f.g.y";
         indexIs(stmt,
@@ -489,7 +489,7 @@ public class IndexTest {
     @Test
     void createIndexWithOrderByInFromSelect() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
@@ -498,7 +498,7 @@ public class IndexTest {
     @Test
     void createIndexWithOrderByInExistsSelect() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t where exists (select M.x from t.a AS M order by M.x)";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
@@ -507,7 +507,7 @@ public class IndexTest {
     @Test
     void createIndexWithOrderByExpression() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE STRUCT A(x int64) " +
+                "CREATE TYPE AS STRUCT A(x int64) " +
                 "CREATE TABLE T(p int64, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "Arbitrary expressions are not allowed in order by clause");

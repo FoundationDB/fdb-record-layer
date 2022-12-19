@@ -41,12 +41,12 @@
    ;
 ---
 - query: CREATE SCHEMA TEMPLATE conversation_template
-       CREATE STRUCT customer_detail(
+       CREATE TYPE AS STRUCT customer_detail(
            name string,
            phone_number string,
            address string
        )
-       CREATE STRUCT "MESSAGE"(
+       CREATE TYPE AS STRUCT "MESSAGE"(
            text string,
            timestamp int64,
            sent boolean

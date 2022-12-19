@@ -65,11 +65,11 @@ import static org.assertj.core.api.Assertions.fail;
 public class StandardQueryTests {
 
     private static final String schemaTemplate =
-            "CREATE STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
-                    " CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array)" +
-                    " CREATE STRUCT RestaurantTag (tag string, weight int64)" +
-                    " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
+            "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
+                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
+                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array)" +
+                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight int64)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
@@ -78,11 +78,11 @@ public class StandardQueryTests {
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
     private static final String schemaTemplateWithNonNullableArrays =
-            "CREATE STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
-                    " CREATE STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array NOT NULL)" +
-                    " CREATE STRUCT RestaurantTag (tag string, weight int64)" +
-                    " CREATE STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
+            "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
+                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
+                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array NOT NULL)" +
+                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight int64)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
@@ -523,11 +523,11 @@ public class StandardQueryTests {
 
     @Test
     void partiqlNestingWorks() throws Exception {
-        final String schema = "CREATE STRUCT A ( b B )" +
-                " CREATE STRUCT B ( c C )" +
-                " CREATE STRUCT C ( d D )" +
-                " CREATE STRUCT D ( e E )" +
-                " CREATE STRUCT E ( f int64 )" +
+        final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
+                " CREATE TYPE AS STRUCT B ( c C )" +
+                " CREATE TYPE AS STRUCT C ( d D )" +
+                " CREATE TYPE AS STRUCT D ( e E )" +
+                " CREATE TYPE AS STRUCT E ( f int64 )" +
                 " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -575,11 +575,11 @@ public class StandardQueryTests {
 
     @Test
     void partiqlNestingWorksWithRepeatedLeaf() throws Exception {
-        final String schema = "CREATE STRUCT A ( b B )" +
-                " CREATE STRUCT B ( c C )" +
-                " CREATE STRUCT C ( d D )" +
-                " CREATE STRUCT D ( e E )" +
-                " CREATE STRUCT E ( f int64 array )" +
+        final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
+                " CREATE TYPE AS STRUCT B ( c C )" +
+                " CREATE TYPE AS STRUCT C ( d D )" +
+                " CREATE TYPE AS STRUCT D ( e E )" +
+                " CREATE TYPE AS STRUCT E ( f int64 array )" +
                 " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -626,11 +626,11 @@ public class StandardQueryTests {
 
     @Test
     void partiqlAccessingNestedFieldWithInnerRepeatedFieldsFails() throws Exception {
-        final String schema = "CREATE STRUCT A ( b B )" +
-                " CREATE STRUCT B ( c C )" +
-                " CREATE STRUCT C ( d D )" +
-                " CREATE STRUCT D ( e E array )" +
-                " CREATE STRUCT E ( f int64 array )" +
+        final String schema = "CREATE TYPE AS STRUCT A ( b B )" +
+                " CREATE TYPE AS STRUCT B ( c C )" +
+                " CREATE TYPE AS STRUCT C ( d D )" +
+                " CREATE TYPE AS STRUCT D ( e E array )" +
+                " CREATE TYPE AS STRUCT E ( f int64 array )" +
                 " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -724,8 +724,8 @@ public class StandardQueryTests {
 
     @Test
     void testSubquery() throws Exception {
-        final String schema = "CREATE STRUCT customer_detail(name string, phone_number string, address string) " +
-                "CREATE STRUCT messages(\"TEXT\" string, timestamp int64,sent boolean) " +
+        final String schema = "CREATE TYPE AS STRUCT customer_detail(name string, phone_number string, address string) " +
+                "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp int64,sent boolean) " +
                 "CREATE TABLE conversations(id int64, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

@@ -49,7 +49,7 @@ public class UniqueIndexTests {
                     "CREATE TABLE T3(t3_p int64, t3_a int64, t3_b int64, primary key(t3_p))\n" +
                     "CREATE UNIQUE INDEX mv3 AS SELECT t3_a FROM t3\n" +
                     "CREATE UNIQUE INDEX mv4 AS SELECT t3_b FROM t3\n" +
-                    "CREATE STRUCT ST1(st1_a int64)\n" +
+                    "CREATE TYPE AS STRUCT ST1(st1_a int64)\n" +
                     "CREATE TABLE T4(t4_p int64, t4_st1 st1 array, primary key(t4_p))\n" +
                     "CREATE UNIQUE INDEX mv5 AS SELECT v.st1_a from t4 t, (SELECT u.st1_a from t.t4_st1 u) v\n" +
                     "CREATE TABLE T5(t5_p int64, t5_a int64, t5_b int64, t5_c int64, t5_d int64, primary key(t5_p))\n" +

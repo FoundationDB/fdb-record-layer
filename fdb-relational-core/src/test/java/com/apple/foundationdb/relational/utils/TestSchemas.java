@@ -30,10 +30,10 @@ public final class TestSchemas {
     }
 
     private static final String RESTAURANT_SCHEMA =
-            "CREATE STRUCT Location (address string, latitude string, longitude string)" +
-                    "CREATE STRUCT restaurant_review (reviewer int64, rating int64)" +
-                    "CREATE STRUCT restaurant_tag (tag string, weight int64)" +
-                    "CREATE STRUCT reviewer_stats (start_date int64, school_name string, hometown string)" +
+            "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
+                    "CREATE TYPE AS STRUCT restaurant_review (reviewer int64, rating int64)" +
+                    "CREATE TYPE AS STRUCT restaurant_tag (tag string, weight int64)" +
+                    "CREATE TYPE AS STRUCT reviewer_stats (start_date int64, school_name string, hometown string)" +
                     "CREATE TABLE restaurant (rest_no int64, name string, location Location, reviews restaurant_review ARRAY, tags restaurant_tag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     "CREATE TABLE restaurant_reviewer (id int64, name string, email string, stats reviewer_stats, PRIMARY KEY(id))" +
                     "CREATE INDEX record_name_idx as select name from restaurant " +
@@ -49,7 +49,7 @@ public final class TestSchemas {
     }
 
     private static String PLAYING_CARD =
-            "CREATE ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
+            "CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
                     "CREATE TABLE card (id int64, suit suit, rank int64, PRIMARY KEY(id))" +
                     "CREATE INDEX suit_idx AS SELECT suit FROM card ORDER BY suit";
 

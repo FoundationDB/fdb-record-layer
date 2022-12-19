@@ -84,8 +84,8 @@
 # Here is a more complex schema template with nesting to show how to deal with nested
 # data.
 - query: create schema template test_template_nested
-         create struct s1(col1 int64, col2 string)
-         create struct s2(col3 s1, col4 string)
+         CREATE TYPE AS STRUCT s1(col1 int64, col2 string)
+         CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
          create table t1(id int64, col5 s2, primary key(id))
          create table t2(id2 int64, col6 s2 ARRAY, primary key(id2))
 ---

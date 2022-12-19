@@ -23,7 +23,7 @@
 - query: drop schema template primary_key_tests_template
 ---
 - query: create schema template primary_key_tests_template
-    create struct s1(a int64, b int64, q int64, z int64)
+    CREATE TYPE AS STRUCT s1(a int64, b int64, q int64, z int64)
     create table t1(id s1, g int64, primary key(id.a, id.b))
 ---
 - query: drop database /PRIMARY_KEY_YAML

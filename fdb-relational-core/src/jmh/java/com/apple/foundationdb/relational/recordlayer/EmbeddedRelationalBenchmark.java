@@ -61,10 +61,10 @@ import java.util.stream.IntStream;
 
 public abstract class EmbeddedRelationalBenchmark {
     private static final String templateDefinition =
-            "CREATE STRUCT \"Location\" (\"address\" string, \"latitude\" string, \"longitude\" string) " +
-                    "CREATE STRUCT \"RestaurantReview\" (\"reviewer\" int64, \"rating\" int64) " +
-                    "CREATE STRUCT \"RestaurantTag\" (\"tag\" string, \"weight\" int64) " +
-                    "CREATE STRUCT \"ReviewerStats\" (\"start_date\" int64, \"school_name\" string, \"hometown\" string) " +
+            "CREATE TYPE AS STRUCT \"Location\" (\"address\" string, \"latitude\" string, \"longitude\" string) " +
+                    "CREATE TYPE AS STRUCT \"RestaurantReview\" (\"reviewer\" int64, \"rating\" int64) " +
+                    "CREATE TYPE AS STRUCT \"RestaurantTag\" (\"tag\" string, \"weight\" int64) " +
+                    "CREATE TYPE AS STRUCT \"ReviewerStats\" (\"start_date\" int64, \"school_name\" string, \"hometown\" string) " +
                     "CREATE TABLE \"RestaurantRecord\" (\"rest_no\" int64, \"name\" string, \"location\" \"Location\", \"reviews\" \"RestaurantReview\" ARRAY, \"tags\" \"RestaurantTag\" ARRAY, \"customer\" string ARRAY, PRIMARY KEY(\"rest_no\")) " +
                     "CREATE TABLE \"RestaurantReviewer\" (\"id\" int64, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
 
