@@ -89,6 +89,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void insertsUpdatesDeletes() throws Exception {
+        doRun("inserts-updates-deletes.yaml");
+    }
+
+    @Test
     public void aggregateIndexTests() throws Exception {
         doRun("aggregate-index-tests.yaml");
     }

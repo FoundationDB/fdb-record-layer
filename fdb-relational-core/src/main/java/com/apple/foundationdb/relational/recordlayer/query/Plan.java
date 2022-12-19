@@ -74,7 +74,7 @@ public interface Plan<T> {
     @Nonnull
     static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final var context = PlanGenerationContext.newBuilder().setMetadataFactory(planContext.getConstantActionFactory()).build();
-        context.pushDmlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1L));
+        context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1L));
         final var ast = AstVisitor.parseQuery(query);
         final var astWalker = new AstVisitor(context, query, planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {

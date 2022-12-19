@@ -131,12 +131,7 @@ public class DdlStatementParsingTest {
     private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
         Assertions.assertTrue(schemaTemplate instanceof RecordLayerSchemaTemplate);
         final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
-        try {
-            return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
-        } catch (RelationalException e) {
-            Assertions.fail("unexpected exception", e);
-        }
-        return null; // make compile happy.
+        return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
     }
 
     @Test

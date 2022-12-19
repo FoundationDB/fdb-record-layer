@@ -41,7 +41,7 @@ public class RecordMetadataDeserializer {
         this.recordMetaData = recordMetaData;
     }
 
-    public RecordLayerSchemaTemplate getSchemaTemplate(@Nonnull final String schemaTemplateName, long version) {
+    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, long version) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
@@ -65,8 +65,7 @@ public class RecordMetadataDeserializer {
         }
         return schemaTemplateBuilder
                 .setVersion(version)
-                .setName(schemaTemplateName)
-                .build();
+                .setName(schemaTemplateName);
     }
 
     @Nonnull
@@ -74,7 +73,7 @@ public class RecordMetadataDeserializer {
         final var recordType = recordMetaData.getRecordType(tableName);
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
+        final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), true, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
         return RecordLayerTable.from(
                 recordLayerType,
                 recordType.getPrimaryKey(),

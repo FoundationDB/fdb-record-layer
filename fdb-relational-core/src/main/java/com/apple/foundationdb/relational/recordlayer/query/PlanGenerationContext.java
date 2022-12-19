@@ -21,16 +21,23 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,8 +58,14 @@ public class PlanGenerationContext {
     }
 
     @Nonnull
-    public DMLContext pushDmlContext(@Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
-        this.context = new DMLContext(context, recordLayerSchemaTemplate);
+    public DQLContext pushDqlContext(@Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
+        this.context = new DQLContext(context, recordLayerSchemaTemplate);
+        return (DQLContext) context;
+    }
+
+    @Nonnull
+    public DMLContext pushDmlContext() {
+        this.context = new DMLContext(context);
         return (DMLContext) context;
     }
 
@@ -84,7 +97,18 @@ public class PlanGenerationContext {
         if (context instanceof DDLContext) {
             return (DDLContext) context;
         }
-        Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", context.getClass().getName(), DDLContext.class.getName()));
+        Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", DDLContext.class.getName(), context.getClass().getName()));
+        return null; // make compiler happy.
+    }
+
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
+    @Nonnull
+    public DQLContext asDql() {
+        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DQLContext.class.getName()));
+        if (context instanceof DQLContext) {
+            return (DQLContext) context;
+        }
+        Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", DQLContext.class.getName(), context.getClass().getName()));
         return null; // make compiler happy.
     }
 
@@ -95,8 +119,23 @@ public class PlanGenerationContext {
         if (context instanceof DMLContext) {
             return (DMLContext) context;
         }
-        Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", context.getClass().getName(), DMLContext.class.getName()));
+        Assert.failUnchecked(String.format("plan generation context mismatch, expected '%s', got '%s'.", DMLContext.class.getName(), context.getClass().getName()));
         return null; // make compiler happy.
+    }
+
+    public boolean isDml() {
+        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DMLContext.class.getName()));
+        return context.getType() == AbstractContext.TYPE.DML;
+    }
+
+    public boolean isDdl() {
+        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DDLContext.class.getName()));
+        return context.getType() == AbstractContext.TYPE.DDL;
+    }
+
+    public boolean isDql() {
+        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DQLContext.class.getName()));
+        return context.getType() == AbstractContext.TYPE.DQL;
     }
 
     public static final class Builder {
@@ -124,23 +163,40 @@ public class PlanGenerationContext {
     @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod") // intentional.
     public abstract static class AbstractContext {
 
-        private final AbstractContext parent;
-
-        protected AbstractContext() {
-            this(null);
+        @Nonnull
+        enum TYPE {
+            DDL,
+            DML,
+            DQL
         }
 
-        protected AbstractContext(@Nullable AbstractContext parent) {
+        @Nullable
+        private final AbstractContext parent;
+
+        @Nonnull
+        private final TYPE type;
+
+        protected AbstractContext(@Nonnull final TYPE type) {
+            this(null, type);
+        }
+
+        protected AbstractContext(@Nullable AbstractContext parent, @Nonnull final TYPE type) {
             this.parent = parent;
+            this.type = type;
         }
 
         @Nullable
         public AbstractContext getParent() {
             return parent;
         }
+
+        @Nonnull
+        TYPE getType() {
+            return type;
+        }
     }
 
-    public static class DMLContext extends AbstractContext {
+    public static class DQLContext extends AbstractContext {
         private int limit;
 
         private int offset;
@@ -148,13 +204,13 @@ public class PlanGenerationContext {
         @Nonnull
         private final RecordLayerSchemaTemplate recordLayerSchemaTemplate;
 
-        public DMLContext(@Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
+        public DQLContext(@Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
             this(null, recordLayerSchemaTemplate);
         }
 
-        public DMLContext(@Nullable AbstractContext parent,
+        public DQLContext(@Nullable AbstractContext parent,
                           @Nonnull final RecordLayerSchemaTemplate recordLayerSchemaTemplate) {
-            super(parent);
+            super(parent, TYPE.DQL);
             this.recordLayerSchemaTemplate = recordLayerSchemaTemplate;
             this.limit = ReadTransaction.ROW_LIMIT_UNLIMITED;
             this.offset = 0;
@@ -200,7 +256,7 @@ public class PlanGenerationContext {
 
         private DDLContext(@Nullable AbstractContext parent, @Nonnull final RecordLayerSchemaTemplate.Builder builder,
                            @Nonnull final MetadataOperationsFactory metadataOperationsFactory) {
-            super(parent);
+            super(parent, TYPE.DDL);
             this.builder = builder;
             this.metadataOperationsFactory = metadataOperationsFactory;
         }
@@ -215,4 +271,49 @@ public class PlanGenerationContext {
             return metadataOperationsFactory;
         }
     }
+
+    public static final class DMLContext extends AbstractContext {
+
+        @Nullable
+        private Type targetType;
+
+        @Nullable
+        private List<String> targetTypeReorderings;
+
+        private DMLContext(@Nullable AbstractContext parent) {
+            super(parent, TYPE.DML);
+        }
+
+        public void setTargetType(@Nonnull final Type targetType) {
+            this.targetType = targetType;
+        }
+
+        @Nonnull
+        public Type getTargetType() {
+            Assert.thatUnchecked(hasTargetType(), "attempt to retrieve non-existing target type", ErrorCode.UNKNOWN_TYPE);
+            return Verify.verifyNotNull(targetType);
+        }
+
+        public boolean hasTargetType() {
+            return targetType != null;
+        }
+
+        public void setTargetTypeReorderings(@Nonnull final List<String> targetTypeReorderings) {
+            this.targetTypeReorderings = ImmutableList.copyOf(targetTypeReorderings);
+        }
+
+        @Nonnull
+        public List<String> getTargetTypeReorderings() {
+            if (!hasTargetTypeReorderings()) {
+                throw new RecordCoreException("attempt to retrieve non-existing target type reorderings");
+            } else {
+                return Verify.verifyNotNull(targetTypeReorderings);
+            }
+        }
+
+        public boolean hasTargetTypeReorderings() {
+            return targetTypeReorderings != null;
+        }
+    }
+
 }

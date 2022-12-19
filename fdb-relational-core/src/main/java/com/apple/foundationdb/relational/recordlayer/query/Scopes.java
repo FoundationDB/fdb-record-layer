@@ -40,16 +40,17 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -91,6 +92,15 @@ public class Scopes {
             return currentScope;
         } finally {
             currentScope = currentScope.sibling == null ? currentScope.parent : currentScope.sibling;
+        }
+    }
+
+    public <T> T withChildScope(@Nonnull Function<Scope, T> supplier) {
+        final var currentScope = push();
+        try {
+            return supplier.apply(currentScope);
+        } finally {
+            pop();
         }
     }
 
@@ -149,7 +159,7 @@ public class Scopes {
         private QueryPredicate predicate;
 
         @Nonnull
-        private Set<Flag> flags;
+        private final EnumSet<Flag> flags;
 
         private int aggCounter;
 
@@ -158,6 +168,12 @@ public class Scopes {
 
         @Nonnull
         private List<AggregateValue> aggregateValues;
+
+        @Nullable
+        private Type targetType;
+
+        @Nullable
+        private List<String> targetTypeReorderings;
 
         private Scope(@Nullable final Scope parent,
                       @Nullable final Scope sibling,
@@ -169,7 +185,7 @@ public class Scopes {
             this.quantifiers = quantifiers;
             this.projectionList = projectionList;
             this.predicate = predicate;
-            this.flags = new HashSet<>();
+            this.flags = EnumSet.noneOf(Flag.class);
             this.aggCounter = 0;
             this.groupByQuantifierCorrelation = null;
             this.groupByType = null;
@@ -352,6 +368,40 @@ public class Scopes {
         @Nullable
         public Type getGroupByType() {
             return groupByType;
+        }
+
+        public void setTargetType(@Nonnull final Type targetType) {
+            this.targetType = targetType;
+        }
+
+        @Nonnull
+        public Type getTargetType() {
+            if (!hasTargetType()) {
+                throw new RecordCoreException("attempt to retrieve non-existing target type");
+            } else {
+                return Verify.verifyNotNull(targetType);
+            }
+        }
+
+        public boolean hasTargetType() {
+            return targetType != null;
+        }
+
+        public void setTargetTypeReorderings(@Nonnull final List<String> targetTypeReorderings) {
+            this.targetTypeReorderings = ImmutableList.copyOf(targetTypeReorderings);
+        }
+
+        @Nonnull
+        public List<String> getTargetTypeReorderings() {
+            if (!hasTargetTypeReorderings()) {
+                throw new RecordCoreException("attempt to retrieve non-existing target type reorderings");
+            } else {
+                return Verify.verifyNotNull(targetTypeReorderings);
+            }
+        }
+
+        public boolean hasTargetTypeReorderings() {
+            return targetTypeReorderings != null;
         }
 
         public static Scope withParent(@Nullable final Scope parent) {

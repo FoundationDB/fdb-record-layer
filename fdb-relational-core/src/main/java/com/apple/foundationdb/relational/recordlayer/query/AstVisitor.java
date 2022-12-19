@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
@@ -31,18 +32,24 @@ import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
@@ -63,9 +70,13 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -143,7 +154,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public QueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
-        Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null || ctx.explainStatement() != null, UNSUPPORTED_QUERY);
+        Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null ||
+                ctx.explainStatement() != null ||
+                ctx.insertStatement() != null ||
+                ctx.updateStatement() != null ||
+                ctx.deleteStatement() != null, UNSUPPORTED_QUERY);
         return (QueryPlan) visitChildren(ctx);
     }
 
@@ -169,11 +184,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
             Assert.notNullUnchecked(continuationStr, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
             Assert.thatUnchecked(!continuationStr.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
-            Assert.thatUnchecked(context.asDml().getOffset() == 0, "Offset cannot be specified with continuation.");
-            return QueryPlan.LogicalQueryPlan.of(result, query, false, context.asDml().getLimit(), context.asDml().getOffset(),
+            Assert.thatUnchecked(context.asDql().getOffset() == 0, "Offset cannot be specified with continuation.");
+            return QueryPlan.LogicalQueryPlan.of(result, query, false, context.asDql().getLimit(), context.asDql().getOffset(),
                     Base64.getDecoder().decode(continuationStr));
         } else {
-            return QueryPlan.LogicalQueryPlan.of(result, query, context.asDml().getLimit(), context.asDml().getOffset());
+            return QueryPlan.LogicalQueryPlan.of(result, query, context.asDql().getLimit(), context.asDql().getOffset());
         }
     }
 
@@ -182,7 +197,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         Assert.thatUnchecked(query.stripLeading().toUpperCase(Locale.ROOT).startsWith("EXPLAIN"));
-        return QueryPlan.LogicalQueryPlan.of(result, query.stripLeading().substring(7), true, context.asDml().getLimit(), context.asDml().getOffset());
+        return QueryPlan.LogicalQueryPlan.of(result, query.stripLeading().substring(7), true, context.asDql().getLimit(), context.asDql().getOffset());
     }
 
     @Override
@@ -264,12 +279,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                                                          @Nullable final RelationalParser.LimitClauseContext limitClause) {
         /*
          * planning GROUP BY is relatively complex, we do not end up generating a single QP node, but rather
-     * three:
-     *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
-     *  - the GROUP BY expression with aggregate expression and grouping expressions.
-     *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
-     *    expressions in the underlying GROUP BY expression.
-     */
+         * three:
+         *  - the underlying SELECT with quantifiers grouped separately, and an extra group for the grouping columns.
+         *  - the GROUP BY expression with aggregate expression and grouping expressions.
+         *  - an upper SELECT containing the final result set which are merely references to aggregate and grouping
+         *    expressions in the underlying GROUP BY expression.
+        */
         final var groupByQunAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
 
         Quantifier underlyingSelectQun = null;
@@ -555,13 +570,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         var siblingScope = scopes.getCurrentScope().getSibling();
         Assert.thatUnchecked(parentScope == null && siblingScope == null,
                 "LIMIT clause can only be specified with top-level SQL query.", ErrorCode.UNSUPPORTED_OPERATION);
-        context.asDml().setLimit(ParserUtils.parseBoundInteger(ctx.limit.getText(), 1, null));
+        context.asDql().setLimit(ParserUtils.parseBoundInteger(ctx.limit.getText(), 1, null));
         if (ctx.offset != null) {
-            context.asDml().setOffset(ParserUtils.parseBoundInteger(ctx.offset.getText(), 0, null));
+            context.asDql().setOffset(ParserUtils.parseBoundInteger(ctx.offset.getText(), 0, null));
         }
         // Owing to TODO
         if (scopes.getCurrentScope().getAllQuantifiers().size() > 1) {
-            Assert.thatUnchecked(context.asDml().getLimit() == 0 && context.asDml().getOffset() == 0,
+            Assert.thatUnchecked(context.asDql().getLimit() == 0 && context.asDql().getOffset() == 0,
                     "LIMIT / OFFSET with multiple FROM elements is not supported.", ErrorCode.UNSUPPORTED_OPERATION);
         }
         return null;
@@ -588,7 +603,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(tableName instanceof QualifiedIdentifierValue);
 
         // get index hints
-        final Set<String> allIndexes = context.asDml().getIndexNames();
+        final Set<String> allIndexes = context.asDql().getIndexNames();
         final Set<String> hintedIndexes = new HashSet<>();
         for (final RelationalParser.IndexHintContext indexHintContext : ctx.indexHint()) {
             hintedIndexes.addAll(visitIndexHint(indexHintContext));
@@ -791,22 +806,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Value visitNestedExpressionAtom(RelationalParser.NestedExpressionAtomContext ctx) {
-        if (ctx.expression().size() == 1) {
-            return (Value) (ctx.expression(0).accept(this));
-        } else {
-            return RecordConstructorValue.ofUnnamed(ctx.expression().stream().map(e -> (Value) (visit(e))).collect(Collectors.toUnmodifiableList()));
-        }
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitNestedRowExpressionAtom(RelationalParser.NestedRowExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override
     public Value visitExistsExpressionAtom(RelationalParser.ExistsExpressionAtomContext ctx) {
         Assert.notNullUnchecked(ctx.selectStatement());
         scopes.push();
@@ -989,8 +988,135 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitRecordConstructorSingleNamed(RelationalParser.RecordConstructorSingleNamedContext ctx) {
+        final var columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()));
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Override
+    public Object visitRecordConstructorSingleOptionalName(RelationalParser.RecordConstructorSingleOptionalNameContext ctx) {
+        final var columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithOptionalName()));
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Override
+    public Object visitRecordConstructorMultiple(RelationalParser.RecordConstructorMultipleContext ctx) {
+        final var columns = visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Nonnull
+    private static Column<? extends Value> coerceUndefinedTypes(@Nonnull final Column<? extends Value> column, @Nonnull final Type targetType) {
+        final Value value = column.getValue();
+        final var resultType = value.getResultType();
+        if (resultType.isUnresolved()) {
+            Preconditions.checkArgument(value.canBePromotedToType(targetType));
+            return Column.of(Type.Record.Field.of(targetType, column.getField().getFieldNameOptional()), value.promoteToType(targetType));
+        }
+        return column;
+    }
+
+    private List<Column<? extends Value>> visitRecordFieldContextsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
+        if (context.isDql() || (context.isDml() && !context.asDml().hasTargetType())) {
+            return visitRecordFieldContexts(providedColumnContexts, null);
+        }
+
+        final var currentScope = context.asDml();
+        final var targetType = (Type.Record) currentScope.getTargetType();
+        final var elementFields = Assert.notNullUnchecked(targetType.getFields());
+
+        if (currentScope.hasTargetTypeReorderings()) {
+            final var targetTypeReorderings = currentScope.getTargetTypeReorderings();
+            final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+
+            for (final var elementField : elementFields) {
+                final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
+                final var fieldType = elementField.getFieldType();
+                Assert.thatUnchecked(index >= 0 || fieldType.isNullable(), "field that is not supplied must be nullable", ErrorCode.CANNOT_CONVERT_TYPE);
+                final Column<? extends Value> currentFieldColumns;
+                if (index >= 0) {
+                    currentFieldColumns = visitRecordFieldContext(providedColumnContexts.get(index), elementField);
+                } else {
+                    currentFieldColumns = Column.unnamedOf(new NullValue(fieldType));
+                }
+                resultColumnsBuilder.add(currentFieldColumns);
+            }
+            return resultColumnsBuilder.build();
+        }
+
+        Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
+                "provided record cannot be assigned as its type is incompatible with the target type",
+                ErrorCode.CANNOT_CONVERT_TYPE);
+        return visitRecordFieldContexts(providedColumnContexts, elementFields);
+    }
+
+    @Nonnull
+    private List<Column<? extends Value>> visitRecordFieldContexts(@Nonnull final List<? extends ParserRuleContext> parserRuleContexts,
+                                                                   @Nullable final List<Type.Record.Field> targetFields) {
+        Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
+        final var resultsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        for (int i = 0; i < parserRuleContexts.size(); i++) {
+            final var parserRuleContext = parserRuleContexts.get(i);
+            final var targetField = targetFields == null ? null : targetFields.get(i);
+            resultsBuilder.add(visitRecordFieldContext(parserRuleContext, targetField));
+        }
+        return resultsBuilder.build();
+    }
+
+    @Nonnull
+    private Column<? extends Value> visitRecordFieldContext(@Nonnull final ParserRuleContext parserRuleContext,
+                                                            @Nullable final Type.Record.Field targetField) {
+        final var fieldType = targetField == null ? null : targetField.getFieldType();
+        final var dmlContext = context.pushDmlContext();
+        if (fieldType != null) {
+            dmlContext.setTargetType(fieldType);
+            // we cannot further set reorderings
+        }
+        final var column = (Column<? extends Value>) parserRuleContext.accept(this);
+        context.pop();
+        Assert.notNullUnchecked(column);
+        if (fieldType == null) {
+            return column;
+        }
+        return coerceUndefinedTypes(column, fieldType);
+    }
+
+    @Override
+    public Object visitExpressionsWithDefaults(RelationalParser.ExpressionsWithDefaultsContext ctx) {
+        final var columnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        for (final var expressionOrDefault : ctx.expressionOrDefault()) {
+            columnsBuilder.add(Column.unnamedOf((Value) visit(expressionOrDefault)));
+        }
+        return RecordConstructorValue.ofColumns(columnsBuilder.build());
+    }
+
+    @Override
+    public Object visitExpressionOrDefault(RelationalParser.ExpressionOrDefaultContext ctx) {
+        Assert.isNullUnchecked(ctx.DEFAULT(), UNSUPPORTED_QUERY);
+        return visit(ctx.expression());
+    }
+
+    @Override
+    public Object visitExpressionWithName(RelationalParser.ExpressionWithNameContext ctx) {
+        final var nestedValue = (Value) visit(ctx.expression());
+        final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(ctx.uid(), String.class));
+        return Column.of(Type.Record.Field.of(nestedValue.getResultType(), Optional.of(name)), nestedValue);
+    }
+
+    @Override
+    public Object visitExpressionWithOptionalName(RelationalParser.ExpressionWithOptionalNameContext ctx) {
+        final var nestedValue = (Value) visit(ctx.expression());
+        if (ctx.AS() != null) {
+            final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(ctx.uid(), String.class));
+            return Column.of(Type.Record.Field.of(nestedValue.getResultType(), Optional.of(name)), nestedValue);
+        } else {
+            return Column.unnamedOf(nestedValue);
+        }
+    }
+
+    @Override
     public Value visitNullLiteral(RelationalParser.NullLiteralContext ctx) {
-        return new LiteralValue<>(null); // warning: UNKNOWN type
+        return new NullValue(Type.nullType());
     }
 
     @Override
@@ -1241,7 +1367,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         // parse the index query using the newly-constructed metadata so far
         final var schemaTemplate = context.asDdl().getMetadataBuilder().build();
-        context.pushDmlContext(schemaTemplate);
+        context.pushDqlContext(schemaTemplate);
         final var viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
         context.pop();
 
@@ -1270,6 +1396,235 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 .build();
         context.asDdl().getMetadataBuilder().addTable(tableWithIndex);
         return null;
+    }
+
+    @Override
+    public QueryPlan.LogicalQueryPlan visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
+        Assert.notNullUnchecked(ctx.tableName());
+        final var targetTypeName = ((QualifiedIdentifierValue) ctx.tableName().accept(this)).getLiteralValue();
+        final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
+        Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
+        final var targetType = (Type.Record) maybeTargetType.get();
+
+        // (yhatem): we should reorganize the INSERT parser rules such that we can easily change the DQL/DML context _here_.
+        final var lookahead = ctx.insertStatementValue().start.getType();
+        final var isInsertFromSelect = lookahead == RelationalLexer.SELECT;
+        Assert.thatUnchecked(!isInsertFromSelect || ctx.columns == null, "setting column ordering for insert with select is not supported", ErrorCode.UNSUPPORTED_OPERATION);
+        RelationalExpression fromExpression = null;
+
+        if (isInsertFromSelect) {
+            fromExpression = (RelationalExpression) ctx.insertStatementValue().accept(this);
+        } else {
+            final var targetTypeReorderings =
+                    ctx.columns == null ?
+                            null :
+                            ctx.columns.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(ImmutableList.toImmutableList());
+
+            final var dmlContext = context.pushDmlContext();
+            dmlContext.setTargetType(targetType);
+            if (targetTypeReorderings != null) {
+                dmlContext.setTargetTypeReorderings(targetTypeReorderings);
+            }
+            fromExpression = (RelationalExpression) visit(ctx.insertStatementValue());
+            context.pop();
+        }
+
+        final var inQuantifier = Quantifier.forEach(GroupExpressionRef.of(fromExpression));
+        RelationalExpression expression = new InsertExpression(inQuantifier, targetTypeName, targetType, context.asDql().getRecordLayerSchemaTemplate().getDescriptor(targetTypeName));
+        // TODO Ask hatyo to help get rid of this hack.
+        if (scopes.getCurrentScope() == null) {
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+        }
+        // todo (yhatem) adapt LogicalQueryPlan such that limit/offset are not _always_ required
+        return QueryPlan.LogicalQueryPlan.of(expression, query, ReadTransaction.ROW_LIMIT_UNLIMITED, 0);
+    }
+
+    @Override
+    public Object visitInsertStatementValueSelect(RelationalParser.InsertStatementValueSelectContext ctx) {
+        // TODO There is some code that decides to create or not to create a logical sort expression based on
+        //      whether the context is root or not. I don't think it should work like that.
+        return ctx.selectStatement().accept(this);
+    }
+
+    @Override
+    public Object visitInsertStatementValueValues(RelationalParser.InsertStatementValueValuesContext ctx) {
+        final var valuesBuilder = ImmutableList.<Value>builder();
+        Assert.thatUnchecked(!ctx.recordConstructorUnambiguous().isEmpty());
+        for (final var recordConstructorUnambiguous : ctx.recordConstructorUnambiguous()) {
+            final var recordValue = (Value) visit(recordConstructorUnambiguous);
+            final var resultType = recordValue.getResultType();
+            Assert.thatUnchecked(resultType instanceof Type.Record, "Records in a values statement have to be of record type.", ErrorCode.CANNOT_CONVERT_TYPE);
+            valuesBuilder.add(recordValue);
+        }
+
+        final var insertValues = AbstractArrayConstructorValue.LightArrayConstructorValue.of(valuesBuilder.build());
+        return new ExplodeExpression(insertValues);
+    }
+
+    @Override
+    public Object visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
+        //context.pushDmlContext();
+        RelationalExpression expression = handleUpdateStatement(ctx.uid(),
+                ctx.tableName(),
+                ctx.updatedElement(),
+                ctx.expression());
+        //        // TODO Ask hatyo to help get rid of this hack.
+        if (scopes.getCurrentScope() == null) {
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+        }
+        //context.pop();
+        // todo (yhatem) adapt LogicalQueryPlan such that limit/offset are not _always_ required
+        return QueryPlan.LogicalQueryPlan.of(expression, query, ReadTransaction.ROW_LIMIT_UNLIMITED, 0);
+    }
+
+    @Nonnull
+    private UpdateExpression handleUpdateStatement(final RelationalParser.UidContext aliasCtx,
+                                                   final RelationalParser.TableNameContext tableNameCtx,
+                                                   final List<RelationalParser.UpdatedElementContext> updatedElementCtxs,
+                                                   final RelationalParser.ExpressionContext expressionCtx) {
+        final Scopes.Scope updateScope = scopes.push();
+
+        final Typed tableNameTyped = (Typed) tableNameCtx.accept(this);
+        Assert.thatUnchecked(tableNameTyped instanceof QualifiedIdentifierValue);
+        final var targetTypeName = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(tableNameTyped, String.class));
+
+        final var quantifierAlias =
+                Assert.notNullUnchecked(
+                        aliasCtx != null ?
+                                ParserUtils.safeCastLiteral(visit(aliasCtx), String.class) :
+                                targetTypeName);
+        final var aliasId = CorrelationIdentifier.of(quantifierAlias);
+        var fromExpression = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableNameTyped, context, scopes, new AccessHints());
+        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));
+        updateScope.addQuantifier(quantifier);
+
+        if (expressionCtx != null) {
+            final var predicateObj = expressionCtx.accept(this);
+            Assert.notNullUnchecked(predicateObj);
+            Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
+            final var booleanValue = (Value) predicateObj;
+            Assert.thatUnchecked(booleanValue instanceof BooleanValue, String.format("unexpected predicate of type %s", booleanValue.getClass().getSimpleName()));
+            final var innermostAliasOptional =
+                    updateScope.getAllQuantifiers()
+                            .stream()
+                            .filter(qun -> qun instanceof Quantifier.ForEach)
+                            .map(Quantifier::getAlias)
+                            .findFirst();
+            Assert.thatUnchecked(innermostAliasOptional.isPresent());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(innermostAliasOptional.get());
+            Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
+            updateScope.setPredicate(predicateOptional.get()); // improve
+        }
+
+        final var expansionBuilder = GraphExpansion.builder();
+        expansionBuilder.addAllQuantifiers(updateScope.getAllQuantifiers());
+        if (updateScope.hasPredicate()) {
+            expansionBuilder.addPredicate(updateScope.getPredicate());
+        }
+
+        final RelationalExpression filteredFromExpression =
+                expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
+
+        quantifier = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+
+        final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
+        Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
+        final var targetType = (Type.Record) maybeTargetType.get();
+
+        context.pushDmlContext();
+
+        Assert.thatUnchecked(!updatedElementCtxs.isEmpty());
+        final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
+        for (final var updatedElementCtx : updatedElementCtxs) {
+            final var updatedElementsPair = visitUpdatedElement(updatedElementCtx);
+            transformMapBuilder.put(updatedElementsPair.getKey(), updatedElementsPair.getValue());
+        }
+
+        context.pop();
+
+        scopes.pop();
+
+        return new UpdateExpression(quantifier,
+                targetTypeName,
+                targetType,
+                context.asDql().getRecordLayerSchemaTemplate().getDescriptor(targetTypeName),
+                transformMapBuilder.build());
+    }
+
+    @Override
+    public Pair<FieldValue.FieldPath, Value> visitUpdatedElement(RelationalParser.UpdatedElementContext ctx) {
+        final var fieldValue = (FieldValue) visit(ctx.fullColumnName());
+        Assert.notNullUnchecked(fieldValue);
+        final var newValue = (Value) visit(ctx.expression());
+        Assert.notNullUnchecked(newValue);
+        return Pair.of(fieldValue.getFieldPath(), newValue);
+    }
+
+    @Override
+    public Object visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
+        Assert.notNullUnchecked(ctx.singleDeleteStatement());
+        return super.visitDeleteStatement(ctx);
+    }
+
+    @Override
+    public QueryPlan.LogicalQueryPlan visitSingleDeleteStatement(RelationalParser.SingleDeleteStatementContext ctx) {
+        RelationalExpression expression = handleDeleteStatement(ctx.tableName(), ctx.expression());
+        //// TODO Ask hatyo to help get rid of this hack.
+        if (scopes.getCurrentScope() == null) {
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+        }
+        // todo (yhatem) adapt LogicalQueryPlan such that limit/offset are not _always_ required
+        return QueryPlan.LogicalQueryPlan.of(expression, query, ReadTransaction.ROW_LIMIT_UNLIMITED, 0);
+    }
+
+    @Nonnull
+    private DeleteExpression handleDeleteStatement(final RelationalParser.TableNameContext tableNameContext,
+                                                   final RelationalParser.ExpressionContext expressionCtx) {
+        final Scopes.Scope updateScope = scopes.push();
+
+        final Typed tableNameTyped = (Typed) tableNameContext.accept(this);
+        Assert.thatUnchecked(tableNameTyped instanceof QualifiedIdentifierValue);
+
+        final var targetTypeName = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(tableNameTyped, String.class));
+
+        final var aliasId = CorrelationIdentifier.of(targetTypeName);
+        var fromExpression = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableNameTyped, context, scopes, new AccessHints());
+        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));
+        updateScope.addQuantifier(quantifier);
+
+        if (expressionCtx != null) {
+            final var predicateObj = expressionCtx.accept(this);
+            Assert.notNullUnchecked(predicateObj);
+            Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
+            final var booleanValue = (Value) predicateObj;
+            Assert.thatUnchecked(booleanValue instanceof BooleanValue, String.format("unexpected predicate of type %s", booleanValue.getClass().getSimpleName()));
+            final var innermostAliasOptional =
+                    updateScope.getAllQuantifiers()
+                            .stream()
+                            .filter(qun -> qun instanceof Quantifier.ForEach)
+                            .map(Quantifier::getAlias)
+                            .findFirst();
+            Assert.thatUnchecked(innermostAliasOptional.isPresent());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(innermostAliasOptional.get());
+            Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
+            updateScope.setPredicate(predicateOptional.get()); // improve
+        }
+
+        final var expansionBuilder = GraphExpansion.builder();
+        expansionBuilder.addAllQuantifiers(updateScope.getAllQuantifiers());
+        if (updateScope.hasPredicate()) {
+            expansionBuilder.addPredicate(updateScope.getPredicate());
+        }
+
+        final RelationalExpression filteredFromExpression =
+                expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
+
+        quantifier = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+
+        scopes.pop();
+
+        return new DeleteExpression(quantifier,
+                targetTypeName);
     }
 
     @Override

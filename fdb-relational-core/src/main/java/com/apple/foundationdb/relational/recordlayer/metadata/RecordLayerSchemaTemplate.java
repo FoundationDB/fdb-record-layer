@@ -32,6 +32,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetada
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
@@ -55,12 +57,26 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private final long version;
 
+    @Nonnull
+    private final Supplier<RecordMetaData> metaDataSupplier;
+
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       long version) {
         this.name = name;
         this.version = version;
         this.tables = tables;
+        this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
+    }
+
+    private RecordLayerSchemaTemplate(@Nonnull final String name,
+                                      @Nonnull final Set<RecordLayerTable> tables,
+                                      long version,
+                                      @Nonnull final RecordMetaData cachedMetadata) {
+        this.name = name;
+        this.version = version;
+        this.tables = tables;
+        this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
     }
 
     @Nonnull
@@ -87,7 +103,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public RecordMetaData toRecordMetadata() throws RelationalException {
+    public Descriptors.Descriptor getDescriptor(@Nonnull final String tableName) {
+        return toRecordMetadata().getRecordType(tableName).getDescriptor();
+    }
+
+    @Nonnull
+    private RecordMetaData buildRecordMetadata() {
         final var fileDescriptorProtoSerializer = new FileDescriptorSerializer();
         accept(fileDescriptorProtoSerializer);
         final Descriptors.FileDescriptor fileDescriptor;
@@ -96,7 +117,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                     fileDescriptorProtoSerializer.getFileBuilder().build(),
                     new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
         } catch (Descriptors.DescriptorValidationException e) {
-            throw new RelationalException(ErrorCode.SERIALIZATION_FAILURE, e);
+            throw new RelationalException(ErrorCode.SERIALIZATION_FAILURE, e).toUncheckedWrappedException();
         }
         final var recordMetadataSerializer = new RecordMetadataSerializer(fileDescriptor);
         accept(recordMetadataSerializer);
@@ -104,11 +125,17 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    public RecordMetaData toRecordMetadata() {
+        return metaDataSupplier.get();
+    }
+
+    @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
                                                                @Nonnull final String templateName,
                                                                long version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
-        return deserializer.getSchemaTemplate(templateName, version);
+        final var builder = deserializer.getSchemaTemplate(templateName, version);
+        return builder.setCachedMetadata(metaData).build();
     }
 
     @Nonnull
@@ -125,6 +152,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerTable> tables;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
+
+        private RecordMetaData cachedMetadata;
 
         private Builder() {
             tables = new LinkedHashMap<>();
@@ -192,6 +221,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
+        Builder setCachedMetadata(@Nonnull final RecordMetaData metadata) {
+            this.cachedMetadata = metadata;
+            return this;
+        }
+
+        @Nonnull
         public RecordLayerTable findTable(@Nonnull final String name) {
             Assert.thatUnchecked(tables.containsKey(name), String.format("could not find '%s'", name));
             return tables.get(name);
@@ -243,7 +278,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 resolveTypes();
             }
 
-            return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version);
+            if (cachedMetadata != null) {
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, cachedMetadata);
+            } else {
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version);
+            }
         }
 
         private void resolveTypes() {

@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggrega
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -75,6 +76,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -386,9 +388,9 @@ public final class ParserUtils {
             final String recordTypeName = identifierValue.getParts()[0];
             Assert.notNullUnchecked(recordTypeName);
             final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
-            final var allAvailableRecordTypes = meldTableTypes(context.asDml().getRecordLayerSchemaTemplate());
-            final Set<String> allAvailableRecordTypeNames = context.asDml().getScannableRecordTypeNames();
-            final Optional<Type> recordType = context.asDml().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
+            final var allAvailableRecordTypes = meldTableTypes(context.asDql().getRecordLayerSchemaTemplate());
+            final Set<String> allAvailableRecordTypeNames = context.asDql().getScannableRecordTypeNames();
+            final Optional<Type> recordType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
             Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
@@ -483,13 +485,12 @@ public final class ParserUtils {
             case "BYTES":
                 type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
                 break;
-            default: { // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
                 // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
                 final var maybeFound = metadataBuilder.findType(typeString);
                 // if we can not find the type now, mark it, we will try to resolve it later on via a second pass.
                 type = maybeFound.orElseGet(() -> DataType.UnknownType.of(typeString, isNullable));
                 break;
-            }
         }
 
         if (isRepeated) {
@@ -507,9 +508,7 @@ public final class ParserUtils {
     @Nonnull
     public static Column<Value> toColumn(@Nonnull final Value value) {
         if (value instanceof FieldValue) {
-            final var fieldName = ((FieldValue) value).getLastFieldName();
-            Assert.thatUnchecked(fieldName.isPresent());
-            return toColumn(value, fieldName.get());
+            return toColumn(value, ((FieldValue) value).getLastFieldName().orElseThrow());
         } else {
             return Column.unnamedOf(value);
         }
@@ -586,7 +585,18 @@ public final class ParserUtils {
 
     @Nonnull
     public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<Typed> arguments) {
-        return function.encapsulate(emptyBuilder, arguments);
+        return function.encapsulate(emptyBuilder, arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(Collectors.toList()));
+    }
+
+    @Nonnull
+    private static Typed flattenRecordWithOneField(@Nonnull final Typed value) {
+        if (value instanceof RecordConstructorValue && ((RecordConstructorValue) value).getColumns().size() == 1) {
+            return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
+        }
+        if (value instanceof Value) {
+            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false).map(ParserUtils::flattenRecordWithOneField).map(v -> (Value) v).collect(Collectors.toList()));
+        }
+        return value;
     }
 
     // TODO (yhatem) get rid of this method once we change the way we model having multiple record types in scan operator.

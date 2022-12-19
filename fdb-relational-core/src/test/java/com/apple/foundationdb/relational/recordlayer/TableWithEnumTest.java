@@ -31,8 +31,8 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -185,8 +185,12 @@ public class TableWithEnumTest {
      * Inserting a value via a query is not yet supported. Once it is, however, we should validate that proper
      * enum conversions are performed. Additionally, it would be good to make sure we test what happens if
      * an invalid enum value is specified.
+     *
+     * (yhatem) this _almost_ now works, we just miss a STRING-to-ENUM promotion path (https://github.com/FoundationDB/fdb-record-layer/issues/1946)
+     * disabling until we fix this issue.
      */
     @Test
+    @Disabled("require a record-layer fix https://github.com/FoundationDB/fdb-record-layer/issues/1946")
     void insertViaQuery() {
         assertThatThrownBy(() -> statement.execute("INSERT INTO Card (id, suit, rank) VALUES (1, 'HEARTS', 4)"))
                 .isInstanceOf(ContextualSQLException.class)

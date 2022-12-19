@@ -1,0 +1,78 @@
+#
+# inserts-updates-deletes.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template inserts_updates_deletes_template
+---
+- query: create schema template inserts_updates_deletes_template
+    create struct S(S1 int64, S2 int64)
+    create table A(A1 int64, A2 int64, A3 int64, primary key(A1))
+    create table B(B1 int64, B2 int64, B3 S, primary key(B1))
+    create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+---
+- query: drop database /INSERTS_UPDATES_DELETES_YAML
+---
+- query: create database /INSERTS_UPDATES_DELETES_YAML
+---
+- query: create schema /INSERTS_UPDATES_DELETES_YAML/test with template inserts_updates_deletes_template
+---
+- connect: "jdbc:embed:/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
+---
+- query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
+- result: [{A1: 1, A2: 10, A3: 1},
+           {A1: 2, A2: 10, A3: 2},
+           {A1: 3, A2: 10, A3: 3}]
+---
+- query: insert into B values (1, 20, (4, 40)), (2, 20, (5, 50)), (3, 20, (6, 60)), (4, 20, null);
+- result: [{B1: 1, B2: 20, B3: {S1: 4, S2: 40}},
+           {B1: 2, B2: 20, B3: {S1: 5, S2: 50}},
+           {B1: 3, B2: 20, B3: {S1: 6, S2: 60}},
+           {B1: 4, B2: 20, B3: !null }]
+---
+- query: insert into B (B2, B1) values (20, 5);
+- result: [{B1: 5, B2: 20, B3: !null }]
+---
+- query: insert into B select b1 * 10, b2, b3 from B where b1 < 10;
+- result: [{B1: 10, B2: 20, B3: {4, 40}},
+           {B1: 20, B2: 20, B3: {5, 50}},
+           {B1: 30, B2: 20, B3: {6, 60}},
+           {B1: 40, B2: 20, B3: !null },
+           {B1: 50, B2: 20, B3: !null }]
+---
+- query: update B set b2 = 30, b3 = (100, 100) where b1 < 10;
+- result: [{old: {B1: 1, B2: 20, B3: {4, 40}}, new: {B1: 1, B2: 30, B3: {S1: 100, S2: 100}}},
+           {old: {B1: 2, B2: 20, B3: {5, 50}}, new: {B1: 2, B2: 30, B3: {S1: 100, S2: 100}}},
+           {old: {B1: 3, B2: 20, B3: {6, 60}}, new: {B1: 3, B2: 30, B3: {S1: 100, S2: 100}}},
+           {old: {B1: 4, B2: 20, B3: !null }, new: {B1: 4, B2: 30, B3: {S1: 100, S2: 100}}},
+           {old: {B1: 5, B2: 20, B3: !null }, new: {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}}]
+---
+- query: delete from B where b1 < 10;
+- result: [{B1: 1, B2: 30, B3: {S1: 100, S2: 100}},
+           {B1: 2, B2: 30, B3: {S1: 100, S2: 100}},
+           {B1: 3, B2: 30, B3: {S1: 100, S2: 100}},
+           {B1: 4, B2: 30, B3: {S1: 100, S2: 100}},
+           {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}]
+---
+- query: drop schema template inserts_updates_deletes_template
+---
+- query: drop database /INSERTS_UPDATES_DELETES_YAML
+...
+

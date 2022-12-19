@@ -283,6 +283,7 @@ public class StandardQueryTests {
     }
 
     @Test
+    @Disabled("(yhatem) until https://github.com/FoundationDB/fdb-record-layer/issues/1945 is fixed")
     void selectWithNullInComparisonOperator() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

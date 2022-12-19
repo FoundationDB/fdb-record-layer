@@ -321,10 +321,10 @@ selectStatement
 // details
 
 insertStatementValue
-    : selectStatement
+    : selectStatement                                               #insertStatementValueSelect
     | insertFormat=(VALUES | VALUE)
-      '(' expressionsWithDefaults? ')'
-        (',' '(' expressionsWithDefaults? ')')*
+      recordConstructorUnambiguous
+        (',' recordConstructorUnambiguous )*                        #insertStatementValueValues
     ;
 
 updatedElement
@@ -1574,6 +1574,28 @@ expressionsWithDefaults
     : expressionOrDefault (',' expressionOrDefault)*
     ;
 
+recordConstructorUnambiguous
+    : recordConstructorSingleOptionalName
+    | recordConstructorMultiple
+    ;
+
+recordConstructorAmbiguous
+    : recordConstructorSingleNamed
+    | recordConstructorMultiple
+    ;
+
+recordConstructorSingleNamed
+    : LR_BRACKET expressionWithName RR_BRACKET
+    ;
+
+recordConstructorSingleOptionalName
+    : LR_BRACKET expressionWithOptionalName RR_BRACKET
+    ;
+
+recordConstructorMultiple
+    : LR_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RR_BRACKET
+    ;
+
 constants
     : constant (',' constant)*
     ;
@@ -1603,6 +1625,14 @@ currentTimestamp
 
 expressionOrDefault
     : expression | DEFAULT
+    ;
+
+expressionWithName
+    : expression AS uid
+    ;
+
+expressionWithOptionalName
+    : expression (AS uid)?
     ;
 
 ifExists
@@ -1861,8 +1891,9 @@ expressionAtom
     | mysqlVariable                                                 #mysqlVariableExpressionAtom // done (unsupported)
     | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)
     | BINARY expressionAtom                                         #binaryExpressionAtom // done (unsupported)
-    | '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done
-    | ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom // done (unsupported)
+    //| '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done
+    | recordConstructorAmbiguous                                    #recordConstructorExpressionAtom // done
+    //| ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom // done (unsupported)
     | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)
