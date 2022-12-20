@@ -23,7 +23,7 @@
 - query: drop schema template inserts_updates_deletes_template
 ---
 - query: create schema template inserts_updates_deletes_template
-    create struct S(S1 int64, S2 int64)
+    create type as struct S(S1 int64, S2 int64)
     create table A(A1 int64, A2 int64, A3 int64, primary key(A1))
     create table B(B1 int64, B2 int64, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
