@@ -384,13 +384,31 @@ public class RecordLayerStoreCatalogImplTest {
 
     @Test
     void testUpdateSchemaWithBadSchema() throws RelationalException {
-        // bad schema, schema_version must not be 0
-        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 0);
+        // bad schema, schema_version must not be negative
+        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", -34);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
                     storeCatalog.saveSchema(txn, schema1));
             Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
-            Assertions.assertEquals("Field schema_version in Schema must be set, and must be > 0!", exception.getMessage());
+            Assertions.assertEquals("Field schema_version cannot be < 0!", exception.getMessage());
+        }
+    }
+
+    @Test
+    void testCreateSchemaWithSchemaTemplateVersionZero() throws RelationalException {
+        // bad schema, schema_version must not be negative
+        final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 0);
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
+            storeCatalog.saveSchema(txn, schema1);
+            txn.commit();
+        }
+
+        // read after transaction commit
+        try (Transaction readTransaction1 = new RecordContextTransaction(fdb.openContext())) {
+            Schema result1 = storeCatalog.loadSchema(readTransaction1, URI.create(schema1.getDatabaseName()), schema1.getName());
+            // Assert template version is 0
+            Assertions.assertEquals(0, result1.getSchemaTemplate().getVersion());
         }
     }
 

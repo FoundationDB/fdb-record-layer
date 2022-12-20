@@ -40,9 +40,9 @@ public final class CatalogValidator {
         if (schema.getSchemaTemplate().getName() == null || schema.getSchemaTemplate().getName().isEmpty()) {
             throw new RelationalException("Field schema_template_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
-        // if not set, default value for int fields is 0
-        if (schema.getSchemaTemplate().getVersion() <= 0) {
-            throw new RelationalException("Field schema_version in Schema must be set, and must be > 0!", ErrorCode.INVALID_PARAMETER);
+        // Schema version cannot be negative ever. However, it can be zero in some cases.
+        if (schema.getSchemaTemplate().getVersion() < 0) {
+            throw new RelationalException("Field schema_version cannot be < 0!", ErrorCode.INVALID_PARAMETER);
         }
         // We are assuming that the RecordMetaData field has been validated by RecordLayer
 
