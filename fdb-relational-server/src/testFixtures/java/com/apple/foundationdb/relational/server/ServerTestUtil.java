@@ -24,13 +24,14 @@ import io.prometheus.client.CollectorRegistry;
 
 import java.io.IOException;
 import java.net.BindException;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Stand up a server for downstream modules to use in test.
  */
 public final class ServerTestUtil {
-    private static final Logger logger = Logger.getLogger(ServerTestUtil.class.getName());
+    private static final Logger logger = LogManager.getLogger(ServerTestUtil.class.getName());
     private static final int PORT_RETRY_MAX = 100;
 
     /**
@@ -66,9 +67,7 @@ public final class ServerTestUtil {
                         (ioe.getCause() != null && ioe.getCause() instanceof  BindException) ||
                         ioe.getMessage().contains("Failed to bind to address")) {
                     final int portToLog = port;
-                    // TODO: When we change loggers, print out the exception.
-                    logger.info(() -> "BindException on port=" + portToLog + " or " + (portToLog + 1) +
-                            ", trying next port");
+                    logger.info("BindException on port={}, trying the next port", portToLog, ioe);
                     relationalServer.close();
                     relationalServer = null;
                     continue;

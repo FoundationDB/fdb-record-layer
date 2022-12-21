@@ -31,7 +31,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 // Unavoidable. This is part of the JDBC Driver Interface... getParentLogger returns it.
-// grpc uses JUL too.
+// We ignore it. We use log4j2 logging in relational (so do some customers).
 import java.util.logging.Logger;
 
 /**

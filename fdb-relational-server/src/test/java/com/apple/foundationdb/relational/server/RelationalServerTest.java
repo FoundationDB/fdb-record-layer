@@ -35,6 +35,8 @@ import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.StatusProto;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,10 +51,9 @@ import java.net.http.HttpResponse;
 import java.util.Enumeration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 public class RelationalServerTest {
-    private static final Logger logger = Logger.getLogger(RelationalServerTest.class.getName());
+    private static final Logger logger = LogManager.getLogger(RelationalServerTest.class.getName());
     private static RelationalServer relationalServer;
 
     @BeforeAll
@@ -118,7 +119,7 @@ public class RelationalServerTest {
         } catch (Throwable t) {
             com.google.rpc.Status status = StatusProto.fromThrowable(t);
             if (status != null) {
-                logger.severe(t + ", " + TextFormat.shortDebugString(status));
+                logger.fatal(t + ", " + TextFormat.shortDebugString(status));
             }
             throw t;
         } finally {
@@ -149,7 +150,7 @@ public class RelationalServerTest {
             managedChannel.shutdownNow();
         } finally {
             boolean timedout = managedChannel.awaitTermination(10, TimeUnit.SECONDS);
-            logger.info(() -> "awaitTermination timedout=" + timedout);
+            logger.info("awaitTermination timedout={}", timedout);
         }
     }
 

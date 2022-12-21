@@ -27,21 +27,20 @@ import com.google.rpc.ErrorInfo;
 import com.google.rpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
-// For now, JUL. TODO: Lets decide on better than just JUL. For later.
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Utility for serializing SQLExceptions for passing over grpc.
  * Includes encoding and decoding into and out of standard 'ErrorInfo' protobuf.
  */
 public final class GrpcSQLException {
-    private static final Logger logger = Logger.getLogger(GrpcSQLException.class.getName());
+    private static final Logger logger = LogManager.getLogger(GrpcSQLException.class.getName());
     private static final String SQLEXCEPTION_ERRORINFO_DOMAIN = GrpcSQLException.class.getPackageName();
     private static final String SQLEXCEPTION_ERROR_CODE = "sqlExceptionErrorCode";
     private static final String SQLEXCEPTION_SQLSTATE = "sqlExceptionSQLState";
@@ -123,14 +122,12 @@ public final class GrpcSQLException {
         ErrorInfo errorInfo = null;
         for (Any any : status.getDetailsList()) {
             if (!any.is(ErrorInfo.class)) {
-                logger.warning("Non-ErrorInfo Any type found: " + any.getClass() + " in " + status);
+                logger.warn("Non-ErrorInfo Any type found: {} in {}", any.getClass(), status);
                 continue;
             }
             try {
                 if (errorInfo != null) {
-                    if (logger.isLoggable(Level.WARNING)) {
-                        logger.warning("More than one ErrorInfo found in " + status + ", using first-found");
-                    }
+                    logger.warn("More than one ErrorInfo found in {}, using first-found", status);
                     continue;
                 }
                 ErrorInfo ei = any.unpack(ErrorInfo.class);
@@ -140,7 +137,7 @@ public final class GrpcSQLException {
                 }
             } catch (InvalidProtocolBufferException e) {
                 // JUL won't let me log exception. TODO.
-                logger.warning(e.getMessage());
+                logger.warn(e.getMessage());
             }
         }
         return errorInfo == null ? null : map(status.getMessage(), errorInfo);
@@ -168,8 +165,7 @@ public final class GrpcSQLException {
             return (Throwable) constructor.newInstance(causeMessage);
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException |
                 NoSuchMethodException e) {
-            // Just fall through to plain-old sqlexception.
-            logger.fine(e.getMessage());
+            logger.trace(e.getMessage());
         }
         return null;
     }
@@ -203,7 +199,7 @@ public final class GrpcSQLException {
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException |
                     NoSuchMethodException e) {
                 // Just fall through to plain-old sqlexception.
-                logger.fine(e.getMessage());
+                logger.trace(e.getMessage());
             }
             // Just fall through to plain-old sqlexception.
         }

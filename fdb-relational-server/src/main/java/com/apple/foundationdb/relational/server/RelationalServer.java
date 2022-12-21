@@ -47,6 +47,8 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -55,7 +57,6 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -64,9 +65,7 @@ import java.util.stream.Collectors;
  * (On why two ports in one server, see prometheus issue for discussion
  * https://github.com/prometheus/prometheus/issues/8414)
  */
-// Logging? RL is slf4j, customers are log4j2, fdb is 'native' or none? log4j2? Can bridge to slf4j if needed (or have slf4j
-// bridge over to log4j2?)
-// Exceptions ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
+// Exceptions are ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
 // TODO: Add remote 'safe' shutdown of server (or via signal?).
 // Revisit signal handling (to load config and to do 'safe' shutdown?)
 // It looks like CTRL-C is caught and we run the shutdown handler. What else is caught?
@@ -86,7 +85,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
 public class RelationalServer implements Closeable {
     // GRPC uses JUL.
-    private static final Logger logger = Logger.getLogger(RelationalServer.class.getName());
+    private static final Logger logger = LogManager.getLogger(RelationalServer.class.getName());
     private static final int DEFAULT_HTTP_PORT = GrpcConstants.DEFAULT_SERVER_PORT + 1;
 
     private Server grpcServer;
@@ -161,8 +160,8 @@ public class RelationalServer implements Closeable {
                 .collect(Collectors.joining(", "));
         // Start http server in daemon mode.
         new HTTPServer.Builder().withPort(this.httpPort).withRegistry(this.collectorRegistry).build();
-        logger.info(() -> "Started on grpcPort=" + getGrpcPort() + "/httpPort=" + getHttpPort() +
-                " with services: " + services);
+        logger.info("Started on grpcPort={}/httpPort={} with services: {}",
+                getGrpcPort(), getHttpPort(), services);
         // From https://github.com/grpc/grpc-java/blob/master/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideServer.java
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
