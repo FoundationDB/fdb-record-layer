@@ -47,6 +47,9 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * NOTE(bfines); This could be replaced by an officially supported one if/when we ever
  * upgrade to the dropwizard version of the library (i.e. 4.x or higher, instead of staying on 3.x).
+ * NOTE2(stack): Consider NOT using codahale but prometheus metrics. If server is exporing metrics
+ * on an prometheus endpoint, codahale will require translation (there are translators but better not
+ * to translate at all). What is the story for clients? RL is codahale?
  */
 //the fields are static subclasses and it would make an unreadable hash of the source to have them be first
 @SuppressWarnings("PMD.FieldDeclarationsShouldBeAtStartOfClass")

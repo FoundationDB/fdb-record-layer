@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.grpc.InternalGlobalInterceptors;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
@@ -34,6 +36,10 @@ import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc;
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.exporter.HTTPServer;
+import me.dinowernli.grpc.prometheus.Configuration;
+import me.dinowernli.grpc.prometheus.MonitoringServerInterceptor;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -48,12 +54,15 @@ import java.io.InterruptedIOException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
  * Relational Server.
- * Hosts the JDBC GRPC Service.
+ * Hosts the JDBC GRPC Service and an HTTP server to export metrics on.
+ * (On why two ports in one server, see prometheus issue for discussion
+ * https://github.com/prometheus/prometheus/issues/8414)
  */
 // Logging? RL is slf4j, customers are log4j2, fdb is 'native' or none? log4j2? Can bridge to slf4j if needed (or have slf4j
 // bridge over to log4j2?)
@@ -65,10 +74,11 @@ import java.util.stream.Collectors;
 // https://dzone.com/articles/basics-signal-handling
 // https://github.com/dmarkwat/java8-signalhandler
 // https://www.dclausen.net/javahacks/signal.html
-// Clients https://github.com/ktr0731/evans and grpc-client-cli or the c++ grpc grpc-cli
-// which use the reflections service.
+// Clients https://github.com/ktr0731/evans and grpc-client-cli or c++ grpc grpc-cli which use reflections service.
 // TODO: Read config from json/yaml file: e.g:  Get default features file from classpath with:
 //  return Server.class.getResource("server.json");
+//  Add whether to record histograms or just cheap metrics as
+//  configurable item.
 // An example reading config as json
 // https://github.com/grpc/grpc-java/blob/b118e00cf99c26da4665257ddcf11e666f6912b6/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideUtil.java#L51
 // 
@@ -77,22 +87,47 @@ import java.util.stream.Collectors;
 public class RelationalServer implements Closeable {
     // GRPC uses JUL.
     private static final Logger logger = Logger.getLogger(RelationalServer.class.getName());
+    private static final int DEFAULT_HTTP_PORT = GrpcConstants.DEFAULT_SERVER_PORT + 1;
 
-    private Server server;
-    private final int port;
+    private Server grpcServer;
+    private final int grpcPort;
+    private final int httpPort;
     private FRL frl;
+    private final CollectorRegistry collectorRegistry;
 
-    public RelationalServer(int port) {
-        this.port = port;
+    // Visible for the test fixture only so it can pass a CollectorRegistry.
+    @VisibleForTesting
+    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry) {
+        this.grpcPort = grpcPort;
+        this.httpPort = httpPort;
+        this.collectorRegistry = collectorRegistry;
+    }
+
+    public RelationalServer(int grpcPort, int httpPort) {
+        this(grpcPort, httpPort, CollectorRegistry.defaultRegistry);
     }
 
     /**
-     * Server port.
+     * GRPC port.
      * Error if you call this method before {@link #start()} completes.
-     * @return The port this server is listening on
+     * @return The port GRPC is listening on
      */
-    public int getPort() {
-        return this.server.getPort();
+    public int getGrpcPort() {
+        return this.grpcServer.getPort();
+    }
+
+    /**
+     * HTTP port.
+     * Error if you call this method before {@link #start()} completes.
+     * @return The port HTTP is listening on
+     */
+    public int getHttpPort() {
+        return this.httpPort;
+    }
+
+    @VisibleForTesting
+    CollectorRegistry getCollectorRegistry() {
+        return this.collectorRegistry;
     }
 
     RelationalServer start() throws IOException {
@@ -106,25 +141,28 @@ public class RelationalServer implements Closeable {
         }
         HealthStatusManager healthStatusManager = new HealthStatusManager();
         // Get SERVICE_NAME from the wrapping from the generated Grpc class.
-        healthStatusManager.setStatus(HealthGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
-        healthStatusManager.setStatus(ServerReflectionGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
-        healthStatusManager.setStatus(JDBCServiceGrpc.SERVICE_NAME,
-                HealthCheckResponse.ServingStatus.SERVING);
+        healthStatusManager.setStatus(HealthGrpc.SERVICE_NAME, HealthCheckResponse.ServingStatus.SERVING);
+        healthStatusManager.setStatus(ServerReflectionGrpc.SERVICE_NAME, HealthCheckResponse.ServingStatus.SERVING);
+        healthStatusManager.setStatus(JDBCServiceGrpc.SERVICE_NAME, HealthCheckResponse.ServingStatus.SERVING);
+        // For now, collect cheap metrics only. Later can do all/'expensive'. Metrics are recorded on the default
+        // prometheus collector so can be added-to.
+        var grpcMetrics = MonitoringServerInterceptor.create(Configuration.allMetrics()
+                .withCollectorRegistry(this.collectorRegistry));
         // Build Server with Services.
-        this.server = ServerBuilder.forPort(port)
-                .addService(healthStatusManager.getHealthService())
-                .addService(ProtoReflectionService.newInstance())
-                .addService(ServerInterceptors.intercept(new JDBCService(frl),
+        this.grpcServer = ServerBuilder.forPort(grpcPort)
+                .addService(ServerInterceptors.intercept(healthStatusManager.getHealthService(), grpcMetrics))
+                .addService(ServerInterceptors.intercept(ProtoReflectionService.newInstance(), grpcMetrics))
+                .addService(ServerInterceptors.intercept(new JDBCService(frl), grpcMetrics,
                         new UNKNOWNStatusInterceptor(Arrays.asList(SQLException.class))))
                 .build();
-        this.server.start();
-        String services = this.server.getServices().stream()
+        this.grpcServer.start();
+        String services = this.grpcServer.getServices().stream()
                 .map(p -> p.getServiceDescriptor().getName())
                 .collect(Collectors.joining(", "));
-        int port = this.server.getPort();
-        logger.info(() -> "Started on port=" + port + " with services: " + services);
+        // Start http server in daemon mode.
+        new HTTPServer.Builder().withPort(this.httpPort).withRegistry(this.collectorRegistry).build();
+        logger.info(() -> "Started on grpcPort=" + getGrpcPort() + "/httpPort=" + getHttpPort() +
+                " with services: " + services);
         // From https://github.com/grpc/grpc-java/blob/master/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideServer.java
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -132,7 +170,7 @@ public class RelationalServer implements Closeable {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 System.err.println(Instant.now() + " Waiting on Server termination");
                 try {
-                    RelationalServer.this.server.shutdown();
+                    RelationalServer.this.grpcServer.shutdown();
                     RelationalServer.this.awaitTermination();
                 } catch (InterruptedIOException e) {
                     throw new RuntimeException(e);
@@ -146,9 +184,9 @@ public class RelationalServer implements Closeable {
 
     void awaitTermination() throws InterruptedIOException {
         try {
-            if (this.server != null) {
+            if (this.grpcServer != null) {
                 // Server waits here while working.
-                this.server.awaitTermination();
+                this.grpcServer.awaitTermination();
             }
         } catch (InterruptedException ioe) {
             InterruptedIOException iioe = new InterruptedIOException();
@@ -169,13 +207,30 @@ public class RelationalServer implements Closeable {
                 ioe = new IOException(e);
             }
         }
-        if (this.server != null) {
-            this.server.shutdown();
+        if (this.grpcServer != null) {
+            this.grpcServer.shutdown();
             awaitTermination();
         }
         if (ioe != null) {
             throw ioe;
         }
+    }
+
+    /**
+     * Process port option.
+     */
+    private static int getPort(CommandLine cli, Option option, int defaultPort) {
+        int port = defaultPort;
+        if (cli.hasOption(option.getOpt())) {
+            try {
+                port = ((Number) cli.getParsedOptionValue(option.getOpt())).intValue();
+            } catch (ParseException pe) {
+                System.err.println("Parse failed, option=" + option.getOpt() + ". " +
+                        pe.getMessage());
+                System.exit(1);
+            }
+        }
+        return port;
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -184,9 +239,12 @@ public class RelationalServer implements Closeable {
         Option help = new Option("h", "help", false, "Output this help message.");
         options.addOption(help);
         // Has to be a 'Number.class', see https://stackoverflow.com/questions/5585634/apache-commons-cli-option-type-and-default-value
-        Option port = Option.builder().option("port").longOpt("port").hasArg(true).type(Number.class)
-                .desc("Port to listen on; default=" + GrpcConstants.DEFAULT_SERVER_PORT + ".").build();
-        options.addOption(port);
+        Option grpcPortOption = Option.builder().option("g").longOpt("grpcPort").hasArg(true).type(Number.class)
+                .desc("Port for GRPC to listen on; default=" + GrpcConstants.DEFAULT_SERVER_PORT + ".").build();
+        options.addOption(grpcPortOption);
+        Option httpPortOption = Option.builder().option("p").longOpt("httpPort").hasArg(true).type(Number.class)
+                .desc("Port for HTTP to listen on; default=" + DEFAULT_HTTP_PORT + ".").build();
+        options.addOption(httpPortOption);
         CommandLineParser parser = new DefaultParser();
         CommandLine cli = null;
         try {
@@ -197,20 +255,15 @@ public class RelationalServer implements Closeable {
         }
         if (cli.hasOption(help.getOpt())) {
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("Main", options, true);
+            formatter.printHelp("relational", options, true);
             return;
         }
-        int serverPort = GrpcConstants.DEFAULT_SERVER_PORT;
-        if (cli.hasOption(port.getOpt())) {
-            try {
-                serverPort = ((Number) cli.getParsedOptionValue(port.getOpt())).intValue();
-            } catch (ParseException pe) {
-                System.err.println("Parse failed, option=" + port.getOpt() + ". " +
-                        pe.getMessage());
-                System.exit(1);
-            }
-        }
-
-        new RelationalServer(serverPort).start().awaitTermination();
+        int grpcPort = getPort(cli, grpcPortOption, GrpcConstants.DEFAULT_SERVER_PORT);
+        int httpPort = getPort(cli, httpPortOption, DEFAULT_HTTP_PORT);
+        // Before starting up the server, turn off the global trace interceptors. W/o this, we get some classnotfound
+        // exceptions on startup. Enabling tracer interception is new; Classnotfound seems like unwanted behavior/bug.
+        InternalGlobalInterceptors.setInterceptorsTracers(Collections.emptyList(), Collections.emptyList(),
+                Collections.emptyList());
+        new RelationalServer(grpcPort, httpPort).start().awaitTermination();
     }
 }

@@ -101,7 +101,7 @@ public class JDBCRelationalDriverTest {
         try (RelationalServer relationalServer =
                 ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT)) {
             try (Connection connection =
-                    driver.connect("jdbc:relational://localhost:" + relationalServer.getPort() + "/__SYS", null)) {
+                    driver.connect("jdbc:relational://localhost:" + relationalServer.getGrpcPort() + "/__SYS", null)) {
                 Assertions.assertFalse(connection.isClosed());
                 DatabaseMetaData databaseMetaData = connection.getMetaData();
                 // These should be the same. One version is read from the server, the

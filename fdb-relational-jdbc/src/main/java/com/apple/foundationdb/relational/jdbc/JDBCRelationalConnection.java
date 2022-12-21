@@ -175,6 +175,7 @@ class JDBCRelationalConnection implements RelationalConnection {
         }
         this.closed = true;
         try {
+            managedChannel.shutdown();
             managedChannel.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new SQLException(e);

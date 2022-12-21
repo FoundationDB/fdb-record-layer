@@ -33,6 +33,8 @@ import io.grpc.health.v1.HealthCheckRequest;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.StatusProto;
+import io.prometheus.client.Collector;
+import io.prometheus.client.CollectorRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,6 +42,12 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Enumeration;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -86,10 +94,9 @@ public class RelationalServerTest {
     @Test
     public void simpleJDBCServiceClientOperation() throws IOException, InterruptedException {
         ManagedChannel managedChannel = ManagedChannelBuilder
-                .forTarget("localhost:" + relationalServer.getPort())
+                .forTarget("localhost:" + relationalServer.getGrpcPort())
                 .usePlaintext().build();
-        JDBCServiceGrpc.JDBCServiceBlockingStub stub =
-                JDBCServiceGrpc.newBlockingStub(managedChannel);
+        JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         String sysdb = "/__SYS";
         String schema = "CATALOG";
         String testdb = "/test_db";
@@ -126,7 +133,7 @@ public class RelationalServerTest {
     @Test
     public void healthServiceClientOperation() throws IOException, InterruptedException {
         ManagedChannel managedChannel = ManagedChannelBuilder
-                .forTarget("localhost:" + relationalServer.getPort())
+                .forTarget("localhost:" + relationalServer.getGrpcPort())
                 .usePlaintext().build();
         try {
             HealthGrpc.HealthBlockingStub stub = HealthGrpc.newBlockingStub(managedChannel);
@@ -144,5 +151,87 @@ public class RelationalServerTest {
             boolean timedout = managedChannel.awaitTermination(10, TimeUnit.SECONDS);
             logger.info(() -> "awaitTermination timedout=" + timedout);
         }
+    }
+
+    /**
+     * Simple check that the prometheus metrics gathering is working and that we can see the metrics with HTTP client.
+     * Prometheus metrics are made for dashboarding and exotic querying, not for easy evalution in unit tests.
+     */
+    @Test
+    public void testMetrics() throws IOException, InterruptedException {
+        // Metrics names recorded for grpc -- all we currently record for prometheus -- can be gotten from
+        // down the page on https://github.com/grpc-ecosystem/java-grpc-prometheus
+        CollectorRegistry collectorRegistry = relationalServer.getCollectorRegistry();
+        // In this test, we check that that 'total' for this metric goes up after we make some grpc calls.
+        final String metricName = "grpc_server_handled";
+        double before = countSampleValues(metricName, metricName + "_total", collectorRegistry);
+        // Run some queries which will tickle grpc.
+        simpleJDBCServiceClientOperation();
+        double after = countSampleValues(metricName, metricName + "_total", collectorRegistry);
+        Assertions.assertEquals(after - before, 6.0/* Expected Difference -- 4 calls*/);
+        // Streaming is not implemented yet so these should be zero.
+        var receivedAfter = findRecordedMetricOrThrow("grpc_server_msg_received", collectorRegistry);
+        Assertions.assertEquals(0, receivedAfter.samples.size());
+        // Streaming is not implemented yet so these should be zero.
+        var sentAfter = findRecordedMetricOrThrow("grpc_server_msg_sent", collectorRegistry);
+        Assertions.assertEquals(0, sentAfter.samples.size());
+
+        // Assert I can read prometheus metrics via http client. We just grep it works. Parse is awkward. Can do better
+        // when we have more metrics in the mix.
+        HttpClient httpClient = HttpClient.newHttpClient();
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:" + relationalServer.getHttpPort() + "/metrics")).GET().build();
+        final HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+        Assertions.assertEquals(httpResponse.statusCode(), 200);
+        logger.info(() -> httpResponse.body());
+        Assertions.assertTrue(httpResponse.body().contains("grpc_server_started_created{grpc_type=\"UNARY\"," +
+                "grpc_service=\"grpc.relational.jdbc.v1.JDBCService\",grpc_method=\"update\",}"));
+        Assertions.assertTrue(httpResponse.body().contains("grpc_server_started_created{grpc_type=\"UNARY\"," +
+                "grpc_service=\"grpc.relational.jdbc.v1.JDBCService\",grpc_method=\"execute\",}"));
+    }
+
+    // Methods below are from test code of the apache-licensed https://github.com/grpc-ecosystem/java-grpc-prometheus
+    // I can't reference the RegistryHelper because it doesn't get built into the java-grpc-prometheus jar (?) --
+    // joys of Bazel builder.
+    static Collector.MetricFamilySamples findRecordedMetricOrThrow(
+            String name, CollectorRegistry collectorRegistry) {
+        Optional<Collector.MetricFamilySamples> result = findRecordedMetric(name, collectorRegistry);
+        if (!result.isPresent()) {
+            throw new IllegalArgumentException("Could not find metric with name: " + name);
+        }
+        return result.get();
+    }
+
+    static Optional<Collector.MetricFamilySamples> findRecordedMetric(
+            String name, CollectorRegistry collectorRegistry) {
+        Enumeration<Collector.MetricFamilySamples> samples = collectorRegistry.metricFamilySamples();
+        while (samples.hasMoreElements()) {
+            Collector.MetricFamilySamples sample = samples.nextElement();
+            if (sample.name.equals(name)) {
+                return Optional.of(sample);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Count the value for all values of <code>sampleName</code> for given <code>metricName</code>.
+     */
+    static double countSampleValues(
+            String metricName, String sampleName, CollectorRegistry collectorRegistry) {
+        Enumeration<Collector.MetricFamilySamples> samples = collectorRegistry.metricFamilySamples();
+        double result = 0;
+        while (samples.hasMoreElements()) {
+            Collector.MetricFamilySamples sample = samples.nextElement();
+            if (sample.name.equals(metricName)) {
+                for (Collector.MetricFamilySamples.Sample s : sample.samples) {
+                    if (s.name.equals(sampleName)) {
+                        result += s.value;
+                    }
+                }
+                return result;
+            }
+        }
+        throw new IllegalArgumentException("Could not find sample family with name: " + metricName);
     }
 }

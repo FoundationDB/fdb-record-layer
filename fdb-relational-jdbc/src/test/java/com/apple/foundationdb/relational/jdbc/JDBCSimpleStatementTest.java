@@ -68,7 +68,7 @@ public class JDBCSimpleStatementTest {
 
     @Test
     public void simpleStatement() throws SQLException, IOException {
-        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getPort() + SYSDB + "?schema=" + SCHEMA;
+        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDB + "?schema=" + SCHEMA;
         try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
                 .unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {

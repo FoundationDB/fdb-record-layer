@@ -69,7 +69,7 @@ public class ServerSideExceptionsOnClientSideTest {
 
     @Test
     public void simpleStatementProvokesSQLException() throws SQLException {
-        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getPort() + SYSDB + "?schema=" + SCHEMA;
+        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDB + "?schema=" + SCHEMA;
         try (Connection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)) {
             try (Statement statement = connection.createStatement()) {
                 String badSql = "BAD SQL";
