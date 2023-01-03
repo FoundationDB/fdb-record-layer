@@ -282,12 +282,12 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Override
     public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
         return new Accumulator() {
-            List<Accumulator> childAccumulators = null;
+
+            @Nonnull
+            private final List<Accumulator> childAccumulators = buildAccumulators();
+
             @Override
             public void accumulate(@Nullable final Object currentObject) {
-                if (childAccumulators == null) {
-                    childAccumulators = buildAccumulators();
-                }
                 if (currentObject == null) {
                     childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
                 } else {
@@ -304,10 +304,6 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             @Nonnull
             @Override
             public Object finish() {
-                if (childAccumulators == null) {
-                    childAccumulators = buildAccumulators();
-                }
-
                 final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
                 final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
