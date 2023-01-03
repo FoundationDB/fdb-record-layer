@@ -69,8 +69,14 @@ public class BuildVersionTest {
         String version = bv.getInstance().getVersion();
         int minorVersion = bv.getInstance().getMinorVersion();
         int index = version.indexOf(".");
-        Assertions.assertThat(version.substring(index + 1))
-                .startsWith(Integer.toString(minorVersion));
+        String subStr = version.substring(index + 1);
+        // Our version strings are a bit odd -- they are 'dates' that can be have zero-padding -- and this
+        // 'test' is a little silly/awkward checking that the minor part starts with the 'expected'
+        // number... accommodate zero-padding.
+        if (subStr.startsWith("0")) {
+            subStr = subStr.substring(1);
+        }
+        Assertions.assertThat(subStr).startsWith(Integer.toString(minorVersion));
     }
 
     @Test

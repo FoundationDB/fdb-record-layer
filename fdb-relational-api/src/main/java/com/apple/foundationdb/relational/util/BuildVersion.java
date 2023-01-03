@@ -118,6 +118,6 @@ public final class BuildVersion {
      * @return minor sub-version.
      */
     public int getMinorVersion(String version) {
-        return parseDriverVersion(version, 1 /*1 means second part of version string, the major part*/);
+        return parseDriverVersion(version, 1 /*1 means second part of version string, the minor part*/);
     }
 }
