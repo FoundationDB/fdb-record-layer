@@ -66,21 +66,13 @@ import java.util.stream.Collectors;
  * https://github.com/prometheus/prometheus/issues/8414)
  */
 // Exceptions are ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
-// TODO: Add remote 'safe' shutdown of server (or via signal?).
-// Revisit signal handling (to load config and to do 'safe' shutdown?)
-// It looks like CTRL-C is caught and we run the shutdown handler. What else is caught?
-// https://www.programcreek.com/java-api-examples/?api=sun.misc.SignalHandler
-// https://dzone.com/articles/basics-signal-handling
-// https://github.com/dmarkwat/java8-signalhandler
-// https://www.dclausen.net/javahacks/signal.html
-// Clients https://github.com/ktr0731/evans and grpc-client-cli or c++ grpc grpc-cli which use reflections service.
 // TODO: Read config from json/yaml file: e.g:  Get default features file from classpath with:
 //  return Server.class.getResource("server.json");
-//  Add whether to record histograms or just cheap metrics as
-//  configurable item.
+//  Add config. on whether to record histograms or just cheap metrics as configurable item.
 // An example reading config as json
 // https://github.com/grpc/grpc-java/blob/b118e00cf99c26da4665257ddcf11e666f6912b6/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideUtil.java#L51
 // 
+// We now have an httpserver for metrics; could use it for REST commands and exposing current configuration.
 // TODO: Update health service state as we go; i.e. make it 'live'.
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
 public class RelationalServer implements Closeable {
