@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -292,6 +294,8 @@ public class FieldValue implements ValueWithChild, Value.SerializableValue {
     @Override
     public RecordMetaDataProto.Expression toProto() {
         // TODO (hatyo) memoize
+        Verify.verify(childValue instanceof SerializableValue, "attempt to serialize non-serializable value(s)");
+
         @Nonnull final var fieldExpBuilder = RecordMetaDataProto.FieldExpression.newBuilder();
         for (final var fieldAccessor : getFieldPath().fieldAccessors) {
             final var fieldAccessorBuilder = RecordMetaDataProto.FieldExpression.FieldAccessor.newBuilder();
@@ -302,7 +306,20 @@ public class FieldValue implements ValueWithChild, Value.SerializableValue {
             fieldAccessorBuilder.setOrdinal(fieldAccessor.getOrdinal());
             fieldExpBuilder.addFieldPath(fieldAccessorBuilder.build());
         }
+        fieldExpBuilder.setChild(((SerializableValue)childValue).toProto());
         return RecordMetaDataProto.Expression.newBuilder().setFieldExpression(fieldExpBuilder.build()).build();
+    }
+
+    @Nonnull
+    public static FieldValue fromProto(@Nonnull final TypeRepository.Builder builder,
+                                       @Nonnull final RecordMetaDataProto.FieldExpression fieldExpression,
+                                       @Nonnull final CorrelationIdentifier baseQuantifier,
+                                       @Nonnull final Type baseType) {
+        final Value child = Value.deserialize(builder, fieldExpression.getChild(), baseQuantifier, baseType);
+        final var fieldPaths = fieldExpression.getFieldPathList();
+        final var paths = fieldPaths.stream().map(fieldPath -> new Accessor(fieldPath.getName(), fieldPath.getOrdinal())).collect(Collectors.toList());
+        final var fieldPath = FieldValue.resolveFieldPath(baseType, paths);
+        return FieldValue.ofFields(child, fieldPath);
     }
 
     /**

@@ -38,7 +38,7 @@ import java.util.Set;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueriedValue implements LeafValue, Value.CompileTimeValue, Value.SerializableValue {
+public class QueriedValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull
@@ -106,11 +106,5 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue, Value.Se
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Expression toProto() {
-
     }
 }

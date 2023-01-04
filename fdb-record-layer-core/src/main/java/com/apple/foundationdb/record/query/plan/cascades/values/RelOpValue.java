@@ -367,9 +367,12 @@ public class RelOpValue implements BooleanValue, Value.SerializableValue {
     }
 
     @Nonnull
-    public static RelOpValue fromProto(@Nonnull final TypeRepository.Builder typeRepository, @Nonnull final RecordMetaDataProto.RelOpExpression relOpExpression) {
+    public static RelOpValue fromProto(@Nonnull final TypeRepository.Builder typeRepository,
+                                       @Nonnull final RecordMetaDataProto.RelOpExpression relOpExpression,
+                                       @Nonnull final CorrelationIdentifier baseQuantifier,
+                                       @Nonnull final Type baseType) {
         // TODO (hatyo) we should cache these functions somehow.
-        final var children = relOpExpression.getChildrenList().stream().map(Value::deserialize).map(v -> (Typed)v).collect(Collectors.toList());
+        @Nonnull final var children = relOpExpression.getChildrenList().stream().map(child -> Value.deserialize(typeRepository, child, baseQuantifier, baseType)).map(v -> (Typed)v).collect(Collectors.toList());
 
         switch (relOpExpression.getComparisonType()) {
             case EQUALS:

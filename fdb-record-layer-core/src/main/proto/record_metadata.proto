@@ -250,6 +250,10 @@ message FieldExpression {
     optional int32 ordinal = 1;
     optional string name = 2;
   }
+  optional Expression child = 2;
+}
+
+message QuantifiedObjectExpression {
 }
 
 message Expression {
@@ -258,4 +262,5 @@ message Expression {
   optional RelOpExpression rel_op_expression = 2;
   optional AndOrExpression and_or_expression = 3;
   optional FieldExpression field_expression = 4;
+  optional QuantifiedObjectExpression quantified_object_expression = 5;
 }

@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueCompari
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
@@ -634,10 +635,21 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    static Value.SerializableValue deserialize(@Nonnull final RecordMetaDataProto.Expression expression) {
+    static Value.SerializableValue deserialize(@Nonnull final TypeRepository.Builder typeRepository,
+                                               @Nonnull final RecordMetaDataProto.Expression expression,
+                                               @Nonnull final CorrelationIdentifier baseQuantifier,
+                                               @Nonnull final Type baseType) {
         if (expression.hasLiteralExpression()) {
             return LiteralValue.fromProto(expression.getLiteralExpression());
+        } else if (expression.hasRelOpExpression()) {
+            return RelOpValue.fromProto(typeRepository, expression.getRelOpExpression(), baseQuantifier, baseType);
+        } else if (expression.hasAndOrExpression()) {
+            return AndOrValue.fromProto(typeRepository, expression.getAndOrExpression(), baseQuantifier, baseType);
+        } else if (expression.hasFieldExpression()) {
+            return FieldValue.fromProto(typeRepository, expression.getFieldExpression(), baseQuantifier, baseType);
+        } else if (expression.hasQuantifiedObjectExpression()) {
+            return QuantifiedObjectValue.fromProto(baseQuantifier, baseType);
         }
-        return null;
+        throw new RecordCoreException(String.format("Unknown expression '%s'", expression.toString()));
     }
 }

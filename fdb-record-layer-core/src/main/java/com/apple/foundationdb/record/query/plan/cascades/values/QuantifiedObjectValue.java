@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -44,7 +45,7 @@ import javax.annotation.Nullable;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedObjectValue implements QuantifiedValue {
+public class QuantifiedObjectValue implements QuantifiedValue, Value.SerializableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
     @Nonnull
@@ -148,5 +149,19 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Nonnull
     public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         return new QuantifiedObjectValue(alias, resultType);
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Expression toProto() {
+        // TODO (hatyo) memoize
+        @Nonnull final var queriedObjectExpBuilder = RecordMetaDataProto.QuantifiedObjectExpression.newBuilder();
+        return RecordMetaDataProto.Expression.newBuilder().setQuantifiedObjectExpression(queriedObjectExpBuilder.build()).build();
+    }
+
+    @Nonnull
+    public static QuantifiedObjectValue fromProto(@Nonnull final CorrelationIdentifier baseQuantifier,
+                                                  @Nonnull final Type baseType) {
+        return QuantifiedObjectValue.of(baseQuantifier, baseType);
     }
 }

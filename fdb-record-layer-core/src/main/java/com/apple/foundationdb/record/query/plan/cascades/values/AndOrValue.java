@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -88,6 +89,27 @@ public class AndOrValue implements BooleanValue, Value.SerializableValue {
         }
 
         return RecordMetaDataProto.Expression.newBuilder().setAndOrExpression(andOrExpBuilder.build()).build();
+    }
+
+    @Nonnull
+    public static AndOrValue fromProto(@Nonnull final TypeRepository.Builder builder,
+                                       @Nonnull final RecordMetaDataProto.AndOrExpression andOrExpression,
+                                       @Nonnull final CorrelationIdentifier baseQuantifier,
+                                       @Nonnull final Type baseType) {
+        Verify.verify(andOrExpression.hasLeft(), String.format("unexpected serialized %s without left child", RecordMetaDataProto.AndOrExpression.class));
+        Verify.verify(andOrExpression.hasRight(), String.format("unexpected serialized %s without right child", RecordMetaDataProto.AndOrExpression.class));
+
+        @Nonnull final var left = Value.deserialize(builder, andOrExpression.getLeft(), baseQuantifier, baseType);
+        @Nonnull final var right = Value.deserialize(builder, andOrExpression.getRight(), baseQuantifier, baseType);
+
+        switch (andOrExpression.getOperatorType()) {
+            case AND:
+                return (AndOrValue)(new AndFn().encapsulate(builder, List.of(left, right)));
+            case OR:
+                return (AndOrValue)(new OrFn().encapsulate(builder, List.of(left, right)));
+            default:
+                throw new RecordCoreException(String.format("Unknown operator '%s'", andOrExpression.getOperatorType()));
+        }
     }
 
     private enum Operator {
