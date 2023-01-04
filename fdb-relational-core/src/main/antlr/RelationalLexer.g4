@@ -26,7 +26,7 @@ THE SOFTWARE.
 
 lexer grammar RelationalLexer;
 
-channels { MYSQLCOMMENT, ERRORCHANNEL }
+channels { MYSQLCOMMENT }
 
 // SKIP
 
@@ -1337,4 +1337,6 @@ fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
 
 // Last tokens must generate Errors
 
-ERROR_RECONGNIGION:                  .    -> channel(ERRORCHANNEL);
+ERROR_RECOGNITION
+    : . { this.notifyListeners(new LexerNoViableAltException(this, _input, _tokenStartCharIndex, null)); }
+    ;
