@@ -282,17 +282,12 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     @Override
     public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
         return new Accumulator() {
-            List<Accumulator> childAccumulators = null;
+
+            @Nonnull
+            private final List<Accumulator> childAccumulators = buildAccumulators();
+
             @Override
             public void accumulate(@Nullable final Object currentObject) {
-                if (childAccumulators == null) {
-                    final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
-                    for (final var child : getChildren()) {
-                        Verify.verify(child instanceof AggregateValue);
-                        childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
-                    }
-                    childAccumulators = childAccumulatorsBuilder.build();
-                }
                 if (currentObject == null) {
                     childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
                 } else {
@@ -306,13 +301,9 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 }
             }
 
-            @Nullable
+            @Nonnull
             @Override
             public Object finish() {
-                if (childAccumulators == null) {
-                    return null;
-                }
-
                 final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
                 final var descriptorForType = resultMessageBuilder.getDescriptorForType();
 
@@ -328,6 +319,16 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
                 }
 
                 return resultMessageBuilder.build();
+            }
+
+            @Nonnull
+            private List<Accumulator> buildAccumulators() {
+                final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+                for (final var child : getChildren()) {
+                    Verify.verify(child instanceof AggregateValue);
+                    childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
+                }
+                return childAccumulatorsBuilder.build();
             }
         };
     }
