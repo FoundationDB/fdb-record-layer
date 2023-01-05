@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
 /**
  * Case class that represents a grouping index with aggregate function(s).
  */
-public class AggregateIndexMatchCandidate implements MatchCandidate {
+public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQuantifierMatchCandidate {
 
     // The backing index metadata structure.
     @Nonnull
@@ -377,5 +377,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate {
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Type getBaseType() {
+        return baseType;
     }
 }

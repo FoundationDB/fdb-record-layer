@@ -607,6 +607,15 @@ public class Index {
     }
 
     /**
+     * Checks whether a predicate is defined on the index.
+     *
+     * @return {@code true} if the index has a predicate, otherwise {@code false}.
+     */
+    public boolean hasPredicate() {
+        return predicate != null;
+    }
+
+    /**
      * Set the version at which the index was changed.
      * @param lastModifiedVersion the last modified version
      */

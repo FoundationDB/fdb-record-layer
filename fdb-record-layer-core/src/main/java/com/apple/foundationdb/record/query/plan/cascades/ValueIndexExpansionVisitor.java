@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +42,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -107,7 +110,16 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var keyValueExpansion =
                 pop(rootExpression.expand(push(initialState)));
 
-        allExpansionsBuilder.add(keyValueExpansion);
+        if (index.hasPredicate()) {
+            final var predicateValue = Value.deserialize(TypeRepository.newBuilder(), Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+            if (!(predicateValue instanceof BooleanValue)) {
+                throw new UnsupportedOperationException("unsupported predicate type in filtered index definition");
+            }
+            final var predicatedExpansion = keyValueExpansion.toBuilder().addPredicate(((BooleanValue)predicateValue).toQueryPredicate(CorrelationIdentifier.uniqueID()).get()).build();
+            allExpansionsBuilder.add(predicatedExpansion);
+        } else {
+            allExpansionsBuilder.add(keyValueExpansion);
+        }
 
         final var keySize = keyValues.size();
 
