@@ -48,7 +48,6 @@ message Index {
     RANK = 3;
     RANK_UNIQUE = 4;    // (Meaning the score is unique.)
   };
-  // TODO: Generalize to predicate on records in storage area to be included in index.
   repeated string record_type = 1;
   optional Type index_type = 2 [deprecated = true]; // Use type.
   optional string name = 3;
@@ -64,6 +63,7 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
+  optional Expression predicate = 11;
   extensions 1000 to 2000;
 }
 

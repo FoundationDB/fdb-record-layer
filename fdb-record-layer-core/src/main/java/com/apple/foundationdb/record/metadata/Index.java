@@ -76,6 +76,9 @@ public class Index {
     private int addedVersion;
     private int lastModifiedVersion;
 
+    @Nullable
+    private RecordMetaDataProto.Expression predicate;
+
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
         if (tuple.size() != 1) {
@@ -159,6 +162,10 @@ public class Index {
         this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
+        if (orig.predicate != null) {
+            // yhatem: not sure if this deep-copies
+            this.predicate = RecordMetaDataProto.Expression.newBuilder(orig.predicate).build();
+        }
     }
 
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
@@ -204,6 +211,9 @@ public class Index {
         }
         if (proto.hasLastModifiedVersion()) {
             lastModifiedVersion = proto.getLastModifiedVersion();
+        }
+        if (proto.hasPredicate()) {
+            this.predicate = proto.getPredicate();
         }
     }
 
@@ -587,6 +597,16 @@ public class Index {
     }
 
     /**
+     * Returns the predicate associated with the index in case of a filtered (sparse) index.
+     *
+     * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
+     */
+    @Nullable
+    public RecordMetaDataProto.Expression getPredicate() {
+        return predicate;
+    }
+
+    /**
      * Set the version at which the index was changed.
      * @param lastModifiedVersion the last modified version
      */
@@ -614,6 +634,9 @@ public class Index {
         if (lastModifiedVersion > 0) {
             builder.setLastModifiedVersion(lastModifiedVersion);
         }
+        if (predicate != null) {
+            builder.setPredicate(predicate);
+        }
         return builder.build();
     }
 
@@ -627,6 +650,10 @@ public class Index {
         str.append("}");
         if (lastModifiedVersion > 0) {
             str.append("#").append(lastModifiedVersion);
+        }
+        if (predicate != null) {
+            // TODO (hatyo) pretty-print this.
+            str.append("Predicate ").append(predicate);
         }
         return str.toString();
     }
@@ -646,12 +673,13 @@ public class Index {
                 && this.addedVersion == that.addedVersion
                 && this.lastModifiedVersion == that.lastModifiedVersion
                 && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
-                && this.options.equals(that.options);
+                && this.options.equals(that.options)
+                && (Objects.equals(this.predicate, that.predicate));
     }
 
     @Override
     public int hashCode() {
         // Within the context of a single RecordMetaData, this should be sufficient
-        return Objects.hash(name, type);
+        return this.predicate == null ? Objects.hash(name, type) : Objects.hash(name, type, predicate);
     }
 }
