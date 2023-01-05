@@ -104,6 +104,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void aggregateIndexTestsCountEmpty() throws Exception {
+        doRun("aggregate-index-tests-count-empty.yaml");
+    }
+
+    @Test
     public void limit() throws Exception {
         doRun("limit.yaml");
     }
