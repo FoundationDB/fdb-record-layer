@@ -45,6 +45,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -64,7 +65,7 @@ public class LuceneHighlighting {
     @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
     @Nullable
     static String searchAllMaybeHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
-                                          @Nonnull Set<String> matchedTokens, @Nullable String prefixToken,
+                                          @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens,
                                           boolean allMatchingRequired,
                                           @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                           @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
@@ -75,7 +76,7 @@ public class LuceneHighlighting {
             StringBuilder sb = luceneQueryHighlightParameters.isHighlight() ? new StringBuilder() : null;
             int upto = 0;
             Set<String> matchedInText = new HashSet<>();
-            boolean matchedPrefix = false;
+            Set<String> matchedPrefixes = new HashSet<>();
             ArrayDeque<String> pres = new ArrayDeque<>();
             ArrayDeque<String> ends = new ArrayDeque<>();
             int lastMatchPos = -tokenCountAfterHighlighted - 1;
@@ -142,25 +143,30 @@ public class LuceneHighlighting {
                     upto = endOffset;
                     matchedInText.add(token);
                     lastMatchPos = currentPos;
-                } else if (prefixToken != null && token.startsWith(prefixToken)) {
-                    if (luceneQueryHighlightParameters.isHighlight()) {
-                        if (!tokenAlreadyHighlighted(text, startOffset, endOffset,
-                                luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
-                            addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
-                                    luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag(),
-                                    highlightedPositions);
-                        } else {
-                            addNonMatch(sb, text.substring(startOffset, endOffset));
+                } else {
+                    for (String prefixToken : prefixTokens) {
+                        if (token.startsWith(prefixToken)) {
+                            if (luceneQueryHighlightParameters.isHighlight()) {
+                                if (!tokenAlreadyHighlighted(text, startOffset, endOffset,
+                                        luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag())) {
+                                    addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
+                                            luceneQueryHighlightParameters.getLeftTag(), luceneQueryHighlightParameters.getRightTag(),
+                                            highlightedPositions);
+                                } else {
+                                    addNonMatch(sb, text.substring(startOffset, endOffset));
+                                }
+                            }
+                            upto = endOffset;
+                            matchedPrefixes.add(prefixToken);
+                            break;
                         }
                     }
-                    upto = endOffset;
-                    matchedPrefix = true;
                 }
                 currentPos++;
             }
             ts.end();
 
-            if (allMatchingRequired && ((prefixToken != null && !matchedPrefix) || (matchedInText.size() < matchedTokens.size()))) {
+            if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
                 // Query text not actually found in document text. Return null
                 return null;
             }
@@ -294,19 +300,20 @@ public class LuceneHighlighting {
                     if (terms.isEmpty()) {
                         return;
                     }
+                    Set<String> prefixes = getPrefixTerms(terms);
                     for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : source.message.getAllFields().entrySet()) {
                         final Descriptors.FieldDescriptor entryDescriptor = entry.getKey();
                         final Object entryValue = entry.getValue();
                         if (entryValue instanceof String) {
                             buildIfMatch(source, fieldName, value,
                                     entryDescriptor, entryValue, 0,
-                                    terms, analyzerSelector, luceneQueryHighlightParameters);
+                                    terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
                         } else if (entryValue instanceof List) {
                             int index = 0;
                             for (Object entryValueElement : ((List<?>) entryValue)) {
                                 buildIfMatch(source, fieldName, value,
                                         entryDescriptor, entryValueElement, index,
-                                        terms, analyzerSelector, luceneQueryHighlightParameters);
+                                        terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
                                 index++;
                             }
                         }
@@ -314,15 +321,46 @@ public class LuceneHighlighting {
                 }, null);
     }
 
+    private static Set<String> getPrefixTerms(@Nonnull Set<String> terms) {
+        Set<String> result = Collections.emptySet();
+        Iterator<String> iter = terms.iterator();
+        while (iter.hasNext()) {
+            String term = iter.next();
+            if (term.endsWith("*")) {
+                term = term.substring(0, term.length() - 1);
+                if (result.isEmpty()) {
+                    result = new HashSet<>();
+                }
+                result.add(term);
+                iter.remove();
+            }
+        }
+        return result;
+    }
+
     private static <M extends Message> void buildIfMatch(RecordRebuildSource<M> source, String fieldName, Object fieldValue,
                                                          Descriptors.FieldDescriptor entryDescriptor, Object entryValue, int index,
-                                                         @Nonnull Set<String> terms,
+                                                         @Nonnull Set<String> terms, @Nonnull Set<String> prefixes,
                                                          @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
                                                          @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
-        if (entryValue.equals(fieldValue) && terms.stream().anyMatch(t -> StringUtils.containsIgnoreCase((String)entryValue, t))) {
-            String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, null, false, luceneQueryHighlightParameters, null);
+        if (entryValue.equals(fieldValue) && isMatch((String)entryValue, terms, prefixes)) {
+            String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, prefixes, false, luceneQueryHighlightParameters, null);
             source.buildMessage(highlightedText, entryDescriptor, null, null, true, index);
         }
+    }
+
+    private static boolean isMatch(@Nonnull String candidate, @Nonnull Set<String> terms, @Nonnull Set<String> prefixes) {
+        for (String term : terms) {
+            if (StringUtils.containsIgnoreCase(candidate, term)) {
+                return true;
+            }
+        }
+        for (String term : prefixes) {
+            if (StringUtils.containsIgnoreCase(candidate, term)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static class RecordRebuildSource<M extends Message> implements LuceneIndexExpressions.RecordSource<RecordRebuildSource<M>> {
@@ -508,9 +546,10 @@ public class LuceneHighlighting {
                     if (terms.isEmpty()) {
                         return;
                     }
-                    if (value instanceof String && terms.stream().anyMatch(t -> StringUtils.containsIgnoreCase((String)value, t))) {
+                    Set<String> prefixes = getPrefixTerms(terms);
+                    if (value instanceof String && isMatch((String)value, terms, prefixes)) {
                         List<Pair<Integer, Integer>> highlightedPositions = new ArrayList<>();
-                        String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)value).getAnalyzer(), (String)value, terms, null, false, luceneQueryHighlightParameters, highlightedPositions);
+                        String highlightedText = searchAllMaybeHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)value).getAnalyzer(), (String)value, terms, prefixes, false, luceneQueryHighlightParameters, highlightedPositions);
                         result.add(new HighlightedTerm(fieldName, highlightedText, highlightedPositions));
                     }
                 }, null);

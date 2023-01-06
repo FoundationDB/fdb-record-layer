@@ -53,6 +53,7 @@ import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
@@ -434,6 +435,11 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             Term term = spanTermQuery.getTerm();
             map.putIfAbsent(term.field(), new HashSet<>());
             map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
+        } else if (query instanceof PrefixQuery) {
+            PrefixQuery termQuery = (PrefixQuery) query;
+            Term term = termQuery.getPrefix();
+            map.putIfAbsent(term.field(), new HashSet<>());
+            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT) + "*");
         } else {
             throw new RecordCoreException("This lucene query is not supported for highlighting");
         }
