@@ -104,12 +104,6 @@ public class InOpValue implements BooleanValue {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var leftResult = leftChild.eval(store, context);
-
-        for (var c: values.getChildren()) {
-            var a = c.eval(store, context);
-        }
-
-
         final var rightResult = values. getChildren().stream().map(value -> value.eval(store, context)).collect(Collectors.toList());
         if (((List<?>) rightResult).stream().anyMatch(object -> object != null && object.equals(leftResult))) {
             return true;
@@ -165,6 +159,7 @@ public class InOpValue implements BooleanValue {
         return "(" + leftChild.explain(formatter) + " IN " + values.explain(formatter) + ")";
     }
 
+    @Override
     public String toString() {
         return "IN(" + leftChild + ", " + values + ")";
     }
@@ -189,10 +184,11 @@ public class InOpValue implements BooleanValue {
     public static class InFn extends BuiltInFunction<Value> {
         public InFn() {
             super("in",
-                    List.of(new Type.Any(), new Type.Array()), InFn::encapsulate);
+                    List.of(new Type.Any(), new Type.Array()), (ctx, builtInFunc, args) -> encapsulateInternal(ctx, args));
         }
-
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        
+        @Nonnull
+        private static Value encapsulateInternal(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull final List<Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
             SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
@@ -203,7 +199,7 @@ public class InOpValue implements BooleanValue {
             Verify.verify(arg1 instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
             final var arrayValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)arg1;
 
-            if (arg0.getResultType() != arrayValue.getElementType()) {
+            if (!arg0.getResultType().equals(arrayValue.getElementType())) {
                 // Check if the arg0 type can be promoted to arg1 element type
                 final var promoteType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
 
