@@ -83,7 +83,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.STABLE)
 public class Comparisons {
-    public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList());
+    public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList(), false);
 
     private Comparisons() {
     }
@@ -1339,8 +1339,12 @@ public class Comparisons {
         @Nullable
         private final Descriptors.FieldDescriptor.JavaType javaType;
 
-        @SuppressWarnings({"rawtypes", "unchecked"})
+        @SuppressWarnings("rawtypes")
         public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
+            this(type, comparand, false);
+        }
+
+        public ListComparison(@Nonnull Type type, @Nonnull List<?> comparand, boolean ignoreNulls) {
             this.type = type;
             switch (this.type) {
                 case EQUALS:
@@ -1349,22 +1353,28 @@ public class Comparisons {
                 case IN:
                     break;
                 default:
-                    throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS and STARTS_WITH");
+                    throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS, STARTS_WITH and IN");
             }
-            if (comparand == null || (this.type == Type.IN && comparand.stream().anyMatch(o -> o == null))) {
-                throw new NullPointerException("List comparand is null, or contains null");
+            if (comparand == null) {
+                throw new NullPointerException("List comparand is null");
             }
-            if (comparand.isEmpty()) {
-                javaType = null;
-            } else {
-                javaType = getJavaType(comparand.get(0));
-                for (Object o : comparand) {
-                    if (getJavaType(o) != javaType) {
-                        throw new RecordCoreException("all comparand values must have the same type, first was " +
-                                javaType + " found another of type " + getJavaType(o));
-                    }
+            if (!ignoreNulls && this.type == Type.IN && comparand.stream().anyMatch(Objects::isNull)) {
+                throw new NullPointerException("List comparand contains null");
+            }
+            Descriptors.FieldDescriptor.JavaType resolvedType = null;
+            for (Object o : comparand) {
+                if (ignoreNulls && o == null) {
+                    continue;
+                }
+                final var oType = getJavaType(o);
+                if (resolvedType == null) {
+                    resolvedType = oType;
+                } else if (resolvedType != oType) {
+                    throw new RecordCoreException("all comparand values must have the same type, first was " +
+                                                  resolvedType + " found another of type " + getJavaType(o));
                 }
             }
+            this.javaType = resolvedType;
             this.comparand = comparand;
         }
 

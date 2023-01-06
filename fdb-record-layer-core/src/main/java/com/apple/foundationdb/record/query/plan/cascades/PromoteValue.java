@@ -116,12 +116,17 @@ public class PromoteValue implements ValueWithChild {
             return result;
         }
 
-        final var typeRepository = context.getTypeRepository();
-        final var promoteToDescriptor = typeRepository.getMessageDescriptor(promoteToType);
+        if (promoteToType.isPrimitive()) {
+            return MessageHelpers.coerceObject(promotionTrie,
+                    promoteToType,
+                    null,
+                    inValue.getResultType(),
+                    result);
+        }
 
         return MessageHelpers.coerceObject(promotionTrie,
                 promoteToType,
-                promoteToDescriptor,
+                context.getTypeRepository().getMessageDescriptor(promoteToType),
                 inValue.getResultType(),
                 result);
     }

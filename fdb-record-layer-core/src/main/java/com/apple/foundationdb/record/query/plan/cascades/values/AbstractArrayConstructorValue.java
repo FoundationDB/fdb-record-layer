@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -201,6 +202,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
             return emptyArray(type); // only empty arrays are currently promotable
         }
 
+        @VisibleForTesting
         @Nonnull
         public static LightArrayConstructorValue of(@Nonnull final Value value1, @Nonnull final Value... valuesN) {
             final var children = ImmutableList.<Value>builder().add(value1).add(valuesN).build();
@@ -208,7 +210,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
         }
 
         @Nonnull
-        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children) {
+        private static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children) {
             Verify.verify(!children.isEmpty());
             return new LightArrayConstructorValue(children);
         }

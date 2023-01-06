@@ -439,12 +439,7 @@ public interface Type extends Narrowable<Type> {
             if (PromoteValue.resolvePromotionFunction(t1, t2) != null) {
                 return t2.withNullability(isResultNullable);
             }
-
-            if (PromoteValue.isPromotionNeeded(t2, t1)) {
-                return t2.withNullability(isResultNullable);
-            }
-
-            throw new RecordCoreException("should not be here");
+            return null;
         }
 
         if (t1.getTypeCode() != t2.getTypeCode()) {
