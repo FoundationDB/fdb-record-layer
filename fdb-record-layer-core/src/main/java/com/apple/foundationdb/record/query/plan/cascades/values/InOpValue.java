@@ -205,16 +205,17 @@ public class InOpValue implements BooleanValue {
 
             if (arg0.getResultType() != arrayValue.getElementType()) {
                 // Check if the arg0 type can be promoted to arg1 element type
-                final var arg0PromoteType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
+                final var promoteType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
 
                 // Incompatible types
-                // Also covers the case when promoting the arg1 elementType can maybe possible.
-                SemanticException.check(arg0PromoteType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                SemanticException.check(promoteType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
                 // Only promote if the resultant type is different
-                if (arg0.getResultType() != arg0PromoteType) {
-                    return new InOpValue(PromoteValue.inject((Value)arg0, arg0PromoteType), (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+                if (!arg0.getResultType().equals(promoteType)) {
+                    return new InOpValue(PromoteValue.inject((Value)arg0, promoteType), (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
                 }
+
+                SemanticException.check(arrayValue.getElementType().equals(promoteType), SemanticException.ErrorCode.UNSUPPORTED);
             }
             return new InOpValue((Value)arg0, (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
         }

@@ -127,6 +127,7 @@ class InOpValueTest {
                     Arguments.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2, FLOAT_3)), ConstantPredicate.TRUE),
                     // INT in [INT..., FLOAT] -> FLOAT in [FLOAT...] (w/ Arithmetic evaluation)
                     Arguments.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2, ADD_FLOATS_1_2)), ConstantPredicate.TRUE),
+                    Arguments.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(typeRepositoryBuilder, List.of(ADD_FLOATS_1_2, INT_1, INT_2)), ConstantPredicate.TRUE),
                     // INT in [INT..., DOUBLE] -> DOUBLE in [DOUBLE...]
                     Arguments.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(typeRepositoryBuilder, List.of(INT_1, INT_2, DOUBLE_3)), ConstantPredicate.TRUE),
                     // INT in [INT..., DOUBLE] -> DOUBLE in [DOUBLE...] (w/ Arithmetic evaluation)
