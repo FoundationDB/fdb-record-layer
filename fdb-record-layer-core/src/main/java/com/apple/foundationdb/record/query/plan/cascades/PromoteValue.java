@@ -131,6 +131,12 @@ public class PromoteValue implements ValueWithChild {
                 result);
     }
 
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return promoteToType;
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, promoteToType);

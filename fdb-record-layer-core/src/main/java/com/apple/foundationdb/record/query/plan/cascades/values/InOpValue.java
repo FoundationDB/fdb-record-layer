@@ -186,7 +186,7 @@ public class InOpValue implements BooleanValue {
             super("in",
                     List.of(new Type.Any(), new Type.Array()), (ctx, builtInFunc, args) -> encapsulateInternal(ctx, args));
         }
-        
+
         @Nonnull
         private static Value encapsulateInternal(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull final List<Typed> arguments) {
             final Typed arg0 = arguments.get(0);
@@ -199,19 +199,20 @@ public class InOpValue implements BooleanValue {
             Verify.verify(arg1 instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
             final var arrayValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)arg1;
 
-            if (!arg0.getResultType().equals(arrayValue.getElementType())) {
-                // Check if the arg0 type can be promoted to arg1 element type
-                final var promoteType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
+            if (res0.getTypeCode() != arrayValue.getElementType().getTypeCode()) {
+                final var maximumType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
 
                 // Incompatible types
-                SemanticException.check(promoteType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
                 // Only promote if the resultant type is different
-                if (!arg0.getResultType().equals(promoteType)) {
-                    return new InOpValue(PromoteValue.inject((Value)arg0, promoteType), (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+                if (!arg0.getResultType().equals(maximumType)) {
+                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), arrayValue, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
                 }
 
-                SemanticException.check(arrayValue.getElementType().equals(promoteType), SemanticException.ErrorCode.UNSUPPORTED);
+                // Need to promote the array
+                final var promotedArrayValue = arrayValue.promoteToType(maximumType);
+                return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (AbstractArrayConstructorValue) promotedArrayValue, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
             }
             return new InOpValue((Value)arg0, (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
         }
