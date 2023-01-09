@@ -43,7 +43,7 @@ public class ProtoUtils {
      * @return a unique type name.
      */
     public static String uniqueCorrelationName() {
-        return uniqueName("");
+        return uniqueName("__corr__");
     }
 
     private static String uniqueName(String prefix) {

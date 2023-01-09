@@ -215,7 +215,7 @@ public class MessageHelpers {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
             // find the field on the target side
-            final var targetField = targetDescriptor.findFieldByName(field.getName());
+            final var targetField = targetDescriptor.findFieldByNumber(field.getNumber());
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
