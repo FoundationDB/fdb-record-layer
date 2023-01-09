@@ -1517,8 +1517,7 @@ public interface Type extends Narrowable<Type> {
                 }
                 final var field = (Field)o;
                 return getFieldType().equals(field.getFieldType()) &&
-                       getFieldNameOptional().equals(field.getFieldNameOptional()) &&
-                       getFieldIndexOptional().equals(field.getFieldIndexOptional());
+                       getFieldNameOptional().equals(field.getFieldNameOptional());
             }
 
             @Override

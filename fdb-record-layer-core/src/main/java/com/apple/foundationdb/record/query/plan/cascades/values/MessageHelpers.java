@@ -82,32 +82,6 @@ public class MessageHelpers {
         return getFieldOnMessage(current, fieldNames.get(fieldNames.size() - 1));
     }
 
-    /**
-     * Get the value of the (nested) field on the path from the message defined by {@code fieldNames}.
-     * The given field names define a path through the nested structure of the given message; this method traverses
-     * that path and returns the value at the leaf, using the return semantics of {@link #getFieldOnMessage(MessageOrBuilder, String)}.
-     *
-     * @param message a message
-     * @param fields a list of field defining a path starting at {@code message}
-     * @return the value at the end of the path
-     */
-    @Nullable
-    public static Object getFieldValueForFields(@Nonnull MessageOrBuilder message, @Nonnull List<Type.Record.Field> fields) {
-        if (fields.isEmpty()) {
-            throw new RecordCoreException("empty list of fields");
-        }
-        MessageOrBuilder current = message;
-        int fieldNamesIndex;
-        // Notice that up to fieldNames.size() - 2 are calling getFieldMessageOnMessage, and fieldNames.size() - 1 is calling getFieldOnMessage
-        for (fieldNamesIndex = 0; fieldNamesIndex < fields.size() - 1; fieldNamesIndex++) {
-            current = getFieldMessageOnMessage(current, fields.get(fieldNamesIndex).getFieldIndex());
-            if (current == null) {
-                return null;
-            }
-        }
-        return getFieldOnMessage(current, fields.get(fields.size() - 1).getFieldIndex());
-    }
-
     @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
     @Nullable
     public static Object getFieldValueForFieldOrdinals(@Nonnull MessageOrBuilder message, @Nonnull ImmutableIntArray fieldOrdinals) {
@@ -137,20 +111,6 @@ public class MessageHelpers {
     @Nullable
     public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
-        return getFieldOnMessage(message, field);
-    }
-
-    /**
-     * Get the value of the field with the given field name on the given message.
-     * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
-     * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
-     * @param message a message or builder to extract the field from
-     * @param fieldIndex the field number to extract
-     * @return the value of the field as described above
-     */
-    @Nullable
-    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, int fieldIndex) {
-        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldIndex);
         return getFieldOnMessage(message, field);
     }
 
@@ -215,12 +175,6 @@ public class MessageHelpers {
     }
 
     @Nullable
-    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, int fieldIndex) {
-        final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldIndex);
-        return getFieldMessageOnMessage(message, field);
-    }
-
-    @Nullable
     private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, final Descriptors.FieldDescriptor field) {
         if (!field.isRepeated() &&
                 (field.hasDefaultValue() || message.hasField(field)) &&
@@ -261,7 +215,7 @@ public class MessageHelpers {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
             // find the field on the target side
-            final var targetField = targetDescriptor.findFieldByNumber(field.getNumber());
+            final var targetField = targetDescriptor.findFieldByName(field.getName());
 
             if (field.isRepeated()) {
                 for (final var element : (List<?>)entry.getValue()) {
