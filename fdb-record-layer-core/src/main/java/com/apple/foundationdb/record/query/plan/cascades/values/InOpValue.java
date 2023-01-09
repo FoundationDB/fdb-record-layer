@@ -205,13 +205,13 @@ public class InOpValue implements BooleanValue {
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
-                // Only promote if the resultant type is different
+                // Promote arg0 if the resultant type is different
                 if (!arg0.getResultType().equals(maximumType)) {
                     return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value) arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
                 }
 
                 // Do not currently promote the elements of the array
-                SemanticException.check(maximumType == arrayElementType, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                SemanticException.check(maximumType.equals(arrayElementType), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
             return new InOpValue((Value)arg0, (Value)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
         }

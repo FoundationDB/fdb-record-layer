@@ -1361,7 +1361,7 @@ public class Comparisons {
                 for (Object o : comparand) {
                     if (getJavaType(o) != javaType) {
                         throw new RecordCoreException("all comparand values must have the same type, first was " +
-                                                      javaType + " found another of type " + getJavaType(o));
+                                javaType + " found another of type " + getJavaType(o));
                     }
                 }
             }
