@@ -1,5 +1,5 @@
 /*
- * RelOpValue.java
+ * InOpValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -61,23 +61,23 @@ public class InOpValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Op-Value");
 
     @Nonnull
-    private final Value leftChild;
+    private final Value probeValue;
     @Nonnull
-    private final AbstractArrayConstructorValue values;
+    private final AbstractArrayConstructorValue inArrayValue;
     @Nonnull
     private final Function<Value, Object> compileTimeEvalFn;
 
     /**
      * Creates a new instance of {@link InOpValue}.
-     * @param leftChild The left child.
-     * @param values The right child.
+     * @param probeValue The left child in `IN` operator
+     * @param inArrayValue The right child in `IN` operator
      * @param compileTimeEvalFn The compile-time function used to evaluate the expression.
      */
-    private InOpValue(@Nonnull final Value leftChild,
-                      @Nonnull final AbstractArrayConstructorValue values,
+    private InOpValue(@Nonnull final Value probeValue,
+                      @Nonnull final AbstractArrayConstructorValue inArrayValue,
                       @Nonnull final Function<Value, Object> compileTimeEvalFn) {
-        this.leftChild = leftChild;
-        this.values = values;
+        this.probeValue = probeValue;
+        this.inArrayValue = inArrayValue;
         this.compileTimeEvalFn = compileTimeEvalFn;
     }
 
@@ -85,8 +85,8 @@ public class InOpValue implements BooleanValue {
     @Override
     public Iterable<? extends Value> getChildren() {
         final var builder = new ImmutableList.Builder<Value>();
-        builder.add(leftChild);
-        builder.addAll(values.getChildren());
+        builder.add(probeValue);
+        builder.add(inArrayValue);
         return builder.build();
     }
 
@@ -103,11 +103,11 @@ public class InOpValue implements BooleanValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var leftResult = leftChild.eval(store, context);
-        final var rightResult = values. getChildren().stream().map(value -> value.eval(store, context)).collect(Collectors.toList());
-        if (((List<?>) rightResult).stream().anyMatch(object -> object != null && object.equals(leftResult))) {
+        final var probeResult = probeValue.eval(store, context);
+        final var inArrayResult = inArrayValue. getChildren().stream().map(value -> value.eval(store, context)).collect(Collectors.toList());
+        if (((List<?>) inArrayResult).stream().anyMatch(object -> object != null && object.equals(probeResult))) {
             return true;
-        } else if (((List<?>) rightResult).stream().anyMatch(Objects::isNull)) {
+        } else if (((List<?>) inArrayResult).stream().anyMatch(Objects::isNull)) {
             return null;
         } else {
             return false;
@@ -117,19 +117,19 @@ public class InOpValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
-        final var leftChildCorrelatedTo = leftChild.getCorrelatedTo();
+        final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
 
-        final var isLiteralList = values.getChildren().stream().allMatch(value -> value.getCorrelatedTo().isEmpty());
+        final var isLiteralList = inArrayValue.getChildren().stream().allMatch(value -> value.getCorrelatedTo().isEmpty());
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
         if (leftChildCorrelatedTo.isEmpty()) {
-            return shortCircuit();
+            return compileTimeEvalMaybe();
         }
-        final var literalValue = values.getChildren().stream().map(compileTimeEvalFn).collect(Collectors.toList());
-        return Optional.of(new ValuePredicate(leftChild, new Comparisons.ListComparison(Comparisons.Type.IN, literalValue, true)));
+        final var literalValue = inArrayValue.getChildren().stream().map(compileTimeEvalFn).collect(Collectors.toList());
+        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, literalValue, true)));
     }
 
-    private Optional<QueryPredicate> shortCircuit() {
+    private Optional<QueryPredicate> compileTimeEvalMaybe() {
         Object constantValue = compileTimeEvalFn.apply(this);
         if (constantValue instanceof Boolean) {
             if ((boolean) constantValue) {
@@ -150,18 +150,18 @@ public class InOpValue implements BooleanValue {
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, leftChild, values);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, probeValue, inArrayValue);
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "(" + leftChild.explain(formatter) + " IN " + values.explain(formatter) + ")";
+        return "(" + probeValue.explain(formatter) + " IN " + inArrayValue.explain(formatter) + ")";
     }
 
     @Override
     public String toString() {
-        return "IN(" + leftChild + ", " + values + ")";
+        return "(" + probeValue + " IN " + inArrayValue + ")";
     }
 
 
