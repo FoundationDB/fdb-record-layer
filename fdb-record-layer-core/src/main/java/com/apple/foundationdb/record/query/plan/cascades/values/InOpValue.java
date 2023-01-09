@@ -51,7 +51,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * A {@link Value} that checks if the left child is in the list of values.
@@ -63,7 +62,7 @@ public class InOpValue implements BooleanValue {
     @Nonnull
     private final Value probeValue;
     @Nonnull
-    private final AbstractArrayConstructorValue inArrayValue;
+    private final Value inArrayValue;
     @Nonnull
     private final Function<Value, Object> compileTimeEvalFn;
 
@@ -74,7 +73,7 @@ public class InOpValue implements BooleanValue {
      * @param compileTimeEvalFn The compile-time function used to evaluate the expression.
      */
     private InOpValue(@Nonnull final Value probeValue,
-                      @Nonnull final AbstractArrayConstructorValue inArrayValue,
+                      @Nonnull final Value inArrayValue,
                       @Nonnull final Function<Value, Object> compileTimeEvalFn) {
         this.probeValue = probeValue;
         this.inArrayValue = inArrayValue;
@@ -94,17 +93,15 @@ public class InOpValue implements BooleanValue {
     @Override
     public InOpValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
-        Verify.verify(Iterables.get(newChildren, 1) instanceof AbstractArrayConstructorValue);
-        return new InOpValue(Iterables.get(newChildren, 0),
-                (AbstractArrayConstructorValue) Iterables.get(newChildren, 1),
-                compileTimeEvalFn);
+        return new InOpValue(Iterables.get(newChildren, 0), Iterables.get(newChildren, 1), compileTimeEvalFn);
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var probeResult = probeValue.eval(store, context);
-        final var inArrayResult = inArrayValue. getChildren().stream().map(value -> value.eval(store, context)).collect(Collectors.toList());
+        final var inArrayResult = inArrayValue.eval(store, context);
+        Verify.verify(inArrayResult instanceof List<?>);
         if (((List<?>) inArrayResult).stream().anyMatch(object -> object != null && object.equals(probeResult))) {
             return true;
         } else if (((List<?>) inArrayResult).stream().anyMatch(Objects::isNull)) {
@@ -119,14 +116,18 @@ public class InOpValue implements BooleanValue {
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
 
-        final var isLiteralList = inArrayValue.getChildren().stream().allMatch(value -> value.getCorrelatedTo().isEmpty());
+        Verify.verify(inArrayValue instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
+        final var arrayConstructorList = (AbstractArrayConstructorValue.LightArrayConstructorValue) inArrayValue;
+        final var isLiteralList = arrayConstructorList.getChildren().stream()
+                .allMatch(value -> value.getCorrelatedTo()
+                        .isEmpty());
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
         if (leftChildCorrelatedTo.isEmpty()) {
             return compileTimeEvalMaybe();
         }
-        final var literalValue = inArrayValue.getChildren().stream().map(compileTimeEvalFn).collect(Collectors.toList());
-        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, literalValue, true)));
+        final var literalValue = compileTimeEvalFn.apply(inArrayValue);
+        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>) literalValue)));
     }
 
     private Optional<QueryPredicate> compileTimeEvalMaybe() {
@@ -196,25 +197,23 @@ public class InOpValue implements BooleanValue {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
             SemanticException.check(res1.getTypeCode() == Type.TypeCode.ARRAY, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            Verify.verify(arg1 instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
-            final var arrayValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)arg1;
 
-            if (res0.getTypeCode() != arrayValue.getElementType().getTypeCode()) {
-                final var maximumType = Type.maximumType(arg0.getResultType(), arrayValue.getElementType());
+            final var arrayElementType = ((Type.Array) res1).getElementType();
+            if (res0.getTypeCode() != arrayElementType.getTypeCode()) {
+                final var maximumType = Type.maximumType(arg0.getResultType(), arrayElementType);
 
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
                 // Only promote if the resultant type is different
                 if (!arg0.getResultType().equals(maximumType)) {
-                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), arrayValue, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value) arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
                 }
 
-                // Need to promote the array
-                final var promotedArrayValue = arrayValue.promoteToType(maximumType);
-                return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (AbstractArrayConstructorValue) promotedArrayValue, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+                // Do not currently promote the elements of the array
+                SemanticException.check(maximumType == arrayElementType, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
-            return new InOpValue((Value)arg0, (AbstractArrayConstructorValue)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+            return new InOpValue((Value)arg0, (Value)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
         }
     }
 }
