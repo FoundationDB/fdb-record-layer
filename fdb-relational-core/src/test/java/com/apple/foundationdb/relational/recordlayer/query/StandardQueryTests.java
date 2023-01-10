@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
@@ -610,10 +611,10 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     StructMetaData col2Meta = new RelationalStructMetaData(
-                            FieldDescription.primitive("_1", Types.BIGINT, true)
+                            FieldDescription.primitive("_1", Types.BIGINT, DatabaseMetaData.columnNullable)
                     );
                     StructMetaData col3Meta = new RelationalStructMetaData(
-                            FieldDescription.primitive("_2", Types.BIGINT, true)
+                            FieldDescription.primitive("_2", Types.BIGINT, DatabaseMetaData.columnNullable)
                     );
                     Array expectedCol2 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col2Meta);
                     Array expectedCol3 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col3Meta);

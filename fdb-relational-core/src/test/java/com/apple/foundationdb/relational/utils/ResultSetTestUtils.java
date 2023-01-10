@@ -44,7 +44,12 @@ public class ResultSetTestUtils {
     }
 
     public static Row structToRow(RelationalStruct o) {
-        final StructMetaData metaData = o.getMetadata();
+        final StructMetaData metaData;
+        try {
+            metaData = o.getMetaData();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
         List<Object> objects = new ArrayList<>();
         try {
             for (int i = 1; i <= metaData.getColumnCount(); i++) {

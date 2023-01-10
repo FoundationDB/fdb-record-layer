@@ -34,7 +34,7 @@ public class FieldDescription {
     private final String fieldName;
     private final int sqlTypeCode; //taken from java.sql.Types
 
-    private final boolean isNullable;
+    private final int nullable;
 
     private final StructMetaData fieldMetaData;
 
@@ -42,21 +42,22 @@ public class FieldDescription {
 
     //indicates a column that isn't part of the DDL for a query, but is part of the returned
     //tuple (and therefore necessary to keep so that our positional ordering is intact)
-    private final boolean isPhantom;
+    private final boolean phantom;
 
     /**
      * Create a primitive field.
      *
      * This is a convenience factory method for a more complicated constructor. Equivalent to
-     * {@link #primitive(String, int, boolean, boolean)}, where {@code isPhantom == false}.
+     * {@link #primitive(String, int, int, boolean)}, where {@code phantom == false}.
      *
      * @param fieldName the name of the field.
      * @param sqlTypeCode the SQL type code for this field. Should match values found in {@link Types}
-     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param nullable one of {@link java.sql.DatabaseMetaData#columnNoNulls},
+     *      {@link java.sql.DatabaseMetaData#columnNullable}, or {@link java.sql.DatabaseMetaData#columnNullableUnknown}.
      * @return a FieldDescription for the field.
      */
-    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, boolean isNullable) {
-        return primitive(fieldName, sqlTypeCode, isNullable, false);
+    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, int nullable) {
+        return primitive(fieldName, sqlTypeCode, nullable, false);
     }
 
     /**
@@ -66,15 +67,16 @@ public class FieldDescription {
      *
      * @param fieldName the name of the field.
      * @param sqlTypeCode the SQL type code for this field. Should match values found in {@link Types}
-     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
-     * @param isPhantom if true, this column should be treated as "phantom" in the API. That is, its entries
+     * @param nullable one of {@link java.sql.DatabaseMetaData#columnNoNulls},
+     *      {@link java.sql.DatabaseMetaData#columnNullable}, or {@link java.sql.DatabaseMetaData#columnNullableUnknown}.
+     * @param phantom if true, this column should be treated as "phantom" in the API. That is, its entries
      *                  are present in the returned row, but are not represented as part of the "return value". In other
      *                  words, the values take up space in the physical arrays, but are not considered part of the actual
      *                  return of the query, requiring the implementation to adjust for the field's position.
      * @return a FieldDescription for the field.
      */
-    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, boolean isNullable, boolean isPhantom) {
-        return new FieldDescription(fieldName, sqlTypeCode, isNullable, isPhantom, null, null);
+    public static FieldDescription primitive(@Nonnull String fieldName, int sqlTypeCode, int nullable, boolean phantom) {
+        return new FieldDescription(fieldName, sqlTypeCode, nullable, phantom, null, null);
     }
 
     /**
@@ -83,12 +85,13 @@ public class FieldDescription {
      * This is a convenience factory method for a more complicated constructor.
      *
      * @param fieldName the name of the field.
-     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param nullable one of {@link java.sql.DatabaseMetaData#columnNoNulls},
+     *      {@link java.sql.DatabaseMetaData#columnNullable}, or {@link java.sql.DatabaseMetaData#columnNullableUnknown}.
      * @param definition the definition of the struct value itself.
      * @return a FieldDescription for the field.
      */
-    public static FieldDescription struct(@Nonnull String fieldName, boolean isNullable, StructMetaData definition) {
-        return new FieldDescription(fieldName, Types.STRUCT, isNullable, false, definition, null);
+    public static FieldDescription struct(@Nonnull String fieldName, int nullable, StructMetaData definition) {
+        return new FieldDescription(fieldName, Types.STRUCT, nullable, false, definition, null);
     }
 
     /**
@@ -97,24 +100,25 @@ public class FieldDescription {
      * This is a convenience factory method for a more complicated constructor.
      *
      * @param fieldName the name of the field.
-     * @param isNullable if true, the column is assumed to be nullable. Otherwise is false.
+     * @param nullable one of {@link java.sql.DatabaseMetaData#columnNoNulls},
+     *      {@link java.sql.DatabaseMetaData#columnNullable}, or {@link java.sql.DatabaseMetaData#columnNullableUnknown}.
      * @param definition the metadata description of the contents of the array.
      * @return a FieldDescription for the field.
      */
-    public static FieldDescription array(@Nonnull String fieldName, boolean isNullable, StructMetaData definition) {
-        return new FieldDescription(fieldName, Types.ARRAY, isNullable, false, null, definition);
+    public static FieldDescription array(@Nonnull String fieldName, int nullable, StructMetaData definition) {
+        return new FieldDescription(fieldName, Types.ARRAY, nullable, false, null, definition);
     }
 
     public FieldDescription(String fieldName,
                             int sqlType,
-                            boolean isNullable,
-                            boolean isPhantom,
+                            int nullable,
+                            boolean phantom,
                             @Nullable StructMetaData fieldMetaData,
                             @Nullable StructMetaData arrayMetaData) {
         this.fieldName = fieldName;
         this.sqlTypeCode = sqlType;
-        this.isNullable = isNullable;
-        this.isPhantom = isPhantom;
+        this.nullable = nullable;
+        this.phantom = phantom;
         this.fieldMetaData = fieldMetaData;
         this.arrayMetaData = arrayMetaData;
     }
@@ -143,11 +147,11 @@ public class FieldDescription {
         return arrayMetaData;
     }
 
-    public boolean isNullable() {
-        return isNullable;
+    public int isNullable() {
+        return nullable;
     }
 
     public boolean isPhantom() {
-        return isPhantom;
+        return phantom;
     }
 }

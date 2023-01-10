@@ -75,9 +75,9 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
         return this;
     }
 
-    public RelationalStructAssert containsColumnsByName(Map<String, Object> expectedColumns) {
+    public RelationalStructAssert containsColumnsByName(Map<String, Object> expectedColumns) throws SQLException {
         isNotNull();
-        StructMetaData actualMetaData = actual.getMetadata();
+        StructMetaData actualMetaData = actual.getMetaData();
         SoftAssertions assertions = new SoftAssertions();
         StructMetaDataAssert metaDataAssert = assertions.proxy(StructMetaDataAssert.class, StructMetaData.class, actualMetaData);
         expectedColumns.forEach((colName, colValue) -> {
@@ -115,8 +115,8 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
     private static boolean checkEquals(RelationalStruct actual, RelationalStruct expected) {
 
         try {
-            StructMetaData actualMetaData = actual.getMetadata();
-            StructMetaData expectedMetaData = expected.getMetadata();
+            StructMetaData actualMetaData = actual.getMetaData();
+            StructMetaData expectedMetaData = expected.getMetaData();
             if (actualMetaData.getColumnCount() != expectedMetaData.getColumnCount()) {
                 return false;
             }
@@ -195,8 +195,8 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
          * it allows us the safety of easily ensuring that every step of the check is valid and correct.
          */
         try {
-            StructMetaData actualMetaData = actual.getMetadata();
-            StructMetaData expectedMetaData = expected.getMetadata();
+            StructMetaData actualMetaData = actual.getMetaData();
+            StructMetaData expectedMetaData = expected.getMetaData();
             assertions.assertThat(actualMetaData.getColumnCount())
                     .describedAs("Struct column count")
                     .isEqualTo(expectedMetaData.getColumnCount());

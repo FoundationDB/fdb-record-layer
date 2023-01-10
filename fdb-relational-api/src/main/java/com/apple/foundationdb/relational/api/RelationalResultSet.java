@@ -48,7 +48,7 @@ import java.util.Map;
 /**
  * Represents the results of a query against the system.
  */
-public interface RelationalResultSet extends java.sql.ResultSet {
+public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruct {
 
     @Override
     RelationalResultSetMetaData getMetaData() throws SQLException;
@@ -61,16 +61,6 @@ public interface RelationalResultSet extends java.sql.ResultSet {
      */
     @Nonnull
     Continuation getContinuation() throws SQLException;
-
-    RelationalStruct getStruct(String columnLabel) throws SQLException;
-
-    RelationalStruct getStruct(int oneBasedColumn) throws SQLException;
-
-    @Override
-    RelationalArray getArray(String columnLabel) throws SQLException;
-
-    @Override
-    RelationalArray getArray(int oneBasedColumn) throws SQLException;
 
     /*Unsupported Operations*/
     @ExcludeFromJacocoGeneratedReport

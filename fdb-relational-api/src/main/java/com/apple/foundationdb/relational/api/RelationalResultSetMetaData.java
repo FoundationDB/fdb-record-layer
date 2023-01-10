@@ -32,9 +32,7 @@ import java.sql.SQLException;
 // Why are indices in the below '1-based' (oneBasedColumn)?
 // Because JDBC is 1-based: "The columns are numbered from left to right, as they appear in the select list of the
 //query, starting at 1." See 15.2.3 Retrieving Values in https://download.oracle.com/otndocs/jcp/jdbc-4_2-mrel2-spec/
-public interface RelationalResultSetMetaData extends ResultSetMetaData {
-
-    StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException;
+public interface RelationalResultSetMetaData extends ResultSetMetaData, StructMetaData {
 
     StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException;
 

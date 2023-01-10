@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collections;
@@ -38,7 +39,7 @@ class IteratorResultSetTest {
     @Test
     void continuationAtBeginning() throws RelationalException, SQLException {
         FieldDescription[] fields = new FieldDescription[]{
-                FieldDescription.primitive("testField", Types.VARCHAR, false)
+                FieldDescription.primitive("testField", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
         };
         try (IteratorResultSet irs = new IteratorResultSet(new RelationalStructMetaData(fields), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
             Continuation shouldBeStart = irs.getContinuation();

@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
@@ -74,10 +75,10 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                         indexNames);
 
                 final FieldDescription[] fields = new FieldDescription[]{
-                        FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, false),
-                        FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, true),
-                        FieldDescription.array("TABLES", true, new RelationalStructMetaData(FieldDescription.primitive("TABLE", Types.VARCHAR, false))),
-                        FieldDescription.array("INDEXES", true, new RelationalStructMetaData(FieldDescription.primitive("INDEX", Types.VARCHAR, false)))
+                        FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(FieldDescription.primitive("TABLE", Types.VARCHAR, DatabaseMetaData.columnNoNulls))),
+                        FieldDescription.array("INDEXES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(FieldDescription.primitive("INDEX", Types.VARCHAR, DatabaseMetaData.columnNoNulls)))
                 };
                 return new IteratorResultSet(new RelationalStructMetaData(fields),
                         Collections.singleton(tuple).iterator(), 0);
@@ -99,10 +100,10 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                 final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
 
                 final FieldDescription[] tableDescription = new FieldDescription[]{
-                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("COLUMNS", false, new RelationalStructMetaData(
-                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, new RelationalStructMetaData(
+                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
                         ))
                 };
 
@@ -119,8 +120,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
 
                 final Row tuple = new ArrayRow(fields);
                 final FieldDescription[] fieldDescriptions = new FieldDescription[]{
-                        FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("TABLES", true, new RelationalStructMetaData(tableDescription))
+                        FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(tableDescription))
                 };
                 return new IteratorResultSet(new RelationalStructMetaData(fieldDescriptions), Collections.singleton(tuple).iterator(), 0);
             }

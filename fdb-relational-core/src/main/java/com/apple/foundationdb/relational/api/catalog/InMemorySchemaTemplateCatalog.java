@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Iterator;
 import java.util.Set;
@@ -75,7 +76,7 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         Iterator<Row> iter = strings.stream()
                 .map(name -> (Row) new ValueTuple(name))
                 .collect(Collectors.toList()).iterator();
-        FieldDescription field = FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, false);
+        FieldDescription field = FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls);
         return new IteratorResultSet(new RelationalStructMetaData(field), iter, 0);
     }
 

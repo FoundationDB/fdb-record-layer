@@ -59,7 +59,7 @@ public class RowAssert extends AbstractAssert<RowAssert, Row> {
         } else if (expected instanceof RelationalStruct) {
             try {
                 RelationalStruct other = (RelationalStruct) expected;
-                int colCount = other.getMetadata().getColumnCount();
+                int colCount = other.getMetaData().getColumnCount();
                 Assertions.assertThat(actual.getNumFields()).isEqualTo(colCount);
                 for (int i = 1; i <= colCount; i++) {
                     Object actualO = getObject(actual, i - 1);

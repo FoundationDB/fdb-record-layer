@@ -42,7 +42,7 @@ public class RelationalStructMetaData implements StructMetaData {
     }
 
     @Override
-    public boolean isNullable(int oneBasedColumn) throws SQLException {
+    public int isNullable(int oneBasedColumn) throws SQLException {
         return getField(oneBasedColumn).isNullable();
     }
 

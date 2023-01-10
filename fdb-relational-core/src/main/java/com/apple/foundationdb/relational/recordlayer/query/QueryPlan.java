@@ -61,6 +61,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -161,7 +162,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             }
             Row printablePlan = new ValueTuple(String.join(" ", explainComponents));
             StructMetaData metaData = new RelationalStructMetaData(
-                    FieldDescription.primitive("PLAN", Types.VARCHAR, false)
+                    FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
             );
             return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
         }

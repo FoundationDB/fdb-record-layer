@@ -26,9 +26,12 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.Map;
 
+/**
+ * A {@link Struct} but with metadata describing the instance.
+ */
 public interface RelationalStruct extends Struct {
 
-    StructMetaData getMetadata();
+    StructMetaData getMetaData() throws SQLException;
 
     boolean getBoolean(int oneBasedPosition) throws SQLException;
 
@@ -67,8 +70,13 @@ public interface RelationalStruct extends Struct {
     RelationalArray getArray(String fieldName) throws SQLException;
 
     @Override
+    default String getSQLTypeName() throws SQLException {
+        return "STRUCT";
+    }
+
+    @Override
     default Object[] getAttributes() throws SQLException {
-        StructMetaData metaData = getMetadata();
+        StructMetaData metaData = getMetaData();
         Object[] arr = new Object[metaData.getColumnCount()];
         for (int i = 1; i <= arr.length; i++) {
             arr[i - 1] = getObject(i);
@@ -79,7 +87,7 @@ public interface RelationalStruct extends Struct {
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace")
     default Object[] getAttributes(Map<String, Class<?>> map) throws SQLException {
-        StructMetaData metaData = getMetadata();
+        StructMetaData metaData = getMetaData();
         Object[] arr = new Object[metaData.getColumnCount()];
         for (int i = 1; i <= arr.length; i++) {
             Object o = getObject(i);

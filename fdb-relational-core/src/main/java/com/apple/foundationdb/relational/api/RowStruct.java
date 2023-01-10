@@ -48,7 +48,7 @@ public abstract class RowStruct implements RelationalStruct {
     }
 
     @Override
-    public StructMetaData getMetadata() {
+    public StructMetaData getMetaData() throws SQLException {
         return metaData;
     }
 
@@ -267,11 +267,6 @@ public abstract class RowStruct implements RelationalStruct {
     @Override
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
         return getStruct(getOneBasedPosition(columnLabel));
-    }
-
-    @Override
-    public String getSQLTypeName() {
-        return "STRUCT";
     }
 
     private int getOneBasedPosition(String columnLabel) throws SQLException {

@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Objects;
 import java.util.Set;
@@ -98,7 +99,8 @@ public final class SqlTypeSupport {
         if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
             return FieldDescription.primitive(field.getFieldName(),
                     SqlTypeSupport.recordTypeToSqlType(fieldType.getTypeCode()),
-                    fieldType.isNullable(), KNOWN_PHANTOM_COLUMNS.contains(field.getFieldName())
+                    fieldType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,
+                    KNOWN_PHANTOM_COLUMNS.contains(field.getFieldName())
             );
         } else if (fieldType instanceof Type.Array) {
             Type.Array arrayType = (Type.Array) fieldType;
@@ -107,7 +109,7 @@ public final class SqlTypeSupport {
             if (elementType.isPrimitive()) {
                 FieldDescription desc = FieldDescription.primitive(field.getFieldName(),
                         SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
-                        elementType.isNullable());
+                        elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
                 arrayMeta = new RelationalStructMetaData(desc);
             } else if (elementType instanceof Type.Record) {
                 //get a StructMetaData recursively
@@ -117,11 +119,12 @@ public final class SqlTypeSupport {
                 //TODO(bfines) not sure if this is true or not, but I like the rule.
                 throw new RelationalException("Cannot have an array of arrays right now", ErrorCode.UNSUPPORTED_OPERATION);
             }
-            return FieldDescription.array(field.getFieldName(), false, arrayMeta);
+            return FieldDescription.array(field.getFieldName(), DatabaseMetaData.columnNoNulls, arrayMeta);
         } else if (fieldType instanceof Type.Record) {
             Type.Record recType = (Type.Record) fieldType;
             StructMetaData smd = recordToMetaData(recType);
-            return FieldDescription.struct(field.getFieldName(), fieldType.isNullable(), smd);
+            return FieldDescription.struct(field.getFieldName(),
+                    fieldType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls, smd);
         } else {
             throw new RelationalException("Unexpected Data Type " + fieldType.getClass(), ErrorCode.UNSUPPORTED_OPERATION);
         }

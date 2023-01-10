@@ -92,8 +92,8 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             }
 
             FieldDescription[] fields = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true)
+                    FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), simplifiedRows.iterator(), 0);
         } catch (RelationalException e) {
@@ -135,10 +135,10 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     .collect(Collectors.toList());
 
             FieldDescription[] fields = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_VERSION", Types.BIGINT, true)
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_VERSION", Types.BIGINT, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), tableList.iterator(), 0);
         } catch (RelationalException e) {
@@ -166,12 +166,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                             null
                     })));
             FieldDescription[] fields = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("KEY_SEQ", Types.INTEGER, true),
-                    FieldDescription.primitive("PK_NAME", Types.VARCHAR, true),
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("KEY_SEQ", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("PK_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), rows.iterator(), 0);
         } catch (RelationalException e) {
@@ -247,30 +247,30 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     }).collect(Collectors.toList());
 
             FieldDescription[] columns = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("DATA_TYPE", Types.VARCHAR, true),
-                    FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("COLUMN_SIZE", Types.INTEGER, true),
-                    FieldDescription.primitive("BUFFER_LENGTH", Types.INTEGER, true),
-                    FieldDescription.primitive("DECIMAL_DIGITS", Types.INTEGER, true),
-                    FieldDescription.primitive("NUM_PREC_RADIX", Types.INTEGER, true),
-                    FieldDescription.primitive("NULLABLE", Types.BOOLEAN, true),
-                    FieldDescription.primitive("REMARKS", Types.VARCHAR, true),
-                    FieldDescription.primitive("COLUMN_DEF", Types.VARCHAR, true),
-                    FieldDescription.primitive("SQL_DATA_TYPE", Types.VARCHAR, true),
-                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.VARCHAR, true),
-                    FieldDescription.primitive("CHAR_OCTET_LENGTH", Types.INTEGER, true),
-                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, true),
-                    FieldDescription.primitive("IS_NULLABLE", Types.BOOLEAN, true),
-                    FieldDescription.primitive("SCOPE_CATALOG", Types.VARCHAR, true),
-                    FieldDescription.primitive("SCOPE_SCHEMA", Types.VARCHAR, true),
-                    FieldDescription.primitive("SCOPE_TABLE", Types.VARCHAR, true),
-                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.VARCHAR, true),
-                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.BOOLEAN, true),
-                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.BOOLEAN, true)
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("COLUMN_SIZE", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("BUFFER_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("DECIMAL_DIGITS", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("NUM_PREC_RADIX", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("NULLABLE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("REMARKS", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("COLUMN_DEF", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SQL_DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("CHAR_OCTET_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_NULLABLE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SCOPE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SCOPE_SCHEMA", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SCOPE_TABLE", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.BOOLEAN, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(columns), columnDefs.iterator(), 0);
         } catch (RelationalException e) {
@@ -330,19 +330,19 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             }
 
             FieldDescription[] columns = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, true),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("NON_UNIQUE", Types.BOOLEAN, true),
-                    FieldDescription.primitive("INDEX_QUALIFIER", Types.VARCHAR, true),
-                    FieldDescription.primitive("INDEX_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("TYPE", Types.VARCHAR, true),
-                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, true),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, true),
-                    FieldDescription.primitive("ASC_OR_DESC", Types.VARCHAR, true),
-                    FieldDescription.primitive("CARDINALITY", Types.INTEGER, true),
-                    FieldDescription.primitive("PAGES", Types.INTEGER, true),
-                    FieldDescription.primitive("FILTER_CONDITION", Types.VARCHAR, true)
+                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("NON_UNIQUE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("INDEX_QUALIFIER", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("INDEX_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("ASC_OR_DESC", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("CARDINALITY", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("PAGES", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("FILTER_CONDITION", Types.VARCHAR, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(columns), indexDefs.iterator(), 0);
         } catch (RelationalException e) {

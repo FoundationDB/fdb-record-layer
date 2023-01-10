@@ -49,6 +49,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
 import java.sql.Array;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -122,11 +123,11 @@ public class DdlRecordLayerSchemaTemplateTest {
             try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
                 Collection<Row> expectedTables = List.of(table.getPermutationAsRow("TBL"));
                 StructMetaData expectedTableMetaData = new RelationalStructMetaData(
-                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, false),
-                        FieldDescription.array("COLUMNS", false,
+                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls,
                                 new RelationalStructMetaData(
-                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, false),
-                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, false)
+                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
                                 ))
                 );
                 Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);

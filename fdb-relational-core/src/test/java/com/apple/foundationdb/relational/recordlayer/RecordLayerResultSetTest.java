@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -48,8 +49,8 @@ class RecordLayerResultSetTest {
     RecordLayerResultSetTest() throws RelationalException {
         cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
         StructMetaData smd = new RelationalStructMetaData(
-                FieldDescription.primitive("a", Types.INTEGER, true),
-                FieldDescription.primitive("b", Types.VARCHAR, true)
+                FieldDescription.primitive("a", Types.INTEGER, DatabaseMetaData.columnNullable),
+                FieldDescription.primitive("b", Types.VARCHAR, DatabaseMetaData.columnNullable)
         );
         resultSet = new RecordLayerResultSet(
                 smd,
