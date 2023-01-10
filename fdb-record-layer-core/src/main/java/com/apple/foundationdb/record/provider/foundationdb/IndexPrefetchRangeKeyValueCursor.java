@@ -20,11 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.MappedKeyValue;
-import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
@@ -40,7 +36,7 @@ import javax.annotation.Nonnull;
  * the record for a particular index entry.
  */
 @API(API.Status.EXPERIMENTAL)
-public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
+public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase {
     private IndexPrefetchRangeKeyValueCursor(@Nonnull final FDBRecordContext context,
                                              @Nonnull final AsyncIterator<KeyValue> iterator,
                                              int prefixLength,
@@ -51,34 +47,35 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursor {
     }
 
     /**
-     * A Builder for the cursor. Note that this builder actually extends the superclass' builder, and does not create
-     * a {@link IndexPrefetchRangeKeyValueCursor} but rather a {@link KeyValueCursor}, by virtue of the fact that it
-     * only extends the {@link #scanRange} method. This is by design and the created cursor is a {@link KeyValueCursor}
-     * with no behavior differences from the default.
+     * A Builder for the cursor.
      */
     @API(API.Status.EXPERIMENTAL)
-    public static class Builder extends KeyValueCursor.Builder {
+    public static class Builder extends KeyValueCursorBase.Builder<Builder> {
         // The HopInfo that is used for the getRangeAndFlatMap call
-        private final byte[] hopInfo;
+        private final byte[] mapper;
 
-        private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
+        private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] mapper) {
             super(indexSubspace);
-            this.hopInfo = hopInfo;
+            this.mapper = mapper;
         }
 
         public static Builder newBuilder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
             return new Builder(indexSubspace, hopInfo);
         }
 
-        @Override
-        protected AsyncIterator<MappedKeyValue> scanRange(@Nonnull ReadTransaction transaction,
-                                                          @Nonnull KeySelector begin,
-                                                          @Nonnull KeySelector end,
-                                                          int limit, boolean reverse,
-                                                          @Nonnull StreamingMode streamingMode) {
-            return transaction
-                    .getMappedRange(begin, end, hopInfo, limit, reverse, streamingMode)
+
+        @SuppressWarnings("unchecked")
+        public IndexPrefetchRangeKeyValueCursor build() {
+            prepare();
+            AsyncIterator<? extends KeyValue> iterator = getTransaction()
+                    .getMappedRange(getBegin(), getEnd(), mapper, getLimit(), isReverse(), getStreamingMode())
                     .iterator();
+            return new IndexPrefetchRangeKeyValueCursor(getContext(), (AsyncIterator<KeyValue>)iterator, getPrefixLength(), getLimitManager(), getValuesLimit());
+        }
+
+        @Override
+        protected Builder getThis() {
+            return this;
         }
     }
 }
