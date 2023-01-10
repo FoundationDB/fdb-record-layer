@@ -63,7 +63,7 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
-  optional Expression predicate = 11;
+  optional Predicate predicate = 11;
   extensions 1000 to 2000;
 }
 
@@ -227,7 +227,6 @@ message RelOpExpression {
       LESS_THAN_OR_EQUALS = 4;
       GREATER_THAN = 5;
       GREATER_THAN_OR_EQUALS = 6;
-      STARTS_WITH = 7;
       NOT_NULL = 8;
       IS_NULL = 9;
       IN = 10;
@@ -263,4 +262,63 @@ message Expression {
   optional AndOrExpression and_or_expression = 3;
   optional FieldExpression field_expression = 4;
   optional QuantifiedObjectExpression quantified_object_expression = 5;
+}
+
+///////////////////////////////////////////////////
+
+enum ComparisonType {
+    EQUALS = 1;
+    NOT_EQUALS = 2;
+    LESS_THAN = 3;
+    LESS_THAN_OR_EQUALS = 4;
+    GREATER_THAN = 5;
+    GREATER_THAN_OR_EQUALS = 6;
+    STARTS_WITH = 7;
+    NOT_NULL = 8;
+    IS_NULL = 9;
+}
+
+message SimpleComparison {
+  optional ComparisonType type = 1;
+  optional Value operand = 2;
+}
+
+message Comparison {
+  // exactly one of the following
+  optional SimpleComparison simple_comparison = 1;
+}
+
+message AndPredicate {
+  repeated Predicate children = 1;
+}
+
+message OrPredicate {
+  repeated Predicate children = 2;
+}
+
+message ConstantPredicate {
+  enum ConstantValue {
+    TRUE = 1;
+    FALSE = 2;
+    NULL = 3;
+  }
+  optional ConstantValue value = 1;
+}
+
+message NotPredicate {
+  optional Predicate child = 1;
+}
+
+message ValuePredicate {
+  optional KeyExpression value = 1; // the key expression must be mappable to Value
+  optional Comparison comparison = 2;
+}
+
+message Predicate {
+  // exactly one of the following
+  optional AndPredicate and_predicate = 1;
+  optional OrPredicate or_predicate = 2;
+  optional ConstantPredicate constant_predicate = 3;
+  optional NotPredicate not_predicate = 4;
+  optional ValuePredicate value_predicate = 5;
 }

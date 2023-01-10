@@ -29,10 +29,12 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
@@ -44,6 +46,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -77,6 +81,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Helper methods for building {@link Comparison}s.
@@ -734,6 +739,26 @@ public class Comparisons {
         default int semanticHashCode() {
             return hashCode();
         }
+
+        /**
+         * Tag interface marking a {@link Comparison} as serializable for Protobuf.
+         */
+        interface Serializable extends Comparison {
+            @Nonnull
+            RecordMetaDataProto.Comparison toProto();
+        }
+
+        default boolean isSerializable() {
+            return this instanceof Comparison.Serializable;
+        }
+
+        @Nonnull
+        static Comparison deserialize(@Nonnull final RecordMetaDataProto.Comparison comparison) {
+            if (comparison.hasSimpleComparison()) {
+                return SimpleComparison.deserialize(comparison.getSimpleComparison());
+            }
+            throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", comparison.toString()));
+        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -749,7 +774,7 @@ public class Comparisons {
     /**
      * A comparison with a constant value.
      */
-    public static class SimpleComparison implements Comparison {
+    public static class SimpleComparison implements Comparison, Comparison.Serializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
 
         @Nonnull
@@ -888,6 +913,89 @@ public class Comparisons {
         @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public RecordMetaDataProto.Comparison toProto() {
+            RecordMetaDataProto.ComparisonType comparisonType;
+            switch (type) {
+                case EQUALS:
+                    comparisonType = RecordMetaDataProto.ComparisonType.EQUALS;
+                    break;
+                case NOT_EQUALS:
+                    comparisonType = RecordMetaDataProto.ComparisonType.NOT_EQUALS;
+                    break;
+                case LESS_THAN:
+                    comparisonType = RecordMetaDataProto.ComparisonType.LESS_THAN;
+                    break;
+                case LESS_THAN_OR_EQUALS:
+                    comparisonType = RecordMetaDataProto.ComparisonType.LESS_THAN_OR_EQUALS;
+                    break;
+                case GREATER_THAN:
+                    comparisonType = RecordMetaDataProto.ComparisonType.GREATER_THAN;
+                    break;
+                case GREATER_THAN_OR_EQUALS:
+                    comparisonType = RecordMetaDataProto.ComparisonType.GREATER_THAN_OR_EQUALS;
+                    break;
+                case NOT_NULL:
+                    comparisonType = RecordMetaDataProto.ComparisonType.NOT_NULL;
+                    break;
+                case IS_NULL:
+                    comparisonType = RecordMetaDataProto.ComparisonType.IS_NULL;
+                    break;
+                case IN: // fallthrough
+                case TEXT_CONTAINS_ALL: // fallthrough
+                case TEXT_CONTAINS_ALL_WITHIN: // fallthrough
+                case TEXT_CONTAINS_ANY: // fallthrough
+                case TEXT_CONTAINS_PHRASE: // fallthrough
+                case TEXT_CONTAINS_PREFIX: // fallthrough
+                case TEXT_CONTAINS_ALL_PREFIXES: // fallthrough
+                case TEXT_CONTAINS_ANY_PREFIX: // fallthrough
+                case SORT: // fallthrough
+                default:
+                    throw new RecordCoreException(String.format("serialising comparison type '%s' is not supported", type));
+            }
+            return RecordMetaDataProto.Comparison.newBuilder().setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
+                            .setType(comparisonType)
+                            .setOperand(LiteralKeyExpression.toProtoValue(comparand))
+                            .build())
+                    .build();
+        }
+
+        @Nonnull
+        public static SimpleComparison deserialize(@Nonnull final RecordMetaDataProto.SimpleComparison proto) {
+            final var comparand = Objects.requireNonNull(LiteralKeyExpression.fromProtoValue(proto.getOperand()));
+            Type comparisonType;
+            switch (proto.getType()) {
+                case EQUALS:
+                    comparisonType = Type.EQUALS;
+                    break;
+                case NOT_EQUALS:
+                    comparisonType = Type.NOT_EQUALS;
+                    break;
+                case LESS_THAN:
+                    comparisonType = Type.LESS_THAN;
+                    break;
+                case LESS_THAN_OR_EQUALS:
+                    comparisonType = Type.LESS_THAN_OR_EQUALS;
+                    break;
+                case GREATER_THAN:
+                    comparisonType = Type.GREATER_THAN;
+                    break;
+                case GREATER_THAN_OR_EQUALS:
+                    comparisonType = Type.GREATER_THAN_OR_EQUALS;
+                    break;
+                case NOT_NULL:
+                    comparisonType = Type.NOT_NULL;
+                    break;
+                case IS_NULL:
+                    comparisonType = Type.IS_NULL;
+                    break;
+                default:
+                    throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison type '%s'", proto.getType()));
+            }
+            return new SimpleComparison(comparisonType, comparand);
         }
     }
 

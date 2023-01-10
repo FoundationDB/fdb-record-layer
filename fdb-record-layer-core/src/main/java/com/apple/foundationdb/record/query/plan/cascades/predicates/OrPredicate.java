@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -44,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
@@ -138,6 +141,28 @@ public class OrPredicate extends AndOrPredicate {
                     quantifiersBuilder.build(),
                     ImmutableList.of());
         });
+    }
+
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Predicate toProto() {
+        // TODO (hatyo) memoize
+        Verify.verify(getChildren().stream().allMatch(child -> child instanceof QueryPredicate.Serializable),
+                String.format("attempt to serialize non-serializable %s", AndPredicate.class));
+        final var orPredicateProto = RecordMetaDataProto.OrPredicate.newBuilder();
+        for (final var child : getChildren()) {
+            orPredicateProto.addChildren(((QueryPredicate.Serializable)child).toProto());
+        }
+        return RecordMetaDataProto.Predicate.newBuilder().setOrPredicate(orPredicateProto.build()).build();
+    }
+
+    @Nonnull
+    public static OrPredicate deserialize(@Nonnull final RecordMetaDataProto.OrPredicate proto,
+                                           @Nonnull final CorrelationIdentifier alias,
+                                           @Nonnull final Type inputType) {
+        final var children = proto.getChildrenList().stream().map(child -> QueryPredicate.deserialize(child, alias, inputType)).collect(Collectors.toList());
+        return new OrPredicate(children);
     }
 
     @Nonnull

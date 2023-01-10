@@ -24,10 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -40,7 +45,7 @@ import java.util.Set;
  * A predicate with a constant boolean value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantPredicate implements LeafQueryPredicate {
+public class ConstantPredicate implements LeafQueryPredicate, QueryPredicate.Serializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
     @Nonnull
@@ -115,5 +120,45 @@ public class ConstantPredicate implements LeafQueryPredicate {
     @Override
     public String toString() {
         return String.valueOf(value);
+    }
+
+    @Override
+    public boolean isSerializable() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Predicate toProto() {
+        RecordMetaDataProto.ConstantPredicate.ConstantValue constantValue = RecordMetaDataProto.ConstantPredicate.ConstantValue.NULL;
+        if (value != null) {
+            if (value) {
+                constantValue = RecordMetaDataProto.ConstantPredicate.ConstantValue.TRUE;
+            } else {
+                constantValue = RecordMetaDataProto.ConstantPredicate.ConstantValue.FALSE;
+            }
+        }
+        return RecordMetaDataProto.Predicate.newBuilder()
+                .setConstantPredicate(RecordMetaDataProto.ConstantPredicate.newBuilder()
+                        .setValue(constantValue)
+                        .build())
+                .build();
+    }
+
+    @Nonnull
+    public static ConstantPredicate deserialize(@Nonnull final RecordMetaDataProto.ConstantPredicate proto,
+                                           @Nonnull final CorrelationIdentifier alias,
+                                           @Nonnull final Type inputType) {
+        Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", ConstantPredicate.class));
+        switch (proto.getValue()) {
+            case NULL:
+                return NULL;
+            case TRUE:
+                return TRUE;
+            case FALSE:
+                return FALSE;
+            default:
+                throw new RecordCoreException(String.format("attempt to deserialize unknown value '%s'", proto.getValue()));
+        }
     }
 }

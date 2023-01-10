@@ -668,6 +668,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return resultPredicatesBuilder.build();
     }
 
+    /**
+     * Flattens a {@link QueryPredicate} (potentially a tree) of {@link AndPredicate}s into an equivalent linear
+     * structure of these {@link AndPredicate}s.
+     * @param predicate The {@link QueryPredicate}.
+     * @return an equivalent, linear, {@link QueryPredicate}.
+     */
+    @Nonnull
     private static List<QueryPredicate> flattenAndPredicate(final QueryPredicate predicate) {
         final var result = ImmutableList.<QueryPredicate>builder();
 

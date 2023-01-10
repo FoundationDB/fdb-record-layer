@@ -77,7 +77,7 @@ public class Index {
     private int lastModifiedVersion;
 
     @Nullable
-    private RecordMetaDataProto.Expression predicate;
+    private RecordMetaDataProto.Predicate predicate;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -164,7 +164,7 @@ public class Index {
         this.lastModifiedVersion = orig.lastModifiedVersion;
         if (orig.predicate != null) {
             // yhatem: not sure if this deep-copies
-            this.predicate = RecordMetaDataProto.Expression.newBuilder(orig.predicate).build();
+            this.predicate = RecordMetaDataProto.Predicate.newBuilder(orig.predicate).build();
         }
     }
 
@@ -602,7 +602,7 @@ public class Index {
      * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
      */
     @Nullable
-    public RecordMetaDataProto.Expression getPredicate() {
+    public RecordMetaDataProto.Predicate getPredicate() {
         return predicate;
     }
 

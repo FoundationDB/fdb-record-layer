@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -333,6 +335,39 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
         predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
         return predicateCorrelatedToBuilder.build();
+    }
+
+    /**
+     * Tag interface marking a {@link QueryPredicate} as serializable for Protobuf.
+     */
+    interface Serializable extends QueryPredicate {
+        @Nonnull
+        RecordMetaDataProto.Predicate toProto();
+    }
+
+    default boolean isSerializable() {
+        return getCorrelatedTo().isEmpty()
+               && StreamSupport.stream(filter(node -> !(node instanceof QueryPredicate.Serializable)).spliterator(), false)
+                       .findAny().isEmpty();
+    }
+
+    @Nonnull
+    public static QueryPredicate deserialize(@Nonnull final RecordMetaDataProto.Predicate proto,
+                                             @Nonnull final CorrelationIdentifier alias,
+                                             @Nonnull final Type inputType) {
+        if (proto.hasAndPredicate()) {
+            return AndPredicate.deserialize(proto.getAndPredicate(), alias, inputType);
+        } else if (proto.hasOrPredicate()) {
+            return OrPredicate.deserialize(proto.getOrPredicate(), alias, inputType);
+        } else if (proto.hasConstantPredicate()) {
+            return ConstantPredicate.deserialize(proto.getConstantPredicate(), alias, inputType);
+        } else if (proto.hasNotPredicate()) {
+            return NotPredicate.deserialize(proto.getNotPredicate(), alias, inputType);
+        } else if (proto.hasValuePredicate()) {
+            return ValuePredicate.deserialize(proto.getValuePredicate(), alias, inputType);
+        } else {
+            throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto.toString()));
+        }
     }
 
     @Nonnull

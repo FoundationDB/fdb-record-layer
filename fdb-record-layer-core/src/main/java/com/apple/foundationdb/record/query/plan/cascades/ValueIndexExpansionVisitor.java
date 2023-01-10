@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
@@ -111,11 +111,8 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 pop(rootExpression.expand(push(initialState)));
 
         if (index.hasPredicate()) {
-            final var predicateValue = Value.deserialize(TypeRepository.newBuilder(), Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
-            if (!(predicateValue instanceof BooleanValue)) {
-                throw new UnsupportedOperationException("unsupported predicate type in filtered index definition");
-            }
-            final var predicatedExpansion = keyValueExpansion.toBuilder().addPredicate(((BooleanValue)predicateValue).toQueryPredicate(CorrelationIdentifier.uniqueID()).get()).build();
+            final var predicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+            final var predicatedExpansion = keyValueExpansion.toBuilder().addPredicate(predicate).build();
             allExpansionsBuilder.add(predicatedExpansion);
         } else {
             allExpansionsBuilder.add(keyValueExpansion);

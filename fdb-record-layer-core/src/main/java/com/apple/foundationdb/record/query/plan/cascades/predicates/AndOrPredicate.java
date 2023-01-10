@@ -36,7 +36,7 @@ import java.util.Objects;
  * Common base class for predicates with many children, such as {@link AndPredicate} and {@link OrPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AndOrPredicate implements QueryPredicate {
+public abstract class AndOrPredicate implements QueryPredicate, QueryPredicate.Serializable {
     @Nonnull
     private final List<QueryPredicate> children;
 
