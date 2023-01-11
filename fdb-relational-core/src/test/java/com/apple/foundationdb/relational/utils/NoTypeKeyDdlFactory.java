@@ -45,7 +45,7 @@ public class NoTypeKeyDdlFactory {
                         Assert.thatUnchecked(template instanceof RecordLayerSchemaTemplate);
                         final var recordLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
                         final LinkedHashSet<RecordLayerTable> newTables = recordLayerSchemaTemplate.getTables().stream()
-                                .map(t -> RecordLayerTable.from(t.getType(), t.getPrimaryKey().getSubKey(1, t.getPrimaryKey().getColumnSize()), t.getIndexes()))
+                                .map(t -> RecordLayerTable.Builder.from(t.getType(), t.getPrimaryKey().getSubKey(1, t.getPrimaryKey().getColumnSize()), t.getIndexes()))
                                 .collect(Collectors.toCollection(LinkedHashSet::new));
                         template = RecordLayerSchemaTemplate
                                 .newBuilder()

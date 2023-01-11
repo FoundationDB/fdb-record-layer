@@ -49,7 +49,7 @@ public final class RecordLayerTable implements Table {
     private final String name;
 
     @Nonnull
-    private final Collection<RecordLayerColumn> columns;
+    private final List<RecordLayerColumn> columns;
 
     @Nonnull
     private final Set<RecordLayerIndex> indexes;
@@ -64,25 +64,25 @@ public final class RecordLayerTable implements Table {
     private final Type.Record record;
 
     private RecordLayerTable(@Nonnull final String name,
-                             @Nonnull final Collection<RecordLayerColumn> columns,
+                             @Nonnull final List<RecordLayerColumn> columns,
                              @Nonnull final Set<RecordLayerIndex> indexes,
                              @Nonnull final KeyExpression primaryKey) {
         this.name = name;
-        this.columns = columns;
-        this.indexes = indexes;
+        this.columns = ImmutableList.copyOf(columns);
+        this.indexes = ImmutableSet.copyOf(indexes);
         this.primaryKey = primaryKey;
         this.dataType = calculateDataType();
         this.record = calculateRecordLayerType();
     }
 
     private RecordLayerTable(@Nonnull final String name,
-                             @Nonnull final Collection<RecordLayerColumn> columns,
+                             @Nonnull final List<RecordLayerColumn> columns,
                              @Nonnull final Set<RecordLayerIndex> indexes,
                              @Nonnull final KeyExpression primaryKey,
                              @Nonnull final DataType.StructType dataType) {
         this.name = name;
-        this.columns = columns;
-        this.indexes = indexes;
+        this.columns = ImmutableList.copyOf(columns);
+        this.indexes = ImmutableSet.copyOf(indexes);
         this.primaryKey = primaryKey;
         this.dataType = dataType;
         this.record = calculateRecordLayerType();
@@ -116,35 +116,6 @@ public final class RecordLayerTable implements Table {
         return primaryKey;
     }
 
-    @Nonnull
-    public static RecordLayerTable from(@Nonnull final DataType.StructType structType,
-                                        @Nonnull final KeyExpression primaryKey,
-                                        @Nonnull final Set<RecordLayerIndex> indexes) {
-        return new RecordLayerTable(structType.getName(), structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList()), indexes, primaryKey, structType);
-    }
-
-    @Nonnull
-    public static RecordLayerTable from(@Nonnull final Type.Record record,
-                                        @Nonnull final KeyExpression primaryKey,
-                                        @Nonnull final Set<RecordLayerIndex> indexes) {
-        final var relationalType = DataTypeUtils.toRelationalType(record);
-        Assert.thatUnchecked(relationalType instanceof DataType.StructType);
-        final var asStruct = (DataType.StructType) relationalType;
-        // todo (yhatem): we can avoid regenerating the corresponding record layer Record
-        //       when we know that the passed record matches _exactly_ the corresponding Relational type.
-        //       this could be achieved by checking whether the record has an explicit name and all of its
-        //       fields (recursively) have explicit names, this seems to be mostly equally expensive though.
-        return from(asStruct, primaryKey, indexes);
-    }
-
-    @Nonnull
-    public static RecordLayerTable from(@Nonnull final String name,
-                                        @Nonnull final Collection<RecordLayerColumn> columns,
-                                        @Nonnull final KeyExpression primaryKey,
-                                        @Nonnull final Set<RecordLayerIndex> indexes) {
-        return new RecordLayerTable(name, columns, indexes, primaryKey);
-    }
-
     @Override
     public void accept(@Nonnull final Visitor visitor) {
         visitor.visit(this);
@@ -167,7 +138,7 @@ public final class RecordLayerTable implements Table {
     private DataType.StructType calculateDataType() {
         final var columnTypes = ImmutableList.<DataType.StructType.Field>builder();
         for (final var column : columns) {
-            columnTypes.add(DataType.StructType.Field.from(column.getName(), column.getDataType()));
+            columnTypes.add(DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
         }
         /*
          * TODO (yhatem): note this is not entirely correct. Currently we're not setting nullable
@@ -217,6 +188,9 @@ public final class RecordLayerTable implements Table {
         return this.getName().equals(((RecordLayerTable) obj).getName());
     }
 
+    /**
+     * A builder for {@link RecordLayerTable}.
+     */
     public static final class Builder {
         private String name;
 
@@ -271,7 +245,7 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nonnull
-        public Builder addColumns(@Nonnull final Collection<RecordLayerColumn> columns) {
+        public Builder addColumns(@Nonnull final List<RecordLayerColumn> columns) {
             this.columns.addAll(columns);
             return this;
         }
@@ -295,13 +269,69 @@ public final class RecordLayerTable implements Table {
         public RecordLayerTable build() {
             Assert.notNullUnchecked(name, "table name is not set");
 
-            final var columnsList = columns.build();
+            final var columnsList = normalize(columns.build());
 
             Assert.thatUnchecked(!columnsList.isEmpty(), "attempt to create table without columns");
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
 
             return new RecordLayerTable(name, columnsList, indexesSet, primaryKeyParts);
+        }
+
+        /**
+         * Constructs a new {@link RecordLayerTable} from a {@link com.apple.foundationdb.relational.api.metadata.DataType.StructType}.
+         * @param structType The type information of the table.
+         * @param primaryKey The primary key of the table.
+         * @param indexes List of indexes defined on the table.
+         * @return A new instance of {@link RecordLayerTable}.
+         */
+        @Nonnull
+        public static RecordLayerTable from(@Nonnull final DataType.StructType structType,
+                                            @Nonnull final KeyExpression primaryKey,
+                                            @Nonnull final Set<RecordLayerIndex> indexes) {
+            return new RecordLayerTable(structType.getName(),
+                    normalize(structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList())),
+                    indexes,
+                    primaryKey,
+                    structType);
+        }
+
+        /**
+         * Constructs a new {@link RecordLayerTable} from a {@link Type.Record} type.
+         * @param record The record-layer type information of the table.
+         * @param primaryKey The primary key of the table.
+         * @param indexes List of indexes defined on the table.
+         * @return A new instance of {@link RecordLayerTable}.
+         */
+        @Nonnull
+        public static RecordLayerTable from(@Nonnull final Type.Record record,
+                                            @Nonnull final KeyExpression primaryKey,
+                                            @Nonnull final Set<RecordLayerIndex> indexes) {
+            final var relationalType = DataTypeUtils.toRelationalType(record);
+            Assert.thatUnchecked(relationalType instanceof DataType.StructType);
+            final var asStruct = (DataType.StructType) relationalType;
+            // todo (yhatem): we can avoid regenerating the corresponding record layer Record
+            //       when we know that the passed record matches _exactly_ the corresponding Relational type.
+            //       this could be achieved by checking whether the record has an explicit name and all of its
+            //       fields (recursively) have explicit names, this seems to be mostly equally expensive though.
+            return from(asStruct, primaryKey, indexes);
+        }
+
+        @Nonnull
+        private static List<RecordLayerColumn> normalize(@Nonnull final List<RecordLayerColumn> columns) {
+            if (columns.stream().allMatch(c -> c.getIndex() >= 0)) {
+                return columns;
+            }
+            final ImmutableList.Builder<RecordLayerColumn> result = ImmutableList.builder();
+            for (int i = 1; i <= columns.size(); i++) {
+                final var column = columns.get(i - 1);
+                if (column.getIndex() < 0) {
+                    result.add(RecordLayerColumn.newBuilder().setName(column.getName()).setIndex(i).setDataType(column.getDataType()).build());
+                } else {
+                    result.add(column);
+                }
+            }
+            return result.build();
         }
     }
 

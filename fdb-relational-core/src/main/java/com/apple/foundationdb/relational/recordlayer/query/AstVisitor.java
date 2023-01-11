@@ -1352,10 +1352,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Void visitEnumDefinition(RelationalParser.EnumDefinitionContext ctx) {
         final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
-        final var values = ctx.STRING_LITERAL().stream()
-                .map(node -> Assert.notNullUnchecked(ParserUtils.normalizeString(node.getText())))
-                .collect(Collectors.toList());
-        final var enumType = DataType.EnumType.from(name, values, false); // (yhatem) we should make it possible to have nullable enums maybe?
+        // (yhatem) we have control over the ENUM values' numbers.
+        final List<DataType.EnumType.EnumValue> enumValues = new ArrayList<>(ctx.STRING_LITERAL().size());
+        for (int i = 0; i < ctx.STRING_LITERAL().size(); i++) {
+            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.STRING_LITERAL(i).getText())), i));
+        }
+        final var enumType = DataType.EnumType.from(name, enumValues, false); // (yhatem) we should make it possible to have nullable enums maybe?
         context.asDdl().getMetadataBuilder().addAuxiliaryType(enumType);
         return null;
     }

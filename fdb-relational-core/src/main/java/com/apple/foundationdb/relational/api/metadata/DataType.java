@@ -357,23 +357,49 @@ public abstract class DataType {
         private final String name;
 
         @Nonnull
-        private final List<String> values;
+        private final List<EnumValue> values;
+
+        public static class EnumValue {
+            @Nonnull
+            private final String name;
+
+            private final int number;
+
+            private EnumValue(@Nonnull String name, int number) {
+                this.name = name;
+                this.number = number;
+            }
+
+            @Nonnull
+            public static EnumValue of(@Nonnull String name, int number) {
+                return new EnumValue(name, number);
+            }
+
+            @Nonnull
+            public String getName() {
+                return name;
+            }
+
+            public int getNumber() {
+                return number;
+            }
+        }
 
         @Nonnull
 
-        private EnumType(@Nonnull String name, @Nonnull final List<String> values, boolean isNullable) {
+        private EnumType(@Nonnull String name, @Nonnull final List<EnumValue> values, boolean isNullable) {
             super(isNullable, true, Code.ENUM);
             this.name = name;
             this.values = values;
         }
 
         @Nonnull
-        public List<String> getValues() {
+        public List<EnumValue> getValues() {
             return values;
         }
 
         @Nonnull
-        public static EnumType from(@Nonnull final String name, @Nonnull final List<String> values, boolean isNullable) {
+        public static EnumType from(@Nonnull final String name, @Nonnull final List<EnumValue> values, boolean isNullable) {
             Assert.thatUnchecked(!values.isEmpty());
             Assert.thatUnchecked(!name.isEmpty());
             return new EnumType(name, values, isNullable);
@@ -489,14 +515,17 @@ public abstract class DataType {
 
             private final DataType type;
 
-            private Field(@Nonnull final String name, @Nonnull final  DataType type) {
+            private int index;
+
+            private Field(@Nonnull final String name, @Nonnull final  DataType type, int index) {
                 this.name = name;
                 this.type = type;
+                this.index = index;
             }
 
             @Nonnull
-            public static Field from(@Nonnull final String name, @Nonnull final DataType type) {
-                return new Field(name, type);
+            public static Field from(@Nonnull final String name, @Nonnull final DataType type, int index) {
+                return new Field(name, type, index);
             }
 
             public String getName() {
@@ -505,6 +534,10 @@ public abstract class DataType {
 
             public DataType getType() {
                 return type;
+            }
+
+            public int getIndex() {
+                return index;
             }
         }
 
@@ -544,7 +577,7 @@ public abstract class DataType {
             } else {
                 final var resolvedFields = ImmutableList.<Field>builder();
                 for (final var field : fields) {
-                    resolvedFields.add(Field.from(field.name, field.getType().resolve(resolutionMap)));
+                    resolvedFields.add(Field.from(field.name, field.getType().resolve(resolutionMap), field.index));
                 }
                 return StructType.from(name, resolvedFields.build(), isNullable());
             }

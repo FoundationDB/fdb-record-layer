@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.relational.api.metadata.Column;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
 
@@ -32,9 +33,12 @@ public class RecordLayerColumn implements Column {
     @Nonnull
     private final DataType dataType;
 
-    RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType) {
+    private int index;
+
+    RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType, int index) {
         this.name = name;
         this.dataType = dataType;
+        this.index = index;
     }
 
     @Override
@@ -53,12 +57,18 @@ public class RecordLayerColumn implements Column {
         return dataType;
     }
 
+    public int getIndex() {
+        return index;
+    }
+
     public static final class Builder {
         private String name;
         private DataType dataType;
 
+        private int index;
+
         private Builder() {
-            // no-op
+            this.index = -1;
         }
 
         @Nonnull
@@ -73,14 +83,21 @@ public class RecordLayerColumn implements Column {
             return this;
         }
 
+        @Nonnull
+        public Builder setIndex(int index) {
+            Assert.thatUnchecked(index >= 0);
+            this.index = index;
+            return this;
+        }
+
         public RecordLayerColumn build() {
-            return new RecordLayerColumn(name, dataType);
+            return new RecordLayerColumn(name, dataType, index);
         }
     }
 
     @Nonnull
     public static RecordLayerColumn from(@Nonnull final DataType.StructType.Field field) {
-        return new RecordLayerColumn(field.getName(), field.getType());
+        return new RecordLayerColumn(field.getName(), field.getType(), field.getIndex());
     }
 
     @Nonnull

@@ -51,7 +51,7 @@ public class RecordMetadataDeserializer {
         for (final var registeredType : registeredTypes) {
             switch (registeredType.getType()) {
                 case MESSAGE:
-                    schemaTemplateBuilder.addTable(generateTable(registeredType.getName()));
+                    schemaTemplateBuilder.addTable(generateTable(registeredType.getMessageType().getName()));
                     break;
                 case ENUM:
                     // todo (yhatem) this is temporary, we rely on rec layer types to deserliaze protobuf descriptors.
@@ -74,7 +74,7 @@ public class RecordMetadataDeserializer {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
         final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), true, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
-        return RecordLayerTable.from(
+        return RecordLayerTable.Builder.from(
                 recordLayerType,
                 recordType.getPrimaryKey(),
                 recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(tableName, index)).collect(Collectors.toSet()));
