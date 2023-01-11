@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -62,14 +63,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.choose;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.owning;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -90,12 +88,8 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
     @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(innerPlanPartitionsMatcher))));
     @Nonnull
-    private static final BindingMatcher<SelectExpression> selectExpression = selectExpression();
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression
-                    .where(canBeImplemented())
-                    .and(owning(choose(outerQuantifierMatcher, innerQuantifierMatcher)));
+            selectExpression(SetMatcher.exactlyInAnyOrder(outerQuantifierMatcher, innerQuantifierMatcher));
 
     @Nonnull
     private static final String OUTER_FIELD_NAME = "outer";
@@ -146,28 +140,12 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         }
 
         //
-        // Make sure that there is no other quantifier that is located "in the middle" between outer and inner,
-        // as creating a join with that outer and inner combination would leave no place for the middle to be planned.
-        //
-
-        final var innerDependencies = fullCorrelationOrder.get(innerAlias);
-
-        for (final var quantifier : selectExpression.getQuantifiers()) {
-            final var alias = quantifier.getAlias();
-            if (fullCorrelationOrder.get(alias).contains(outerAlias) &&  // alias depends on outer
-                    innerDependencies.contains(alias)) {                 // inner depends on alias
-                return;
-            }
-        }
-
-        //
         // Classify predicates according to their correlations. Some predicates are dependent on other aliases
         // within the current select expression, those are not eligible yet. Subtract those out to reach
         // the set of newly eligible predicates that can be applied as part of joining outer and inner.
         //
         final var outerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         final var outerInnerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        final var otherPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedToInExpression =
@@ -176,64 +154,18 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                     correlatedToInExpression.stream()
                             .allMatch(alias -> alias.equals(outerAlias) ||
                                                alias.equals(innerAlias));
-            if (isEligible) {
-                final var residualPredicate = predicate.toResidualPredicate();
-                if (correlatedToInExpression.contains(innerAlias)) {
-                    outerInnerPredicatesBuilder.add(residualPredicate);
-                } else {
-                    Verify.verify(correlatedToInExpression.contains(outerAlias) || correlatedToInExpression.isEmpty());
-                    outerPredicatesBuilder.add(residualPredicate);
-                }
+            Verify.verify(isEligible);
+            final var residualPredicate = predicate.toResidualPredicate();
+            if (correlatedToInExpression.contains(innerAlias)) {
+                outerInnerPredicatesBuilder.add(residualPredicate);
             } else {
-                otherPredicatesBuilder.add(predicate);
+                Verify.verify(correlatedToInExpression.contains(outerAlias) || correlatedToInExpression.isEmpty());
+                outerPredicatesBuilder.add(residualPredicate);
             }
         }
 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
-        final List<QueryPredicate> otherPredicates = otherPredicatesBuilder.build();
-
-        if (innerQuantifier instanceof Quantifier.Existential) {
-            //
-            // If no otherPredicate contains a reference to the existential, we need to return as
-            // this transformation should be done by the specific rule to implement existential joins.
-            //
-            if (otherPredicates.stream()
-                    .flatMap(otherPredicate -> otherPredicate.getCorrelatedTo().stream())
-                    .noneMatch(alias -> alias.equals(innerAlias))) {
-                return;
-            }
-        }
-
-        final var remainingQuantifiers =
-                selectExpression.getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> quantifier != innerQuantifier && quantifier != outerQuantifier)
-                        .map(quantifier -> (Quantifier)quantifier)
-                        .collect(ImmutableList.toImmutableList());
-
-        final var remainingQuantifiersCorrelatedTo =
-                remainingQuantifiers
-                        .stream()
-                        .flatMap(quantifier -> quantifier.getCorrelatedTo().stream())
-                        .collect(ImmutableSet.toImmutableSet());
-
-        final var remainingAreCorrelatedToOuter = remainingQuantifiersCorrelatedTo.contains(outerAlias);
-        final var remainingAreCorrelatedToInner = remainingQuantifiersCorrelatedTo.contains(innerAlias);
-        if (remainingAreCorrelatedToOuter || remainingAreCorrelatedToInner) {
-            //
-            // We don't want to implement such a join. The reasoning is that the remaining quantifiers would have
-            // to be translated to deconstruct a tuple (outer, inner) in a way that a previous straight reference
-            // to an alias would now be a FieldValue(newAlias, "outer") which is fine by itself but does require
-            // re-exploration of the translated (rebased graph) which we want to avoid if possible.
-            // By returning here we simply disallow such plans and only allow plans to be implemented which are
-            // right-deep such that the remaining quantifiers can consume outer and inner as correlations without
-            // translations.
-            // Note this is not detrimental to index planning as that is implemented through a different set of rules
-            // entirely.
-            //
-            return;
-        }
 
         //
         // Find and apply all predicates that can be applied as part of this nested loop join (outer ⨝ inner).
@@ -245,7 +177,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         // If we are joining only for each quantifiers:
         //
         //                           SELECT
-        //                            |  \\\\
+        //                            |
         //                            |
         //         +--------------- NLJN ---------------+
         //        /                                      \
@@ -322,24 +254,16 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                                 replaceJoinedReference(targetAlias, joinedResultValue.getResultType(), INNER_FIELD_NAME, leafValue))
                         .build();
 
-
         final var newQuantifiers =
                 ImmutableList.<Quantifier>builder()
-                        .addAll(remainingQuantifiers)
                         .add(joinedQuantifier)
                         .build();
-
-        final var newPredicates =
-                rewritePredicates(translationMap,
-                        innerAlias,
-                        innerValue.getResultType(),
-                        otherPredicates);
 
         final var resultValue = selectExpression.getResultValue();
         final var newResultValue =
                 resultValue.translateCorrelations(translationMap);
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
+        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, ImmutableList.of())));
     }
 
     @Nonnull

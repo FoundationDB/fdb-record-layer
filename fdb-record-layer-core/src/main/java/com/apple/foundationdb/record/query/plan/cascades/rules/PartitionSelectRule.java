@@ -39,7 +39,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+
+import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -55,7 +56,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
     private static final CollectionMatcher<Quantifier> combinationQuantifierMatcher = all(anyQuantifier());
 
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(combinations(combinationQuantifierMatcher, c -> 0, c -> c.size() / 2));
+            selectExpression(combinations(combinationQuantifierMatcher, c -> 0, Collection::size));
 
     public PartitionSelectRule() {
         super(root);
@@ -71,135 +72,137 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             return;
         }
 
-        final var leftAliases = bindings.get(combinationQuantifierMatcher)
+        final var lowerAliases = bindings.get(combinationQuantifierMatcher)
                 .stream()
                 .map(Quantifier::getAlias)
                 .collect(ImmutableSet.toImmutableSet());
-        if (leftAliases.isEmpty()) {
+        if (lowerAliases.size() < 2) {
             return;
         }
 
-        final var rightAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+        final var upperAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
-            if (!leftAliases.contains(alias)) {
-                rightAliasesBuilder.add(alias);
+            if (!lowerAliases.contains(alias)) {
+                upperAliasesBuilder.add(alias);
             }
         }
 
-        final var rightAliases = rightAliasesBuilder.build();
-        if (rightAliases.isEmpty()) {
+        final var upperAliases = upperAliasesBuilder.build();
+        if (upperAliases.isEmpty()) {
             return;
         }
 
-        //
-        // At this moment we have partitioned sets of aliases called left and right. We now try to use
-        // (left, right) as (outer, inner) and if appropriate also the other way around using (right, left) as
-        // (outer, inner).
-        //
-        final var isSymmetric = partitionSelect(call, selectExpression, leftAliases, rightAliases);
-        if (!isSymmetric) {
-            partitionSelect(call, selectExpression, rightAliases, leftAliases);
-        }
-    }
-
-    private boolean partitionSelect(@Nonnull final CascadesRuleCall call,
-                                    @Nonnull final SelectExpression selectExpression,
-                                    @Nonnull final Set<CorrelationIdentifier> outerAliases,
-                                    @Nonnull final Set<CorrelationIdentifier> innerAliases) {
         final var aliasToQuantifierMap = selectExpression.getAliasToQuantifierMap();
         final var fullCorrelationOrder =
                 selectExpression.getCorrelationOrder().getTransitiveClosure();
 
-        final var isAnyOuterDependingOnInner =
-                outerAliases.stream()
-                        .anyMatch(alias -> !Sets.intersection(innerAliases, fullCorrelationOrder.get(alias)).isEmpty());
-        if (isAnyOuterDependingOnInner) {
-            return false;
+        //
+        // Reject the partitioning if partitioning the select expression according to the lowers and uppers may
+        // cause a dependency cycle.
+        //
+
+        // collect all upper aliases that depend on lower aliases
+        final var uppersDependingOnLowersAliases =
+                upperAliases.stream()
+                        .filter(upperAlias -> !Sets.intersection(lowerAliases, fullCorrelationOrder.get(upperAlias)).isEmpty())
+                        .collect(ImmutableSet.toImmutableSet());
+
+        // check if any lower ones depend on those upper ones
+        if (lowerAliases.stream()
+                .anyMatch(lowerAlias -> !Sets.intersection(uppersDependingOnLowersAliases, fullCorrelationOrder.get(lowerAlias)).isEmpty())) {
+            return;
         }
 
         //
         // In order to avoid a costly calls to translateCorrelations(), we prefer deep-right dags.
-        // Reject every constellation that would force us to rebase the outer side.
+        // Reject a partitioning that would force us to rebase the outer side.
         //
-        final var innerCorrelatedToOuter =
-                innerAliases.stream()
-                        .flatMap(innerAlias -> Sets.intersection(outerAliases, fullCorrelationOrder.get(innerAlias)).stream())
+        final var lowersCorrelatedToByUppersAliases =
+                upperAliases.stream()
+                        .flatMap(upperAlias -> Sets.intersection(lowerAliases, fullCorrelationOrder.get(upperAlias)).stream())
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var resultCorrelatedToOuter = Sets.intersection(outerAliases, selectExpression.getResultValue().getCorrelatedTo());
+        final var resultCorrelatedToOuter = Sets.intersection(lowerAliases, selectExpression.getResultValue().getCorrelatedTo());
 
-        final var outerCorrelationSourceAliases = Sets.union(innerCorrelatedToOuter, resultCorrelatedToOuter);
-        if (outerCorrelationSourceAliases.size() > 1) {
-            return false;
+        final var lowersCorrelatedToAliases = Sets.union(lowersCorrelatedToByUppersAliases, resultCorrelatedToOuter);
+        if (lowersCorrelatedToAliases.size() > 1) {
+            return;
         }
-        
+
+        final CorrelationIdentifier lowerAlias;
+        if (lowersCorrelatedToAliases.isEmpty()) {
+            lowerAlias = Quantifier.uniqueID();
+        } else {
+            lowerAlias = Iterables.getOnlyElement(lowersCorrelatedToAliases);
+        }
+
         //
         // Classify predicates according to their correlations. Some predicates are dependent on other aliases
         // within the current select expression, those are not eligible yet. Subtract those out to reach
         // the set of newly eligible predicates that can be applied as part of joining outer and inner.
         //
 
-        // predicates that are only correlated to outer
-        final var outerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        // predicates that are only correlated to inner
-        final var innerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        // predicates that are both correlated to outer and as well to inner
-        final var joinPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        // predicates that are not correlated to inner nor outer (constant predicates)
-        final var otherPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        // predicates that are only correlated to lower aliases
+        final var lowerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        // predicates that are only correlated to upper aliases
+        final var upperPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedTo = predicate.getCorrelatedTo();
-            final var isCorrelatedToOuter = !Sets.intersection(outerAliases, correlatedTo).isEmpty();
-            final var isCorrelatedToInner = !Sets.intersection(innerAliases, correlatedTo).isEmpty();
+            final var correlatedToLowerAliases = Sets.intersection(lowerAliases, correlatedTo);
+            final var correlatedToUpperAliases = Sets.intersection(upperAliases, correlatedTo);
 
-            if (isCorrelatedToInner) {
-                if (isCorrelatedToOuter) {
-                    joinPredicatesBuilder.add(predicate);
+            if (!correlatedToUpperAliases.isEmpty()) {
+                if (!correlatedToLowerAliases.isEmpty()) {
+                    if (Sets.intersection(correlatedToUpperAliases, uppersDependingOnLowersAliases).isEmpty()) {
+                        // we can do it in lower
+                        lowerPredicatesBuilder.add(predicate);
+                    } else {
+                        //
+                        // This predicate is correlated to (an upper alias that depends on a lower alias) AND
+                        // a lower alias. This means the predicate (if it can be applied anywhere at all) would need to
+                        // go into the new upper select expression. However, due to our restriction on what the lower
+                        // select expression can flow, we can only allow predicates whose correlatedTo set scoped to
+                        // lower is just the one alias we do flow.
+                        //
+                        if (correlatedToLowerAliases.size() == 1 &&
+                                Iterables.getOnlyElement(correlatedToLowerAliases).equals(lowerAlias)) {
+                            upperPredicatesBuilder.add(predicate);
+                        } else {
+                            return;
+                        }
+                    }
                 } else {
-                    innerPredicatesBuilder.add(predicate);
+                    upperPredicatesBuilder.add(predicate);
                 }
-            } else if (isCorrelatedToOuter) {
-                outerPredicatesBuilder.add(predicate);
             } else {
-                otherPredicatesBuilder.add(predicate);
+                // correlated to lower or deeply correlated
+                lowerPredicatesBuilder.add(predicate);
             }
         }
 
-        final var outerPredicates = outerPredicatesBuilder.build();
-        final var innerPredicates = innerPredicatesBuilder.build();
-        final var joinPredicates = joinPredicatesBuilder.build();
-        final var otherPredicates = otherPredicatesBuilder.build();
+        final var lowerPredicates = lowerPredicatesBuilder.build();
+        final var upperPredicates = upperPredicatesBuilder.build();
 
-        final var outerGraphExpansionBuilder = GraphExpansion.builder();
-        outerGraphExpansionBuilder.addAllQuantifiers(outerAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
-        outerGraphExpansionBuilder.addAllPredicates(outerPredicates);
-        outerGraphExpansionBuilder.addAllPredicates(otherPredicates);
-        final CorrelationIdentifier outerAlias;
-        final SelectExpression outerSelectExpression;
-        if (outerCorrelationSourceAliases.isEmpty()) {
-            outerGraphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
-            outerAlias = Quantifier.uniqueID();
-            outerSelectExpression = outerGraphExpansionBuilder.build().buildSelect();
+        final var lowerGraphExpansionBuilder = GraphExpansion.builder();
+        lowerGraphExpansionBuilder.addAllQuantifiers(lowerAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
+        lowerGraphExpansionBuilder.addAllPredicates(lowerPredicates);
+        final SelectExpression lowerSelectExpression;
+        if (lowersCorrelatedToAliases.isEmpty()) {
+            lowerGraphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
+            lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelect();
         } else {
-            outerAlias = Iterables.getOnlyElement(outerCorrelationSourceAliases);
-            outerSelectExpression = outerGraphExpansionBuilder.build().buildSelectWithResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(outerAlias)).getFlowedObjectValue());
+            lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(lowerAlias)).getFlowedObjectValue());
         }
         
-        final var innerGraphExpansionBuilder = GraphExpansion.builder();
-        innerGraphExpansionBuilder.addAllQuantifiers(innerAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
-        innerGraphExpansionBuilder.addAllPredicates(innerPredicates);
-        innerGraphExpansionBuilder.addAllPredicates(joinPredicates);
-        final var innerSelectExpression = innerGraphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
+        final var upperGraphExpansionBuilder = GraphExpansion.builder();
+        upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAlias).build(call.ref(lowerSelectExpression)));
+        upperGraphExpansionBuilder.addAllQuantifiers(upperAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
+        upperGraphExpansionBuilder.addAllPredicates(upperPredicates);
+        upperGraphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
 
-        final var resultGraphExpansion = GraphExpansion.builder();
-        resultGraphExpansion.addQuantifier(Quantifier.forEachBuilder().withAlias(outerAlias).build(call.ref(outerSelectExpression)));
-        final var innerQuantifier = Quantifier.forEach(call.ref(innerSelectExpression));
-        resultGraphExpansion.addQuantifier(innerQuantifier);
-        final var partitionedSelectExpression = resultGraphExpansion.build().buildSelectWithResultValue(innerQuantifier.getFlowedObjectValue());
-        call.yield(GroupExpressionRef.of(partitionedSelectExpression));
-
-        return joinPredicates.isEmpty() && resultCorrelatedToOuter.isEmpty();
+        final var upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
+        call.yield(GroupExpressionRef.of(upperSelectExpression));
     }
 }
