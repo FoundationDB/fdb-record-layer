@@ -287,6 +287,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
     }
 
+    @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyByIndex(@Nonnull Index sourceIndex, @Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
