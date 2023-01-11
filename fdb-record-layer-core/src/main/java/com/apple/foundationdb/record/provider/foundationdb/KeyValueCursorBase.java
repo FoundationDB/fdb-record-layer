@@ -192,7 +192,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     public abstract static class Builder<T extends Builder<T>> {
 
         private int prefixLength;
-
         private FDBRecordContext context = null;
         private final Subspace subspace;
         private byte[] continuation = null;
@@ -276,20 +275,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
 
             limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
-            CursorStreamingMode propertiesStreamingMode = scanProperties.getCursorStreamingMode();
-            if (propertiesStreamingMode == CursorStreamingMode.ITERATOR) {
-                streamingMode = StreamingMode.ITERATOR;
-            } else if (propertiesStreamingMode == CursorStreamingMode.LARGE) {
-                streamingMode = StreamingMode.LARGE;
-            } else if (propertiesStreamingMode == CursorStreamingMode.MEDIUM) {
-                streamingMode = StreamingMode.MEDIUM;
-            } else if (propertiesStreamingMode == CursorStreamingMode.SMALL) {
-                streamingMode = StreamingMode.SMALL;
-            } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
-                streamingMode = StreamingMode.WANT_ALL;
-            } else {
-                streamingMode = StreamingMode.EXACT;
-            }
+            streamingMode = calcStreamingMode(scanProperties.getCursorStreamingMode(), limit);
 
             transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
             limitManager = new CursorLimitManager(context, scanProperties);
@@ -401,6 +387,22 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         public KeySelector getEnd() {
             return end;
+        }
+
+        private StreamingMode calcStreamingMode(final CursorStreamingMode propertiesStreamingMode, final int limit) {
+            if (propertiesStreamingMode == CursorStreamingMode.ITERATOR) {
+                return StreamingMode.ITERATOR;
+            } else if (propertiesStreamingMode == CursorStreamingMode.LARGE) {
+                return StreamingMode.LARGE;
+            } else if (propertiesStreamingMode == CursorStreamingMode.MEDIUM) {
+                return StreamingMode.MEDIUM;
+            } else if (propertiesStreamingMode == CursorStreamingMode.SMALL) {
+                return StreamingMode.SMALL;
+            } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
+                return StreamingMode.WANT_ALL;
+            } else {
+                return StreamingMode.EXACT;
+            }
         }
 
         protected abstract T getThis();
