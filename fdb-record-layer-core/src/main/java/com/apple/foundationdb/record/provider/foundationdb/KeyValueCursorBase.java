@@ -54,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
  * The base class for cursors scanning ranges of the FDB database.
  */
 @API(API.Status.MAINTAINED)
-public abstract class KeyValueCursorBase extends AsyncIteratorCursor<KeyValue> implements BaseCursor<KeyValue> {
+public abstract class KeyValueCursorBase<KV extends KeyValue> extends AsyncIteratorCursor<KV> implements BaseCursor<KV> {
     @Nonnull
     private final FDBRecordContext context;
     private final int prefixLength;
@@ -66,7 +66,7 @@ public abstract class KeyValueCursorBase extends AsyncIteratorCursor<KeyValue> i
     private byte[] lastKey;
 
     protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
-                                 @Nonnull final AsyncIterator<KeyValue> iterator,
+                                 @Nonnull final AsyncIterator<KV> iterator,
                                  int prefixLength,
                                  @Nonnull final CursorLimitManager limitManager,
                                  int valuesLimit) {
@@ -82,7 +82,7 @@ public abstract class KeyValueCursorBase extends AsyncIteratorCursor<KeyValue> i
 
     @Nonnull
     @Override
-    public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
+    public CompletableFuture<RecordCursorResult<KV>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
             // This guard is needed to guarantee that if onNext is called multiple times after the cursor has
             // returned a result without a value, then the same NoNextReason is returned each time. Without this guard,
@@ -92,7 +92,7 @@ public abstract class KeyValueCursorBase extends AsyncIteratorCursor<KeyValue> i
         } else if (limitManager.tryRecordScan()) {
             return iterator.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
-                    KeyValue kv = iterator.next();
+                    KV kv = iterator.next();
                     if (context != null) {
                         context.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
@@ -124,7 +124,7 @@ public abstract class KeyValueCursorBase extends AsyncIteratorCursor<KeyValue> i
 
     @Override
     @Nonnull
-    public RecordCursorResult<KeyValue> getNext() {
+    public RecordCursorResult<KV> getNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
 

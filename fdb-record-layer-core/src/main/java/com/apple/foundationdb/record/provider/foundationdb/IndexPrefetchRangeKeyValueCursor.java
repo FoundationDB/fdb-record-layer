@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MappedKeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
@@ -36,9 +37,9 @@ import javax.annotation.Nonnull;
  * the record for a particular index entry.
  */
 @API(API.Status.EXPERIMENTAL)
-public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase {
+public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedKeyValue> {
     private IndexPrefetchRangeKeyValueCursor(@Nonnull final FDBRecordContext context,
-                                             @Nonnull final AsyncIterator<KeyValue> iterator,
+                                             @Nonnull final AsyncIterator<MappedKeyValue> iterator,
                                              int prefixLength,
                                              @Nonnull final CursorLimitManager limitManager,
                                              int valuesLimit) {
@@ -67,10 +68,10 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase {
         @SuppressWarnings("unchecked")
         public IndexPrefetchRangeKeyValueCursor build() {
             prepare();
-            AsyncIterator<? extends KeyValue> iterator = getTransaction()
+            AsyncIterator<MappedKeyValue> iterator = getTransaction()
                     .getMappedRange(getBegin(), getEnd(), mapper, getLimit(), isReverse(), getStreamingMode())
                     .iterator();
-            return new IndexPrefetchRangeKeyValueCursor(getContext(), (AsyncIterator<KeyValue>)iterator, getPrefixLength(), getLimitManager(), getValuesLimit());
+            return new IndexPrefetchRangeKeyValueCursor(getContext(), iterator, getPrefixLength(), getLimitManager(), getValuesLimit());
         }
 
         @Override

@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
  * The basic cursor for scanning ranges of the FDB database.
  */
 @API(API.Status.MAINTAINED)
-public class KeyValueCursor extends KeyValueCursorBase {
+public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
 
     private KeyValueCursor(@Nonnull final FDBRecordContext context,
                              @Nonnull final AsyncIterator<KeyValue> iterator,
