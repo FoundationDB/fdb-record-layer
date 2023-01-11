@@ -141,9 +141,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         // Wrap in plan.
-        LuceneIndexQueryPlan lucenePlan = new LuceneIndexQueryPlan(index.getName(), scanParameters, false,
+        RecordQueryPlan plan = new LuceneIndexQueryPlan(index.getName(), scanParameters,
+                resolveFetchIndexRecords(candidateScan.getPlanContext()), false,
                 state.planOrderingKey, state.storedFieldExpressions);
-        RecordQueryPlan plan = lucenePlan;
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
         if (filterMask.allSatisfied()) {
             filterMask.setSatisfied(true);

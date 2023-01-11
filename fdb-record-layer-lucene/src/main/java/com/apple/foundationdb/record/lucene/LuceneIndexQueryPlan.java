@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
@@ -63,9 +65,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Nullable
     private final List<KeyExpression> storedFields;
 
-    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters, boolean reverse,
+    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters,
+                                @Nonnull FetchIndexRecords fetchIndexRecords, boolean reverse,
                                 @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
-        super(indexName, scanParameters, reverse);
+        super(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, fetchIndexRecords, reverse, false);
         this.planOrderingKey = planOrderingKey;
         this.storedFields = storedFields;
     }
@@ -237,6 +240,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
 
         // TODO this seems to be too simplistic
-        return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, reverse, planOrderingKey, storedFields);
+        return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, planOrderingKey, storedFields);
     }
 }

@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -34,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
@@ -103,6 +104,14 @@ public class PlanMatchers {
 
     public static Matcher<RecordQueryPlanWithComparisons> unbounded() {
         return new IndexMatcher.BoundsMatcher(new ScanComparisonsEmptyMatcher());
+    }
+
+    public static Matcher<RecordQueryPlanWithIndex> fetchIndexRecords(@Nonnull RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords) {
+        return fetchIndexRecords(equalTo(fetchIndexRecords));
+    }
+
+    public static Matcher<RecordQueryPlanWithIndex> fetchIndexRecords(@Nonnull Matcher<RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords> fetchIndexRecordsMatcher) {
+        return new IndexMatcher.FetchIndexRecordsMatcher(fetchIndexRecordsMatcher);
     }
 
     public static Matcher<Comparisons.Comparison> hasTypelessString(@Nonnull Matcher<String> stringMatcher) {
