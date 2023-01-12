@@ -1416,9 +1416,6 @@ public class RecordQueryPlanner implements QueryPlanner {
     private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
                                      @Nonnull IndexScanComparisons indexScanComparisons,
                                      boolean strictlySorted) {
-        final var queriedRecordTypes = candidateScan.planContext.query.getRecordTypes();
-        final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
-
         RecordQueryPlan plan;
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
@@ -1435,7 +1432,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
             plan = new RecordQueryScanPlan(possibleTypes, new Type.Any(), candidateScan.planContext.commonPrimaryKey, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
-            final FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecords(queriedRecordTypes, syntheticRecordTypes);
+            final FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecords(candidateScan.getPlanContext());
             // If this is a regular fetch using the primary key, we can opt to use the configured fetch method,
             // if, however, this fetch fetches synthetic constituents, we must do it at the client (at this point).
             final IndexFetchMethod indexFetchMethod =
@@ -1468,14 +1465,15 @@ public class RecordQueryPlanner implements QueryPlanner {
      * the index entry itself does not contain any information to help us resolve that question on a per-record
      * basis.
      * 
-     * @param queriedRecordTypes a set of record types queried by the query or all record types if empty
-     * @param syntheticRecordTypes a set of synthetic record types available
+     * @param planContext the current plan context
      * @return an enum of type {@link FetchIndexRecords} which determines how records are fetched given an index key
      */
     @Nonnull
-    private FetchIndexRecords resolveFetchIndexRecords(@Nonnull Collection<String> queriedRecordTypes,
-                                                       @Nonnull Set<String> syntheticRecordTypes) {
+    protected FetchIndexRecords resolveFetchIndexRecords(@Nonnull PlanContext planContext) {
+        final var queriedRecordTypes = planContext.query.getRecordTypes();
+        final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
         final var regularRecordTypes = metaData.getRecordTypes().keySet();
+
         if (!syntheticRecordTypes.isEmpty()) {
             if (queriedRecordTypes.isEmpty()) {
                 // all record types are queried
@@ -1869,6 +1867,20 @@ public class RecordQueryPlanner implements QueryPlanner {
             this.planContext = planContext;
             this.index = index;
             this.reverse = reverse;
+        }
+
+        @Nonnull
+        public PlanContext getPlanContext() {
+            return planContext;
+        }
+
+        @Nullable
+        public Index getIndex() {
+            return index;
+        }
+
+        public boolean isReverse() {
+            return reverse;
         }
     }
 
