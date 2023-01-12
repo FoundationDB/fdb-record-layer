@@ -216,7 +216,7 @@ public class OnlineIndexer implements AutoCloseable {
         final IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
         if (partlyBuiltException != null) {
             // An ongoing indexing process with a different method type was found. Some precondition cases should be handled.
-            IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.savedStamp;
+            IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.getSavedStamp();
             IndexingPolicy.DesiredAction desiredAction = indexingPolicy.getIfMismatchPrevious();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
@@ -252,9 +252,7 @@ public class OnlineIndexer implements AutoCloseable {
                     return indexingLauncher(indexingFunc, attemptCount, origPolicy);
                 }
                 // No other methods (yet). This line should never be reached.
-                throw new RecordCoreException("Invalid previous indexing type stamp",
-                        LogMessageKeys.CURR_ATTEMPT, attemptCount,
-                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp);
+                throw partlyBuiltException;
             }
 
             if (desiredAction == IndexingPolicy.DesiredAction.REBUILD) {
@@ -265,10 +263,8 @@ public class OnlineIndexer implements AutoCloseable {
                 return indexingLauncher(indexingFunc, attemptCount);
             }
 
-            if (desiredAction == IndexingPolicy.DesiredAction.ERROR) {
-                // Error it is
-                throw FDBExceptions.wrapException(ex);
-            }
+            // Error it is
+            throw partlyBuiltException;
         }
 
         if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
