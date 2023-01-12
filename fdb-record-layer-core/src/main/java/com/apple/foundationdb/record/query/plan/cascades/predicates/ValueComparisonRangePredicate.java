@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -36,8 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.KeyExpressionUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A special predicate used to represent a parameterized tuple range.
@@ -190,7 +196,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
      * A query predicate that can be used as a (s)earch (arg)ument for an index scan.
      */
     @SuppressWarnings("java:S2160")
-    public static class Sargable extends ValueComparisonRangePredicate {
+    public static class Sargable extends ValueComparisonRangePredicate implements QueryPredicate.Serializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
         @Nonnull
@@ -344,6 +350,58 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Override
         public String toString() {
             return getValue() + " " + comparisonRange;
+        }
+
+        @Nonnull
+        @Override
+        public RecordMetaDataProto.Predicate toProto() {
+            final var protoBuilder = RecordMetaDataProto.Sargable.newBuilder();
+            protoBuilder.setValue(KeyExpressionUtils.toKeyExpression(getValue()).toKeyExpression());
+            if (comparisonRange.isEquality()) {
+                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.EQUALITY)
+                        .addComparisons(((Comparisons.Comparison.Serializable)comparisonRange.getEqualityComparison()).toProto());
+            } else if (comparisonRange.isInequality()) {
+                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.NON_EQUALITY)
+                        .addAllComparisons((Objects.requireNonNull(comparisonRange.getInequalityComparisons()))
+                                .stream()
+                                .map(nonEquality -> ((Comparisons.Comparison.Serializable)nonEquality).toProto())
+                                .collect(Collectors.toList()));
+            } else {
+                Verify.verify(comparisonRange.isEmpty());
+                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.EMPTY);
+            }
+            return RecordMetaDataProto.Predicate.newBuilder().setSargable(protoBuilder.build()).build();
+        }
+
+        @Override
+        public boolean isSerializable() {
+            return KeyExpressionUtils.convertibleToKeyExpression(getValue()) &&
+                   comparisonRange.getEqualityComparison().isSerializable() &&
+                   (comparisonRange.getInequalityComparisons() == null || comparisonRange.getInequalityComparisons().stream().allMatch(Comparisons.Comparison::isSerializable));
+        }
+
+        @Nonnull
+        public static Sargable deserialize(@Nonnull final RecordMetaDataProto.Sargable proto,
+                                           @Nonnull final CorrelationIdentifier alias,
+                                           @Nonnull final Type inputType) {
+            Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", Sargable.class));
+            Verify.verify(proto.hasRangeType(), String.format("attempt to deserialize %s without comparison range type", Sargable.class));
+            final var value = new ScalarTranslationVisitor(KeyExpression.fromProto(proto.getValue())).toResultValue(alias, inputType);
+            final var type = proto.getRangeType();
+            if (type == RecordMetaDataProto.Sargable.RangeType.EQUALITY) {
+                Verify.verify(proto.getComparisonsCount() == 1, "attempt to deserialise %s with more than one equality range comparison", Sargable.class);
+                return new Sargable(value, ComparisonRange.from(Comparisons.Comparison.deserialize(proto.getComparisons(0))).orElseThrow());
+            } else if (type == RecordMetaDataProto.Sargable.RangeType.NON_EQUALITY) {
+                Verify.verify(proto.getComparisonsCount() > 0);
+                var comparisonRange = ComparisonRange.from(Comparisons.Comparison.deserialize(proto.getComparisons(0))).orElseThrow();
+                for (int i = 1; i < proto.getComparisonsCount(); ++i) {
+                    comparisonRange = comparisonRange.tryToAdd(Comparisons.Comparison.deserialize(proto.getComparisons(i))).orElseThrow();
+                }
+                return new Sargable(value, comparisonRange);
+            } else {
+                Verify.verify(type == RecordMetaDataProto.Sargable.RangeType.EMPTY);
+                return new Sargable(value, ComparisonRange.EMPTY);
+            }
         }
     }
 }

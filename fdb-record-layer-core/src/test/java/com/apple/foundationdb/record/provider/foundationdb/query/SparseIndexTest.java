@@ -211,7 +211,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
                         .addRecordType("MySimpleRecord")
                         .setType(IndexTypes.VALUE)
                         .setRootExpression(concat(field("num_value_2"), field("num_value_3_indexed")).toKeyExpression())
-                        .setPredicate(predicate.toProto())
+                        .addPredicate(predicate.toProto())
                         .build();
                 final var index = new Index(protoIndexBuilder);
                 metaDataBuilder.addIndex("MySimpleRecord", index);

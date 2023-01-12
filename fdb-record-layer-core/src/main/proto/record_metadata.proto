@@ -63,7 +63,7 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
-  optional Predicate predicate = 11;
+  repeated Predicate predicate = 11;
   extensions 1000 to 2000;
 }
 
@@ -314,6 +314,17 @@ message ValuePredicate {
   optional Comparison comparison = 2;
 }
 
+message Sargable {
+  optional KeyExpression value = 1; // the key expression must be mappable to Value
+  enum RangeType {
+    EQUALITY = 1;
+    NON_EQUALITY = 2;
+    EMPTY = 3;
+  }
+  optional RangeType range_type = 2;
+  repeated Comparison comparisons = 3;
+}
+
 message Predicate {
   // exactly one of the following
   optional AndPredicate and_predicate = 1;
@@ -321,4 +332,5 @@ message Predicate {
   optional ConstantPredicate constant_predicate = 3;
   optional NotPredicate not_predicate = 4;
   optional ValuePredicate value_predicate = 5;
+  optional Sargable sargable = 6;
 }

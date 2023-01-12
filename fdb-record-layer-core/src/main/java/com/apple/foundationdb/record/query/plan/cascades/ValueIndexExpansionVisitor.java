@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +43,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
@@ -111,8 +111,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 pop(rootExpression.expand(push(initialState)));
 
         if (index.hasPredicate()) {
-            final var predicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
-            final var predicatedExpansion = keyValueExpansion.toBuilder().addPredicate(predicate).build();
+            assert index.getPredicates() != null;
+            final var predicates = index.getPredicates().stream().map(predicate ->  QueryPredicate.deserialize(Objects.requireNonNull(predicate), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())).collect(Collectors.toList());
+            final var predicatedExpansion = keyValueExpansion.toBuilder().addAllPredicates(predicates).build();
             allExpansionsBuilder.add(predicatedExpansion);
         } else {
             allExpansionsBuilder.add(keyValueExpansion);
