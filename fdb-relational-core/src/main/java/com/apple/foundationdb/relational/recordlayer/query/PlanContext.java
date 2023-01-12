@@ -51,7 +51,7 @@ public final class PlanContext {
      * @param storeState            The record store state.
      * @param metadataOperationsFactory The constant action factory used for DDL and metadata queries
      * @param dbUri                 The URI of the database.
-     **/
+     */
     private PlanContext(@Nonnull final RecordMetaData metaData,
                         @Nonnull final RecordStoreState storeState,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,

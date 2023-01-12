@@ -65,6 +65,6 @@ public class DropDatabaseConstantAction implements ConstantAction {
             throw new RelationalException(se.getMessage(), ec, se);
         }
 
-        catalog.deleteDatabase(txn, dbUrl);
+        catalog.deleteDatabase(txn, dbUrl, Continuation.BEGIN);
     }
 }

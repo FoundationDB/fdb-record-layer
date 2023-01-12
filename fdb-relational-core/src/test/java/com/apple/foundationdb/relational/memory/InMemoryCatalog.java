@@ -140,8 +140,9 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public void deleteDatabase(Transaction txn, URI dbUrl) {
+    public Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) {
         dbToSchemas.remove(dbUrl);
+        return Continuation.END;
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {

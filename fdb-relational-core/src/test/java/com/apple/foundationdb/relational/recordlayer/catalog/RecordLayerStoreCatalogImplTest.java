@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -460,25 +459,40 @@ public class RecordLayerStoreCatalogImplTest {
     @Test
     void testDeleteDatabaseWorks() throws RelationalException {
         final Schema schema1 = generateTestSchema("test_schema_name1", "/test_database_id1", "test_template_name", 1);
+        final Schema schema2 = generateTestSchema("test_schema_name2", "/test_database_id1", "test_template_name", 1);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1);
+            storeCatalog.saveSchema(txn, schema2);
             txn.commit();
         }
 
         //it should exist
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
             Assertions.assertTrue(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseName())), "Did not find a database!");
+            Assertions.assertTrue(storeCatalog.doesSchemaExist(listTxn, URI.create(schema1.getDatabaseName()), schema1.getName()), "Did not find a schema!");
+            Assertions.assertTrue(storeCatalog.doesSchemaExist(listTxn, URI.create(schema2.getDatabaseName()), schema2.getName()), "Did not find a schema!");
         }
         //now delete it
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.deleteDatabase(txn, URI.create(schema1.getDatabaseName()));
-            txn.commit();
-        }
+        Continuation continuation;
+        do {
+            try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+                continuation = storeCatalog.deleteDatabase(txn, URI.create(schema1.getDatabaseName()), Continuation.BEGIN);
+                try {
+                    txn.commit();
+                } catch (RelationalException ex) {
+                    if (ex.getErrorCode() != ErrorCode.TRANSACTION_INACTIVE && ex.getErrorCode() != ErrorCode.TRANSACTION_TIMEOUT) {
+                        throw ex;
+                    }
+                }
+            }
+        } while (!continuation.atEnd());
 
-        //now it shouldn't exist
+        //now database and its schemas shouldn't exist
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
             Assertions.assertFalse(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseName())), "Did not find a database!");
+            Assertions.assertFalse(storeCatalog.doesSchemaExist(listTxn, URI.create(schema1.getDatabaseName()), schema1.getName()), "Did not find a schema!");
+            Assertions.assertFalse(storeCatalog.doesSchemaExist(listTxn, URI.create(schema2.getDatabaseName()), schema2.getName()), "Did not find a schema!");
         }
     }
 

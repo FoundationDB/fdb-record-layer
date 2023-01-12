@@ -152,5 +152,13 @@ public interface StoreCatalog {
 
     boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName) throws RelationalException;
 
-    void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException;
+    /**
+     * Delete the database from the Catalog.
+     * It deletes all schemas in the database from SCHEMAS table starting from continuation, and deletes the database_id from DATABASE_INFO table
+     *
+     * @param txn   the transaction to use
+     * @param dbUrl the path to the specific database to delete
+     * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
+     */
+    Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException;
 }

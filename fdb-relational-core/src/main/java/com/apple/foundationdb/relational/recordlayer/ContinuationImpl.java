@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,7 +38,7 @@ public final class ContinuationImpl implements Continuation {
     private final boolean atEnd;
 
     // TODO(yhatem) remove semantic nulls.
-    private ContinuationImpl(@Nullable  byte[] continuationBytes) {
+    private ContinuationImpl(@Nullable byte[] continuationBytes) {
         this(continuationBytes, false);
     }
 
@@ -77,6 +78,10 @@ public final class ContinuationImpl implements Continuation {
     public static Continuation fromInt(int offset) {
         assert offset >= 0;
         return new ContinuationImpl(Ints.toByteArray(offset));
+    }
+
+    public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation) {
+        return cursorContinuation.isEnd() ? Continuation.END : new ContinuationImpl(cursorContinuation.toBytes(), false);
     }
 
     public static Continuation copyOf(@Nonnull Continuation other) throws RelationalException {

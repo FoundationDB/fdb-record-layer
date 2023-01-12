@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
@@ -53,6 +54,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
@@ -74,6 +76,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Objects;
 
 /**
  * This class constructs the record store that holds the catalog metadata.
@@ -373,15 +376,19 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public void deleteDatabase(Transaction txn, URI dbUrl) throws RelationalException {
+    public Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         try {
             String dbId = dbUrl.getPath();
-            recordStore.deleteRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId));
+            RecordCursorContinuation cursorContinuation = deleteSchemas(txn, URI.create(dbId), continuation.getBytes());
+            // when all schemas are deleted, delete the databaseId from DATABASE_INFO table
+            if (cursorContinuation.isEnd()) {
+                recordStore.deleteRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId));
+            }
+            return ContinuationImpl.fromRecordCursorContinuation(cursorContinuation);
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }
-
     }
 
     private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
@@ -390,6 +397,32 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+    }
+
+    // delete schemas starting from a continuation, until the transaction is closed
+    private RecordCursorContinuation deleteSchemas(@Nonnull Transaction txn, @Nonnull URI dbUri, byte[] continuation) throws RelationalException {
+        Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation, ScanProperties.FORWARD_SCAN);
+        RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
+        try {
+            do {
+                cursorResult = cursor.getNext();
+                if (cursorResult.getContinuation().isEnd()) {
+                    break;
+                }
+                Tuple primaryKey = Objects.requireNonNull(cursorResult.get()).getPrimaryKey();
+                Assert.that(recordStore.deleteRecord(primaryKey), "Schema primaryKey id " + primaryKey.get(1) + "/" + primaryKey.get(2) + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
+            } while (cursorResult.hasNext());
+        } catch (RecordCoreStorageException ex) {
+            RelationalException vex = ExceptionUtil.toRelationalException(ex);
+            if (vex.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || vex.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
+                return cursorResult.getContinuation();
+            } else {
+                throw ex;
+            }
+        }
+        return cursorResult.getContinuation();
     }
 
     private void saveSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStore recordStore) throws RelationalException {
