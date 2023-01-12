@@ -917,6 +917,10 @@ public abstract class IndexingBase {
             super(msg, keyValues);
             this.savedStamp = savedStamp;
         }
+
+        public IndexBuildProto.IndexBuildIndexingStamp getSavedStamp() {
+            return savedStamp;
+        }
     }
 
     public static PartlyBuiltException getAPartlyBuildExceptionIfApplicable(@Nullable Throwable ex) {

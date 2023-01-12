@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -337,9 +338,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTargetIndexes(indexes));
 
         // 2. let one index continue ahead
+        Index indexAhead = indexes.get(2);
         timer.reset();
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
-                .setIndex(indexes.get(2)));
+                .setIndex(indexAhead));
 
         // 3. assert mismatch type stamp
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
@@ -353,6 +355,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS, savedStamp.getMethod());
         }
     }
 
@@ -396,6 +401,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, savedStamp.getMethod());
+            assertTrue(savedStamp.getTargetIndexList().containsAll(Arrays.asList("indexA", "indexB", "indexC", "indexD")));
         }
     }
 
