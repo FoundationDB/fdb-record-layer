@@ -1,0 +1,170 @@
+#
+# in-predicate.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template in_predicate_schema_template
+---
+- query: create schema template in_predicate_schema_template
+    create type as struct ts(sa int64, sb int64)
+    create table ta(a int64, b int64, c double, d boolean, e string, f ts, primary key(a))
+---
+- query: drop database /IN_PREDICATE_DB
+---
+- query: create database /IN_PREDICATE_DB
+---
+- query: create schema /IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
+---
+- connect: "jdbc:embed:/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
+---
+- insert: [{A: 0, 9, 1.23, true , "foo", {90, 9}},
+           {A: 1, 8, 4.56, false, "bar", {81, 18}},
+           {A: 2, 7, 7.89, true , "doe", {72, 27}},
+           {A: 3, 6, 0.12, false, "arc", {63, 36}},
+           {A: 4, 5, 3.45, true , "per", {54, 45}},
+           {A: 5, 4, 6.78, false, "doe", {45, 54}},
+           {A: 6, 3, 9.01, true , "foo", {36, 63}},
+           {A: 7, 2, 2.34, false, "arc", {27, 72}},
+           {A: 8, 1, 5.67, true , "bar", {18, 81}},
+           {A: 9, 0, 8.90, false, "doe", {9, 90}}]
+- table: TA
+---
+# LONG value matched against IN list of only LONG values
+- query: select a, b from ta where b in (1, 3, 5, 7)
+- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+---
+# LONG value matched against singleton IN list
+- query: select a, b from ta where b in (6)
+- result: [{A: 3, 6}]
+---
+# LONG value matched against empty IN list
+- query: select a, b from ta where b in ()
+- error: "42601"
+---
+# LONG value matched against IN list with no matches
+- query: select a, b from ta where b in (10, 33, 66)
+- result: []
+---
+# LONG value matched against IN list of LONG and DOUBLE values
+- query: select a, b from ta where b in (1, 3.0, 5, 7.0)
+- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+---
+# LONG value matched against IN list of LONG-resultant arithmetic values
+- query: select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
+- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+---
+# LONG value matched against IN list of repeated LONG values
+- query: select a, b from ta where b in (1, 1, 1, 1)
+- result: [{A: 8, 1}]
+---
+# LONG value matched against IN list of repeated LONG values
+- query: select a, b from ta where b in (1, 2, 1, 3)
+- result: [{A: 8, 1}, {A: 7, 2}, {A: 6, 3}]
+---
+# LONG value matched against IN list of repeated LONG-resultant simple arithmetic values
+- query: select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
+- result: [{A: 8, 1}]
+---
+# LONG value matched against IN list of repeated LONG-resultant simple expressions
+# cannot be de-duplicated in compile time
+- query: select a, b from ta where b in (1 + 0, 0 + 1)
+- result: [{A: 8, 1}, {A: 8, 1}]
+---
+# _ matched against IN list containing NULL value
+- query: select a, b from ta where b in (1, null, 2, 1, 3, null)
+- error: "42809"
+---
+# DOUBLE value matched against IN list of DOUBLE values
+- query: select a, c from ta where c in (4.56, 3.45, 2.34)
+- result: [{A: 1, 4.56}, {A: 4, 3.45}, {A: 7, 2.34}]
+---
+# DOUBLE value matched against singleton IN list of DOUBLE value
+- query: select a, c from ta where c in (9.01)
+- result: [{A: 6, 9.01}]
+---
+# DOUBLE value matched against singleton IN list of DOUBLE-resultant simple expressions
+- query: select a, c from ta where c in (3.01 + 6)
+- result: [{A: 6, 9.01}]
+---
+# BOOLEAN value matched against IN list of BOOLEAN values
+- query: select a, d from ta where d in (true, false)
+- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x},
+           {A: 1, !dc x}, {A: 3, !dc x}, {A: 5, !dc x}, {A: 7, !dc x}, {A: 9, !dc x}]
+---
+# BOOLEAN value matched against singleton IN list of BOOLEAN values
+- query: select a, d from ta where d in (true)
+- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x}]
+---
+# BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
+- query: select a, d from ta where d in (3 < 4)
+- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x}]
+---
+# STRING value matched against IN list of STRING values
+- query: select a, e from ta where e in ('bar', 'doe')
+- result: [{ A: 1, !dc x }, { A: 8, !dc x }, { A: 2, !dc x }, { A: 5, !dc x }, { A: 9, !dc x }]
+---
+# STRING value matched against singleton IN list of STRING values
+- query: select a, e from ta where e in ('foo')
+- result: [ { A: 0, !dc x }, { A: 6, !dc x }]
+---
+# STRING value matched against IN list of BOOLEAN-resultant simple expressions
+- query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
+- result: [{ A: 1, !dc x }, { A: 8, !dc x }, { A: 2, !dc x }, { A: 5, !dc x }, { A: 9, !dc x }]
+---
+# `NOT IN` not supported
+- query: select a, e from ta where e not in ('foo' , 35)
+- error: "42601"
+---
+# Values of incompatible types in the IN list
+- query: select a, e from ta where e in ('foo' , 35 + 4)
+- error: "XX000"
+---
+# Values of incompatible types in the IN list
+- query: select a, e from ta where e in ('foo' , 35)
+- error: "XX000"
+---
+# Values of incompatible types in the IN list
+- query: select a, e from ta where e in (35, '23')
+- error: "XX000"
+---
+# Values of incompatible types in the IN list
+- query: select a, e from ta where e in (true, 75.34)
+- error: "XX000"
+---
+# Left type (STRING) is not compatible with right type (type of the IN List)
+- query: select a, e from ta where e in (35, 75.34)
+- error: "XX000"
+---
+# Left type (STRING) is not compatible with right type (type of the IN List)
+- query: select a, e from ta where e in (35.34, 32)
+- error: "XX000"
+---
+# Complex (STRUCT) left type matched against IN list
+- query: select a, e from ta where f in (34, 23)
+- error: "XX000"
+---
+# constant LONG value matched against IN list of LONG values
+- query: select a, e from ta where 1 in (2, 3)
+- result: []
+---
+# constant LONG value matched against IN list of LONG values.
+- query: select a from ta where 1 in (1, 2, 3)
+- result: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
+...

@@ -127,4 +127,9 @@ public class YamlIntegrationTests {
     public void primaryKey() throws Exception {
         doRun("primary-key-tests.yaml");
     }
+
+    @Test
+    public void inPredicate() throws Exception {
+        doRun("in-predicate.yaml");
+    }
 }

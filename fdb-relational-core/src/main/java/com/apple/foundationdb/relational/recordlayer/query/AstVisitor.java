@@ -703,11 +703,20 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     ///// Predicates ///////
 
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
+    @Override
     public Value visitInPredicate(RelationalParser.InPredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
+        if (ctx.NOT() != null) {
+            Assert.failUnchecked("NOT IN is not supported", ErrorCode.SYNTAX_ERROR);
+        }
+        if (ctx.selectStatement() != null) {
+            Assert.failUnchecked("IN <SELECT_STATEMENT> is not supported", ErrorCode.SYNTAX_ERROR);
+        }
+        final var values = new ArrayList<Value>();
+        ctx.expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
+
+        final var typedList = ParserUtils.encapsulate(new AbstractArrayConstructorValue.ArrayFn(), ParserUtils.validateInValuesList(values));
+        final var left = (Value) visit(ctx.predicate());
+        return (Value) ParserUtils.encapsulate(ParserUtils.getFunction("IN"), List.of(left, typedList));
     }
 
     @Override

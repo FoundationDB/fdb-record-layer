@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -67,6 +68,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -127,6 +129,7 @@ public final class ParserUtils {
         functionMap.put(">=", new RelOpValue.GteFn());
         functionMap.put("<>", new RelOpValue.NotEqualsFn());
         functionMap.put("!=", new RelOpValue.NotEqualsFn());
+        functionMap.put("IN", new InOpValue.InFn());
 
         functionMap.put("*", new ArithmeticValue.MulFn());
         functionMap.put("/", new ArithmeticValue.DivFn());
@@ -627,5 +630,27 @@ public final class ParserUtils {
                                             throw new IllegalArgumentException("cannot form union type of two fields sharing the same name with different types");
                                         })));
         return Type.Record.fromFields(new ArrayList<>(meldedFields.values()));
+    }
+
+    @Nonnull
+    public static List<Typed> validateInValuesList(List<? extends Value> values) {
+        final var valueSet = new HashSet<Value>();
+        final var toReturn = new ArrayList<Typed>();
+        for (final var value: values) {
+            if (value.getResultType() == Type.NULL) {
+                Assert.failUnchecked("NULL values are not allowed in the IN list", ErrorCode.WRONG_OBJECT_TYPE);
+            }
+            if (value.getResultType().isUnresolved()) {
+                Assert.failUnchecked(String.format("Type cannot be determined for element `%s` in the IN list", value),
+                        ErrorCode.UNKNOWN_TYPE);
+            }
+            // compile-time de-duplication
+            if (valueSet.contains(value)) {
+                continue;
+            }
+            toReturn.add(value);
+            valueSet.add(value);
+        }
+        return toReturn;
     }
 }

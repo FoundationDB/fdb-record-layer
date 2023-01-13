@@ -1868,7 +1868,7 @@ expression
     ;
 
 predicate
-    : predicate NOT? IN '(' (selectStatement | expressions) ')'     #inPredicate // done (unsupported)
+    : predicate NOT? IN '(' (selectStatement | expressions) ')'     #inPredicate // done
     | predicate IS NOT? nullLiteral                                 #isNullPredicate // done
     | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
     | predicate comparisonOperator
