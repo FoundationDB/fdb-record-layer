@@ -44,6 +44,7 @@ message ComplexDocument {
     repeated string tag = 5;
     optional int32 score = 6;
     optional string text2 = 7;
+    optional bool is_seen = 8;
 }
 
 message MapDocument {
