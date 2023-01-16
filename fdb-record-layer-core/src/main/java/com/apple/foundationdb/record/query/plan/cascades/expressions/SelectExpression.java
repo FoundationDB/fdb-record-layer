@@ -281,6 +281,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return ImmutableList.of();
         }
 
+        // TODO this should be inverted, i.e. go through the predicates and make sure the referred alias is among the
+        //      quantifiers owned by this expression
         //
         // Go through all matched existential quantifiers. Make sure that there is a top level exists() predicate
         // corresponding to each one.

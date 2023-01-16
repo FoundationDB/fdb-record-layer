@@ -48,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that splits a {@link SelectExpression} into two {@link SelectExpression}s which are then joined together.
+ * A rule that splits a {@link SelectExpression} into two {@link SelectExpression}s .
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
