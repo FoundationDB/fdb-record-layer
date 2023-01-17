@@ -36,6 +36,7 @@ import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc;
+import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.HTTPServer;
 import me.dinowernli.grpc.prometheus.Configuration;
@@ -53,9 +54,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
@@ -140,11 +139,20 @@ public class RelationalServer implements Closeable {
         var grpcMetrics = MonitoringServerInterceptor.create(Configuration.allMetrics()
                 .withCollectorRegistry(this.collectorRegistry));
         // Build Server with Services.
+        // We install TransmitStatusRuntimeExceptionInterceptor as a server interceptor to catch
+        // StatusRuntimeExceptions below. It closes the connection and will return actual Status instead
+        // of the default UNKNOWN with no detail. There may be performance implications running with
+        // this interceptor -- see its internal serializing wrapper class. TODO.
+        // A general server-side catch is a tricky business. One approach might be customizing a version of
+        // TransmitStatusRuntimeException to catch all RuntimeExceptions and then do as we do over in
+        // JDBCService in handleUncaughtException. For now, catch RuntimeExceptions in Services and
+        // convert to StatusRuntimeException. At least this way we can get the client client some detail.
+        // Server exception handling and how they manifest on client-side is still a work-in-progress.
         this.grpcServer = ServerBuilder.forPort(grpcPort)
                 .addService(ServerInterceptors.intercept(healthStatusManager.getHealthService(), grpcMetrics))
                 .addService(ServerInterceptors.intercept(ProtoReflectionService.newInstance(), grpcMetrics))
-                .addService(ServerInterceptors.intercept(new JDBCService(frl), grpcMetrics,
-                        new UNKNOWNStatusInterceptor(Arrays.asList(SQLException.class))))
+                .addService(ServerInterceptors.intercept(new JDBCService(frl), grpcMetrics))
+                .intercept(TransmitStatusRuntimeExceptionInterceptor.instance())
                 .build();
         this.grpcServer.start();
         String services = this.grpcServer.getServices().stream()

@@ -29,11 +29,12 @@ import java.sql.Types;
  * SqlTypeSupport back here to fdb-relational-api. It depends on
  * recordlayer.
  */
-final class SqlTypeNamesSupport {
+// Used by fdb-relational-jdbc module in JDBCRelationalArray.
+public final class SqlTypeNamesSupport {
     private SqlTypeNamesSupport() {
     }
 
-    static String getSqlTypeName(int sqlTypeCode) {
+    public static String getSqlTypeName(int sqlTypeCode) {
         switch (sqlTypeCode) {
             case Types.BIGINT:
                 return "LONG";

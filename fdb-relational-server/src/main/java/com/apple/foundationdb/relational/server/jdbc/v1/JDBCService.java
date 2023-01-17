@@ -21,32 +21,35 @@
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.grpc.GrpcSQLException;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.GetRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.GetResponse;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertResponse;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanResponse;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
-import com.google.protobuf.ListValue;
-import com.google.protobuf.Value;
-import com.google.spanner.v1.ResultSetMetadata;
-import com.google.spanner.v1.StructType;
-import com.google.spanner.v1.Type;
-import com.google.spanner.v1.TypeCode;
+import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 
-// TODO: Read version and product name from elsewhere.
-// TODO: Fill out JDBC functionality. Float Relational instance in here.
+/**
+ * Field the Relational JDBC Service.
+ */
+// If you add a method, be sure to catch RuntimeExceptions; doing it here is cleaner
+// than trying to do it in some global server interceptor. See comment in RelationalServer
+// where we register grpc Services on the Server instance.
 public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
     private final FRL frl;
 
@@ -70,105 +73,21 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         responseObserver.onCompleted();
     }
 
-    static com.google.spanner.v1.ResultSet map(ResultSet resultSet) throws SQLException {
-        var relationalResultSet = (RelationalResultSet) resultSet;
-        var resultSetBuilder = com.google.spanner.v1.ResultSet.newBuilder();
-        // TODO: Presumes that the metadata does not change as we traverse rows. Is this ok assumption?
-        var relationalResultSetMetaData = relationalResultSet.getMetaData();
-        while (relationalResultSet.next()) {
-            var listValueBuilder = ListValue.newBuilder();
-            for (int i = 0; i < relationalResultSetMetaData.getColumnCount(); i++) {
-                int index = i + 1;
-                var columnType = relationalResultSetMetaData.getColumnType(index);
-                listValueBuilder.addValues(toValue(columnType, index, relationalResultSet));
-            }
-            resultSetBuilder.addRows(listValueBuilder.build());
-        }
-
-        var structTypeBuilder = StructType.newBuilder();
-        for (int i = 0; i < relationalResultSetMetaData.getColumnCount(); i++) {
-            int index = i + 1; /*JDBC is 1-based here!*/
-            var columnType = relationalResultSetMetaData.getColumnType(index);
-            // TODO: This should be the columnname when get and columnname when sql query.
-            var columName = relationalResultSetMetaData.getColumnName(index);
-            var field = StructType.Field.newBuilder().setName(columName)
-                    .setType(Type.newBuilder().setCode(toTypeCode(columnType)).build()).build();
-            structTypeBuilder.addFields(field);
-        }
-        resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setRowType(structTypeBuilder.build()).build());
-        return resultSetBuilder.build();
-    }
-
-    static Value toValue(int columnType, int columnIndex, RelationalResultSet relationalResultSet) throws SQLException {
-        Value value = null;
-        switch (columnType) {
-            case Types.BOOLEAN:
-                value = Value.newBuilder().setBoolValue(relationalResultSet.getBoolean(columnIndex)).build();
-                break;
-            case Types.INTEGER:
-                value = Value.newBuilder().setNumberValue(relationalResultSet.getInt(columnIndex)).build();
-                break;
-            case Types.VARCHAR:
-                value = Value.newBuilder().setStringValue(relationalResultSet.getString(columnIndex)).build();
-                break;
-            default:
-                throw new SQLException("Type " + columnType + " not implemented ",
-                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-        return value;
-    }
-
-    private static TypeCode toTypeCode(int columnType) throws SQLException {
-        TypeCode typeCode = null;
-        switch (columnType) {
-            case Types.BOOLEAN:
-                typeCode = TypeCode.BOOL;
-                break;
-            case Types.INTEGER:
-                typeCode = TypeCode.INT64;
-                break;
-            case Types.VARCHAR:
-                typeCode = TypeCode.STRING;
-                break;
-            default:
-                throw new SQLException("Type " + columnType + " not implemented ",
-                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-        }
-        return typeCode;
-    }
-
-    static boolean checkStatementRequest(StatementRequest statementRequest,
-                                  StreamObserver<StatementResponse> responseObserver) {
-        if (statementRequest.getDatabase().isEmpty()) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty database name")
-                    .asRuntimeException());
-            return false;
-        }
-        if (statementRequest.getSchema().isEmpty()) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty schema name")
-                    .asRuntimeException());
-            return false;
-        }
-        if (statementRequest.getSql().isEmpty()) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Empty sql statement")
-                    .asRuntimeException());
-            return false;
-        }
-        return true;
-    }
-
     @Override
     public void execute(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
         if (!checkStatementRequest(request, responseObserver)) {
             return;
         }
-        try (ResultSet resultSet = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql())) {
+        try (RelationalResultSet resultSet =
+                this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql())) {
             StatementResponse statementResponse = resultSet == null ? StatementResponse.newBuilder().build() :
-                    StatementResponse.newBuilder().setResultSet(map(resultSet)).build();
+                    StatementResponse.newBuilder().setResultSet(ResultSetProtobuf.map(resultSet)).build();
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
             responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+        } catch (RuntimeException e) {
+            throw handleUncaughtException(e);
         }
     }
 
@@ -184,6 +103,157 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onCompleted();
         } catch (SQLException e) {
             responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+        } catch (RuntimeException e) {
+            throw handleUncaughtException(e);
         }
+    }
+
+    /**
+     * Check the StatementRequest is wholesome.
+     */
+    @VisibleForTesting
+    static boolean checkStatementRequest(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
+        if (!request.hasDatabase() || request.getDatabase().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty database name"));
+            return false;
+        }
+        if (!request.hasSchema() || request.getSchema().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty schema name"));
+            return false;
+        }
+        if (!request.hasSql() || request.getSql().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty sql statement"));
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void insert(InsertRequest request, StreamObserver<InsertResponse> responseObserver) {
+        if (!checkInsertRequest(request, responseObserver)) {
+            return;
+        }
+        try {
+            int rowCount = this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    request.getDataList().iterator());
+            InsertResponse insertResponse = InsertResponse.newBuilder().setRowCount(rowCount).build();
+            responseObserver.onNext(insertResponse);
+            responseObserver.onCompleted();
+        } catch (SQLException e) {
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+        } catch (RuntimeException e) {
+            throw handleUncaughtException(e);
+        }
+    }
+
+    private static boolean checkInsertRequest(InsertRequest request, StreamObserver<InsertResponse> responseObserver) {
+        if (!request.hasDatabase() || request.getDatabase().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty database name"));
+            return false;
+        }
+        if (!request.hasSchema() || request.getSchema().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty schema name"));
+            return false;
+        }
+        if (!request.hasTableName() || request.getTableName().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty table name"));
+            return false;
+        }
+        if (request.getDataCount() <= 0) {
+            responseObserver.onError(createStatusRuntimeException("No data in insert"));
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void get(GetRequest request, StreamObserver<GetResponse> responseObserver) {
+        if (!checkGetRequest(request, responseObserver)) {
+            return;
+        }
+        try {
+            RelationalResultSet rs = this.frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    KeySetProtobuf.map(request.getKeySet()));
+            GetResponse getResponse = GetResponse.newBuilder().setResultSet(ResultSetProtobuf.map(rs)).build();
+            responseObserver.onNext(getResponse);
+            responseObserver.onCompleted();
+        } catch (SQLException e) {
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+        } catch (RuntimeException e) {
+            throw handleUncaughtException(e);
+        }
+    }
+
+    /**
+     * Make up a StatusRuntimeException with an {@link Status#INVALID_ARGUMENT} Status.
+     * @param invalidStr String to use in Status description.
+     * @return {@link Status#INVALID_ARGUMENT} StatusRuntimeException.
+     */
+    private static StatusRuntimeException createStatusRuntimeException(String invalidStr) {
+        return Status.INVALID_ARGUMENT.withDescription(invalidStr).asRuntimeException();
+    }
+
+    private static boolean checkGetRequest(GetRequest request, StreamObserver<GetResponse> responseObserver) {
+        if (!request.hasDatabase() || request.getDatabase().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty database name"));
+            return false;
+        }
+        if (!request.hasSchema() || request.getSchema().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty schema name"));
+            return false;
+        }
+        if (!request.hasTableName() || request.getTableName().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty table name"));
+            return false;
+        }
+        if (!request.hasKeySet()) {
+            responseObserver.onError(createStatusRuntimeException("Has no keyset"));
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void scan(ScanRequest request, StreamObserver<ScanResponse> responseObserver) {
+        if (!checkScanRequest(request, responseObserver)) {
+            return;
+        }
+        try {
+            RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    KeySetProtobuf.map(request.getKeySet()));
+            ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(ResultSetProtobuf.map(rs)).build();
+            responseObserver.onNext(scanResponse);
+            responseObserver.onCompleted();
+        } catch (SQLException e) {
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+        } catch (RuntimeException e) {
+            throw handleUncaughtException(e);
+        }
+    }
+
+    private static boolean checkScanRequest(ScanRequest request, StreamObserver<ScanResponse> responseObserver) {
+        if (!request.hasDatabase() || request.getDatabase().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty database name"));
+            return false;
+        }
+        if (!request.hasSchema() || request.getSchema().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty schema name"));
+            return false;
+        }
+        if (!request.hasTableName() || request.getTableName().isEmpty()) {
+            responseObserver.onError(createStatusRuntimeException("Empty table name"));
+            return false;
+        }
+        if (!request.hasKeySet()) {
+            responseObserver.onError(createStatusRuntimeException("Has no keyset"));
+            return false;
+        }
+        return true;
+    }
+
+    private StatusRuntimeException handleUncaughtException(Throwable t) {
+        return Status.INTERNAL.withDescription("Uncaught exception")
+                .augmentDescription(GrpcSQLException.stacktraceToString(t))
+                .withCause(t).asRuntimeException();
     }
 }

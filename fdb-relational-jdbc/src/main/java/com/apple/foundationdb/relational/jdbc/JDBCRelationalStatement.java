@@ -26,11 +26,19 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.grpc.GrpcSQLException;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.GetRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.GetResponse;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertResponse;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.KeySetValue;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanRequest;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanResponse;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import io.grpc.StatusRuntimeException;
 
@@ -39,8 +47,10 @@ import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 
 class JDBCRelationalStatement implements RelationalStatement {
@@ -169,22 +179,110 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Override
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
     @ExcludeFromJacocoGeneratedReport
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
-        return null;
+    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
+        GetResponse getResponse = null;
+        try {
+            com.apple.foundationdb.relational.grpc.jdbc.v1.KeySet.Builder keySetBuilder =
+                    com.apple.foundationdb.relational.grpc.jdbc.v1.KeySet.newBuilder();
+            for (Map.Entry<String, Object> entry : key.toMap().entrySet()) {
+                KeySetValue keySetValue = null;
+                // Currently we support a few types only.
+                if (entry.getValue() instanceof String) {
+                    keySetValue = KeySetValue.newBuilder().setStringValue((String) entry.getValue()).build();
+                } else if (entry.getValue() instanceof byte[]) {
+                    keySetValue =
+                            KeySetValue.newBuilder().setBytesValue(ByteString.copyFrom((byte[]) entry.getValue())).build();
+                } else if (entry.getValue() instanceof Long) {
+                    keySetValue = KeySetValue.newBuilder().setLongValue((long) entry.getValue()).build();
+                } else {
+                    throw new UnsupportedOperationException("Unsupported type " + entry.getValue());
+                }
+                keySetBuilder.putFields(entry.getKey(), keySetValue);
+            }
+            getResponse = this.connection.getStub().get(GetRequest.newBuilder()
+                    .setKeySet(keySetBuilder.build())
+                    .setDatabase(this.connection.getDatabase())
+                    .setSchema(this.connection.getSchema())
+                    .setTableName(tableName)
+                    .build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
+        return getResponse == null ? null : new JDBCRelationalResultSet(getResponse.getResultSet());
     }
 
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
     @ExcludeFromJacocoGeneratedReport
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
-        return null;
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options)
+            throws SQLException {
+        ScanResponse response = null;
+        try {
+            com.apple.foundationdb.relational.grpc.jdbc.v1.KeySet.Builder keySetBuilder =
+                    com.apple.foundationdb.relational.grpc.jdbc.v1.KeySet.newBuilder();
+            for (Map.Entry<String, Object> entry : key.toMap().entrySet()) {
+                KeySetValue keySetValue = null;
+                // Currently we support a few types only.
+                if (entry.getValue() instanceof String) {
+                    keySetValue = KeySetValue.newBuilder().setStringValue((String) entry.getValue()).build();
+                } else if (entry.getValue() instanceof byte[]) {
+                    keySetValue =
+                            KeySetValue.newBuilder().setBytesValue(ByteString.copyFrom((byte[]) entry.getValue())).build();
+                } else if (entry.getValue() instanceof Long) {
+                    keySetValue = KeySetValue.newBuilder().setLongValue((long) entry.getValue()).build();
+                } else {
+                    throw new UnsupportedOperationException("Unsupported type " + entry.getValue());
+                }
+                keySetBuilder.putFields(entry.getKey(), keySetValue);
+            }
+            response = this.connection.getStub().scan(ScanRequest.newBuilder().setKeySet(keySetBuilder.build())
+                    .setDatabase(this.connection.getDatabase())
+                    .setSchema(this.connection.getSchema())
+                    .setTableName(tableName)
+                    .build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
+        return response == null ? null : new JDBCRelationalResultSet(response.getResultSet());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
-        return -1;
+        InsertResponse insertResponse = null;
+        try {
+            // Add the messages as opaque ByteStrings. On the other side, it uses context to figure how to parse the
+            // bytes back up into a protobuf Message again.
+            List<ByteString> byteStrings = new ArrayList<>();
+            while (data.hasNext()) {
+                byteStrings.add(data.next().toByteString());
+            }
+            insertResponse = this.connection.getStub().insert(InsertRequest.newBuilder()
+                    .addAllData(byteStrings)
+                    .setDatabase(this.connection.getDatabase())
+                    .setSchema(this.connection.getSchema())
+                    .setTableName(tableName)
+                    .build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
+        return insertResponse == null ? -1 : insertResponse.getRowCount();
     }
 
     @Override

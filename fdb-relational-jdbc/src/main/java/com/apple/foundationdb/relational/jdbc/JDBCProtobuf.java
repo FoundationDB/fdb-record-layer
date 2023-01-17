@@ -1,5 +1,5 @@
 /*
- * package-info.java
+ * JDBCProtobuf.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,18 @@
  * limitations under the License.
  */
 
+package com.apple.foundationdb.relational.jdbc;
+
 /**
- * Expose useful assert tooling for downstream tests to use verifying results.
+ * Utility to support the JDBC Facades in this package backed by protobuf data structures.
  */
-package com.apple.foundationdb.relational.utils;
+class JDBCProtobuf {
+    /**
+     * Adjust 'oneBasedIndex' so can be used as a zero-based protobuf index.
+     * @param oneBasedIndex JDBC indices are oneBased; i.e. first item is at postion 1.
+     * @return Protobuf index derived from <code>oneBasedIndex</code>.
+     */
+    static int toProtobufIndex(int oneBasedIndex) {
+        return oneBasedIndex - 1;
+    }
+}

@@ -1,2 +1,0 @@
-These files came from the proto-google-cloud-spanner-v1 sub-module of https://github.com/googleapis/java-spanner.git.
-Unaltered but for commenting use of a type -- e.g. QueryPlan -- until time we need it or something similar.

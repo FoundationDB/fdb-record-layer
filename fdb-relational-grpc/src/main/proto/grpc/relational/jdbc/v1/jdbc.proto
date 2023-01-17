@@ -19,8 +19,7 @@
  */
 
 syntax = "proto3";
-
-import "google/spanner/v1/result_set.proto";
+package grpc.relational.jdbc.v1;
 
 option java_multiple_files = true;
 // Put the generated classes into grpc subpackage so I can exclude
@@ -28,24 +27,74 @@ option java_multiple_files = true;
 option java_package = "com.apple.foundationdb.relational.grpc.jdbc.v1";
 option java_outer_classname = "RelationalJDBCService";
 
-package grpc.relational.jdbc.v1;
+import "grpc/relational/jdbc/v1/result_set.proto";
 
 service JDBCService {
   rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
   rpc execute(StatementRequest) returns (StatementResponse) {}
   rpc update(StatementRequest) returns (StatementResponse) {}
+  rpc insert(InsertRequest) returns (InsertResponse) {}
+  rpc get(GetRequest) returns (GetResponse) {}
+  rpc scan(ScanRequest) returns (ScanResponse) {}
+}
+
+message KeySetValue {
+  oneof values {
+    string string_value = 1;
+    int64 long_value = 2;
+    bytes bytes_value = 3;
+  }
+}
+
+message KeySet {
+  map<string, KeySetValue> fields = 1;
+}
+
+// Use 'optional' keyword to trigger 'explicit presence':
+// https://github.com/protocolbuffers/protobuf/blob/main/docs/field_presence.md#how-to-enable-explicit-presence-in-proto3
+message ScanRequest {
+  optional KeySet key_set = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+}
+
+message ScanResponse {
+  grpc.relational.jdbc.v1.ResultSet result_set = 1;
+}
+
+message GetRequest {
+  optional KeySet key_set = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+}
+
+message GetResponse {
+  grpc.relational.jdbc.v1.ResultSet result_set = 1;
+}
+
+message InsertRequest {
+  repeated bytes data = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+}
+
+message InsertResponse {
+  int32 row_count = 1;
 }
 
 message StatementRequest {
-  string sql = 1;
-  string database = 2;
-  string schema = 3;
+  optional string sql = 1;
+  optional string database = 2;
+  optional string schema = 3;
 }
 
 // FYI: RS from Spanner https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/result_set.proto
 message StatementResponse {
   int32 row_count = 1;
-  google.spanner.v1.ResultSet result_set = 2;
+  grpc.relational.jdbc.v1.ResultSet result_set = 2;
 }
 
 message DatabaseMetaDataRequest {}

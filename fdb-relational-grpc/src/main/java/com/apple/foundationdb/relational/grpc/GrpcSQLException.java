@@ -31,6 +31,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
@@ -46,6 +48,7 @@ public final class GrpcSQLException {
     private static final String SQLEXCEPTION_SQLSTATE = "sqlExceptionSQLState";
     private static final String SQLEXCEPTION_CAUSE = "sqlExceptionCause";
     private static final String SQLEXCEPTION_CAUSE_MESSAGE = "sqlExceptionCauseMessage";
+    private static final String SQLEXCEPTION_STACK_TRACE = "sqlExceptionStackTrace";
 
     /**
      * When a sql exception, set the grpc Status code to UNKNOWN. The description for UNKNOWN in code.proto is not
@@ -84,6 +87,9 @@ public final class GrpcSQLException {
             if (cause.getMessage() != null) {
                 builder.putMetadata(SQLEXCEPTION_CAUSE_MESSAGE, cause.getMessage());
             }
+        }
+        if (sqlException.getStackTrace() != null) {
+            builder.putMetadata(SQLEXCEPTION_STACK_TRACE, stacktraceToString(sqlException));
         }
         // TODO: Do we want to encode more? Do we want stack trace? For the original and cause exceptions?
         return builder.build();
@@ -181,6 +187,10 @@ public final class GrpcSQLException {
         String sqlState = errorInfo.getMetadataOrDefault(SQLEXCEPTION_SQLSTATE, null);
         int vendorErrorCode = Integer.parseInt(errorInfo.getMetadataOrDefault(SQLEXCEPTION_ERROR_CODE, "-1"));
         Throwable cause = getCause(errorInfo);
+        String stackTrace = errorInfo.getMetadataOrDefault(SQLEXCEPTION_STACK_TRACE, "");
+        if (stackTrace != null && stackTrace.startsWith(message)) {
+            message = stackTrace;
+        }
         // Long-shot. Try to re-create the original exception type via reflection. If it works, great.
         // Otherwise, fall through to making a generic SQLException. This mechanism currently won't work for the relational
         // specializations on SQLException such as ContextualSQLException, not unless this grpc module depends on
@@ -204,5 +214,12 @@ public final class GrpcSQLException {
             // Just fall through to plain-old sqlexception.
         }
         return new SQLException(message, sqlState, vendorErrorCode, cause);
+    }
+
+    public static String stacktraceToString(Throwable e) {
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter printWriter = new PrintWriter(stringWriter);
+        e.printStackTrace(printWriter);
+        return stringWriter.toString();
     }
 }

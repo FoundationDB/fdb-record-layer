@@ -26,11 +26,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
+import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
@@ -45,12 +48,19 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCat
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
+import com.google.protobuf.Parser;
+
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -121,9 +131,8 @@ public class FRL implements AutoCloseable {
     }
 
     @Nullable
-    public ResultSet execute(String database, String schema, String sql) throws SQLException {
-        try (RelationalConnection connection =
-                Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+    public RelationalResultSet execute(String database, String schema, String sql) throws SQLException {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
             connection.setSchema(schema);
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
@@ -136,12 +145,62 @@ public class FRL implements AutoCloseable {
     }
 
     public int update(String database, String schema, String sql) throws SQLException {
-        try (RelationalConnection connection =
-                Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
             connection.setSchema(schema);
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeUpdate(sql);
+                }
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    public int insert(String database, String schema, String tableName, Iterator<ByteString> data)
+            throws SQLException {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+            connection.setSchema(schema);
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    // Get a parser to use deserializing ByteStrings.
+                    DynamicMessageBuilder dynamicMessageBuilder = relationalStatement.getDataBuilder(tableName);
+                    Parser<? extends Message> parser = dynamicMessageBuilder.build().getParserForType();
+                    List<Message> messages = new ArrayList<>();
+                    while (data.hasNext()) {
+                        messages.add(parser.parseFrom(data.next()));
+                    }
+                    return relationalStatement.executeInsert(tableName, messages.iterator(), Options.NONE);
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    public RelationalResultSet get(String database, String schema, String tableName, KeySet keySet)
+            throws SQLException {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+            connection.setSchema(schema);
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    return relationalStatement.executeGet(tableName, keySet, Options.NONE);
+                }
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    public RelationalResultSet scan(String database, String schema, String tableName, KeySet keySet)
+            throws SQLException {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+            connection.setSchema(schema);
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    return relationalStatement.executeScan(tableName, keySet, Options.NONE);
                 }
             }
         } catch (RelationalException ve) {

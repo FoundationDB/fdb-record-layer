@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ResultSet;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
 
 import com.google.protobuf.TextFormat;
-import com.google.spanner.v1.ResultSet;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.health.v1.HealthCheckRequest;
@@ -110,12 +110,12 @@ public class RelationalServerTest {
             update(stub, sysdb, schema, "create schema \"" + testdb + "/test_schema\" with template test_template");
             ResultSet resultSet = execute(stub, sysdb, schema, "select * from databases;");
             Assertions.assertEquals(2, resultSet.getRowsCount());
-            Assertions.assertEquals(1, resultSet.getRowsList().get(0).getValuesCount());
-            Assertions.assertEquals(1, resultSet.getRowsList().get(1).getValuesCount());
-            Assertions.assertTrue(resultSet.getRows(0).getValues(0).hasStringValue());
-            Assertions.assertTrue(resultSet.getRows(1).getValues(0).hasStringValue());
-            Assertions.assertEquals(sysdb, resultSet.getRows(0).getValues(0).getStringValue());
-            Assertions.assertEquals(testdb, resultSet.getRows(1).getValues(0).getStringValue());
+            Assertions.assertEquals(1, resultSet.getRowsList().get(0).getColumnsCount());
+            Assertions.assertEquals(1, resultSet.getRowsList().get(1).getColumnsCount());
+            Assertions.assertTrue(resultSet.getRows(0).getColumns(0).hasString());
+            Assertions.assertTrue(resultSet.getRows(1).getColumns(0).hasString());
+            Assertions.assertEquals(sysdb, resultSet.getRows(0).getColumns(0).getString());
+            Assertions.assertEquals(testdb, resultSet.getRows(1).getColumns(0).getString());
         } catch (Throwable t) {
             com.google.rpc.Status status = StatusProto.fromThrowable(t);
             if (status != null) {

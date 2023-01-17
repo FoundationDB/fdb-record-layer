@@ -23,13 +23,10 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.grpc.jdbc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import com.google.spanner.v1.ResultSetMetadata;
-import com.google.spanner.v1.TypeCode;
-
 import java.sql.SQLException;
-import java.sql.Types;
 
 class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaData  {
     private final ResultSetMetadata delegate;
@@ -52,13 +49,12 @@ class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaData  {
 
     @Override
     public int getColumnCount() throws SQLException {
-        return this.delegate.getRowType().getFieldsCount();
+        return this.delegate.getColumnsCount();
     }
 
     @Override
-    public String getColumnName(int column) throws SQLException {
-        // Presume column is JDBC 1-based index.
-        return this.delegate.getRowType().getFields(column - 1).getName();
+    public String getColumnName(int oneBasedColumn) throws SQLException {
+        return this.delegate.getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getName();
     }
 
     @Override
@@ -68,27 +64,103 @@ class JDBCRelationalResultSetMetaData implements RelationalResultSetMetaData  {
     }
 
     @Override
-    public int getColumnType(int column) throws SQLException {
-        // Presume column is JDBC 1-based index.
-        return toType(this.delegate.getRowType().getFields(column - 1).getType().getCode());
+    public int getColumnType(int oneBasedColumn) throws SQLException {
+        return this.delegate.getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getJavaSqlTypesCode();
     }
 
-    private static int toType(TypeCode typeCode) throws SQLException {
-        int type;
-        switch (typeCode) {
-            case BOOL:
-                type = Types.BOOLEAN;
-                break;
-            case INT64:
-                type = Types.INTEGER;
-                break;
-            case STRING:
-                type = Types.VARCHAR;
-                break;
-            default:
-                throw new SQLException("TypeCode " + typeCode + " not implemented ",
-                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    @Override
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        if (iface.isAssignableFrom(StructMetaData.class)) {
+            return iface.cast(new StructMetaDataFacade(this));
         }
-        return type;
+        return iface.cast(this);
+    }
+
+    @Override
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        return iface.isInstance(this) || iface.isAssignableFrom(StructMetaData.class);
+    }
+
+    // TODO: This could be removed if RelationalResultSetMetaData implemented StructMetaData
+    private static class StructMetaDataFacade implements StructMetaData {
+        private final JDBCRelationalResultSetMetaData delegate;
+
+        StructMetaDataFacade(JDBCRelationalResultSetMetaData jdbcRelationalResultSetMetaData) {
+            this.delegate = jdbcRelationalResultSetMetaData;
+        }
+
+        @Override
+        public int getColumnCount() throws SQLException {
+            return this.delegate.getColumnCount();
+        }
+
+        @Override
+        public int isNullable(int oneBasedColumn) throws SQLException {
+            throw new SQLException("Not implemented in the relational layer",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+
+        @Override
+        public String getColumnLabel(int oneBasedColumn) throws SQLException {
+            return this.delegate.getColumnLabel(oneBasedColumn);
+        }
+
+        @Override
+        public String getColumnName(int oneBasedColumn) throws SQLException {
+            return this.delegate.getColumnName(oneBasedColumn);
+        }
+
+        @Override
+        public String getSchemaName(int oneBasedColumn) throws SQLException {
+            return this.delegate.getSchemaName(oneBasedColumn);
+        }
+
+        @Override
+        public String getTableName(int oneBasedColumn) throws SQLException {
+            return this.delegate.getTableName(oneBasedColumn);
+        }
+
+        @Override
+        public String getCatalogName(int oneBasedColumn) throws SQLException {
+            return this.delegate.getCatalogName(oneBasedColumn);
+        }
+
+        @Override
+        public int getColumnType(int oneBasedColumn) throws SQLException {
+            return this.delegate.getColumnType(oneBasedColumn);
+        }
+
+        @Override
+        public String getColumnTypeName(int oneBasedColumn) throws SQLException {
+            return this.delegate.getColumnTypeName(oneBasedColumn);
+        }
+
+        @Override
+        public StructMetaData getNestedMetaData(int oneBasedColumn) throws SQLException {
+            throw new SQLException("Not implemented in the relational layer",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+
+        @Override
+        public StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
+            return this.delegate.getArrayMetaData(oneBasedColumn);
+        }
+
+        @Override
+        public int getLeadingPhantomColumnCount() {
+            return 0;
+        }
+
+        @Override
+        public <T> T unwrap(Class<T> iface) throws SQLException {
+            throw new SQLException("Not implemented in the relational layer",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+
+        @Override
+        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+            throw new SQLException("Not implemented in the relational layer",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
     }
 }

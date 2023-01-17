@@ -19,6 +19,9 @@
  */
 
 /**
- * Expose useful assert tooling for downstream tests to use verifying results.
+ * Adds utility so downstream tests have access to protobufs they can use in a Direct Access API insert,
+ * {@link com.apple.foundationdb.relational.utils.DirectAccessApiProtobufFactory}, and then
+ * we expose test utility that fdb-relational-core uses to verify resultsets,
+ * {@link com.apple.foundationdb.relational.utils.ResultSetAssert}, especially around DAAPI usage.
  */
 package com.apple.foundationdb.relational.utils;

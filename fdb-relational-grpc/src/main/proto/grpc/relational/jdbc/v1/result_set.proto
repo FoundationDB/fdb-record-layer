@@ -1,0 +1,48 @@
+/*
+ * result_set.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Based on google/spanner/v1/result_set.proto but simplified for now
+// with richer -- and ordered -- metadata to support relational Stucts/Arrays.
+syntax = "proto3";
+package grpc.relational.jdbc.v1;
+option java_multiple_files = true;
+// Put the generated classes into grpc subpackage so I can exclude
+// these classes from checkstyle and spotbug checks.
+option java_package = "com.apple.foundationdb.relational.grpc.jdbc.v1";
+option java_outer_classname = "ResultSetProto";
+
+import "grpc/relational/jdbc/v1/column.proto";
+
+// Results from Direct Access API Get or Scan or from sql execute.
+message ResultSet {
+  // Metadata about the result set, such as row type information.
+  ResultSetMetadata metadata = 1;
+
+  // Each element in `rows` is a row whose format is defined by metadata. The ith element
+  // in each row matches the ith field in ResultSetMetadata.
+  // [here][google.spanner.v1.TypeCode].
+  repeated ListColumn rows = 2;
+}
+
+// Metadata about a [ResultSet][grpc.relational.jdbc.v1.ResultSet]
+message ResultSetMetadata {
+  // Indicates the field names and types for the rows in the result set.
+  repeated ColumnMetadata columns = 1;
+}
