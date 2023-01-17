@@ -2031,9 +2031,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
         return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result).thenApply(versionChanged -> {
-            if (!this.versionChanged && versionChanged) {
-                this.versionChanged = true;
-            }
+            this.versionChanged |= versionChanged
             return versionChanged;
         });
     }
