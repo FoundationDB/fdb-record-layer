@@ -242,6 +242,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected final RecordMetaDataProvider metaDataProvider;
 
+    @Nullable
+    private boolean versionChanged;
+
     @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
@@ -348,6 +351,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nullable
     public RecordMetaDataProvider getMetaDataProvider() {
         return metaDataProvider;
+    }
+
+    /**
+     * Get the provider for the record store's meta-data.
+     * @return the meta-data source to use
+     */
+    @Nonnull
+    public Boolean getVersionChanged() {
+        return versionChanged;
     }
 
     /**
@@ -2017,7 +2029,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             storeHeaderFuture = subspacePreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
         }
         CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
-        return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
+        return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result).thenApply(versionChanged -> {
+            if (!this.versionChanged && versionChanged) {
+                this.versionChanged = true;
+            }
+            return versionChanged;
+        });
     }
 
     @Nonnull
