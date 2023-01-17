@@ -312,6 +312,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
                 .setIndex(indexAhead)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .checkIndexingStampFrequencyMilliseconds(0)
                         .allowTakeoverContinue()));
 
         // 3. assert mismatch type stamp

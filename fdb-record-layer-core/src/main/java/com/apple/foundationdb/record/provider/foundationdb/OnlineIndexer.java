@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -58,11 +59,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
@@ -156,7 +159,7 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                   @Nonnull List<Index> targetIndexes,
                   @Nullable Collection<RecordType> recordTypes,
-                  @Nullable Function<Config, Config> configLoader, @Nonnull Config config,
+                  @Nullable UnaryOperator<Config> configLoader, @Nonnull Config config,
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
@@ -220,9 +223,10 @@ public class OnlineIndexer implements AutoCloseable {
             IndexingPolicy.DesiredAction desiredAction = indexingPolicy.getIfMismatchPrevious();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
-                        LogMessageKeys.CURR_ATTEMPT, attemptCount,
-                        LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction,
-                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp)
+                                LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                                LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction,
+                                LogMessageKeys.ACTUAL, conflictingIndexingTypeStamp,
+                                LogMessageKeys.EXPECTED, partlyBuiltException.expectedStamp)
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
@@ -810,6 +814,18 @@ public class OnlineIndexer implements AutoCloseable {
         return getIndexer().markIndexReadable(true);
     }
 
+    enum IndexingStampOperation {
+        QUERY, BLOCK, UNBLOCK,
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingStampOperation op, @Nullable String id, @Nullable  Integer timeoutSeconds) {
+        AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
+        // any indexer will do
+        asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OP, getIndexer().indexingStamp(oldStamps, op, id, timeoutSeconds));
+        return oldStamps;
+    }
+
     /**
      * Wait for an asynchronous task to complete. This returns the result from the future or propagates
      * the error if the future completes exceptionally.
@@ -1094,7 +1110,7 @@ public class OnlineIndexer implements AutoCloseable {
         private IndexingPolicy indexingPolicy = null;
         private IndexingPolicy.Builder indexingPolicyBuilder = null;
         @Nullable
-        private Function<Config, Config> configLoader = null;
+        private UnaryOperator<Config> configLoader = null;
         private int limit = DEFAULT_LIMIT;
         private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
         private int maxRetries = DEFAULT_MAX_RETRIES;
@@ -1308,7 +1324,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @return this builder
          */
         @Nonnull
-        public Builder setConfigLoader(@Nonnull Function<Config, Config> configLoader) {
+        public Builder setConfigLoader(@Nonnull UnaryOperator<Config> configLoader) {
             this.configLoader = configLoader;
             return this;
         }
@@ -1325,7 +1341,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the maximum number of records to process in one transaction.
          *
          * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param limit the maximum number of records to process in one transaction
          * @return this builder
@@ -1376,7 +1392,7 @@ public class OnlineIndexer implements AutoCloseable {
          * codes, such as {@code transaction_too_large}.
          *
          * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param maxRetries the maximum number of times to retry a single range rebuild
          * @return this builder
@@ -1399,7 +1415,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the maximum number of records to process in a single second.
          *
          * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param recordsPerSecond the maximum number of records to process in a single second.
          * @return this builder
@@ -1572,7 +1588,7 @@ public class OnlineIndexer implements AutoCloseable {
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
          * <p>
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * </p>
          * @param increaseLimitAfter the number of successful range builds before increasing the number of records
@@ -1681,7 +1697,7 @@ public class OnlineIndexer implements AutoCloseable {
          * </ul>
          *
          * <p>
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * </p>
          *
@@ -2017,6 +2033,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifReadable;
         private final boolean allowUniquePendingState;
         private final boolean allowTakeoverContinue;
+        private final long checkIndexingMethodFrequencyMilliseconds;
         private final boolean mutualIndexing;
         private final List<Tuple> mutualIndexingBoundaries;
 
@@ -2047,7 +2064,7 @@ public class OnlineIndexer implements AutoCloseable {
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
                               DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
-                              boolean allowUniquePendingState, boolean allowTakeoverContinue,
+                              boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                               boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
@@ -2058,6 +2075,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.ifReadable = ifReadable;
             this.allowUniquePendingState = allowUniquePendingState;
             this.allowTakeoverContinue = allowTakeoverContinue;
+            this.checkIndexingMethodFrequencyMilliseconds = checkIndexingMethodFrequencyMilliseconds;
             this.mutualIndexing = mutualIndexing;
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
         }
@@ -2124,7 +2142,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setIfMismatchPrevious(ifMismatchPrevious)
                     .setIfReadable(ifReadable)
                     .allowUniquePendingState(allowUniquePendingState)
-                    .allowTakeoverContinue(allowUniquePendingState)
+                    .allowTakeoverContinue(allowTakeoverContinue)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
                     .setMutualIndexing(mutualIndexing)
                     ;
@@ -2196,6 +2214,14 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * If negative, avoid checks. Else, minimal interval between checks.
+         * @return minmal interval in milliseconds.
+         */
+        public long getCheckIndexingMethodFrequencyMilliseconds() {
+            return this.checkIndexingMethodFrequencyMilliseconds;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -2219,6 +2245,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniqueuPendingState = false;
             private boolean doAllowTakeoverContinue = false;
+            private long checkIndexingStampFrequency = 0;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
 
@@ -2353,7 +2380,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Call {@link #allowTakeoverContinue(boolean)} (boolean)} with default true.
+             * Call {@link #allowTakeoverContinue(boolean)} with default true.
              * @return this builder
              */
             public Builder allowTakeoverContinue() {
@@ -2374,6 +2401,23 @@ public class OnlineIndexer implements AutoCloseable {
              */
             public Builder allowTakeoverContinue(boolean allow) {
                 this.doAllowTakeoverContinue = allow;
+                return this;
+            }
+
+            /**
+             * During indexing, the indexer can check the current indexing stamp and throw an exception if it had changed.
+             * This can be useful if there is a high probability of another indexing process taking over or a deliberate
+             * attempt to pause the indexing process by applying {TODO: add link}
+             * The argument may be:
+             *  * -1: never check
+             *  *  0: check during every transaction
+             *  *  N: check, but never more frequently than every N milliseconds
+             *  The default value is 60000 (wait at least 60 seconds between checks).
+             * @param frequency : If negative, avoid checks. Else, minimal interval between checks
+             * @return this builder.
+             */
+            public Builder checkIndexingStampFrequencyMilliseconds(long frequency) {
+                this.checkIndexingStampFrequency = frequency;
                 return this;
             }
 
@@ -2435,7 +2479,7 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
-                        doAllowUniqueuPendingState, doAllowTakeoverContinue,
+                        doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries);
             }
         }
