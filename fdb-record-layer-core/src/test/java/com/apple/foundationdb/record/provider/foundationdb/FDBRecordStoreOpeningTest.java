@@ -951,8 +951,6 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
-
-
     }
 
     @Nonnull
