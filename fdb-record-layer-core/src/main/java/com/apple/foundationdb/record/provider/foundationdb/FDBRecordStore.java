@@ -359,7 +359,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the versionChanged boolean
      */
     @Nonnull
-    public boolean getVersionChanged() {
+    public boolean isVersionChanged() {
         return versionChanged;
     }
 
