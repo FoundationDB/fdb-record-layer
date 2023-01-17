@@ -354,11 +354,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Get the provider for the record store's meta-data.
-     * @return the meta-data source to use
+     * Returns {@code true} if the RecordMetadata version is changed in the RecordStore. Alternatively, returns
+     * {@code false} if the version is either not checked (checkVersion() not called) or it is up-to-date.
+     * @return the versionChanged boolean
      */
     @Nonnull
-    public Boolean getVersionChanged() {
+    public boolean getVersionChanged() {
         return versionChanged;
     }
 

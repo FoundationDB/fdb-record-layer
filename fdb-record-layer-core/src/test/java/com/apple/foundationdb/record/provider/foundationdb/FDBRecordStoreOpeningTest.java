@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -856,24 +857,44 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
 
         // Test call getVersionChanged after unchecked opening a record store
-        try (FDBRecordContext context = fdb.openContext()) {
-            FDBRecordStore store = FDBRecordStore.newBuilder()
-                    .setContext(context)
-                    .setMetaDataProvider(simpleMetaData(NO_HOOK))
-                    .setKeySpacePath(path)
-                    .uncheckedOpen();
-            assertFalse(store.getVersionChanged());
-            commit(context);
-        }
-
-        // Test call getVersionChanged after creating a new store
         var metadata = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         try (FDBRecordContext context = fdb.openContext()) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setContext(context)
                     .setMetaDataProvider(metadata)
                     .setKeySpacePath(path)
+                    .uncheckedOpen();
+            // No updates to the storeHeader.
+            assertFalse(store.getVersionChanged());
+            commit(context);
+        }
+
+        // Test call getVersionChanged after manual call to checkVersion
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            assertFalse(store.getVersionChanged());
+            // Explicit call to checkVersion() sets the metadataVersion in the storeHeader.
+            store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).thenApply(changed -> {
+                assertTrue(store.getVersionChanged());
+                return AsyncUtil.DONE;
+            });
+            commit(context);
+        }
+
+
+        // Test call getVersionChanged after opening a store with metadata update
+        metadata.addUniversalIndex(COUNT_INDEX);
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
                     .createOrOpen();
+            // createOrOpen() calls the checkVersion() which bumps up the version.
             assertTrue(store.getVersionChanged());
             commit(context);
         }
@@ -885,22 +906,53 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                     .setMetaDataProvider(metadata)
                     .setKeySpacePath(path)
                     .createOrOpen();
+            // createOrOpen() calls the checkVersion() but the metadata is already up-to-date
             assertFalse(store.getVersionChanged());
             commit(context);
         }
 
         // Test call getVersionChanged after opening an already created store with new version of metadata
         Index newIndex = new Index("newIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+        // metadata is updated
         metadata.addIndex("MySimpleRecord", newIndex);
         try (FDBRecordContext context = fdb.openContext()) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setContext(context)
                     .setMetaDataProvider(metadata)
                     .setKeySpacePath(path)
-                    .createOrOpen();
-            assertTrue(store.getVersionChanged());
+                    .uncheckedOpen();
+            assertFalse(store.getVersionChanged());
+            // checkVersion() will bump up the version
+            store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).thenApply(changed -> {
+                assertTrue(store.getVersionChanged());
+                return AsyncUtil.DONE;
+            });
             commit(context);
         }
+
+        // Test call getVersionChanged to check info version changed info is preserved across calls to checkVersion
+        Index newIndex2 = new Index("newIndex2", concatenateFields("str_value_indexed", "rec_no"));
+        metadata.addIndex("MySimpleRecord", newIndex2);
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            assertFalse(store.getVersionChanged());
+            // The checkVersion() will bump up the metadata version in the first iteration (i=0), while it won't have
+            // any effect on the other following calls. However, getVersionChanged() should return true even if there
+            // is change in one of the calls.
+            for (var i = 0; i < 5; i++) {
+                store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).thenApply(changed -> {
+                    assertTrue(store.getVersionChanged());
+                    return AsyncUtil.DONE;
+                });
+            }
+            commit(context);
+        }
+
+
     }
 
     @Nonnull
