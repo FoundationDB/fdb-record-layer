@@ -81,7 +81,7 @@ public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
         }
 
         @Override
-        protected Builder getThis() {
+        protected Builder self() {
             return this;
         }
     }

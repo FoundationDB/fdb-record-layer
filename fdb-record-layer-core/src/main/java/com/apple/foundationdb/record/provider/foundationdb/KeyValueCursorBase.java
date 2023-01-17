@@ -177,7 +177,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
      * A builder for {@link KeyValueCursorBase}.
      * @param <T> the type of the concrete subclass of the builder
      * This follows a pattern for nested builder class, hence is generic, so that subclasses can pass in their type (and
-     * implement {@link #getThis()}) to return the subclass builder correct type.
+     * implement {@link #self()}) to return the subclass builder correct type.
      *
      * <pre><code>
      * KeyValueCursorSubclass.Builder.withSubspace(subspace)
@@ -284,54 +284,54 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         public T setContext(FDBRecordContext context) {
             this.context = context;
-            return getThis();
+            return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
         public T setContinuation(@Nullable byte[] continuation) {
             this.continuation = continuation;
-            return getThis();
+            return self();
         }
 
         public T setScanProperties(@Nonnull ScanProperties scanProperties) {
             this.scanProperties = scanProperties;
-            return getThis();
+            return self();
         }
 
         public T setRange(@Nonnull KeyRange range) {
             setLow(range.getLowKey(), range.getLowEndpoint());
             setHigh(range.getHighKey(), range.getHighEndpoint());
-            return getThis();
+            return self();
         }
 
         public T setRange(@Nonnull TupleRange range) {
             setLow(range.getLow(), range.getLowEndpoint());
             setHigh(range.getHigh(), range.getHighEndpoint());
-            return getThis();
+            return self();
         }
 
         public T setLow(@Nullable Tuple low, @Nonnull EndpointType lowEndpoint) {
             setLow(low != null ? subspace.pack(low) : subspace.pack(), lowEndpoint);
-            return getThis();
+            return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
         public T setLow(@Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint) {
             this.lowBytes = lowBytes;
             this.lowEndpoint = lowEndpoint;
-            return getThis();
+            return self();
         }
 
         public T setHigh(@Nullable Tuple high, @Nonnull EndpointType highEndpoint) {
             setHigh(high != null ? subspace.pack(high) : subspace.pack(), highEndpoint);
-            return getThis();
+            return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
         public T setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
-            return getThis();
+            return self();
         }
 
         /**
@@ -405,6 +405,12 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
         }
 
-        protected abstract T getThis();
+        /**
+         * {@code Self} pattern is used to return the appropriate THIS for the builder {@code set*} methods. In order to
+         * be able to string set methods together where some are implemented by a superclass, the self() method returns
+         * this with the subclass type.
+         * @return this object from the subclass
+         */
+        protected abstract T self();
     }
 }

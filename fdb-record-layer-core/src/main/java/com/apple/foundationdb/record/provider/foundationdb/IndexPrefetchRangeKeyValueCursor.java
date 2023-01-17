@@ -64,7 +64,6 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
         }
 
 
-        @SuppressWarnings("unchecked")
         public IndexPrefetchRangeKeyValueCursor build() {
             prepare();
             AsyncIterator<MappedKeyValue> iterator = getTransaction()
@@ -74,7 +73,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
         }
 
         @Override
-        protected Builder getThis() {
+        protected Builder self() {
             return this;
         }
     }
