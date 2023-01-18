@@ -149,7 +149,7 @@ public class IndexingCommon {
         return uuid;
     }
 
-    public boolean isUseSynchronizedSession() {
+    public boolean shouldUseSynchronizedSession() {
         return useSynchronizedSession;
     }
 
@@ -158,6 +158,10 @@ public class IndexingCommon {
     }
 
     public List<Object> indexLogMessageKeyValues(@Nullable String transactionName) {
+        return indexLogMessageKeyValues(transactionName, null);
+    }
+
+    public List<Object> indexLogMessageKeyValues(@Nullable String transactionName, @Nullable List<Object> moreKeyValues) {
         List<Object> keyValues = new ArrayList<>() ;
 
         logIf(transactionName != null, keyValues,
@@ -167,6 +171,10 @@ public class IndexingCommon {
                 LogMessageKeys.TARGET_INDEX_NAME, getTargetIndexesNames(),
                 LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
                 LogMessageKeys.INDEXER_ID, uuid);
+
+        if (moreKeyValues != null && !moreKeyValues.isEmpty()) {
+            keyValues.addAll(moreKeyValues);
+        }
 
         return keyValues;
     }

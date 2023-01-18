@@ -150,9 +150,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, rangeEnd);
 
         return maybePresetRangeFuture.thenCompose(ignore ->
-                iterateAllRanges(additionalLogMessageKeyValues,
-                        (store, recordsScanned) -> buildRangeOnly(store, recordsScanned),
-                subspaceProvider, subspace));
+                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly, subspaceProvider, subspace));
     }
 
     @Nonnull
@@ -161,7 +159,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         /* Multi target consistency:
          * 1. Identify missing ranges from only the first index
          * 2. Update all indexes' range sets as the indexes are built - each inserted range is validated as empty.
-         * 3. While each index as readable, we validate that its range is completely built.
+         * 3. While marking each index as readable, we validate that it is completely built.
          */
         validateSameMetadataOrThrow(store);
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getPrimaryIndex()));

@@ -4398,11 +4398,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
+        return getPrimaryKeyBoundaries(recordsSubspace().pack(low), recordsSubspace().pack(high));
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nullable TupleRange tupleRange) {
+        if (tupleRange == null) {
+            tupleRange = TupleRange.ALL;
+        }
+        Range range = tupleRange.toRange(recordsSubspace());
+        return getPrimaryKeyBoundaries(range.begin, range.end);
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private RecordCursor<Tuple> getPrimaryKeyBoundaries(byte[] rangeStart, byte[] rangeEnd) {
         final Transaction transaction = ensureContextActive();
-        byte[] rangeStart = recordsSubspace().pack(low);
-        byte[] rangeEnd = recordsSubspace().pack(high);
         CloseableAsyncIterator<byte[]> cursor = context.getDatabase().getLocalityProvider().getBoundaryKeys(transaction, rangeStart, rangeEnd);
         final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
         DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();

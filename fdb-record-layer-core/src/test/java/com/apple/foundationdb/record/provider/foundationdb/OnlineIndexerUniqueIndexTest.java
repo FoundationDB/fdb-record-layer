@@ -423,16 +423,6 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         };
     }
 
-    private void disableAll(List<Index> indexes) {
-        try (FDBRecordContext context = openContext()) {
-            // disable all
-            for (Index index : indexes) {
-                recordStore.markIndexDisabled(index).join();
-            }
-            context.commit();
-        }
-    }
-
     @Test
     void testUniquenessMultiTargetsForbidUniquePending() {
         testUniquenessMultiTarget(false);
@@ -543,6 +533,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue()
                         .allowUniquePendingState())
                 .build()) {
             indexBuilder.buildIndex(true);
