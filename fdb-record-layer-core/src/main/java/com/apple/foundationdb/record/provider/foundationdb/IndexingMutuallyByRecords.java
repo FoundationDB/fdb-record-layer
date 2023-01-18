@@ -46,13 +46,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -213,7 +213,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         if (fragmentBoundaries == null || fragmentBoundaries.isEmpty()) {
             fragmentBoundaries = getPrimaryKeyBoundaries(store);
         }
-        final Random rn = ThreadLocalRandom.current();
+        // Can't use ThreadLocalRandom.current() without triggering a sonarcloud error
+        final SecureRandom rn = new SecureRandom();
         fragmentNum = fragmentBoundaries.size() - 1; // ranges between the boundaries = one less
         fragmentStep = getPrimeStep(fragmentNum, rn);
         fragmentFirst = rn.nextInt(fragmentNum);
