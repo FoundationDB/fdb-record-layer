@@ -24,12 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * A record returned by a query and therefore possibly associated with a particular entry in some index.
@@ -63,11 +66,67 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     public abstract IndexEntry getIndexEntry();
 
     /**
+     * Get the synthetic record if this is a synthetic record type..
+     * @return a synthetic record of {@code null}
+     */
+    @Nullable
+    public abstract FDBSyntheticRecord getSyntheticRecord();
+
+    /**
+     * Get the name of this constituent if it comes from a synthetic record.
+     * @return a constituent name of {@code null}
+     */
+    @Nullable
+    public abstract String getConstituentName();
+
+    /**
      * The constituents of this record if it is a synthetic record type.
      * @return a map of constituents from name to {@link FDBStoredRecord}
      */
     @Nullable
-    public abstract Map<String, FDBStoredRecord<? extends Message>> getConstituents();
+    public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+        FDBSyntheticRecord syntheticRecord = getSyntheticRecord();
+        if (syntheticRecord == null) {
+            return null;
+        }
+        return syntheticRecord.getConstituents();
+    }
+
+    /**
+     * Get a constituent record of this record if it is a synthetic record type.
+     * @param constituentName name of the constituent
+     * @return a constituent record of {@code null}
+     */
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        Map<String, FDBStoredRecord<? extends Message>> constituents = getConstituents();
+        if (constituents == null) {
+            return null;
+        }
+        FDBStoredRecord<M> constituent = (FDBStoredRecord<M>)constituents.get(constituentName);
+        if (constituent == null) {
+            return null;
+        }
+        IndexEntry indexEntry = getIndexEntry();
+        if (indexEntry == null) {
+            return new Stored<>(constituent) {
+                @Nonnull
+                @Override
+                public String getConstituentName() {
+                    return constituentName;
+                }
+            };
+        } else {
+            return new Indexed<>(new FDBIndexedRecord<>(indexEntry, constituent)) {
+                @Nonnull
+                @Override
+                public String getConstituentName() {
+                    return constituentName;
+                }
+            };
+        }
+    }
 
     public static <M extends Message> FDBQueriedRecord<M> indexed(@Nonnull FDBIndexedRecord<M> indexed) {
         return new Indexed<>(indexed);
@@ -82,7 +141,11 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     }
 
     public static <M extends Message> FDBQueriedRecord<M> synthetic(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull FDBSyntheticRecord syntheticRecord) {
-        return new Synthetic<>(index, indexEntry, syntheticRecord.getPrimaryKey(), syntheticRecord.getRecordType(), syntheticRecord.getRecord(), syntheticRecord.getConstituents());
+        return new Synthetic<>(index, indexEntry, syntheticRecord);
+    }
+
+    public static <M extends Message> FDBQueriedRecord<M> constituent(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull FDBSyntheticRecord syntheticRecord, @Nonnull String constituentName) {
+        return new Constituent<>(index, indexEntry, syntheticRecord, constituentName);
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -142,7 +205,13 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public String getConstituentName() {
             return null;
         }
     }
@@ -204,7 +273,13 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public String getConstituentName() {
             return null;
         }
     }
@@ -278,7 +353,45 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public String getConstituentName() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings("unchecked")
+        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+            if (recordType instanceof SyntheticRecordType<?>) {
+                RecordType constituentRecordType = null;
+                int position = 0;
+                final List<? extends SyntheticRecordType.Constituent> constituentsTypes = ((SyntheticRecordType<?>)recordType).getConstituents();
+                while (position < constituentsTypes.size()) {
+                    SyntheticRecordType.Constituent constituentType = constituentsTypes.get(position);
+                    if (constituentType.getName().equals(constituentName)) {
+                        constituentRecordType = constituentType.getRecordType();
+                        break;
+                    }
+                    position++;
+                }
+                if (constituentRecordType == null) {
+                    return null;
+                }
+                Tuple constituentPrimaryKey = primaryKey.getNestedTuple(position + 1);
+                M constituent = (M)protoRecord.getField(recordType.getDescriptor().findFieldByName(constituentName));
+                return new Covered<>(index, indexEntry, constituentPrimaryKey, constituentRecordType, constituent) {
+                    @Nonnull
+                    @Override
+                    public String getConstituentName() {
+                        return constituentName;
+                    }
+                };
+            }
             return null;
         }
     }
@@ -289,26 +402,14 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nonnull
         private final IndexEntry indexEntry;
         @Nonnull
-        private final Tuple primaryKey;
-        @Nonnull
-        private final RecordType recordType;
-        @Nonnull
-        private final Message protoRecord;
-        @Nonnull
-        private final Map<String, FDBStoredRecord<? extends Message>> constituents;
+        private final FDBSyntheticRecord syntheticRecord;
 
         public Synthetic(@Nonnull final Index index,
                          @Nonnull final IndexEntry indexEntry,
-                         @Nonnull final Tuple primaryKey,
-                         @Nonnull final RecordType recordType,
-                         @Nonnull final Message protoRecord,
-                         @Nonnull final Map<String, FDBStoredRecord<? extends Message>> constituents) {
+                         @Nonnull final FDBSyntheticRecord syntheticRecord) {
             this.index = index;
             this.indexEntry = indexEntry;
-            this.primaryKey = primaryKey;
-            this.recordType = recordType;
-            this.protoRecord = protoRecord;
-            this.constituents = constituents;
+            this.syntheticRecord = syntheticRecord;
         }
 
         @Nonnull
@@ -326,13 +427,13 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nonnull
         @Override
         public Tuple getPrimaryKey() {
-            return primaryKey;
+            return syntheticRecord.getPrimaryKey();
         }
 
         @Nonnull
         @Override
         public RecordType getRecordType() {
-            return recordType;
+            return syntheticRecord.getRecordType();
         }
 
         /**
@@ -344,7 +445,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         @SuppressWarnings("unchecked")
         public M getRecord() {
-            return (M)protoRecord;
+            return (M)syntheticRecord.getRecord();
         }
 
         @Override
@@ -366,8 +467,100 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nonnull
         @Override
-        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
-            return constituents;
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return syntheticRecord;
+        }
+
+        @Nullable
+        @Override
+        public String getConstituentName() {
+            return null;
+        }
+    }
+
+    static class Constituent<M extends Message> extends FDBQueriedRecord<M> {
+        @Nonnull
+        private final Index index;
+        @Nonnull
+        private final IndexEntry indexEntry;
+        @Nonnull
+        private final FDBSyntheticRecord syntheticRecord;
+        @Nonnull
+        private final String constituentName;
+
+        public Constituent(@Nonnull final Index index,
+                           @Nonnull final IndexEntry indexEntry,
+                           @Nonnull final FDBSyntheticRecord syntheticRecord,
+                           @Nonnull final String constituentName) {
+            this.index = index;
+            this.indexEntry = indexEntry;
+            this.syntheticRecord = syntheticRecord;
+            this.constituentName = constituentName;
+        }
+
+        @Nonnull
+        @Override
+        public Index getIndex() {
+            return index;
+        }
+
+        @Nonnull
+        @Override
+        public IndexEntry getIndexEntry() {
+            return indexEntry;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getPrimaryKey() {
+            return getStoredRecord().getPrimaryKey();
+        }
+
+        @Nonnull
+        @Override
+        public RecordType getRecordType() {
+            return getStoredRecord().getRecordType();
+        }
+
+        /**
+         * Returns the associated protobuf message as object of type {@code M}. This will do an unchecked cast.
+         * It is the responsibility of the caller to not call this method using a typed store.
+         * @return the message associated with this record
+         */
+        @Nonnull
+        @Override
+        public M getRecord() {
+            return getStoredRecord().getRecord();
+        }
+
+        @Override
+        public boolean hasVersion() {
+            return getStoredRecord().hasVersion();
+        }
+
+        @Nullable
+        @Override
+        public FDBRecordVersion getVersion() {
+            return getStoredRecord().getVersion();
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("unchecked")
+        public FDBStoredRecord<M> getStoredRecord() {
+            return (FDBStoredRecord<M>)Objects.requireNonNull(syntheticRecord.getConstituent(constituentName));
+        }
+
+        @Nonnull
+        @Override
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return syntheticRecord;
+        }
+
+        @Nonnull
+        @Override
+        public String getConstituentName() {
+            return constituentName;
         }
     }
 }

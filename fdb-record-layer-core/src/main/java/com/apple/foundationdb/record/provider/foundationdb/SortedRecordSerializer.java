@@ -128,7 +128,13 @@ public class SortedRecordSerializer<M extends Message> {
 
         @Nullable
         @Override
-        public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
+        public FDBSyntheticRecord getSyntheticRecord() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public String getConstituentName() {
             return null;
         }
     }

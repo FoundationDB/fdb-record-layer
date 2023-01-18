@@ -500,29 +500,29 @@ public class SyntheticRecordPlannerTest {
             //      returns items that should not be in the index anymore.
             //
             Assertions.assertEquals(3, join.size());
-            var simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(0).getConstituents()).get("simple")).getRecord();
-            Assertions.assertNull(Verify.verifyNotNull(join.get(0).getConstituents()).get("other"));
+            var simpleRecord = Verify.verifyNotNull(join.get(0).getConstituent("simple")).getRecord();
+            Assertions.assertNull(join.get(0).getConstituent("other"));
             Descriptors.Descriptor simpleDescriptor = simpleRecord.getDescriptorForType();
             Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
             Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
             Assertions.assertEquals(1001L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
 
-            simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(1).getConstituents()).get("simple")).getRecord();
+            simpleRecord = Verify.verifyNotNull(join.get(1).getConstituent("simple")).getRecord();
             simpleDescriptor = simpleRecord.getDescriptorForType();
             Assertions.assertEquals(0L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
             Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
             Assertions.assertEquals(1001L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
-            var otherRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(1).getConstituents()).get("other")).getRecord();
+            var otherRecord = Verify.verifyNotNull(join.get(1).getConstituent("other")).getRecord();
             Descriptors.Descriptor otherDescriptor = otherRecord.getDescriptorForType();
             Assertions.assertEquals(1001L, otherRecord.getField(otherDescriptor.findFieldByName("rec_no")));
             Assertions.assertEquals(1, otherRecord.getField(otherDescriptor.findFieldByName("num_value_3")));
 
-            simpleRecord = Verify.verifyNotNull(Verify.verifyNotNull(join.get(2).getConstituents()).get("simple")).getRecord();
+            simpleRecord = Verify.verifyNotNull(join.get(2).getConstituent("simple")).getRecord();
             simpleDescriptor = simpleRecord.getDescriptorForType();
             Assertions.assertEquals(2L, simpleRecord.getField(simpleDescriptor.findFieldByName("rec_no")));
             Assertions.assertEquals("even", simpleRecord.getField(simpleDescriptor.findFieldByName("str_value")));
             Assertions.assertEquals(1003L, simpleRecord.getField(simpleDescriptor.findFieldByName("other_rec_no")));
-            Assertions.assertNull(Verify.verifyNotNull(join.get(2).getConstituents()).get("other"));
+            Assertions.assertNull(join.get(2).getConstituent("other"));
             
             // same query except setting required fields to get a covering scan
             query = RecordQuery.newBuilder()
