@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -72,6 +73,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -118,6 +120,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
             FDBRecordStore recordStore = storeBuilder(context, metaDataBuilder).createOrOpen();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
@@ -126,6 +129,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
@@ -136,6 +140,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getDisabledIndexNames());
@@ -170,6 +175,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = storeBuilder(context, origMetaData)
                     .setMetaDataStore(metaDataStore)
                     .createOrOpen();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
@@ -182,6 +188,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             recordStore = storeBuilder(context, origMetaData)
                     .setMetaDataStore(metaDataStore)
                     .open();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
@@ -194,6 +201,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveRecordMetaData(metaDataBuilder.getRecordMetaData());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).open();
+            assertTrue(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getDisabledIndexNames());
@@ -213,6 +221,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
             FDBRecordStore recordStore = storeBuilder(context, metaDataBuilder).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(metaDataBuilder.getVersion(), recordStore.getRecordMetaData().getVersion());
@@ -220,6 +229,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
@@ -229,11 +239,13 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             recordStore = storeBuilder(context, metaDataBuilder).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
 
             recordStore = recordStore.asBuilder().setMetaDataProvider(staleMetaData).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
@@ -257,13 +269,14 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
-            int version = origMetaData.getVersion();
 
             FDBRecordStore recordStore = storeBuilder(context, origMetaData)
                     .setMetaDataStore(metaDataStore)
                     .uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+            int version = origMetaData.getVersion();
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
@@ -273,6 +286,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
@@ -285,6 +299,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path).setMetaDataStore(metaDataStore).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
@@ -292,6 +307,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             // The stale meta-data store uses the cached meta-data, hence the old version in the final assert
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(staleMetaDataStore).uncheckedOpen();
+            assertFalse(recordStore.isVersionChanged());
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
@@ -825,6 +841,114 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.ESTIMATE_SIZE), "should have only checked the database for the size once");
             assertEquals(ImmutableSet.of(indexName1, indexName2), recordStore.getRecordStoreState().getDisabledIndexNames());
 
+            commit(context);
+        }
+    }
+
+    @Test
+    public void testVersionChangedFlagAfterOpening() {
+        KeySpacePath metaDataPath;
+        Subspace metaDataSubspace;
+        try (FDBRecordContext context = fdb.openContext()) {
+            metaDataPath = TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore");
+            metaDataSubspace = metaDataPath.toSubspace(context);
+            context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
+            context.commit();
+        }
+
+        // Test call getVersionChanged after unchecked opening a record store
+        var metadata = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            // No updates to the storeHeader.
+            assertFalse(store.isVersionChanged());
+            commit(context);
+        }
+
+        // Test call getVersionChanged after manual call to checkVersion
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            assertFalse(store.isVersionChanged());
+            // Explicit call to checkVersion() sets the metadataVersion in the storeHeader.
+            store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).thenApply(changed -> {
+                assertTrue(store.isVersionChanged());
+                return AsyncUtil.DONE;
+            });
+            commit(context);
+        }
+
+
+        // Test call getVersionChanged after opening a store with metadata update
+        metadata.addUniversalIndex(COUNT_INDEX);
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .createOrOpen();
+            // createOrOpen() calls the checkVersion() which bumps up the version.
+            assertTrue(store.isVersionChanged());
+            commit(context);
+        }
+
+        // Test call getVersionChanged after opening an already created store
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .createOrOpen();
+            // createOrOpen() calls the checkVersion() but the metadata is already up-to-date
+            assertFalse(store.isVersionChanged());
+            commit(context);
+        }
+
+        // Test call getVersionChanged after opening an already created store with new version of metadata
+        Index newIndex = new Index("newIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+        // metadata is updated
+        metadata.addIndex("MySimpleRecord", newIndex);
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            assertFalse(store.isVersionChanged());
+            // checkVersion() will bump up the version
+            store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).thenApply(changed -> {
+                assertTrue(store.isVersionChanged());
+                return AsyncUtil.DONE;
+            });
+            commit(context);
+        }
+
+        // Test call getVersionChanged to check info version changed info is preserved across calls to checkVersion
+        Index newIndex2 = new Index("newIndex2", concatenateFields("str_value_indexed", "rec_no"));
+        metadata.addIndex("MySimpleRecord", newIndex2);
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(metadata)
+                    .setKeySpacePath(path)
+                    .uncheckedOpen();
+            assertFalse(store.isVersionChanged());
+            // The checkVersion() will bump up the metadata version in the first iteration (i=0), while it won't have
+            // any effect on the other following calls. However, getVersionChanged() should return true even if there
+            // is change in one of the calls.
+            for (var i = 0; i < 5; i++) {
+                store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).thenApply(changed -> {
+                    assertTrue(store.isVersionChanged());
+                    return AsyncUtil.DONE;
+                });
+            }
             commit(context);
         }
     }
