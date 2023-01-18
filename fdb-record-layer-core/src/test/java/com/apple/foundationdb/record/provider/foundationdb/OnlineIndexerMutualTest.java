@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -207,7 +208,15 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             oneThreadIndexing(indexes, timer, boundariesList);
         } else {
             IntStream range = IntStream.rangeClosed(0, numThreads);
-            range.parallel().forEach(ignore -> oneThreadIndexing(indexes, null, boundariesList));
+            final AtomicInteger nonIdle = new AtomicInteger(0);
+            range.parallel().forEach(ignore -> {
+                int numScanned = oneThreadIndexing(indexes, null, boundariesList);
+                if (numScanned > 0) {
+                    nonIdle.addAndGet(1);
+                }
+            });
+            // require at least two parallel indexing processes to perform real work
+            assertTrue(nonIdle.get() > 1);
         }
 
         if (numThreads < 2) {
@@ -218,7 +227,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         validateIndexes(indexes);
     }
 
-    void oneThreadIndexing(List<Index> indexes, FDBStoreTimer callerTimer, List<Tuple> boundaries) {
+    int oneThreadIndexing(List<Index> indexes, FDBStoreTimer callerTimer, List<Tuple> boundaries) {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         final FDBStoreTimer timer = callerTimer != null ? callerTimer : new FDBStoreTimer();
@@ -232,13 +241,14 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .build()) {
             indexBuilder.buildIndex(true);
         }
+        int numScanned = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
         if (callerTimer == null && LOGGER.isInfoEnabled()) {
-            int numScanned = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
             LOGGER.info(KeyValueLogMessage.of("oneThreadIndexing",
                     LogMessageKeys.RECORDS_SCANNED, numScanned,
                     "tid", Thread.currentThread().getId()
             ));
         }
+        return numScanned;
     }
 
     void oneThreadIndexingCrashHalfway(List<Index> indexes, FDBStoreTimer timer, List<Tuple> boundaries, int after) {
