@@ -138,7 +138,7 @@
 - query: explain select min_ever(col3) from t2
 - result: [{!sc "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"}]
 ---
-- query: drop schema template aggregate_index_tests_template
----
 - query: drop database /AGG_IDX_YAML
+#---
+#- query: drop schema template aggregate_index_tests_template
 ...

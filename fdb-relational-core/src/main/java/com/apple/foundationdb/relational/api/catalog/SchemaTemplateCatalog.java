@@ -37,13 +37,18 @@ public interface SchemaTemplateCatalog {
      * Load the specified schema template.
      *
      * @param txn        the transaction
-     * @param templateId the unique id of the template to be loaded
-     * @return the schema template associated with the template Id.
+     * @param templateName the name of the template to be loaded
+     * @return whether the template exists.
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
      *                           or other error code if something else goes wrong.
      */
+    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
+
     @Nonnull
-    SchemaTemplate loadTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException;
+
+    @Nonnull
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException;
 
     /**
      * Update the Schema template in the catalog associated with the templateId.

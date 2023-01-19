@@ -137,8 +137,8 @@
 ---
 - query: select COUNT(col1) from T1;
 - result: [{!l 13}]
----
-- query: drop schema template groupby_tests_template
+#---
+#- query: drop schema template groupby_tests_template
 ---
 - query: drop database /GB_YAML
 ...

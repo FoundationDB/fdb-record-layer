@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryCatalog implements StoreCatalog {
 
     Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
+    Map<String, List<InMemorySchemaTemplate>> nameToTemplates = new ConcurrentHashMap<>();
 
     @Override
     @Nonnull
@@ -86,23 +87,58 @@ public class InMemoryCatalog implements StoreCatalog {
     @Override
     @Nonnull
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
-        throw new RelationalException("No such schema template", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        final List<InMemorySchemaTemplate> templates = nameToTemplates.get(templateName);
+        if (templates == null) {
+            throw new RelationalException("No such schema template <" + templateName + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        for (InMemorySchemaTemplate t : templates) {
+            if (t.schemaTemplate.getVersion() == version) {
+                return t.schemaTemplate;
+            }
+        }
+        throw new RelationalException("No such schema template <" + templateName + "> at version <" + version + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
     }
 
     @Override
     @Nonnull
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        throw new RelationalException("No such schema template", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        final List<InMemorySchemaTemplate> templates = nameToTemplates.get(templateName);
+        if (templates == null) {
+            throw new RelationalException("No such schema template <" + templateName + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        long maxVersion = -1;
+        SchemaTemplate maxVersionTemplate = null;
+        for (InMemorySchemaTemplate t : templates) {
+            if (t.schemaTemplate.getVersion() > maxVersion) {
+                maxVersionTemplate = t.schemaTemplate;
+            }
+        }
+        if (maxVersionTemplate == null) {
+            throw new RelationalException("No such schema template <" + templateName + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        return maxVersionTemplate;
     }
 
     @Override
     public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        return false;
+        return nameToTemplates.containsKey(templateName);
     }
 
     @Override
-    public void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) {
+    public void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException {
         // no-op
+        List<InMemorySchemaTemplate> templates = nameToTemplates.computeIfAbsent(dataToWrite.getName(), k -> Collections.synchronizedList(new ArrayList<>()));
+
+        for (InMemorySchemaTemplate t : templates) {
+            if (t.schemaTemplate.getVersion() == dataToWrite.getVersion()) {
+                throw new RelationalException("Schema template already exists!", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            }
+        }
+
+        //we need to create the schema
+        InMemorySchemaTemplate inMemorySchemaTemplate = new InMemorySchemaTemplate();
+        inMemorySchemaTemplate.schemaTemplate = dataToWrite;
+        templates.add(inMemorySchemaTemplate);
     }
 
     @Override
@@ -175,6 +211,10 @@ public class InMemoryCatalog implements StoreCatalog {
                 tables.put(typeEntry.getKey(), new InMemoryTable(typeEntry.getValue()));
             }
         }
+    }
+
+    private static class InMemorySchemaTemplate {
+        private SchemaTemplate schemaTemplate;
     }
 
 }

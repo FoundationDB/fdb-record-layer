@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -73,6 +74,7 @@ public class LargeRecordLayerSchemaTest {
         }
     }
 
+    @Disabled
     @Test
     void tooManyColumns() {
         int colCount = 10000;

@@ -81,7 +81,7 @@ public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory 
         return txn -> {
             try (Connection sqlConn = getConnection(dbUri)) {
                 try (Statement s = sqlConn.createStatement()) {
-                    SchemaTemplate template = templateCatalog.loadTemplate(txn, templateId);
+                    SchemaTemplate template = templateCatalog.loadSchemaTemplate(txn, templateId);
 
                     Assert.thatUnchecked(template instanceof RecordLayerSchemaTemplate);
                     final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;

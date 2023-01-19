@@ -35,9 +35,20 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     public static final HollowSchemaTemplateCatalog INSTANCE = new HollowSchemaTemplateCatalog();
 
+    @Override
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
+    }
+
     @Nonnull
     @Override
-    public SchemaTemplate loadTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
+    }
+
+    @Nonnull
+    @Override
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 

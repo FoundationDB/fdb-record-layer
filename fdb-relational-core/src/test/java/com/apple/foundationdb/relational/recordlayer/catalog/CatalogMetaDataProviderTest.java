@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -52,8 +54,8 @@ class CatalogMetaDataProviderTest {
 
     @Test
     void canLoadMetaDataFromStore() throws RelationalException, Descriptors.DescriptorValidationException {
-
-        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace());
+        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace(), templateCatalog);
 
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
@@ -69,6 +71,8 @@ class CatalogMetaDataProviderTest {
 
         RecordLayerSchemaTemplate schemaTemplate = createSchemaTemplate();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
+            //write template into template catalog
+            templateCatalog.updateTemplate(txn, schemaTemplate.getName(), schemaTemplate);
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
             catalog.createDatabase(txn, dbUri);

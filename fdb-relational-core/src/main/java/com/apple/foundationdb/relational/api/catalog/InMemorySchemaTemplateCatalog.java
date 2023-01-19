@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
@@ -46,9 +47,23 @@ import java.util.stream.Collectors;
 public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     private final ConcurrentMap<String, SchemaTemplate> backingStore = new ConcurrentHashMap<>();
 
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+        try {
+            loadSchemaTemplate(txn, templateName);
+            return true;
+        } catch (RelationalException ex) {
+            if (ex.getErrorCode() == ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
     @Nonnull
     @Override
-    public SchemaTemplate loadTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
         SchemaTemplate template = backingStore.get(templateId);
         if (template == null) {
             throw new RelationalException("Unknown schema template <" + templateId + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
@@ -56,7 +71,14 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         return template;
     }
 
+    @Nonnull
     @Override
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
+        return loadSchemaTemplate(txn, templateId);
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
     public void updateTemplate(@Nonnull Transaction txn, @Nonnull String templateId, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         boolean doContinue;
         do {

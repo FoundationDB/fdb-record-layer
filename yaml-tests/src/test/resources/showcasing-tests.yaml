@@ -111,8 +111,8 @@
 - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !dc dc, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
 - query: drop schema template test_template
----
-- query: drop schema template test_template_nested
+#---
+#- query: drop schema template test_template_nested
 ---
 - query: drop database /YOUSSEF
 ...

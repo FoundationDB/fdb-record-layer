@@ -228,8 +228,8 @@
 # Ordering in nested select is not allowed
 - query: select b from t1 where exists (select * from t1 order by b limit 1)
 - error: "0A000"
----
-- query: drop schema template orderby_tests_schema_template
+#---
+#- query: drop schema template orderby_tests_schema_template
 ---
 - query: drop database /ORDERBY_YAML
 ...

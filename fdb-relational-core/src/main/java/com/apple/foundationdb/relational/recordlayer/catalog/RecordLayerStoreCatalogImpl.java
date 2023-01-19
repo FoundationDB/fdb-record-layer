@@ -48,6 +48,7 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -102,6 +103,7 @@ import java.util.Objects;
 public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     public static final String SCHEMA = "CATALOG";
+    public static final String TEMPLATE = "CATALOG_TEMPLATE";
     public static final String SYS_DB = "/__SYS";
 
     private static final long MAX_SCHEMA_TEMPLATE_VERSION = 1000L;
@@ -115,12 +117,24 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     private final KeySpacePath keySpacePath;
+    private final KeySpace keySpace;
 
     private final RecordMetaDataProvider metaDataProvider;
 
+    private final SchemaTemplateCatalog schemaTemplateCatalog;
+
     public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace) throws RelationalException {
+        this.keySpace = keySpace;
         keySpacePath = KeySpaceUtils.uriToPath(URI.create(SYS_DB + "/" + SCHEMA), keySpace);
         metaDataProvider = setupMetadataProvider();
+        schemaTemplateCatalog = null;
+    }
+
+    public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace, @Nonnull SchemaTemplateCatalog schemaTemplateCatalog) throws RelationalException {
+        this.keySpace = keySpace;
+        keySpacePath = KeySpaceUtils.uriToPath(URI.create(SYS_DB + "/" + SCHEMA), keySpace);
+        metaDataProvider = setupMetadataProvider();
+        this.schemaTemplateCatalog = schemaTemplateCatalog;
     }
 
     @Nonnull
@@ -146,7 +160,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             loadSchema(transaction, dbUri, SCHEMA);
         } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
+            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA && ve.getErrorCode() != ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
                 return;
             }
         }
@@ -154,13 +168,13 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         if (!doesDatabaseExist(transaction, dbUri)) {
             createDatabase(transaction, dbUri);
         }
-
+        final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
+        if (!schemaTemplateCatalog.doesSchemaTemplateExist(transaction, TEMPLATE)) {
+            schemaTemplateCatalog.updateTemplate(transaction, TEMPLATE, schemaTemplate);
+        }
         if (!doesSchemaExist(transaction, dbUri, SCHEMA)) {
-            final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
-
             //map the schema to the template
             final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), SCHEMA);
-
             //insert the schema into the catalog
             saveSchema(transaction, schema);
         }
@@ -191,7 +205,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
             }
             Message m = record.getRecord();
-            return parseSchemaTable(m);
+            return parseSchemaTable(m, txn);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -219,7 +233,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         // a read-modify-write loop, done in 1 transaction
         final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
         // load latest schema template
-        final SchemaTemplate template = loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
+        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema);
     }
@@ -279,7 +293,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         try {
             final var recordSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
             FDBRecordStore recordStore = openFDBRecordStore(txn);
-            long lastVersion = 0L;
+            long lastVersion = -1;
             try {
                 final SchemaTemplate lastTemplate = loadSchemaTemplate(txn, schemaTemplate.getName());
                 lastVersion = lastTemplate.getVersion();
@@ -413,6 +427,10 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 }
                 Tuple primaryKey = Objects.requireNonNull(cursorResult.get()).getPrimaryKey();
                 Assert.that(recordStore.deleteRecord(primaryKey), "Schema primaryKey id " + primaryKey.get(1) + "/" + primaryKey.get(2) + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
+                KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri, keySpace);
+                final KeySpacePath schemaPath = dbPath.add("schema", primaryKey.get(2));
+                // KeySpacePath ksPath = keySpacePath.add("schema", primaryKey.get(2));
+                FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), schemaPath);
             } while (cursorResult.hasNext());
         } catch (RecordCoreStorageException ex) {
             RelationalException vex = ExceptionUtil.toRelationalException(ex);
@@ -432,16 +450,9 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                     .setField("SCHEMA_NAME", schema.getName())
                     .setField("TEMPLATE_NAME", schema.getSchemaTemplate().getName())
                     .setField("TEMPLATE_VERSION", schema.getSchemaTemplate().getVersion())
-                    .setField("META_DATA", schema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto().toByteString())
                     .build();
             recordStore.saveRecord(m);
-        } catch (RecordCoreException e) {
-            if (e.getMessage().contains("Record is too long")) {
-                throw new RelationalException("Too many columns in schema", ErrorCode.TOO_MANY_COLUMNS, e);
-            } else {
-                throw ExceptionUtil.toRelationalException(e);
-            }
-        } catch (SQLException e) {
+        } catch (RecordCoreException | SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
     }
@@ -508,22 +519,17 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return new MessageTuple(record.getRecord());
     }
 
-    private RecordLayerSchema parseSchemaTable(Message m) throws RelationalException {
+    private RecordLayerSchema parseSchemaTable(Message m, Transaction txn) throws RelationalException {
         final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
         String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
         String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
+        // load metadata from template table
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
         long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-        ByteString schemaDescriptorBytes = (ByteString) m.getField(descriptor.findFieldByName("META_DATA"));
-        RecordMetaDataProto.MetaData schemaDescriptor;
-        try {
-            schemaDescriptor = RecordMetaDataProto.MetaData.parseFrom(schemaDescriptorBytes, EXTENSION_REGISTRY);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RelationalException("Corrupt Catalog: Message <" + m + "> cannot be parsed into a schema", ErrorCode.INTERNAL_ERROR, e);
-        }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(RecordMetaData.build(schemaDescriptor), templateName, version).generateSchema(dbId, schemaName);
+        final RecordLayerSchemaTemplate template = (RecordLayerSchemaTemplate) schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
+        return template.generateSchema(dbId, schemaName);
     }
 
     private SchemaTemplate parseSchemaTemplateTable(Message m) throws RelationalException {

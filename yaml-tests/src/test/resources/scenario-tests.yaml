@@ -70,8 +70,8 @@
 - query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
 ---
 - query: drop schema template conversation_template
----
-- query: drop schema template messenger_template
+#---
+#- query: drop schema template messenger_template
 ---
 - query: drop database /JOIN_YAML
 ...

@@ -158,6 +158,8 @@ public interface StoreCatalog {
      *
      * @param txn   the transaction to use
      * @param dbUrl the path to the specific database to delete
+     * @param continuation place to start deleting schemas
+     * @return place to start deleting schemas in the next iteration
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
     Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException;

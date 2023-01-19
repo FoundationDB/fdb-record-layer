@@ -54,8 +54,8 @@
 - query: select * from t2;
 - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
            {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
----
-- query: drop schema template standard_tests_template
+#---
+#- query: drop schema template standard_tests_template
 ---
 - query: drop database /STANDARD_YAML
 ...

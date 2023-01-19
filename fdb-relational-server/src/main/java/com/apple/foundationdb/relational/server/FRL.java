@@ -88,14 +88,14 @@ public class FRL implements AutoCloseable {
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 storePath -> DynamicMessageRecordSerializer.instance(),
                 1);
-        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace);
+        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
         try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
             catalog.initialize(txn);
             txn.commit();
         }
 
-        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
+        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
         RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setRlConfig(rlConfig)
                 .setBaseKeySpace(keySpace)

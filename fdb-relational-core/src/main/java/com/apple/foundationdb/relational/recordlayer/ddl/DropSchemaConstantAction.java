@@ -59,7 +59,6 @@ public class DropSchemaConstantAction implements ConstantAction {
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri, keySpace);
         final KeySpacePath schemaPath = dbPath.add("schema", schemaName);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
-
         try {
             FDBRecordStore.deleteStore(ctx, schemaPath);
         } catch (RecordCoreException ex) {

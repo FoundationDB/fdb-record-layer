@@ -87,8 +87,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final KeySpace keySpace = keySpaceSupplier.get();
-        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
         SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
+
         RecordLayerMetadataOperationsFactory ddlFactory = ddlFactoryBuilder.get()
                 .setBaseKeySpace(keySpace)
                 .setRlConfig(rlCfg)

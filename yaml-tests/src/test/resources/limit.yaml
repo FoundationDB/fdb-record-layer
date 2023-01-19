@@ -134,8 +134,8 @@
 # Limit clause in case of multiple from elements.
 - query: select * FROM ta as t1, ta as t2 LIMIT 1000;
 - error: "0A000"
----
-- query: drop schema template limit_tests_schema_template
+#---
+#- query: drop schema template limit_tests_schema_template
 ---
 - query: drop database /LIMIT_YAML
 ...

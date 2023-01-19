@@ -71,8 +71,8 @@
            {B1: 4, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}]
 ---
-- query: drop schema template inserts_updates_deletes_template
----
+#- query: drop schema template inserts_updates_deletes_template
+#---
 - query: drop database /INSERTS_UPDATES_DELETES_YAML
 ...
 

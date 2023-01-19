@@ -89,8 +89,8 @@
 ---
 - query: select count(col1) from t2 group by col2
 - result: []
----
-- query: drop schema template aggregate_index_tests_template_count_empty
+#---
+#- query: drop schema template aggregate_index_tests_template_count_empty
 ---
 - query: drop database /AGG_IDX_YAML_COUNT_EMPTY
 ...

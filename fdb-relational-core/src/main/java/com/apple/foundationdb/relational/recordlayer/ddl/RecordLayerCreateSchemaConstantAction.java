@@ -91,7 +91,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
             }
         }
 
-        final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, templateName);
+        final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, templateName);
 
         //map the schema to the template
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);

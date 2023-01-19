@@ -106,14 +106,15 @@ public abstract class EmbeddedRelationalBenchmark {
                     storePath -> DynamicMessageRecordSerializer.instance(),
                     1
             );
-            RecordLayerStoreCatalogImpl rlCatalog = new RecordLayerStoreCatalogImpl(keySpace);
+            SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
+            RecordLayerStoreCatalogImpl rlCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
             try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
                 rlCatalog.initialize(txn);
                 txn.commit();
             }
             catalog = rlCatalog;
-            SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-            RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace);
+
+            RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
             RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                     .setRlConfig(rlConfig)
                     .setBaseKeySpace(keySpace)

@@ -97,7 +97,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, schemaId);
+                final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, schemaId);
 
                 final FieldDescription[] tableDescription = new FieldDescription[]{
                         FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),

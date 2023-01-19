@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -41,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +60,7 @@ import java.util.stream.Collectors;
 public class RecordLayerStoreCatalogImplTest {
     private FDBDatabase fdb;
     private StoreCatalog storeCatalog;
+    private SchemaTemplateCatalog templateCatalog;
 
     @RegisterExtension
     public static final KeySpaceExtension keySpaceExt = new KeySpaceExtension();
@@ -64,7 +68,8 @@ public class RecordLayerStoreCatalogImplTest {
     @BeforeEach
     void setUpCatalog() throws RelationalException {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-        RecordLayerStoreCatalogImpl rlsci = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace());
+        templateCatalog = new InMemorySchemaTemplateCatalog();
+        RecordLayerStoreCatalogImpl rlsci = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace(), templateCatalog);
         // create a FDBRecordStore
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             rlsci.initialize(txn);
@@ -85,11 +90,15 @@ public class RecordLayerStoreCatalogImplTest {
 
     @Test
     void testLoadSchema() throws RelationalException {
+        String templateName = "test_template_name";
+        long templateVersion = 1L;
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1);
+            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", templateName, templateVersion);
+            SchemaTemplate template = generateTestSchemaTemplate(templateName, templateVersion);
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1);
+            templateCatalog.updateTemplate(txn, templateName, template);
             txn.commit();
         }
 
@@ -191,10 +200,9 @@ public class RecordLayerStoreCatalogImplTest {
         // save schema template with version 1L and 2L
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1L);
-            // a new template with an unset version number, its version number will be set to 2L automatically
-            SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 0L);
-            storeCatalog.saveSchemaTemplate(txn, template1);
-            storeCatalog.saveSchemaTemplate(txn, template2);
+            SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2L);
+            templateCatalog.updateTemplate(txn, template1.getName(), template1);
+            templateCatalog.updateTemplate(txn, template2.getName(), template2);
             txn.commit();
         }
         // repair schema
@@ -316,12 +324,14 @@ public class RecordLayerStoreCatalogImplTest {
         // 2 schemas with different versions
         final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1);
         final Schema schema2 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 2);
-
+        final SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 1);
+        final SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2);
         // test 2 successful consecutive transactions
         // update with schema1 (version = 1)
         try (Transaction txn1 = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.createDatabase(txn1, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn1, schema1);
+            templateCatalog.updateTemplate(txn1, template1.getName(), template1);
             // commit and close the write transaction
             txn1.commit();
         }
@@ -339,6 +349,7 @@ public class RecordLayerStoreCatalogImplTest {
         // update with schema2 (version = 2)
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.saveSchema(txn2, schema2);
+            templateCatalog.updateTemplate(txn2, template2.getName(), template2);
             txn2.commit();
         }
 
@@ -397,9 +408,11 @@ public class RecordLayerStoreCatalogImplTest {
     void testCreateSchemaWithSchemaTemplateVersionZero() throws RelationalException {
         // bad schema, schema_version must not be negative
         final Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 0);
+        final SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 0);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1);
+            templateCatalog.updateTemplate(txn, template1.getName(), template1);
             txn.commit();
         }
 
@@ -571,7 +584,7 @@ public class RecordLayerStoreCatalogImplTest {
     private RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
                                                  @Nonnull final String databaseId,
                                                  @Nonnull final String schemaTemplateName,
-                                                 final int schemaTemplateVersion) {
+                                                 final long schemaTemplateVersion) {
         final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion);
         return template.generateSchema(databaseId, schemaName);
     }

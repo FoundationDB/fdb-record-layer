@@ -164,7 +164,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
                 return txn -> {
-                    final SchemaTemplate schemaTemplate = templateCatalog.loadTemplate(txn, templateId);
+                    final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, templateId);
 
                     //map the schema to the template
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);

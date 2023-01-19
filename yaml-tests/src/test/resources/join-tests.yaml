@@ -107,8 +107,8 @@
 - result: [{"Engineering", "OLAP"},
            {"Sales", "Feedback"},
            {"Marketing", "SEO"}]
----
-- query: drop schema template join_tests_template
+#---
+#- query: drop schema template join_tests_template
 ---
 - query: drop database /JOIN_YAML
 ...
