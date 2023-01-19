@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -47,12 +49,16 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -351,6 +357,43 @@ public class FDBStoreTimerTest {
             assertThat(listener.closes, equalTo(3));
         } finally {
             FDBDatabaseFactory.instance().setTransactionListener(null);
+        }
+    }
+
+    @Test
+    void testEmptyScans() throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+
+            // Reading an empty range should be registered in the counter
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            final AsyncIterable<KeyValue> iterable = tr.getRange(subspace.pack(1L), subspace.pack(2L));
+            assertThat(iterable.asList().get(), empty());
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            assertFalse(iterable.iterator().hasNext());
+            assertEquals(2L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            assertFalse(iterable.iterator().onHasNext().get());
+            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+
+            // Set a key in the range. From now on, the counter shouldn't get incremented
+            tr.set(subspace.pack(Tuple.from(1L, "foo")), Tuple.from("bar").pack());
+            final AsyncIterable<KeyValue> iterable2 = tr.getRange(subspace.pack(1L), subspace.pack(2L));
+            assertThat(iterable2.asList().get(), hasSize(1));
+            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+
+            final AsyncIterator<KeyValue> itr2a = iterable2.iterator();
+            assertTrue(itr2a.hasNext());
+            assertEquals(Tuple.from("bar"), Tuple.fromBytes(itr2a.next().getValue()));
+            assertFalse(itr2a.hasNext());
+            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+
+            final AsyncIterator<KeyValue> itr2b = iterable2.iterator();
+            assertTrue(itr2b.onHasNext().get());
+            assertEquals(Tuple.from("bar"), Tuple.fromBytes(itr2b.next().getValue()));
+            assertFalse(itr2b.onHasNext().get());
+            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
         }
     }
 

@@ -687,6 +687,8 @@ public class FDBStoreTimer extends StoreTimer {
         COMMIT_UNKNOWN("commit unknown", false),
         /** Count failed due to transaction_too_large. */
         TRANSACTION_TOO_LARGE("transaction too large", false),
+        /** Count the number of scans executed that returned no data. */
+        EMPTY_SCANS("empty scans", false),
         ;
 
         private final String title;

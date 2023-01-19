@@ -346,20 +346,25 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         @Override
         public CompletableFuture<List<K>> asList() {
             return underlying.asList().thenApply(keyValues -> {
-                int bytes = 0;
-                for (K kv : keyValues) {
-                    bytes += counterOp.apply(kv);
+                if (keyValues.isEmpty()) {
+                    increment(FDBStoreTimer.Counts.EMPTY_SCANS);
+                } else {
+                    int bytes = 0;
+                    for (K kv : keyValues) {
+                        bytes += counterOp.apply(kv);
+                    }
+                    increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
                 }
-                increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
                 return keyValues;
             });
         }
     }
 
     private class ByteCountingAsyncIterator<K extends KeyValue> implements AsyncIterator<K> {
-        private AsyncIterator<K> underlying;
+        private final AsyncIterator<K> underlying;
+        private final Function<K, Integer> counterOp;
 
-        private Function<K, Integer> counterOp;
+        private volatile boolean hasAny;
 
         public ByteCountingAsyncIterator(AsyncIterator<K> iterator, Function<K, Integer> counterOp) {
             this.underlying = iterator;
@@ -368,12 +373,26 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
         @Override
         public CompletableFuture<Boolean> onHasNext() {
-            return underlying.onHasNext();
+            return underlying.onHasNext().whenComplete((doesHaveNext, err) -> {
+                if (err == null) {
+                    handleHasNext(doesHaveNext);
+                }
+            });
         }
 
         @Override
         public boolean hasNext() {
-            return underlying.hasNext();
+            boolean doesHaveNext = underlying.hasNext();
+            handleHasNext(doesHaveNext);
+            return doesHaveNext;
+        }
+
+        private void handleHasNext(boolean doesHaveNext) {
+            if (doesHaveNext) {
+                hasAny = true;
+            } else if (!hasAny) {
+                increment(FDBStoreTimer.Counts.EMPTY_SCANS);
+            }
         }
 
         @Override
