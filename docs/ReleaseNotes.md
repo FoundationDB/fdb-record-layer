@@ -25,11 +25,11 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Refactor KeyValueCursor to allow extension [(Issue #1957)](https://github.com/FoundationDB/fdb-record-layer/issues/1957)
-* **Feature** Expose version change info from FDBRecordStore [(Issue #1965)](https://github.com/FoundationDB/fdb-record-layer/issues/1965)
-* **Feature** Mutual concurrent indexing [(Issue #1853)](https://github.com/FoundationDB/fdb-record-layer/issues/1853)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Indexing: Throw PartlyBuiltException when appropriate [(Issue #1961)](https://github.com/FoundationDB/fdb-record-layer/issues/1961)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,13 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.325.0
+
+* **Feature** Refactor KeyValueCursor to allow extension [(Issue #1957)](https://github.com/FoundationDB/fdb-record-layer/issues/1957)
+* **Feature** Expose version change info from FDBRecordStore [(Issue #1965)](https://github.com/FoundationDB/fdb-record-layer/issues/1965)
+* **Feature** Mutual concurrent indexing [(Issue #1853)](https://github.com/FoundationDB/fdb-record-layer/issues/1853)
+* **Feature** Indexing: Throw PartlyBuiltException when appropriate [(Issue #1961)](https://github.com/FoundationDB/fdb-record-layer/issues/1961)
 
 ### 3.3.324.0
 
