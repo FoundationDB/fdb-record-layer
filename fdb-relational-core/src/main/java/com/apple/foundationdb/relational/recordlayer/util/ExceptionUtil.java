@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.sql.SQLException;
@@ -37,6 +38,8 @@ public final class ExceptionUtil {
             return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
         } else if (re instanceof RecordCoreException) {
             return recordCoreToRelationalException((RecordCoreException) re);
+        } else if (re instanceof UncheckedRelationalException) {
+            return ((UncheckedRelationalException) re).unwrap();
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }
