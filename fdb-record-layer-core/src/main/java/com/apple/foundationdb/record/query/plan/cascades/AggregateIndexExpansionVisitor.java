@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -218,7 +218,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingValueReference != null) {
             Values.deconstructRecord(groupingValueReference).forEach(v -> {
                 final var field = (FieldValue)v;
-                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueComparisonRangePredicate.Placeholder.class));
+                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueRangesPredicate.Placeholder.class));
                 placeholderAliases.add(placeholder.getAlias());
                 selectHavingGraphExpansionBuilder
                         .addResultColumn(Column.unnamedOf(field))

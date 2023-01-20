@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -30,7 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -69,7 +70,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
+        Debugger.updateIndex(ValueRangesPredicate.Placeholder.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -111,10 +112,37 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 pop(rootExpression.expand(push(initialState)));
 
         if (index.hasPredicate()) {
-            assert index.getPredicates() != null;
             final var predicates = index.getPredicates().stream().map(predicate ->  QueryPredicate.deserialize(Objects.requireNonNull(predicate), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())).collect(Collectors.toList());
-            final var predicatedExpansion = keyValueExpansion.toBuilder().addAllPredicates(predicates).build();
-            allExpansionsBuilder.add(predicatedExpansion);
+            final var predicatedGraphExpansion = GraphExpansion.builder();
+            predicatedGraphExpansion.addAllPredicates(keyValueExpansion.getPredicates());
+            predicatedGraphExpansion.addAllQuantifiers(keyValueExpansion.getQuantifiers());
+            predicatedGraphExpansion.addAllResultColumns(keyValueExpansion.getResultColumns());
+            final var mutablePlaceholders = new ArrayList<>(keyValueExpansion.getPlaceholders());
+            // rewrite sargables as placeholder compile-time ranges.
+            for (final var predicate : predicates) {
+                if (predicate instanceof ValueRangesPredicate.PredicateConjunction) {
+                    final var sargableValue = (ValueRangesPredicate.PredicateConjunction)predicate;
+                    boolean found = false;
+                    for (int i = 0; i < mutablePlaceholders.size(); ++i) {
+                        final var placeholder = mutablePlaceholders.get(i);
+                        if (placeholder.getValue().semanticEquals(sargableValue.getValue(), AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
+                            found = true;
+                            mutablePlaceholders.remove(i);
+                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getCompileTimeRange()));
+                            break;
+                        }
+                        // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate
+                        // that is used only for matching, but NOT as a placeholder. For now we just throw.
+                    }
+                    if (!found) {
+                        throw new RecordCoreException(String.format("Unexpected predicate type '%s'", predicate.getClass()));
+                    }
+                } else {
+                    throw new RecordCoreException(String.format("Unexpected predicate type '%s'", predicate.getClass()));
+                }
+            }
+            predicatedGraphExpansion.addAllPlaceholders(mutablePlaceholders);
+            allExpansionsBuilder.add(predicatedGraphExpansion.build());
         } else {
             allExpansionsBuilder.add(keyValueExpansion);
         }

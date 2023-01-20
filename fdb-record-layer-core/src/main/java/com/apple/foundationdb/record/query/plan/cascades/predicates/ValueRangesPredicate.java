@@ -43,14 +43,19 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.KeyExpressionUtils;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,11 +67,11 @@ import java.util.stream.Collectors;
  * A special predicate used to represent a parameterized tuple range.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueComparisonRangePredicate implements PredicateWithValue {
+public abstract class ValueRangesPredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
 
-    protected ValueComparisonRangePredicate(@Nonnull final Value value) {
+    protected ValueRangesPredicate(@Nonnull final Value value) {
         this.value = value;
     }
 
@@ -94,7 +99,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
-        final ValueComparisonRangePredicate that = (ValueComparisonRangePredicate)other;
+        final ValueRangesPredicate that = (ValueRangesPredicate)other;
         return value.semanticEquals(that.value, equivalenceMap);
     }
 
@@ -117,22 +122,33 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         return new Placeholder(value, parameterAlias);
     }
 
-    public static Sargable sargable(@Nonnull Value value, @Nonnull ComparisonRange comparisonRange) {
-        return new Sargable(value, comparisonRange);
+    public static PredicateConjunction sargable(@Nonnull Value value, @Nonnull List<Comparisons.Comparison> comparisons) {
+        return new PredicateConjunction(value, comparisons);
     }
 
     /**
      * A placeholder predicate solely used for index matching.
      */
     @SuppressWarnings("java:S2160")
-    public static class Placeholder extends ValueComparisonRangePredicate {
+    public static class Placeholder extends ValueRangesPredicate {
+
+        @Nonnull
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Place-Holder");
 
+        @Nonnull
         private final CorrelationIdentifier alias;
 
+        @Nullable
+        private final CompileTimeRange compileTimeRange;
+
         public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias) {
+            this(value, alias, null);
+        }
+
+        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias, @Nullable CompileTimeRange compileTimeRange) {
             super(value);
             this.alias = alias;
+            this.compileTimeRange = compileTimeRange;
         }
 
         @Nonnull
@@ -141,8 +157,19 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return new Placeholder(value, alias);
         }
 
+        @Nonnull
+        public Placeholder withCompileTimeRange(@Nonnull final CompileTimeRange range) {
+            return new Placeholder(getValue(), alias, range);
+        }
+
+        @Nonnull
         public CorrelationIdentifier getAlias() {
             return alias;
+        }
+
+        @Nullable
+        public CompileTimeRange getComparisons() {
+            return compileTimeRange;
         }
 
         @Nullable
@@ -196,26 +223,52 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
      * A query predicate that can be used as a (s)earch (arg)ument for an index scan.
      */
     @SuppressWarnings("java:S2160")
-    public static class Sargable extends ValueComparisonRangePredicate implements QueryPredicate.Serializable {
+    public static class PredicateConjunction extends ValueRangesPredicate implements QueryPredicate.Serializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
         @Nonnull
-        private final ComparisonRange comparisonRange;
+        private final Supplier<Pair<CompileTimeRange, List<Comparisons.Comparison>>> partitioningProvider;
 
-        public Sargable(@Nonnull final Value value, @Nonnull final ComparisonRange comparisonRange) {
+        @Nonnull
+        private final List<Comparisons.Comparison> comparisons;
+
+        public PredicateConjunction(@Nonnull final Value value, @Nonnull final List<Comparisons.Comparison> comparisons) {
             super(value);
-            this.comparisonRange = comparisonRange;
+            this.comparisons = comparisons;
+            this.partitioningProvider = Suppliers.memoize(this::partitionComparisonsCalculator);
         }
 
         @Nonnull
         @Override
-        public Sargable withValue(@Nonnull final Value value) {
-            return new Sargable(value, comparisonRange);
+        public PredicateConjunction withValue(@Nonnull final Value value) {
+            return new PredicateConjunction(value, comparisons);
+        }
+
+        @Nonnull
+        public List<Comparisons.Comparison> getComparisons() {
+            return comparisons;
         }
 
         @Nonnull
         public ComparisonRange getComparisonRange() {
-            return comparisonRange;
+            return partitioningProvider.get().getLeft().toComparisonRange();
+        }
+
+        @Nonnull
+        public CompileTimeRange getCompileTimeRange() {
+            return partitioningProvider.get().getLeft();
+        }
+
+        @Nonnull
+        private Pair<CompileTimeRange, List<Comparisons.Comparison>> partitionComparisonsCalculator() {
+            final var rangeBuilder = CompileTimeRange.newBuilder();
+            final ImmutableList.Builder<Comparisons.Comparison> residuals = ImmutableList.builder();
+            for (final var comparison : comparisons) {
+                if (!rangeBuilder.tryAdd(comparison)) {
+                    residuals.add(comparison);
+                }
+            }
+            return Pair.of(rangeBuilder.build(), residuals.build());
         }
 
         @Nonnull
@@ -223,7 +276,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
             return ImmutableSet.<CorrelationIdentifier>builder()
                     .addAll(super.getCorrelatedToWithoutChildren())
-                    .addAll(comparisonRange.getCorrelatedTo())
+                    .addAll(comparisons.stream().map(Comparisons.Comparison::getCorrelatedTo).flatMap(Collection::stream).collect(Collectors.toList()))
                     .build();
         }
 
@@ -233,40 +286,46 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             throw new RecordCoreException("search arguments should never be evaluated");
         }
 
+        @SuppressWarnings("UnstableApiUsage")
         @Override
         public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
             if (!super.equalsWithoutChildren(other, equivalenceMap)) {
                 return false;
             }
 
-            return Correlated.semanticEquals(comparisonRange, ((Sargable)other).comparisonRange, equivalenceMap);
+            // (yhatem) this is incorrect, it requires order of comparisons to be the same despite the fact that conjunction is commutative.
+            return comparisons.size() == ((PredicateConjunction)other).comparisons.size()
+                   && Streams.zip(
+                           comparisons.stream(),
+                           ((PredicateConjunction)other).comparisons.stream(),
+                           (c1, c2) -> Correlated.semanticEquals(c1, c2, equivalenceMap)).allMatch(b -> b);
         }
 
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Sargable translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        public PredicateConjunction translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
             final var translatedValue = getValue().translateCorrelations(translationMap);
-            final ComparisonRange newComparisonRange;
-            if (comparisonRange.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-                newComparisonRange = comparisonRange.translateCorrelations(translationMap);
+            final List<Comparisons.Comparison> newComparisonRange;
+            if (comparisons.stream().anyMatch(c -> c.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias))) {
+                newComparisonRange = comparisons.stream().map(c -> c.translateCorrelations(translationMap)).collect(Collectors.toList());
             } else {
-                newComparisonRange = comparisonRange;
+                newComparisonRange = comparisons;
             }
-            if (translatedValue != getValue() || newComparisonRange != comparisonRange) {
-                return new Sargable(translatedValue, newComparisonRange);
+            if (translatedValue != getValue() || newComparisonRange != comparisons) {
+                return new PredicateConjunction(translatedValue, newComparisonRange);
             }
             return this;
         }
 
         @Override
         public int semanticHashCode() {
-            return Objects.hash(super.semanticHashCode(), comparisonRange.semanticHashCode());
+            return Objects.hash(super.semanticHashCode(), comparisons.stream().map(Comparisons.Comparison::semanticHashCode).collect(Collectors.toList()));
         }
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisonRange.getRangeType());
+            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons.stream().map(Comparisons.Comparison::getType).collect(Collectors.toList()));
         }
 
         @Nonnull
@@ -274,22 +333,58 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
                                                                     @Nonnull final QueryPredicate candidatePredicate) {
             if (candidatePredicate instanceof Placeholder) {
-                final Placeholder placeHolderPredicate = (Placeholder)candidatePredicate;
-                if (!getValue().semanticEquals(placeHolderPredicate.getValue(), aliasMap)) {
+                final Placeholder candidatePlaceholder = (Placeholder)candidatePredicate;
+
+                // the value on which the placeholder is defined must be the same as the sargable's.
+                if (!getValue().semanticEquals(candidatePlaceholder.getValue(), aliasMap)) {
                     return Optional.empty();
                 }
 
-                // we found a compatible association between a comparison range in the query and a
-                // parameter placeholder in the candidate
-                return Optional.of(new PredicateMapping(this,
-                        candidatePredicate,
-                        ((partialMatch, boundParameterPrefixMap) -> {
-                            if (boundParameterPrefixMap.containsKey(placeHolderPredicate.getAlias())) {
-                                return Optional.empty();
-                            }
-                            return injectCompensationFunctionMaybe();
-                        }),
-                        placeHolderPredicate.getAlias()));
+                // if the placeholder has a compile-time range (filtered index) check to see whether it implies
+                // (some) of the predicate comparisons.
+                if (candidatePlaceholder.compileTimeRange != null) {
+                    // attempt to construct a compile-time range from
+                    final var pair = partitioningProvider.get();
+                    final var queryPredicateCompileTimeRange = pair.getLeft();
+                    final var queryPredicateResiduals = pair.getRight();
+
+                    if (candidatePlaceholder.compileTimeRange.implies(queryPredicateCompileTimeRange)) {
+                        return Optional.of(new PredicateMapping(this,
+                                candidatePredicate,
+                                ((partialMatch, boundParameterPrefixMap) -> {
+                                    if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
+                                        if (queryPredicateResiduals.isEmpty()) {
+                                            return Optional.empty();
+                                        } else {
+                                            return Optional.of(translationMap -> GraphExpansion.ofPredicate(Objects.requireNonNull(AndPredicate.and(queryPredicateResiduals.stream().map(c -> getValue().withComparison(c)).collect(Collectors.toList())).translateLeafPredicate(translationMap))));
+                                        }
+                                    }
+                                    return injectCompensationFunctionMaybe();
+                                }),
+                                candidatePlaceholder.getAlias()));
+                    } else {
+                        return Optional.empty();
+                    }
+
+                } else {
+                    // we found a compatible association between a comparison range in the query and a
+                    // parameter placeholder in the candidate
+                    return Optional.of(new PredicateMapping(this,
+                            candidatePredicate,
+                            ((partialMatch, boundParameterPrefixMap) -> {
+                                if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
+                                    final var pair = partitioningProvider.get();
+                                    final var queryPredicateResiduals = pair.getRight();
+                                    if (queryPredicateResiduals.isEmpty()) {
+                                        return Optional.empty();
+                                    } else {
+                                        return Optional.of(translationMap -> GraphExpansion.ofPredicate(Objects.requireNonNull(AndPredicate.and(queryPredicateResiduals.stream().map(c -> getValue().withComparison(c)).collect(Collectors.toList())).translateLeafPredicate(translationMap))));
+                                    }
+                                }
+                                return injectCompensationFunctionMaybe();
+                            }),
+                            candidatePlaceholder.getAlias()));
+                }
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
                         candidatePredicate,
@@ -330,26 +425,20 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap));
         }
 
+        /**
+         * transforms this Sargable into a conjunction of equality and non-equality predicates.
+         * @return a conjunction of equality and non-equality predicates.
+         */
         @Override
         @Nonnull
         public QueryPredicate toResidualPredicate() {
-            Verify.verify(!comparisonRange.isEmpty());
-
-            final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
-            if (comparisonRange.isEquality()) {
-                residuals.add(getValue().withComparison(comparisonRange.getEqualityComparison()));
-            } else if (comparisonRange.isInequality()) {
-                for (final Comparisons.Comparison inequalityComparison : Objects.requireNonNull(comparisonRange.getInequalityComparisons())) {
-                    residuals.add(getValue().withComparison(inequalityComparison));
-                }
-            }
-
-            return AndPredicate.and(residuals.build());
+            Verify.verify(!comparisons.isEmpty());
+            return AndPredicate.and(comparisons.stream().map(c -> getValue().withComparison(c)).collect(Collectors.toList()));
         }
 
         @Override
         public String toString() {
-            return getValue() + " " + comparisonRange;
+            return getValue() + " " + comparisons;
         }
 
         @Nonnull
@@ -357,51 +446,24 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public RecordMetaDataProto.Predicate toProto() {
             final var protoBuilder = RecordMetaDataProto.Sargable.newBuilder();
             protoBuilder.setValue(KeyExpressionUtils.toKeyExpression(getValue()).toKeyExpression());
-            if (comparisonRange.isEquality()) {
-                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.EQUALITY)
-                        .addComparisons(((Comparisons.Comparison.Serializable)comparisonRange.getEqualityComparison()).toProto());
-            } else if (comparisonRange.isInequality()) {
-                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.NON_EQUALITY)
-                        .addAllComparisons((Objects.requireNonNull(comparisonRange.getInequalityComparisons()))
-                                .stream()
-                                .map(nonEquality -> ((Comparisons.Comparison.Serializable)nonEquality).toProto())
-                                .collect(Collectors.toList()));
-            } else {
-                Verify.verify(comparisonRange.isEmpty());
-                protoBuilder.setRangeType(RecordMetaDataProto.Sargable.RangeType.EMPTY);
-            }
+            protoBuilder.addAllComparisons(comparisons.stream().map(comparison -> ((Comparisons.Comparison.Serializable)comparison).toProto()).collect(Collectors.toList()));
             return RecordMetaDataProto.Predicate.newBuilder().setSargable(protoBuilder.build()).build();
         }
 
         @Override
         public boolean isSerializable() {
             return KeyExpressionUtils.convertibleToKeyExpression(getValue()) &&
-                   comparisonRange.getEqualityComparison().isSerializable() &&
-                   (comparisonRange.getInequalityComparisons() == null || comparisonRange.getInequalityComparisons().stream().allMatch(Comparisons.Comparison::isSerializable));
+                   comparisons.stream().allMatch(Comparisons.Comparison::isSerializable);
         }
 
         @Nonnull
-        public static Sargable deserialize(@Nonnull final RecordMetaDataProto.Sargable proto,
-                                           @Nonnull final CorrelationIdentifier alias,
-                                           @Nonnull final Type inputType) {
-            Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", Sargable.class));
-            Verify.verify(proto.hasRangeType(), String.format("attempt to deserialize %s without comparison range type", Sargable.class));
+        public static PredicateConjunction deserialize(@Nonnull final RecordMetaDataProto.Sargable proto,
+                                                       @Nonnull final CorrelationIdentifier alias,
+                                                       @Nonnull final Type inputType) {
+            Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", PredicateConjunction.class));
             final var value = new ScalarTranslationVisitor(KeyExpression.fromProto(proto.getValue())).toResultValue(alias, inputType);
-            final var type = proto.getRangeType();
-            if (type == RecordMetaDataProto.Sargable.RangeType.EQUALITY) {
-                Verify.verify(proto.getComparisonsCount() == 1, "attempt to deserialise %s with more than one equality range comparison", Sargable.class);
-                return new Sargable(value, ComparisonRange.from(Comparisons.Comparison.deserialize(proto.getComparisons(0))).orElseThrow());
-            } else if (type == RecordMetaDataProto.Sargable.RangeType.NON_EQUALITY) {
-                Verify.verify(proto.getComparisonsCount() > 0);
-                var comparisonRange = ComparisonRange.from(Comparisons.Comparison.deserialize(proto.getComparisons(0))).orElseThrow();
-                for (int i = 1; i < proto.getComparisonsCount(); ++i) {
-                    comparisonRange = comparisonRange.tryToAdd(Comparisons.Comparison.deserialize(proto.getComparisons(i))).orElseThrow();
-                }
-                return new Sargable(value, comparisonRange);
-            } else {
-                Verify.verify(type == RecordMetaDataProto.Sargable.RangeType.EMPTY);
-                return new Sargable(value, ComparisonRange.EMPTY);
-            }
+            final var comparisons = proto.getComparisonsList().stream().map(Comparisons.Comparison::deserialize).collect(Collectors.toList());
+            return new PredicateConjunction(value, comparisons);
         }
     }
 }

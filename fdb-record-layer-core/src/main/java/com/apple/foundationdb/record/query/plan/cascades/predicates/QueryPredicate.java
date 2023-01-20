@@ -102,7 +102,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
      * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueComparisonRangePredicate.Sargable}) on the query side.
+     * ({@link ValueRangesPredicate.PredicateConjunction}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -213,6 +213,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
+            // if any of the candidate predicates has a restriction (range defined) return empty set.
+            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> p instanceof ValueRangesPredicate.Placeholder
+                                                                                             && ((ValueRangesPredicate.Placeholder)p).getComparisons() != null)) {
+                return Set.of();
+            }
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
             return impliesCandidatePredicate(aliasMap, tautologyPredicate)
                     .map(ImmutableSet::of)
@@ -366,7 +371,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         } else if (proto.hasValuePredicate()) {
             return ValuePredicate.deserialize(proto.getValuePredicate(), alias, inputType);
         } else if (proto.hasSargable()) {
-            return ValueComparisonRangePredicate.Sargable.deserialize(proto.getSargable(), alias, inputType);
+            return ValueRangesPredicate.PredicateConjunction.deserialize(proto.getSargable(), alias, inputType);
         } else {
             throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto.toString()));
         }

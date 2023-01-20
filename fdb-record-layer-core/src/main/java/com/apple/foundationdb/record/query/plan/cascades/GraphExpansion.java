@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -114,7 +114,7 @@ public class GraphExpansion {
     public List<CorrelationIdentifier> getPlaceholderAliases() {
         return placeholders
                 .stream()
-                .map(ValueComparisonRangePredicate.Placeholder::getAlias)
+                .map(ValueRangesPredicate.Placeholder::getAlias)
                 .collect(ImmutableList.toImmutableList());
     }
 

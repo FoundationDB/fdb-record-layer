@@ -316,12 +316,6 @@ message ValuePredicate {
 
 message Sargable {
   optional KeyExpression value = 1; // the key expression must be mappable to Value
-  enum RangeType {
-    EQUALITY = 1;
-    NON_EQUALITY = 2;
-    EMPTY = 3;
-  }
-  optional RangeType range_type = 2;
   repeated Comparison comparisons = 3;
 }
 

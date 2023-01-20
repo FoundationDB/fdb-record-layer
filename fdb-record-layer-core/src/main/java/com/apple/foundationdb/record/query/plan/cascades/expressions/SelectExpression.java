@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -44,9 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Sargable;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.PredicateConjunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -232,7 +233,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        final var otherSelectExpression = (SelectExpression)candidateExpression;
+        final var candidateSelectExpression = (SelectExpression)candidateExpression;
 
         // merge parameter maps -- early out if a binding clashes
         final var parameterBindingMaps =
@@ -267,7 +268,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
         final var allOtherForEachQuantifiersMatched =
-                otherSelectExpression.getQuantifiers()
+                candidateSelectExpression.getQuantifiers()
                         .stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                         .allMatch(quantifier -> aliasMap.containsTarget(quantifier.getAlias()));
@@ -300,9 +301,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // compensating computation.
         //
         
-        final var otherResultValue = otherSelectExpression.getResultValue();
+        final var candidateResultValue = candidateSelectExpression.getResultValue();
         final Optional<Value> remainingValueComputationOptional;
-        if (!resultValue.semanticEquals(otherResultValue, aliasMap)) {
+        if (!resultValue.semanticEquals(candidateResultValue, aliasMap)) {
             // we potentially need to compensate
             remainingValueComputationOptional = Optional.of(resultValue);
         } else {
@@ -327,7 +328,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // produce a match is that the candidate side MUST NOT be filtering at all, as the query side is not either.
         //
         if (getPredicates().isEmpty()) {
-            final var allNonFiltering = otherSelectExpression.getPredicates()
+            final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
                     .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
             if (allNonFiltering) {
@@ -415,7 +416,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             if (correlatedToMatchedAliases) {
                 final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
+                        predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates());
 
                 if (!correlatedToUnmatchedAliases) {
                     predicateMappingsBuilder.add(impliedMappingsForPredicate);
@@ -448,8 +449,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         return IterableHelpers.flatMap(crossedMappings,
                 predicateMappings -> {
-                    final var unmappedOtherPredicates = Sets.<QueryPredicate>newIdentityHashSet();
-                    unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
+                    final var remainingUnmappedCandidatePredicates = Sets.<QueryPredicate>newIdentityHashSet();
+                    remainingUnmappedCandidatePredicates.addAll(candidateSelectExpression.getPredicates());
 
                     final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
                     final var predicateMapBuilder = PredicateMap.builder();
@@ -458,7 +459,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     for (final var predicateMapping : predicateMappings) {
                         if (predicateMapping.hasMapping()) {
                             predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
-                            unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
+                            remainingUnmappedCandidatePredicates.remove(predicateMapping.getCandidatePredicate());
 
                             final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
                             final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
@@ -542,14 +543,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     }
 
                     //
-                    // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still
-                    // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
-                    // not filtering, so it does not cause records to be filtered that are not filtered on the query side.
-                    //
-                    unmappedOtherPredicates
-                            .removeIf(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
+                    // Last chance for unmapped candidate predicates - if there is a placeholder without compile-time range
+                    // or a tautology on the candidate side that is still unmapped, we can (and should) remove it from the
+                    // unmapped other set now. The reasoning is that this predicate is not filtering, so it does not cause
+                    // records to be filtered that are not filtered on the query side.
+                    remainingUnmappedCandidatePredicates
+                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof Placeholder && ((Placeholder)queryPredicate).getComparisons() == null));
 
-                    if (!unmappedOtherPredicates.isEmpty()) {
+                    if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
                     }
 
@@ -596,13 +597,17 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
     }
 
-    private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {
+    /**
+     * Breaks a list of predicates into a number of saragbles and value predicates.
+     * @param predicates The predicates to partition.
+     * @return a list of sargables and value predicates.
+     */
+    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates) {
         final var flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenAndPredicate(predicate).stream())
                         .collect(ImmutableList.toImmutableList());
 
-        // partition predicates in value-based predicates and non-value-based predicates
         final var predicateWithValuesBuilder = ImmutableList.<PredicateWithValue>builder();
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
@@ -633,35 +638,27 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .asMap()
                 .forEach((valueWrapper, predicatesOnValue) -> {
                     final var value = Objects.requireNonNull(valueWrapper.get());
-                    var resultRange = ComparisonRange.EMPTY;
+                    final ImmutableList.Builder<Comparisons.Comparison> comparisonsBuilder = ImmutableList.builder();
                     for (final PredicateWithValue predicateOnValue : predicatesOnValue) {
+                        // I think this should change in the following way:
+                        //  the `predicatesOnValue` form a conjunction. we try to simplify it in a way that makes sense
+                        //  for example, suppose the predicates are: >0, <50, <70, the result should be: >0, <50.
+                        //  it could also form an empty (impossible) predicate range, as in e.g.: >0, <-10.
+                        //  we do this simplification only for the predicates that we know how to handle (compile-time)
+                        //  for the predicates that we can not handle, we add them as normal ValuePredicate.
+
+                        // create a Sargable with all the comparisons.
                         if (predicateOnValue instanceof ValuePredicate) {
-                            final var comparison = ((ValuePredicate)predicateOnValue).getComparison();
-
-                            final var mergeResult = resultRange.merge(comparison);
-
-                            resultRange = mergeResult.getComparisonRange();
-
-                            mergeResult.getResidualComparisons()
-                                    .forEach(residualComparison ->
-                                            resultPredicatesBuilder.add(value.withComparison(residualComparison)));
-                        } else if (predicateOnValue instanceof Sargable) {
-                            final var valueComparisonRangePredicate = (Sargable)predicateOnValue;
-                            final var comparisonRange = valueComparisonRangePredicate.getComparisonRange();
-
-                            final var mergeResult = resultRange.merge(comparisonRange);
-
-                            resultRange = mergeResult.getComparisonRange();
-
-                            mergeResult.getResidualComparisons()
-                                    .forEach(residualComparison ->
-                                            resultPredicatesBuilder.add(value.withComparison(residualComparison)));
+                            comparisonsBuilder.add(((ValuePredicate)predicateOnValue).getComparison());
+                        } else if (predicateOnValue instanceof PredicateConjunction) {
+                            comparisonsBuilder.addAll(((PredicateConjunction)predicateOnValue).getComparisons());
                         } else {
                             resultPredicatesBuilder.add(predicateOnValue);
                         }
                     }
-                    if (!resultRange.isEmpty()) {
-                        resultPredicatesBuilder.add(ValueComparisonRangePredicate.sargable(value, resultRange));
+                    final var comparisons = comparisonsBuilder.build();
+                    if (!comparisons.isEmpty()) {
+                        resultPredicatesBuilder.add(ValueRangesPredicate.sargable(value, comparisons));
                     }
                 });
 
