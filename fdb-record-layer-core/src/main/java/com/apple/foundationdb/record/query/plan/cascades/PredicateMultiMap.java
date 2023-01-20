@@ -174,7 +174,7 @@ public class PredicateMultiMap {
 
             final PredicateConjunction predicateConjunctionPredicate = (PredicateConjunction)this.queryPredicate;
 
-            return Optional.of(predicateConjunctionPredicate.getComparisonRange());
+            return predicateConjunctionPredicate.getComparisonRange();
         }
 
         @Nonnull

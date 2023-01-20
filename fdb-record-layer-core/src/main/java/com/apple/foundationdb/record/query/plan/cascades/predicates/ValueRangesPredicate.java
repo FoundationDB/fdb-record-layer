@@ -227,7 +227,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
         @Nonnull
-        private final Supplier<Pair<CompileTimeRange, List<Comparisons.Comparison>>> partitioningProvider;
+        private final Supplier<Pair<Optional<CompileTimeRange>, List<Comparisons.Comparison>>> partitioningProvider;
 
         @Nonnull
         private final List<Comparisons.Comparison> comparisons;
@@ -250,17 +250,17 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         }
 
         @Nonnull
-        public ComparisonRange getComparisonRange() {
-            return partitioningProvider.get().getLeft().toComparisonRange();
+        public Optional<ComparisonRange> getComparisonRange() {
+            return partitioningProvider.get().getLeft().map(CompileTimeRange::toComparisonRange);
         }
 
         @Nonnull
-        public CompileTimeRange getCompileTimeRange() {
+        public Optional<CompileTimeRange> getCompileTimeRange() {
             return partitioningProvider.get().getLeft();
         }
 
         @Nonnull
-        private Pair<CompileTimeRange, List<Comparisons.Comparison>> partitionComparisonsCalculator() {
+        private Pair<Optional<CompileTimeRange>, List<Comparisons.Comparison>> partitionComparisonsCalculator() {
             final var rangeBuilder = CompileTimeRange.newBuilder();
             final ImmutableList.Builder<Comparisons.Comparison> residuals = ImmutableList.builder();
             for (final var comparison : comparisons) {
@@ -348,7 +348,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
                     final var queryPredicateCompileTimeRange = pair.getLeft();
                     final var queryPredicateResiduals = pair.getRight();
 
-                    if (candidatePlaceholder.compileTimeRange.implies(queryPredicateCompileTimeRange)) {
+                    if (queryPredicateCompileTimeRange.isEmpty() || candidatePlaceholder.compileTimeRange.implies(queryPredicateCompileTimeRange.get())) {
                         return Optional.of(new PredicateMapping(this,
                                 candidatePredicate,
                                 ((partialMatch, boundParameterPrefixMap) -> {

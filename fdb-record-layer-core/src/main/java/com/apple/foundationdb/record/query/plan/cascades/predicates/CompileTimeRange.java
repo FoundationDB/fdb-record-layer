@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -166,7 +167,7 @@ public class CompileTimeRange {
         }
 
         public boolean canAdd(@Nonnull final Comparisons.Comparison comparison) {
-            return allowedComparisonTypes.contains(comparison.getType());
+            return comparison instanceof Comparisons.SimpleComparison && allowedComparisonTypes.contains(comparison.getType());
         }
 
         public boolean tryAdd(@Nonnull final Comparisons.Comparison comparison) {
@@ -206,9 +207,11 @@ public class CompileTimeRange {
         }
 
         @Nonnull
-        public CompileTimeRange build() {
-            Verify.verifyNotNull(range);
-            return new CompileTimeRange(range);
+        public Optional<CompileTimeRange> build() {
+            if (range == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new CompileTimeRange(range));
         }
 
         private static Set<Comparisons.Type> allowedComparisonTypes = new LinkedHashSet<>();

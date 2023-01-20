@@ -53,7 +53,7 @@ public class TupleRangeTest {
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
 
-        Assertions.assertTrue(largerRange.build().implies(smallerRange.build()));
+        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
     }
 
     @Test
@@ -65,12 +65,12 @@ public class TupleRangeTest {
         final var smallerRange = CompileTimeRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertTrue(largerRange.build().implies(smallerRange.build()));
+        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
 
         final var otherRange = CompileTimeRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertFalse(largerRange.build().implies(otherRange.build()));
+        Assertions.assertFalse(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()));
     }
 
     @Test
@@ -83,12 +83,12 @@ public class TupleRangeTest {
         final var smallerRange = CompileTimeRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertTrue(largerRange.build().implies(smallerRange.build()));
+        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
 
         final var otherRange = CompileTimeRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertFalse(largerRange.build().implies(otherRange.build()));
+        Assertions.assertFalse(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()));
     }
 
     @Test
@@ -103,13 +103,13 @@ public class TupleRangeTest {
         final var zeroValueRange = CompileTimeRange.newBuilder();
         zeroValueRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0));
 
-        Assertions.assertFalse(emptyRange.implies(zeroValueRange.build()));
+        Assertions.assertFalse(emptyRange.implies(zeroValueRange.build().orElseThrow()));
 
         final var largeRange = CompileTimeRange.newBuilder();
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
-        Assertions.assertFalse(emptyRange.implies(largeRange.build()));
+        Assertions.assertFalse(emptyRange.implies(largeRange.build().orElseThrow()));
     }
 
     @Test

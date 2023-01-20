@@ -128,7 +128,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         if (placeholder.getValue().semanticEquals(sargableValue.getValue(), AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
                             found = true;
                             mutablePlaceholders.remove(i);
-                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getCompileTimeRange()));
+                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getCompileTimeRange().orElseThrow()));
                             break;
                         }
                         // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate
