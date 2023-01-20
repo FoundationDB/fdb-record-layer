@@ -134,6 +134,12 @@ public class SortedRecordSerializer<M extends Message> {
 
         @Nullable
         @Override
+        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+            return null;
+        }
+
+        @Nullable
+        @Override
         public String getConstituentName() {
             return null;
         }
