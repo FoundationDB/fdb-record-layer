@@ -192,16 +192,6 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public static PredicateMapping noMappingUncorrelated(@Nonnull final QueryPredicate queryPredicate) {
-            return noMappingWithKind(Kind.UNCORRELATED, queryPredicate);
-        }
-
-        @Nonnull
-        public static PredicateMapping noMappingCorrelated(@Nonnull final QueryPredicate queryPredicate) {
-            return noMappingWithKind(Kind.CORRELATED, queryPredicate);
-        }
-
-        @Nonnull
         private static PredicateMapping noMappingWithKind(@Nonnull final Kind mappingKind, @Nonnull final QueryPredicate queryPredicate) {
             Verify.verify(!mappingKind.hasMapping());
             return new PredicateMapping(mappingKind, queryPredicate, Optional.empty(), CompensatePredicateFunction.UNDEFINED, Optional.empty());

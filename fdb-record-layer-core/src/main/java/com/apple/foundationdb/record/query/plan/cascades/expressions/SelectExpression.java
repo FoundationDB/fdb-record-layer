@@ -55,8 +55,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
@@ -73,7 +71,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * A select expression.
@@ -385,8 +382,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         final var correlationOrder = getCorrelationOrder();
         final var localAliases = correlationOrder.getSet();
-        final var dependsOnMap = correlationOrder.getTransitiveClosure();
-        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -396,48 +391,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                             .filter(localAliases::contains)
                             .collect(ImmutableSet.toImmutableSet());
 
-            boolean correlatedToMatchedAliases = false;
-            boolean correlatedToUnmatchedAliases = false;
-            for (final var correlatedAlias : predicateCorrelatedTo) {
-                if (aliasMap.containsSource(correlatedAlias)) {
-                    // definitely correlated to local alias
-                    correlatedToMatchedAliases = true;
-                } else if (aliasToQuantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
-                    final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
-                    for (final var dependsOnAlias : correlatedDependsOn) {
-                        if (!correlatedToMatchedAliases && aliasMap.containsSource(dependsOnAlias)) {
-                            correlatedToMatchedAliases = true;
-                        } else {
-                            correlatedToUnmatchedAliases = true;
-                        }
-                    }
-                } else {
-                    correlatedToUnmatchedAliases = true;
-                }
+            if (predicateCorrelatedTo.stream().anyMatch(correlatedAlias -> !aliasMap.containsSource(correlatedAlias))) {
+                return ImmutableList.of();
             }
 
-            if (correlatedToMatchedAliases) {
-                final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates());
+            final Set<PredicateMapping> impliedMappingsForPredicate =
+                    predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates());
 
-                if (!correlatedToUnmatchedAliases) {
-                    predicateMappingsBuilder.add(impliedMappingsForPredicate);
-                } else {
-                    //
-                    // The current predicate is a join predicate, thus we want to create different ways of mapping it:
-                    // one where the data bound through other quantifiers is considered a bound constant value,
-                    // and one were there is no mapping at all. This may be used during the data access rules to
-                    // indicate that a particular quantifier is not available because it is not planned ahead of the
-                    // matched quantifiers.
-                    //
-                    predicateMappingsBuilder.add(ImmutableSet.<PredicateMapping>builder()
-                            .addAll(impliedMappingsForPredicate)
-                            .add(PredicateMapping.noMappingCorrelated(predicate))
-                            .build());
-                }
-            } else {
-                predicateMappingsBuilder.add(ImmutableSet.of(PredicateMapping.noMappingUncorrelated(predicate)));
-            }
+            predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
 
         //
@@ -456,92 +417,29 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
                     final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
                     final var predicateMapBuilder = PredicateMap.builder();
-                    final var allLocalNonMatchedCorrelationsBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+
+                    boolean isAnyMappingFiltering = false;
 
                     for (final var predicateMapping : predicateMappings) {
-                        if (predicateMapping.hasMapping()) {
-                            predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
-                            remainingUnmappedCandidatePredicates.remove(predicateMapping.getCandidatePredicate());
+                        Verify.verify(predicateMapping.hasMapping());
+                        final var queryPredicate = predicateMapping.getQueryPredicate();
+                        final var candidatePredicate = predicateMapping.getCandidatePredicate();
+                        predicateMapBuilder.put(queryPredicate, predicateMapping);
+                        remainingUnmappedCandidatePredicates.remove(candidatePredicate);
 
-                            final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
-                            final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
-                            if (parameterAliasOptional.isPresent() &&
-                                    comparisonRangeOptional.isPresent()) {
-                                parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
-                            }
-                            
-                            final var predicate = predicateMapping.getQueryPredicate();
-
-                            allLocalNonMatchedCorrelationsBuilder
-                                    .addAll(computeLocalNonMatchedCorrelations(aliasMap, aliasToQuantifierMap, dependsOnMap, predicate));
+                        final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
+                        final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
+                        if (parameterAliasOptional.isPresent() &&
+                                comparisonRangeOptional.isPresent()) {
+                            isAnyMappingFiltering = true;
+                            parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+                        } else if (!candidatePredicate.isTautology() || !queryPredicate.isTautology()) {
+                            isAnyMappingFiltering = true;
                         }
                     }
 
-                    //
-                    // This holds all correlations to things outside the matched quantifier set.
-                    //
-                    final var allLocalNonMatchedCorrelations = allLocalNonMatchedCorrelationsBuilder.build();
-
-                    //
-                    // It is possible that we created a mapping that can never be planned due to the
-                    // potential introduction of a circular dependencies for join predicates. For instance,
-                    //
-                    // SELECT *
-                    // FROM (SELECT * FROM T1) AS c1,
-                    //      (SELECT * FROM T2 WHERE c1.a < T2.b) as c2
-                    // WHERE c1.x > 5 AND c1.x = c2.y
-                    //
-                    // should not yield a predicate map that covers both
-                    // c1.x > 5 AND c1.x = c2.y
-                    // as that would later result in a graph like this:
-                    //
-                    // SELECT *
-                    // FROM (SELECT * FROM T1 c1.x > 5 AND c1.x = c2.y) AS c1',
-                    //      (SELECT * FROM T2 WHERE c1'.a < T2.b) as c2
-                    //
-                    // which introduces a circular dependency on c1 <- c1' <- c2 <- c1.
-                    //
-
-                    //
-                    // Check if any of these aliases is in turn correlated to anything in the matched
-                    // quantifier set.
-                    //
-                    for (final CorrelationIdentifier alias : allLocalNonMatchedCorrelations) {
-                        if (dependsOnMap.get(alias)
-                                .stream()
-                                .anyMatch(aliasMap::containsSource)) {
-                            return ImmutableList.of();
-                        }
-                    }
-                    
-                    //
-                    // Go through the set of predicates a second time to check if using this match may not be optimal.
-                    //
-                    for (final var predicateMapping : predicateMappings) {
-                        if (!predicateMapping.hasMapping() &&
-                                predicateMapping.getMappingKind() == PredicateMapping.Kind.CORRELATED) {
-                            //
-                            // We didn't record a mapping for this particular predicate. That can only have happened
-                            // because we didn't want to repossess the predicate for this candidate for this set of
-                            // mappings.
-                            // What can happen, though, is that there are other predicate mappings in this set that
-                            // have repossessed predicates thus creating dependencies to set of aliases the
-                            // respective predicate is correlated to. That set of aliases is free to use and if the
-                            // current predicate has lesser requirements, that is, its correlations are a subset of the
-                            // alias we already know are free to use, we reject this match as it is not optimal.
-                            //
-                            final var predicate = predicateMapping.getQueryPredicate();
-
-                            if (StreamSupport.stream(computeLocalNonMatchedCorrelations(aliasMap,
-                                                    aliasToQuantifierMap,
-                                                    dependsOnMap,
-                                                    predicate).spliterator(),
-                                            false)
-                                    .allMatch(allLocalNonMatchedCorrelations::contains)) {
-                                // This match is not optimal and could be better
-                                return ImmutableList.of();
-                            }
-                        }
+                    if (!isAnyMappingFiltering) {
+                        return ImmutableList.of();
                     }
 
                     //
@@ -572,16 +470,23 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 });
     }
 
-    private Iterable<CorrelationIdentifier> computeLocalNonMatchedCorrelations(@Nonnull final AliasMap aliasMap,
-                                                                               @Nonnull final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap,
-                                                                               @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
-                                                                               @Nonnull final QueryPredicate predicate) {
-        final var localAliases = aliasToQuantifierMap.keySet();
-        return () -> predicate.getTransitivelyCorrelatedTo(localAliases, dependsOnMap)
-                .stream()
-                .filter(alias -> !(aliasToQuantifierMap.get(alias) instanceof Quantifier.Existential))
-                .filter(alias -> !aliasMap.containsSource(alias))
-                .iterator();
+    @Nonnull
+    @Override
+    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+        final var childMatchInfo = partialMatch.getMatchInfo();
+        if (childMatchInfo.getRemainingComputationValueOptional().isPresent()) {
+            return Optional.empty();
+        }
+
+        final var isAnyCandidatePredicateFiltering =
+                getPredicates()
+                        .stream()
+                        .anyMatch(predicate -> !(predicate instanceof Placeholder) && !predicate.isTautology());
+        if (isAnyCandidatePredicateFiltering) {
+            return Optional.empty();
+        }
+
+        return Optional.of(childMatchInfo);
     }
 
     @Nonnull
@@ -776,7 +681,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 predicateCompensationMap,
                 computeMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
-                partialMatch.getCompensatedAliases(),
+                partialMatch.getMatchedAliases(),
                 matchInfo.getRemainingComputationValueOptional());
     }
 }

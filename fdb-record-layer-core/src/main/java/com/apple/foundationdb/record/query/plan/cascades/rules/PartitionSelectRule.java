@@ -68,7 +68,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
-        if (selectExpression.getQuantifiers().size() < 3) {
+        if (selectExpression.getQuantifiers().size() < 2) {
             return;
         }
 
@@ -76,7 +76,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                 .stream()
                 .map(Quantifier::getAlias)
                 .collect(ImmutableSet.toImmutableSet());
-        if (lowerAliases.size() < 2) {
+        if (lowerAliases.isEmpty()) {
             return;
         }
 
@@ -143,10 +143,12 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         // the set of newly eligible predicates that can be applied as part of joining outer and inner.
         //
 
-        // predicates that are only correlated to lower aliases
+        // predicates that are going to the lower select expression
         final var lowerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        // predicates that are only correlated to upper aliases
+        // predicates that are going to the upper select expression
         final var upperPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+        // predicates that only deeply correlated and in effect constants
+        final var deeplyCorrelatedPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedTo = predicate.getCorrelatedTo();
@@ -177,17 +179,36 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                     upperPredicatesBuilder.add(predicate);
                 }
             } else {
-                // correlated to lower or deeply correlated
-                lowerPredicatesBuilder.add(predicate);
+                if (!correlatedToLowerAliases.isEmpty()) {
+                    // correlated to lower or deeply correlated
+                    lowerPredicatesBuilder.add(predicate);
+                } else {
+                    deeplyCorrelatedPredicatesBuilder.add(predicate);
+                }
             }
         }
 
         final var lowerPredicates = lowerPredicatesBuilder.build();
         final var upperPredicates = upperPredicatesBuilder.build();
+        final var deeplyCorrelatedPredicates = deeplyCorrelatedPredicatesBuilder.build();
+
+        //
+        // We only want to proceed with the partitioning if the partitioning itself is helpful:
+        // 1. The new upper select expression would have fewer quantifiers than the original select expression (that
+        //    is always true except if we partition a binary select expression) OR
+        // 2. lower predicates is not empty.
+        //
+        if (lowerAliases.size() == 1) { // this removes one and adds one
+            if (lowerPredicates.isEmpty()) {
+                // not useful
+                return;
+            }
+        }
 
         final var lowerGraphExpansionBuilder = GraphExpansion.builder();
         lowerGraphExpansionBuilder.addAllQuantifiers(lowerAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
         lowerGraphExpansionBuilder.addAllPredicates(lowerPredicates);
+        lowerGraphExpansionBuilder.addAllPredicates(deeplyCorrelatedPredicates);
         final SelectExpression lowerSelectExpression;
         if (lowersCorrelatedToAliases.isEmpty()) {
             lowerGraphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));

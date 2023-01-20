@@ -20,10 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -96,7 +93,7 @@ public class PartialMatch {
     private final Supplier<Set<QueryPredicate>> bindingPredicatesSupplier;
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
+    private final Supplier<Set<CorrelationIdentifier>> matchedAliasesSupplier;
 
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
@@ -112,7 +109,7 @@ public class PartialMatch {
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
         this.bindingPredicatesSupplier = this::computeBindingQueryPredicates;
-        this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
+        this.matchedAliasesSupplier = Suppliers.memoize(this::computeMatchedAliases);
     }
 
     @Nonnull
@@ -209,34 +206,30 @@ public class PartialMatch {
      * @return a set of compensated aliases
      */
     @Nonnull
-    public final Set<CorrelationIdentifier> getCompensatedAliases() {
-        return compensatedAliasesSupplier.get();
+    public final Set<CorrelationIdentifier> getMatchedAliases() {
+        return matchedAliasesSupplier.get();
     }
 
     @Nonnull
-    private Set<CorrelationIdentifier> computeCompensatedAliases() {
-        final var compensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+    private Set<CorrelationIdentifier> computeMatchedAliases() {
+        return queryExpression.computeMatchedQuantifiers(this)
+                .stream()
+                .map(Quantifier::getAlias)
+                .collect(ImmutableSet.toImmutableSet());
 
-        final var matchedAliases =
-                queryExpression.computeMatchedQuantifiers(this)
-                        .stream()
-                        .map(Quantifier::getAlias)
-                        .collect(ImmutableSet.toImmutableSet());
-        compensatedAliasesBuilder.addAll(matchedAliases);
-
-        final var predicatesMap = matchInfo.getPredicateMap();
-        for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
-            final Iterable<? extends QueryPredicate> existsPredicates =
-                    queryPredicate.filter(predicate -> predicate instanceof ExistsPredicate);
-
-            for (final var predicate : existsPredicates) {
-                final var existsPredicate =
-                        predicate.narrowMaybe(ExistsPredicate.class).orElseThrow(() -> new RecordCoreException("cast expected to succeed"));
-                compensatedAliasesBuilder.add(existsPredicate.getExistentialAlias());
-            }
-        }
-
-        return compensatedAliasesBuilder.build();
+//        final var predicatesMap = matchInfo.getPredicateMap();
+//        for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
+//            final Iterable<? extends QueryPredicate> existsPredicates =
+//                    queryPredicate.filter(predicate -> predicate instanceof ExistsPredicate);
+//
+//            for (final var predicate : existsPredicates) {
+//                final var existsPredicate =
+//                        predicate.narrowMaybe(ExistsPredicate.class).orElseThrow(() -> new RecordCoreException("cast expected to succeed"));
+//                compensatedAliasesBuilder.add(existsPredicate.getExistentialAlias());
+//            }
+//        }
+//
+//        return compensatedAliasesBuilder.build();
     }
 
     @Nonnull

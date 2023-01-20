@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
@@ -154,7 +155,7 @@ public class PlannerRuleSet {
             new ImplementInUnionRule(),
             new ImplementSimpleSelectRule(),
             new ImplementExplodeRule(),
-//            new ImplementNestedLoopJoinRule(),
+            new ImplementNestedLoopJoinRule(),
 //            new ImplementExistentialNestedLoopJoinRule(),
             new PartitionSelectRule(),
             new ImplementStreamingAggregationRule(),

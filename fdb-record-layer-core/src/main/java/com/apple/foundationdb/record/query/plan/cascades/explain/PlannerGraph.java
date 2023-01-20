@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +56,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                                                       @Nonnull final List<? extends PlannerGraph> childGraphs) {
         final List<? extends Quantifier> quantifiers = tryGetQuantifiers(node);
         if (quantifiers.isEmpty() || quantifiers.size() != childGraphs.size()) {
-            return fromNodeAndChildGraphsWithoutQuantifiers(node, childGraphs);
+            return fromNodeAndChildGraphs(node, childGraphs, null);
         }
 
         final List<? extends Quantifier> sortedQuantifiers = Quantifiers.anyTopologicalOrderPermutation(quantifiers);
@@ -103,8 +104,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
-    public static PlannerGraph fromNodeAndChildGraphsWithoutQuantifiers(@Nonnull final Node node,
-                                                                        @Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public static PlannerGraph fromNodeAndChildGraphs(@Nonnull final Node node,
+                                                      @Nonnull final List<? extends PlannerGraph> sortedChildGraphs,
+                                                      @Nullable final List<? extends Quantifier> sortedQuantifiers) {
+        // quantifiers are either not given or are of the same cardinality as child graphs
+        Preconditions.checkArgument(sortedQuantifiers == null || sortedQuantifiers.size() == sortedChildGraphs.size());
+
         final InternalPlannerGraphBuilder plannerGraphBuilder =
                 builder(node);
 
@@ -112,14 +117,23 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         // in the dependsOn set. That in turn causes the dot exporter to render the graph left to right which
         // is important for join order, among other things.
         Edge previousEdge = null;
-        for (final PlannerGraph childGraph : childGraphs) {
+        for (int i = 0; i < sortedChildGraphs.size(); i++) {
+            final PlannerGraph childGraph = sortedChildGraphs.get(i);
             final GroupExpressionRefEdge edge;
             final Set<? extends AbstractEdge> dependsOn =
                     previousEdge == null
                     ? ImmutableSet.of()
                     : ImmutableSet.of(previousEdge);
 
-            edge = new GroupExpressionRefEdge(null, dependsOn);
+            @Nullable final String label;
+            if (sortedQuantifiers != null) {
+                final var quantifier = sortedQuantifiers.get(i);
+                label = Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
+            } else {
+                label = null;
+            }
+
+            edge = new GroupExpressionRefEdge(label, dependsOn);
 
             plannerGraphBuilder
                     .addGraph(childGraph)

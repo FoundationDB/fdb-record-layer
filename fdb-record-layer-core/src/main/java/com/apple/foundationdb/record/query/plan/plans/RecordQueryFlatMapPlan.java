@@ -266,6 +266,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
                         ImmutableList.of("FLATMAP {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
-                childGraphs);
+                childGraphs,
+                getQuantifiers());
     }
 }
