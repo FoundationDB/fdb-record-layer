@@ -30,18 +30,6 @@ import org.junit.jupiter.api.Test;
  */
 public class TupleRangeTest {
 
-//    @Test
-//    public void canCreateTupleRangeOverNonContiguousRanges() {
-//        ScanComparisons.Builder builder = new ScanComparisons.Builder();
-//        builder.addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0))
-//                .addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10))
-//                .addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 20))
-//                .addInequalityComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 30));
-//
-//        final var tupleRange = builder.build().toTupleRange();
-//        Assertions.assertNotNull(tupleRange);
-//    }
-
     @Test
     public void testRangeImplication() {
         final var largerRange = CompileTimeRange.newBuilder();

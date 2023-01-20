@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -29,12 +28,11 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-
-
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
  * Set of utility functions that support transforming a {@link com.apple.foundationdb.record.query.plan.cascades.values.Value}

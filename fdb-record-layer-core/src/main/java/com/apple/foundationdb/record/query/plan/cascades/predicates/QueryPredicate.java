@@ -357,7 +357,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    public static QueryPredicate deserialize(@Nonnull final RecordMetaDataProto.Predicate proto,
+    static QueryPredicate deserialize(@Nonnull final RecordMetaDataProto.Predicate proto,
                                              @Nonnull final CorrelationIdentifier alias,
                                              @Nonnull final Type inputType) {
         if (proto.hasAndPredicate()) {

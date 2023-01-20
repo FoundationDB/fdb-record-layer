@@ -29,6 +29,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Range;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -83,6 +84,23 @@ public class CompileTimeRange {
         @Override
         public int compareTo(final Boundary other) {
             return tuple.compareTo(other.tuple);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Boundary boundary = (Boundary)o;
+            return tuple.equals(boundary.tuple);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tuple);
         }
 
         // mainly for backward compatibility.
@@ -145,8 +163,7 @@ public class CompileTimeRange {
             } else {
                 items.add(ScanComparisons.toTupleItem(comparison.getComparand(null, null)));
             }
-            final Tuple result = Tuple.fromList(items);
-            return result;
+            return Tuple.fromList(items);
         }
 
         @Nonnull
@@ -160,7 +177,24 @@ public class CompileTimeRange {
      */
     public static class Builder {
 
-        Range<Boundary> range;
+        @Nullable
+        private Range<Boundary> range;
+
+        @Nonnull
+        private static final Set<Comparisons.Type> allowedComparisonTypes = new LinkedHashSet<>();
+
+        @Nonnull
+        private static final CompileTimeRange emptyRange = new CompileTimeRange(Range.closedOpen(
+                Boundary.newBuilder().setComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0)).build(),
+                Boundary.newBuilder().setComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0)).build()));
+
+        static {
+            allowedComparisonTypes.add(Comparisons.Type.GREATER_THAN);
+            allowedComparisonTypes.add(Comparisons.Type.GREATER_THAN_OR_EQUALS);
+            allowedComparisonTypes.add(Comparisons.Type.LESS_THAN);
+            allowedComparisonTypes.add(Comparisons.Type.LESS_THAN_OR_EQUALS);
+            allowedComparisonTypes.add(Comparisons.Type.EQUALS);
+        }
 
         private Builder() {
             this.range = null;
@@ -213,17 +247,6 @@ public class CompileTimeRange {
             }
             return Optional.of(new CompileTimeRange(range));
         }
-
-        private static Set<Comparisons.Type> allowedComparisonTypes = new LinkedHashSet<>();
-
-        static {
-            allowedComparisonTypes.add(Comparisons.Type.GREATER_THAN);
-            allowedComparisonTypes.add(Comparisons.Type.GREATER_THAN_OR_EQUALS);
-            allowedComparisonTypes.add(Comparisons.Type.LESS_THAN);
-            allowedComparisonTypes.add(Comparisons.Type.LESS_THAN_OR_EQUALS);
-            allowedComparisonTypes.add(Comparisons.Type.EQUALS);
-        }
-
     }
 
     @Nonnull
@@ -231,13 +254,10 @@ public class CompileTimeRange {
         return new Builder();
     }
 
-    private static CompileTimeRange emptyRange = new CompileTimeRange(Range.closedOpen(
-            Boundary.newBuilder().setComparison(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0)).build(),
-            Boundary.newBuilder().setComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0)).build()));
 
     @Nonnull
     public static CompileTimeRange empty() {
-        return emptyRange;
+        return Builder.emptyRange;
     }
 
     public boolean implies(@Nonnull final CompileTimeRange other) {
