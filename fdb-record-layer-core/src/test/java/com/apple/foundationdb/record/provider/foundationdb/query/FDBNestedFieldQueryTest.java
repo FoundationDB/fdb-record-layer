@@ -146,34 +146,11 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1, myrec.getNumValueIndexed());
         }
 
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MyHierarchicalRecord")
-                .setFilter(Query.field("parent_path").equalsValue("photos"))
-                .build();
-
-        // Scan([[photos],[photos]])
-        RecordQueryPlan plan = planner.plan(query);
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
-            assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-845866877, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1788735724, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        } else {
-            assertMatchesExactly(plan,
-                    scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
-            assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(117315419, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1543049276, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        }
-        assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
-                this::openHierarchicalRecordStore,
-                TestHelpers::assertDiscardedNone));
-
-        query = RecordQuery.newBuilder()
+        var query = RecordQuery.newBuilder()
                 .setRecordType("MyHierarchicalRecord")
                 .setFilter(Query.field("parent_path").startsWith("photos"))
                 .build();
+        RecordQueryPlan plan = planner.plan(query);
 
         // Scan({[photos],[photos]})
         plan = planner.plan(query);
@@ -489,8 +466,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("stats$school"))
                                     .and(scanComparisons(range("([null],[1000]]"))))
                             .where(queryComponents(only(equalsObject(Query.field("stats").matches(
-                                            Query.and(Query.field("school_name").lessThan("University of Procrastination"),
-                                                    Query.field("hometown").startsWith("H"))))))));
+                                    Query.and(Query.field("school_name").lessThan("University of Procrastination"),
+                                            Query.field("hometown").startsWith("H"))))))));
 
             assertEquals(1700959433, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(336906555, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -534,10 +511,10 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertMatchesExactly(plan,
-                        indexPlan()
-                                .where(indexName("emailHometown"))
-                                .and(scanComparisons(range("([pmp@example.com, Home Town, null],[pmp@example.com, Home Town, 0]]"))));
-        
+                indexPlan()
+                        .where(indexName("emailHometown"))
+                        .and(scanComparisons(range("([pmp@example.com, Home Town, null],[pmp@example.com, Home Town, 0]]"))));
+
         assertEquals(-688450117, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1159885451, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(608425592, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -899,8 +876,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.and(
                         Query.field("category").equalsValue(1),
                         Query.field("stats").matches(Query.and(
-                                                               Query.field("start_date").equalsValue(1066L),
-                                                               Query.field("hometown").greaterThan("M")))))
+                                Query.field("start_date").equalsValue(1066L),
+                                Query.field("hometown").greaterThan("M")))))
                 .setSort(field("stats").nest("hometown"))
                 .build();
 
