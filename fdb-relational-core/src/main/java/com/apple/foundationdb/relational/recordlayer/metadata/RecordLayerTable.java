@@ -31,11 +31,14 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,29 +66,23 @@ public final class RecordLayerTable implements Table {
     @Nonnull
     private final Type.Record record;
 
-    private RecordLayerTable(@Nonnull final String name,
-                             @Nonnull final List<RecordLayerColumn> columns,
-                             @Nonnull final Set<RecordLayerIndex> indexes,
-                             @Nonnull final KeyExpression primaryKey) {
-        this.name = name;
-        this.columns = ImmutableList.copyOf(columns);
-        this.indexes = ImmutableSet.copyOf(indexes);
-        this.primaryKey = primaryKey;
-        this.dataType = calculateDataType();
-        this.record = calculateRecordLayerType();
-    }
+    @Nonnull
+    private final Map<Integer, DescriptorProtos.FieldOptions> generations;
 
     private RecordLayerTable(@Nonnull final String name,
                              @Nonnull final List<RecordLayerColumn> columns,
                              @Nonnull final Set<RecordLayerIndex> indexes,
                              @Nonnull final KeyExpression primaryKey,
-                             @Nonnull final DataType.StructType dataType) {
+                             @Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations,
+                             final DataType.StructType dataType,
+                             final Type.Record record) {
         this.name = name;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableSet.copyOf(indexes);
         this.primaryKey = primaryKey;
-        this.dataType = dataType;
-        this.record = calculateRecordLayerType();
+        this.generations = generations;
+        this.dataType = dataType == null ? calculateDataType() : dataType;
+        this.record = record == null ? calculateRecordLayerType() : record;
     }
 
     @Nonnull
@@ -98,6 +95,11 @@ public final class RecordLayerTable implements Table {
     @Override
     public Set<RecordLayerIndex> getIndexes() {
         return indexes;
+    }
+
+    @Nonnull
+    public Map<Integer, DescriptorProtos.FieldOptions> getGenerations() {
+        return generations;
     }
 
     @Nonnull
@@ -203,20 +205,18 @@ public final class RecordLayerTable implements Table {
         @Nonnull
         private KeyExpression primaryKeyParts;
 
+        @Nonnull
+        private Map<Integer, DescriptorProtos.FieldOptions> generations;
+
+        private DataType.StructType dataType;
+
+        private Type.Record record;
+
         private Builder() {
             this.indexes = new HashSet<>();
             this.columns = ImmutableList.builder();
             this.primaryKeyParts = Key.Expressions.recordType();
-        }
-
-        private Builder(@Nonnull final String name,
-                        @Nonnull final Collection<RecordLayerColumn> columns,
-                        @Nonnull final Collection<RecordLayerIndex> indexes,
-                        @Nonnull final KeyExpression primaryKeyParts) {
-            this.name = name;
-            this.columns = ImmutableList.<RecordLayerColumn>builder().addAll(columns);
-            this.indexes = new HashSet<>(indexes);
-            this.primaryKeyParts = primaryKeyParts;
+            this.generations = new HashMap<>();
         }
 
         @Nonnull
@@ -226,9 +226,47 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nonnull
+        public Builder setDatatype(@Nonnull DataType.StructType dataType) {
+            this.dataType = dataType;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setRecord(@Nonnull Type.Record record) {
+            this.record = record;
+            return this;
+        }
+
+        @Nonnull
+        public Builder addIndexes(@Nonnull final Collection<RecordLayerIndex> indexes) {
+            indexes.forEach(this::addIndex);
+            return this;
+        }
+
+        @Nonnull
         public Builder addIndex(@Nonnull final RecordLayerIndex index) {
             Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())), String.format("attempt to add duplicate index '%s'", index.getName()), ErrorCode.INDEX_ALREADY_EXISTS);
             this.indexes.add(index);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addGenerations(@Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations) {
+            generations.forEach(this::addGeneration);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addGeneration(int number, @Nonnull DescriptorProtos.FieldOptions options) {
+            Assert.thatUnchecked(!generations.containsKey(number), String.format("Duplicate field number %d for generation of Table %s", number, name), ErrorCode.TABLE_ALREADY_EXISTS);
+            Assert.thatUnchecked(!generations.containsValue(options), String.format("Duplicated options for different generations of Table %s", name), ErrorCode.TABLE_ALREADY_EXISTS);
+            generations.put(number, options);
+            return this;
+        }
+
+        @Nonnull
+        public Builder setPrimaryKey(@Nonnull final KeyExpression primaryKey) {
+            this.primaryKeyParts = primaryKey;
             return this;
         }
 
@@ -245,7 +283,7 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nonnull
-        public Builder addColumns(@Nonnull final List<RecordLayerColumn> columns) {
+        public Builder addColumns(@Nonnull final Collection<RecordLayerColumn> columns) {
             this.columns.addAll(columns);
             return this;
         }
@@ -271,42 +309,35 @@ public final class RecordLayerTable implements Table {
 
             final var columnsList = normalize(columns.build());
 
-            Assert.thatUnchecked(!columnsList.isEmpty(), "attempt to create table without columns");
+            Assert.thatUnchecked(!columnsList.isEmpty(), String.format("Attempting to create table %s without columns", name), ErrorCode.INVALID_TABLE_DEFINITION);
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
 
-            return new RecordLayerTable(name, columnsList, indexesSet, primaryKeyParts);
+            return new RecordLayerTable(name, columnsList, indexesSet, primaryKeyParts, generations, dataType, record);
         }
 
-        /**
-         * Constructs a new {@link RecordLayerTable} from a {@link com.apple.foundationdb.relational.api.metadata.DataType.StructType}.
-         * @param structType The type information of the table.
-         * @param primaryKey The primary key of the table.
-         * @param indexes List of indexes defined on the table.
-         * @return A new instance of {@link RecordLayerTable}.
-         */
         @Nonnull
-        public static RecordLayerTable from(@Nonnull final DataType.StructType structType,
-                                            @Nonnull final KeyExpression primaryKey,
-                                            @Nonnull final Set<RecordLayerIndex> indexes) {
-            return new RecordLayerTable(structType.getName(),
-                    normalize(structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList())),
-                    indexes,
-                    primaryKey,
-                    structType);
+        public static Builder from(@Nonnull final RecordLayerTable table) {
+            return newBuilder()
+                    .setName(table.getName())
+                    .addColumns(table.getColumns())
+                    .setPrimaryKey(table.getPrimaryKey())
+                    .addIndexes(table.getIndexes())
+                    .setDatatype(table.getDatatype())
+                    .setRecord(table.getType())
+                    .addGenerations(table.getGenerations());
         }
 
-        /**
-         * Constructs a new {@link RecordLayerTable} from a {@link Type.Record} type.
-         * @param record The record-layer type information of the table.
-         * @param primaryKey The primary key of the table.
-         * @param indexes List of indexes defined on the table.
-         * @return A new instance of {@link RecordLayerTable}.
-         */
         @Nonnull
-        public static RecordLayerTable from(@Nonnull final Type.Record record,
-                                            @Nonnull final KeyExpression primaryKey,
-                                            @Nonnull final Set<RecordLayerIndex> indexes) {
+        public static Builder from(@Nonnull final DataType.StructType structType) {
+            return newBuilder()
+                    .setName(structType.getName())
+                    .addColumns(structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList()))
+                    .setDatatype(structType);
+        }
+
+        @Nonnull
+        public static Builder from(@Nonnull final Type.Record record) {
             final var relationalType = DataTypeUtils.toRelationalType(record);
             Assert.thatUnchecked(relationalType instanceof DataType.StructType);
             final var asStruct = (DataType.StructType) relationalType;
@@ -314,7 +345,7 @@ public final class RecordLayerTable implements Table {
             //       when we know that the passed record matches _exactly_ the corresponding Relational type.
             //       this could be achieved by checking whether the record has an explicit name and all of its
             //       fields (recursively) have explicit names, this seems to be mostly equally expensive though.
-            return from(asStruct, primaryKey, indexes);
+            return from(asStruct).setRecord(record);
         }
 
         @Nonnull
@@ -338,10 +369,5 @@ public final class RecordLayerTable implements Table {
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
-    }
-
-    @Nonnull
-    public static Builder from(@Nonnull final RecordLayerTable table) {
-        return new Builder(table.getName(), table.getColumns(), table.getIndexes(), table.getPrimaryKey());
     }
 }

@@ -34,6 +34,7 @@ import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class FileDescriptorSerializer extends SkeletonVisitor {
@@ -47,6 +48,16 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Nonnull
     private final Set<String> descriptorNames;
 
+    // FileDescriptorSerializer operates in 2 modes. With `assignGenerations`=true, the serializer assumes that the
+    // tables already have one (or more generations) and hence do not assign them generations by itself. Consequently,
+    // for `assignGenerations`=false, the FileDescriptorSerializer expects that the tables have generations already
+    // assigned for them and hence, do assign any generations.
+    //
+    // Dual-mode operation is temporary and should be removed once Relational has native support for some form of `ALTER`
+    // commands that can `evolve` a table to new `generation`. In essence, we want generation assignment to happen at
+    // a higher level, before the SchemaTemplate is made to serialize.
+    private Boolean assignGenerations;
+
     private int tableCounter;
 
     public FileDescriptorSerializer() {
@@ -59,7 +70,8 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         final RecordMetaDataOptionsProto.RecordTypeOptions options = RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder().setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION).build();
         unionDescriptorBuilder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record, options);
         this.descriptorNames = new LinkedHashSet<>();
-        this.tableCounter = 0;
+        // Starts with 1 to maintain compatibility with the protobuf field number.
+        this.tableCounter = 1;
     }
 
     @Override
@@ -73,15 +85,23 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         final var recordLayerTable = (RecordLayerTable) table;
         final var type = recordLayerTable.getType();
         final var typeDescriptor = registerTypeDescriptors(type);
+        final var generations = recordLayerTable.getGenerations();
 
-        // add the table as an entry in the final 'RecordTypeUnion' entry of the record store metadata.
-        final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
-                .setNumber(++tableCounter)
-                .setName(recordLayerTable.getName())
-                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                .setTypeName(typeDescriptor)
-                .build();
-        unionDescriptorBuilder.addField(tableEntryInUnionDescriptor);
+        checkTableGenerations(generations);
+
+        int fieldCounter = 0;
+        // add the table as an entry in the final 'RecordTypeUnion' entry of the record store metadata. There is one
+        // field for each generation of the RecordLayerTable.
+        for (var version: generations.entrySet()) {
+            final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
+                    .setNumber(version.getKey())
+                    .setName(recordLayerTable.getName() + "_" + (fieldCounter++))
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                    .setTypeName(typeDescriptor)
+                    .setOptions(version.getValue())
+                    .build();
+            unionDescriptorBuilder.addField(tableEntryInUnionDescriptor);
+        }
     }
 
     // (yhatem) this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
@@ -123,5 +143,18 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Nonnull
     public DescriptorProtos.FileDescriptorProto.Builder getFileBuilder() {
         return fileBuilder;
+    }
+
+    private void checkTableGenerations(@Nonnull Map<Integer, DescriptorProtos.FieldOptions> generations) {
+        // Determine the mode by generations map of the first table.
+        if (assignGenerations == null) {
+            assignGenerations = generations.isEmpty();
+        }
+        if (assignGenerations) {
+            Assert.thatUnchecked(generations.isEmpty(), "Table already has generations when serializing in assignGenerations mode.");
+            generations.put(tableCounter++, DescriptorProtos.FieldOptions.newBuilder().build());
+        } else {
+            Assert.thatUnchecked(!generations.isEmpty(), "Table do not have generations when serializing in non-assignGenerations mode.");
+        }
     }
 }

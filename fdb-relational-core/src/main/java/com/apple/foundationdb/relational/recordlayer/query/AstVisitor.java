@@ -1394,7 +1394,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var modifiedIndexKeyExpression = NullableArrayUtils.wrapArray(indexKeyExpression, table.getType(), containsNonNullableArray);
         final var isUnique = ctx.UNIQUE() != null;
 
-        final var tableWithIndex = RecordLayerTable
+        final var tableWithIndex = RecordLayerTable.Builder
                 .from(table)
                 .addIndex(RecordLayerIndex
                         .newBuilder()

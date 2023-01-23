@@ -327,10 +327,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             final var resolvedTables = ImmutableMap.<String, RecordLayerTable>builder();
             for (final var table : tables.values()) {
                 if (!table.getDatatype().isResolved()) {
-                    resolvedTables.put(table.getName(), RecordLayerTable.Builder.from(
-                            (DataType.StructType) table.getDatatype().resolve(resolvedTypes).withNullable(table.getDatatype().isNullable()),
-                            table.getPrimaryKey(),
-                            table.getIndexes()));
+                    final var builder = RecordLayerTable.Builder
+                            .from((DataType.StructType) table.getDatatype().resolve(resolvedTypes).withNullable(table.getDatatype().isNullable()))
+                            .setPrimaryKey(table.getPrimaryKey())
+                            .addIndexes(table.getIndexes())
+                            .addGenerations(table.getGenerations());
+                    resolvedTables.put(table.getName(), builder.build());
                 } else {
                     resolvedTables.put(table.getName(), table);
                 }
