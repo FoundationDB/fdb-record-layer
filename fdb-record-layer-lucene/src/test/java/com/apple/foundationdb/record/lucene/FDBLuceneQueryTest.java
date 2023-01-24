@@ -414,7 +414,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1, queriedRecordList.size());
             FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
             
-            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord);
+            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord, null);
             assertEquals(1, highlightedTerms.size());
             LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
             assertEquals("text", highlightedTerm.getFieldName());

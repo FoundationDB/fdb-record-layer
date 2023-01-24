@@ -23,7 +23,10 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -514,7 +517,8 @@ public class LuceneHighlighting {
     }
 
     @Nonnull
-    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nullable FDBQueriedRecord<M> queriedRecord) {
+    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nullable FDBQueriedRecord<M> queriedRecord,
+                                                                                       @Nullable String nestedName) {
         if (queriedRecord == null) {
             return Collections.emptyList();
         }
@@ -527,22 +531,30 @@ public class LuceneHighlighting {
                 docIndexEntry.getLuceneQueryHighlightParameters().isRewriteRecords()) {
             return Collections.emptyList();
         }
-        return highlightedTermsForMessage(queriedRecord, queriedRecord.getRecord(),
+        return highlightedTermsForMessage(queriedRecord, queriedRecord.getRecord(), nestedName,
                 docIndexEntry.getIndexKey(), docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
     }
 
     // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
+
     @Nonnull
-    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nonnull FDBRecord<M> rec, M message,
+    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nonnull FDBRecord<M> rec, M message, @Nullable String nestedName,
                                                                                        @Nonnull KeyExpression expression, @Nonnull Map<String, Set<String>> termMap, @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
                                                                                        @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+        if (nestedName != null) {
+            expression = getNestedFields(expression, nestedName);
+            if (expression == null) {
+                return Collections.emptyList();
+            }
+        }
         List<HighlightedTerm> result = new ArrayList<>();
         LuceneIndexExpressions.getFields(expression, new LuceneDocumentFromRecord.FDBRecordSource<>(rec, message),
                 (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     if (type != LuceneIndexExpressions.DocumentFieldType.TEXT) {
                         return;
                     }
-                    Set<String> terms = getFieldTerms(termMap, fieldName);
+                    String termName = nestedName == null ? fieldName : nestedName + "_" + fieldName;
+                    Set<String> terms = getFieldTerms(termMap, termName);
                     if (terms.isEmpty()) {
                         return;
                     }
@@ -554,6 +566,22 @@ public class LuceneHighlighting {
                     }
                 }, null);
         return result;
+    }
+
+    @Nullable
+    private static KeyExpression getNestedFields(@Nonnull KeyExpression expression, @Nonnull String nestedName) {
+        if (expression instanceof GroupingKeyExpression) {
+            expression = ((GroupingKeyExpression)expression).getGroupedSubKey();
+        }
+        if (!(expression instanceof ThenKeyExpression)) {
+            return null;
+        }
+        for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
+            if (child instanceof NestingKeyExpression && ((NestingKeyExpression)child).getParent().getFieldName().equals(nestedName)) {
+                return ((NestingKeyExpression)child).getChild();
+            }
+        }
+        return null;
     }
 
 }

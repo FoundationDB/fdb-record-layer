@@ -463,7 +463,26 @@ public class LucenePlanner extends RecordQueryPlanner {
     private boolean validateIndexField(@Nonnull LucenePlanState state, @Nonnull String field) {
         // Can only check that the field name given corresponds to some top-level branch to an indexed field.
         for (LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
-            if (fieldDerivation.getRecordFieldPath().get(0).equals(field)) {
+            if (fieldMatchesPath(fieldDerivation, field)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
+                                     @Nonnull String field) {
+        StringBuilder path = null;
+        for (String pathElement : fieldDerivation.getRecordFieldPath()) {
+            if (path == null) {
+                path = new StringBuilder(pathElement);
+            } else {
+                path.append("_").append(pathElement);
+            }
+            if (path.length() > field.length()) {
+                break;
+            }
+            if (path.toString().equals(field)) {
                 return true;
             }
         }
