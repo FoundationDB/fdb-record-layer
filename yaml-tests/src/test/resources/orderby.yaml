@@ -149,7 +149,7 @@
 ---
 # Simple ordering on 1 variable with repetitive values
 - query: select c, b from t1 order by c;
-- result: [{0, !dc x}, {0, !dc x}, {1, !dc x}, {1, !dc x}, {5, !dc x}, {5, !dc x}, {5, !dc x}, {8, !dc x}, {8, !dc x}, {8, !dc x}]
+- result: [{0, !ignore x}, {0, !ignore x}, {1, !ignore x}, {1, !ignore x}, {5, !ignore x}, {5, !ignore x}, {5, !ignore x}, {8, !ignore x}, {8, !ignore x}, {8, !ignore x}]
 ---
 # Simple ordering on 2 variable
 - query: select c, b from t1 order by c, b;

@@ -63,7 +63,7 @@
 # the result set, again using the same YAML format mentioned above.
 # we leverage YAML tags to implement more features such as partial matching
 # in partial matching, we can mark any part of a (nested) message with the
-# tag !dc to inform the result set verifier that we do not really care about
+# tag !ignore to inform the result set verifier that we do not really care about
 # the that value of the result set, this allows us to quickly test scenarios
 # in which we're e.g. interested in checking the values of the _first_ column
 # only, or we're interested in a particular deeply nested field in a message
@@ -72,7 +72,7 @@
 # Long in the result set, we implement a special YAML Tag (!l), which parses each
 # number as Long instead of Integer so we can do proper matching.
 - query: select * from t1 where id > 15;
-- result: [{!l 30, !dc dc}, {!l 50, !dc dc}]
+- result: [{!l 30, !ignore dc}, {!l 50, !ignore dc}]
 ---
 # Having multiple `result` configs for the `query` command checks the result sets
 # (in order of appearance) with consecutive continuations of the query.
@@ -102,13 +102,13 @@
 - insert: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !l 101, { {!l 300, 'L3_2'}, 'L2_2' } }]
 - table: T1
 ---
-# We can selectively ignore part of the result set, by using the `!dc dc` tag, which will cause
+# We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
 # the matcher to always return true for that particular part of the message. This allows for
 # partial message matching which can make life easier in certain scenarios, e.g. verify that
 # the third struct field of the second column is ordered, without caring about the result of
 # the results.
 - query: select * from t1;
-- result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !dc dc, { {!l 300, 'L3_2'}, 'L2_2' } }]
+- result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
 - query: drop schema template test_template
 #---

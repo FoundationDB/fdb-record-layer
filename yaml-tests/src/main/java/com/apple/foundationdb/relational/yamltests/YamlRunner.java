@@ -75,7 +75,7 @@ public final class YamlRunner implements AutoCloseable {
         private boolean recursing;
 
         public CustomTagsInject() {
-            yamlConstructors.put(new Tag("!dc"), new CustomTagsInject.ConstructDontCare());
+            yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
             yamlConstructors.put(new Tag("!l"), new CustomTagsInject.ConstructLong());
             yamlConstructors.put(new Tag("!sc"), new CustomTagsInject.ConstructStringContains());
             yamlConstructors.put(new Tag("!null"), new CustomTagsInject.ConstructNullPlaceholder());
@@ -112,10 +112,10 @@ public final class YamlRunner implements AutoCloseable {
             }
         }
 
-        private static class ConstructDontCare extends AbstractConstruct {
+        private static class ConstructIgnore extends AbstractConstruct {
             @Override
             public Object construct(Node node) {
-                return YamlRunner.DontCare.INSTANCE;
+                return YamlRunner.Ignore.INSTANCE;
             }
         }
 
@@ -147,15 +147,15 @@ public final class YamlRunner implements AutoCloseable {
         }
     }
 
-    static final class DontCare {
-        static final DontCare INSTANCE = new DontCare();
+    static final class Ignore {
+        static final Ignore INSTANCE = new Ignore();
 
-        private DontCare() {
+        private Ignore() {
         }
 
         @Override
         public String toString() {
-            return "!dc";
+            return "!ignore";
         }
     }
 

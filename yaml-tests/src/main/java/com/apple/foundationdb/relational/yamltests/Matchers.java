@@ -219,7 +219,7 @@ public class Matchers {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage());
+                fail(e.getMessage(), e);
             }
             return null;
         };
@@ -231,7 +231,7 @@ public class Matchers {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage());
+                fail(e.getMessage(), e);
             }
             return null;
         };
@@ -243,7 +243,7 @@ public class Matchers {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage());
+                fail(e.getMessage(), e);
             }
             return null;
         };
@@ -255,7 +255,7 @@ public class Matchers {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage());
+                fail(e.getMessage(), e);
             }
             return null;
         };
@@ -376,7 +376,7 @@ public class Matchers {
     public static ResultSetMatchResult matchResultSet(final Object expected, final RelationalResultSet actual) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
 
-        if (expected instanceof YamlRunner.DontCare) {
+        if (expected instanceof YamlRunner.Ignore) {
             return ResultSetMatchResult.success();
         }
         if (expected == null && actual == null) {
@@ -487,7 +487,7 @@ public class Matchers {
                                                    @Nullable final Object actual,
                                                    @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
         // the test does not care about the incoming value.
-        if (expected instanceof YamlRunner.DontCare) {
+        if (expected instanceof YamlRunner.Ignore) {
             return ResultSetMatchResult.success();
         }
         final var expectedIsNull = expected instanceof YamlRunner.NullPlaceholder;

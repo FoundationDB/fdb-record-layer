@@ -105,28 +105,28 @@
 ---
 # BOOLEAN value matched against IN list of BOOLEAN values
 - query: select a, d from ta where d in (true, false)
-- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x},
-           {A: 1, !dc x}, {A: 3, !dc x}, {A: 5, !dc x}, {A: 7, !dc x}, {A: 9, !dc x}]
+- result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x},
+           {A: 1, !ignore x}, {A: 3, !ignore x}, {A: 5, !ignore x}, {A: 7, !ignore x}, {A: 9, !ignore x}]
 ---
 # BOOLEAN value matched against singleton IN list of BOOLEAN values
 - query: select a, d from ta where d in (true)
-- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x}]
+- result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
 ---
 # BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
 - query: select a, d from ta where d in (3 < 4)
-- result: [{A: 0, !dc x}, {A: 2, !dc x}, {A: 4, !dc x}, {A: 6, !dc x}, {A: 8, !dc x}]
+- result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
 ---
 # STRING value matched against IN list of STRING values
 - query: select a, e from ta where e in ('bar', 'doe')
-- result: [{ A: 1, !dc x }, { A: 8, !dc x }, { A: 2, !dc x }, { A: 5, !dc x }, { A: 9, !dc x }]
+- result: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
 ---
 # STRING value matched against singleton IN list of STRING values
 - query: select a, e from ta where e in ('foo')
-- result: [ { A: 0, !dc x }, { A: 6, !dc x }]
+- result: [ { A: 0, !ignore x }, { A: 6, !ignore x }]
 ---
 # STRING value matched against IN list of BOOLEAN-resultant simple expressions
 - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
-- result: [{ A: 1, !dc x }, { A: 8, !dc x }, { A: 2, !dc x }, { A: 5, !dc x }, { A: 9, !dc x }]
+- result: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
 ---
 # `NOT IN` not supported
 - query: select a, e from ta where e not in ('foo' , 35)
