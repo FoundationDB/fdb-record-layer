@@ -102,12 +102,12 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 completeMatches
                         .stream()
                         .flatMap(match -> {
-                            final var matchedAliases = match.getMatchedAliases();
-                            if (!matchedAliases.containsAll(aliases)) {
+                            final var compensatedAliases = match.getCompensatedAliases();
+                            if (!compensatedAliases.containsAll(aliases)) {
                                 return Stream.empty();
                             }
                             final Set<CorrelationIdentifier> matchedForEachAliases =
-                                    matchedAliases.stream()
+                                    compensatedAliases.stream()
                                             .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
                                             .collect(ImmutableSet.toImmutableSet());
                             if (matchedForEachAliases.size() == 1) {

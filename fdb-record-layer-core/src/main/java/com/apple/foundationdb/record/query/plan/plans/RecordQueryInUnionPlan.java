@@ -178,6 +178,35 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+
+        final var inAliases = getInSources()
+                .stream()
+                .map(inSource -> CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())))
+                .collect(ImmutableSet.toImmutableSet());
+        inner.getCorrelatedTo()
+                .stream()
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !inAliases.contains(alias))
+                .forEach(builder::add);
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean canCorrelate() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
@@ -201,12 +230,6 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                 .addEdge(valuesNode, root, fromValuesEdge)
                 .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromValuesEdge)))
                 .build();
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
     }
 
     @Nonnull

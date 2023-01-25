@@ -41,13 +41,13 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
@@ -55,6 +55,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
@@ -382,6 +383,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         final var correlationOrder = getCorrelationOrder();
         final var localAliases = correlationOrder.getSet();
+        final var dependsOnMap = correlationOrder.getTransitiveClosure();
+        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -391,8 +394,19 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                             .filter(localAliases::contains)
                             .collect(ImmutableSet.toImmutableSet());
 
-            if (predicateCorrelatedTo.stream().anyMatch(correlatedAlias -> !aliasMap.containsSource(correlatedAlias))) {
-                return ImmutableList.of();
+            for (final var correlatedAlias : predicateCorrelatedTo) {
+                if (!aliasMap.containsSource(correlatedAlias)) {
+                    if (aliasToQuantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
+                        final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
+                        for (final var dependsOnAlias : correlatedDependsOn) {
+                            if (!aliasMap.containsSource(dependsOnAlias)) {
+                                return ImmutableList.of();
+                            }
+                        }
+                    } else {
+                        return ImmutableList.of();
+                    }
+                }
             }
 
             final Set<PredicateMapping> impliedMappingsForPredicate =
@@ -418,8 +432,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
                     final var predicateMapBuilder = PredicateMap.builder();
 
-                    boolean isAnyMappingFiltering = false;
-
                     for (final var predicateMapping : predicateMappings) {
                         Verify.verify(predicateMapping.hasMapping());
                         final var queryPredicate = predicateMapping.getQueryPredicate();
@@ -431,15 +443,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
                         if (parameterAliasOptional.isPresent() &&
                                 comparisonRangeOptional.isPresent()) {
-                            isAnyMappingFiltering = true;
                             parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
-                        } else if (!candidatePredicate.isTautology() || !queryPredicate.isTautology()) {
-                            isAnyMappingFiltering = true;
                         }
-                    }
-
-                    if (!isAnyMappingFiltering) {
-                        return ImmutableList.of();
                     }
 
                     //
@@ -656,7 +661,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        final var unmatchedQuantifiers = partialMatch.computeUnmatchedQuantifiers(this);
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
         final var isCompensationNeeded =
                 !unmatchedQuantifiers.isEmpty() || !predicateCompensationMap.isEmpty() || matchInfo.getRemainingComputationValueOptional().isPresent();
 
@@ -679,9 +684,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
                 predicateCompensationMap,
-                computeMatchedQuantifiers(partialMatch),
+                getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
-                partialMatch.getMatchedAliases(),
+                partialMatch.getCompensatedAliases(),
                 matchInfo.getRemainingComputationValueOptional());
     }
 }

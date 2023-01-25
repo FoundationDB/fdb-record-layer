@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +94,14 @@ public class PartialMatch {
     private final Supplier<Set<QueryPredicate>> bindingPredicatesSupplier;
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> matchedAliasesSupplier;
+    private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
+
+    @Nonnull
+    private final Supplier<Set<Quantifier>> unmatchedQuantifiersSupplier;
+
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
+
 
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
@@ -109,7 +117,9 @@ public class PartialMatch {
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
         this.bindingPredicatesSupplier = this::computeBindingQueryPredicates;
-        this.matchedAliasesSupplier = Suppliers.memoize(this::computeMatchedAliases);
+        this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
+        this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
+        this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
     }
 
     @Nonnull
@@ -157,14 +167,29 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Set<Quantifier> computeUnmatchedQuantifiers(@Nonnull final RelationalExpression relationalExpression) {
-        final Set<Quantifier> unmatchedQuantifiers = new LinkedIdentitySet<>();
-        for (final Quantifier quantifier : relationalExpression.getQuantifiers()) {
-            if (matchInfo.getChildPartialMatch(quantifier.getAlias()).isEmpty()) {
-                unmatchedQuantifiers.add(quantifier);
-            }
-        }
-        return unmatchedQuantifiers;
+    public Set<Quantifier> getMatchedQuantifiers() {
+        return matchedQuantifiersSupplier.get();
+    }
+
+    @Nonnull
+    private Set<Quantifier> computeMatchedQuantifiers() {
+        return queryExpression.getQuantifiers()
+                .stream()
+                .filter(quantifier -> matchInfo.getChildPartialMatch(quantifier.getAlias()).isPresent())
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+    }
+
+    @Nonnull
+    public Set<Quantifier> getUnmatchedQuantifiers() {
+        return unmatchedQuantifiersSupplier.get();
+    }
+
+    @Nonnull
+    private Set<Quantifier> computeUnmatchedQuantifiers() {
+        return queryExpression.getQuantifiers()
+                .stream()
+                .filter(quantifier -> matchInfo.getChildPartialMatch(quantifier.getAlias()).isEmpty())
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
     @Nonnull
@@ -206,30 +231,29 @@ public class PartialMatch {
      * @return a set of compensated aliases
      */
     @Nonnull
-    public final Set<CorrelationIdentifier> getMatchedAliases() {
-        return matchedAliasesSupplier.get();
+    public final Set<CorrelationIdentifier> getCompensatedAliases() {
+        return compensatedAliasesSupplier.get();
     }
 
     @Nonnull
-    private Set<CorrelationIdentifier> computeMatchedAliases() {
-        return queryExpression.computeMatchedQuantifiers(this)
+    private Set<CorrelationIdentifier> computeCompensatedAliases() {
+        final var compensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+        final var ownedAliases = Quantifiers.aliasToQuantifierMap(queryExpression.getQuantifiers()).keySet();
+
+        queryExpression.getMatchedQuantifiers(this)
                 .stream()
                 .map(Quantifier::getAlias)
-                .collect(ImmutableSet.toImmutableSet());
+                .forEach(compensatedAliasesBuilder::add);
 
-//        final var predicatesMap = matchInfo.getPredicateMap();
-//        for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
-//            final Iterable<? extends QueryPredicate> existsPredicates =
-//                    queryPredicate.filter(predicate -> predicate instanceof ExistsPredicate);
-//
-//            for (final var predicate : existsPredicates) {
-//                final var existsPredicate =
-//                        predicate.narrowMaybe(ExistsPredicate.class).orElseThrow(() -> new RecordCoreException("cast expected to succeed"));
-//                compensatedAliasesBuilder.add(existsPredicate.getExistentialAlias());
-//            }
-//        }
-//
-//        return compensatedAliasesBuilder.build();
+        final var predicatesMap = matchInfo.getPredicateMap();
+        for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
+            final var predicateCorrelatedTo = queryPredicate.getCorrelatedTo();
+            predicateCorrelatedTo.stream()
+                    .filter(ownedAliases::contains)
+                    .forEach(compensatedAliasesBuilder::add);
+        }
+
+        return compensatedAliasesBuilder.build();
     }
 
     @Nonnull
@@ -249,7 +273,8 @@ public class PartialMatch {
      * @return {@code true} if compensation can be deferred, {@code false} otherwise.
      */
     public boolean compensationCanBeDeferred() {
-        return computeUnmatchedQuantifiers(getQueryExpression()).stream().anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach) ||
+        return getUnmatchedQuantifiers().stream()
+                       .anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach) ||
                matchInfo.getRemainingComputationValueOptional().isEmpty();
     }
 

@@ -39,11 +39,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
@@ -135,6 +137,32 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+
+        final var inAlias = getInAlias();
+        inner.getCorrelatedTo()
+                .stream()
+                // filter out the correlations that are satisfied by this plan
+                .filter(alias -> !alias.equals(inAlias))
+                .forEach(builder::add);
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean canCorrelate() {
+        return true;
     }
 
     @Override
