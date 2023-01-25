@@ -498,20 +498,12 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
         long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("META_DATA"));
 
-        RecordMetaDataProto.MetaData tableDescriptor;
-        try {
-            tableDescriptor = RecordMetaDataProto.MetaData.parseFrom(tableDescBytes, EXTENSION_REGISTRY);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RelationalException("Corrupt Catalog: Message <" + m + "> cannot be parsed into a schema", ErrorCode.INTERNAL_ERROR, e).toUncheckedWrappedException();
-        }
         return new ArrayRow(new Object[]{
                 dbId,
                 schemaName,
                 templateName,
-                version,
-                tableDescriptor
+                version
         });
     }
 

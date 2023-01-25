@@ -43,7 +43,6 @@ public class SchemaSystemTable implements SystemTable {
     private static final String DATABASE_ID = "DATABASE_ID";
     private static final String TEMPLATE_NAME = "TEMPLATE_NAME";
     private static final String TEMPLATE_VERSION = "TEMPLATE_VERSION";
-    private static final String METADATA = "META_DATA";
 
     @Nonnull
     @Override
@@ -66,7 +65,6 @@ public class SchemaSystemTable implements SystemTable {
                 .addColumn(RecordLayerColumn.newBuilder().setName(SCHEMA_NAME).setDataType(DataType.Primitives.STRING.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
-                .addColumn(RecordLayerColumn.newBuilder().setName(METADATA).setDataType(DataType.Primitives.BYTES.type()).build())
                 .addPrimaryKeyPart(List.of(DATABASE_ID))
                 .addPrimaryKeyPart(List.of(SCHEMA_NAME))
                 .build();

@@ -167,4 +167,6 @@
 # constant LONG value matched against IN list of LONG values.
 - query: select a from ta where 1 in (1, 2, 3)
 - result: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
+---
+- query: drop database /IN_PREDICATE_DB
 ...
