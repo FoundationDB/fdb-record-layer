@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+
 import com.google.protobuf.DescriptorProtos;
 import com.ibm.icu.impl.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -43,14 +44,14 @@ public class SchemaTemplateSerDeTests {
 
     private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
-        for (var entry: template.entrySet()) {
+        for (var entry : template.entrySet()) {
             final var tableBuilder = RecordLayerTable.newBuilder()
                     .setName(entry.getKey())
                     .addColumn(RecordLayerColumn.newBuilder()
                             .setName(entry.getKey() + "_C")
                             .setDataType(DataType.Primitives.STRING.type())
                             .build());
-            for (var generation: entry.getValue()) {
+            for (var generation : entry.getValue()) {
                 tableBuilder.addGeneration(generation.first, generation.second);
             }
             builder.addTable(tableBuilder.build());
@@ -68,7 +69,7 @@ public class SchemaTemplateSerDeTests {
         var recordMetadataProto = template.toRecordMetadata().toProto();
 
         final var maybeUnionDesc = recordMetadataProto.getRecords().getMessageTypeList().stream()
-                .filter(m -> m.getName().equals("RecordTypeUnion"))
+                .filter(m -> "RecordTypeUnion".equals(m.getName()))
                 .findFirst();
         Assertions.assertTrue(maybeUnionDesc.isPresent());
         final var unionDesc = maybeUnionDesc.get();
@@ -101,7 +102,7 @@ public class SchemaTemplateSerDeTests {
         var recordMetadataProto = template.toRecordMetadata().toProto();
 
         final var maybeUnionDesc = recordMetadataProto.getRecords().getMessageTypeList().stream()
-                .filter(m -> m.getName().equals("RecordTypeUnion"))
+                .filter(m -> "RecordTypeUnion".equals(m.getName()))
                 .findFirst();
         Assertions.assertTrue(maybeUnionDesc.isPresent());
         final var unionDesc = maybeUnionDesc.get();

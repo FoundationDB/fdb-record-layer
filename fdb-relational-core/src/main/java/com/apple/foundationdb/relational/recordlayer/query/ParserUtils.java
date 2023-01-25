@@ -587,7 +587,7 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<Typed> arguments) {
+    public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<? extends Typed> arguments) {
         return function.encapsulate(emptyBuilder, arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(Collectors.toList()));
     }
 
@@ -633,10 +633,10 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static List<Typed> validateInValuesList(List<? extends Value> values) {
-        final var valueSet = new HashSet<Value>();
-        final var toReturn = new ArrayList<Typed>();
-        for (final var value: values) {
+    public static List<? extends Typed> validateInValuesList(List<? extends Value> values) {
+        final Set<Value> valueSet = new HashSet<>();
+        final List<Value> toReturn = new ArrayList<>();
+        for (final Value value : values) {
             if (value.getResultType() == Type.NULL) {
                 Assert.failUnchecked("NULL values are not allowed in the IN list", ErrorCode.WRONG_OBJECT_TYPE);
             }

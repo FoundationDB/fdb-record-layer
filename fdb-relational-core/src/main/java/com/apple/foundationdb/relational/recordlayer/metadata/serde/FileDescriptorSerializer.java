@@ -92,7 +92,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         int fieldCounter = 0;
         // add the table as an entry in the final 'RecordTypeUnion' entry of the record store metadata. There is one
         // field for each generation of the RecordLayerTable.
-        for (var version: generations.entrySet()) {
+        for (var version : generations.entrySet()) {
             final var tableEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
                     .setNumber(version.getKey())
                     .setName(recordLayerTable.getName() + "_" + (fieldCounter++))
