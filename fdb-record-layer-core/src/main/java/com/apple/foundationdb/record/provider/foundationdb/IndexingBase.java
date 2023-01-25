@@ -845,14 +845,14 @@ public abstract class IndexingBase {
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+                                               @Nullable final BiConsumer<Throwable, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         return throttle.throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
     }
 
-    void decreaseLimit(@Nonnull FDBException fdbException,
+    void decreaseLimit(@Nonnull Throwable ex,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
-        throttle.decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        throttle.decreaseLimit(ex, additionalLogMessageKeyValues);
     }
 
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {

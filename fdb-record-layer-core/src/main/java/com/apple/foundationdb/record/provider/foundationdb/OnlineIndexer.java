@@ -450,7 +450,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+                                               @Nullable final BiConsumer<Throwable, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         // test only
         return getIndexer().throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
@@ -464,10 +464,10 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @VisibleForTesting
-    void decreaseLimit(@Nonnull FDBException fdbException,
+    void decreaseLimit(@Nonnull Throwable ex,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         // test only
-        getIndexer().decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        getIndexer().decreaseLimit(ex, additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting
@@ -2124,7 +2124,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setIfMismatchPrevious(ifMismatchPrevious)
                     .setIfReadable(ifReadable)
                     .allowUniquePendingState(allowUniquePendingState)
-                    .allowTakeoverContinue(allowUniquePendingState)
+                    .allowTakeoverContinue(allowTakeoverContinue)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
                     .setMutualIndexing(mutualIndexing)
                     ;

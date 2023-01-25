@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.util.LoggableException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -122,13 +123,12 @@ public class IndexingThrottle {
         }
     }
 
-    void decreaseLimit(@Nonnull FDBException fdbException,
+    void decreaseLimit(@Nonnull Throwable ex,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         limit = Math.max(1, (3 * limit) / 4);
         if (LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
-                    LogMessageKeys.ERROR, fdbException.getMessage(),
-                    LogMessageKeys.ERROR_CODE, fdbException.getCode(),
+                    LogMessageKeys.ERROR, ex.getMessage(),
                     LogMessageKeys.LIMIT, limit,
                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.INDEXER_ID, common.getUuid()
@@ -136,7 +136,7 @@ public class IndexingThrottle {
             if (additionalLogMessageKeyValues != null) {
                 message.addKeysAndValues(additionalLogMessageKeyValues);
             }
-            LOGGER.info(message.toString(), fdbException);
+            LOGGER.info(message.toString(), ex);
         }
     }
 
@@ -166,26 +166,26 @@ public class IndexingThrottle {
         }
     }
 
-    // Finds the FDBException that ultimately caused some throwable or
-    // null if there is none. This can be then used to determine, for
-    // example, the error code associated with this FDBException.
     @Nullable
-    private FDBException getFDBException(@Nullable Throwable e) {
-        Throwable curr = e;
-        while (curr != null) {
-            if (curr instanceof FDBException) {
-                return (FDBException)curr;
-            } else {
-                curr = curr.getCause();
+    private boolean shouldDecreaseLimit(@Nullable Throwable ex) {
+        FDBException fdbException = null;
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof SynchronizedSessionLockedException) {
+                return true;
+            }
+            if (fdbException == null && current instanceof  FDBException) {
+                fdbException = (FDBException) current;
             }
         }
-        return null;
+        return fdbException != null && lessenWorkCodes.contains(fdbException.getCode());
     }
 
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+                                               @Nullable final BiConsumer<Throwable, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
@@ -227,10 +227,9 @@ public class IndexingThrottle {
                     return AsyncUtil.READY_FALSE;
                 } else {
                     int currTries = tries.getAndIncrement();
-                    FDBException fdbE = getFDBException(e);
-                    if (currTries < common.config.getMaxRetries() && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
+                    if (currTries < common.config.getMaxRetries() && shouldDecreaseLimit(e)) {
                         if (handleLessenWork != null) {
-                            handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
+                            handleLessenWork.accept(e, onlineIndexerLogMessageKeyValues);
                         }
                         if (LOGGER.isWarnEnabled()) {
                             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
