@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -259,9 +259,22 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        // subsumedBy() is based on equality, thus we return empty here as
-        // if there is a match, it's exact
-        return Compensation.noCompensation();
+        final var matchInfo = partialMatch.getMatchInfo();
+
+        final var quantifiers = getQuantifiers();
+
+        Verify.verify(quantifiers.size() == 1);
+        final var quantifier = quantifiers.get(0);
+
+        // if the match requires, for the moment, any, compensation, we reject it.
+        final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)
+                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+
+        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || !childCompensation.get().canBeDeferred())) {
+            return Compensation.impossibleCompensation();
+        }
+
+        return childCompensation.orElse(Compensation.NO_COMPENSATION);
     }
 
     @Nonnull
