@@ -242,8 +242,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected final RecordMetaDataProvider metaDataProvider;
 
-    @Nullable
-    private boolean versionChanged;
+    private volatile boolean versionChanged;
 
     @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
@@ -358,7 +357,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * {@code false} if the version is either not checked (checkVersion() not called) or it is up-to-date.
      * @return the versionChanged boolean
      */
-    @Nonnull
     public boolean isVersionChanged() {
         return versionChanged;
     }
@@ -2031,7 +2029,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
         return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result).thenApply(versionChanged -> {
-            this.versionChanged |= versionChanged;
+            if (versionChanged) {
+                this.versionChanged = true;
+            }
             return versionChanged;
         });
     }
