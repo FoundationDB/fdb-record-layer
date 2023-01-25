@@ -64,7 +64,6 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregateIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregations;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.groupings;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
@@ -123,7 +122,41 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 false,
                 ParameterRelationshipGraph.empty());
 
-        assertMatchesExactly(plan, aggregateIndexPlan());
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testIndexPlanningWithPredicate() throws Exception {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        assertMatchesExactly(plan,
+                mapPlan(
+                        streamingAggregationPlan(
+                                mapPlan(
+                                        indexPlan()
+                                                .where(scanComparisons(range("[[42],>")))
+                                )).where(aggregations(recordConstructorValue(exactly(sumAggregationValue())))
+                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testIndexPlanningWithPredicateNoValueIndex() throws Exception {
+        setupHookAndAddData(false, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+
+        Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty()), "Cascades planner could not plan query");
     }
 
     @Nonnull

@@ -270,11 +270,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)
                                 .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
 
-        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || !childCompensation.get().canBeDeferred())) {
+        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
             return Compensation.impossibleCompensation();
         }
 
-        return childCompensation.orElse(Compensation.NO_COMPENSATION);
+        return Compensation.noCompensation();
     }
 
     @Nonnull

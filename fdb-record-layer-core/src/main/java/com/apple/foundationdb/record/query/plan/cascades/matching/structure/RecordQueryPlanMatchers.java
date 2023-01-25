@@ -650,7 +650,7 @@ public class RecordQueryPlanMatchers {
 
     @Nonnull
     public static BindingMatcher<RecordQueryAggregateIndexPlan> aggregateIndexPlan() {
-        return childrenPlans(RecordQueryAggregateIndexPlan.class, empty());
+        return ofTypeOwning(RecordQueryAggregateIndexPlan.class, CollectionMatcher.empty());
     }
 
     @Nonnull
