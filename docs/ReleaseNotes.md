@@ -20,7 +20,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Non-unique indexes no longer read or clear the uniqueness violation space during maintenance [(Issue #1973)](https://github.com/FoundationDB/fdb-record-layer/issues/1973)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)

@@ -21,14 +21,18 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -41,11 +45,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -154,7 +161,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        final Index uniqueIndex = new Index("unique_num_value_2_index", Key.Expressions.field("num_value_2"),
+        final Index uniqueIndex = new Index("unique_num_value_2_index", field("num_value_2"),
                 IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         assertTrue(uniqueIndex.isUnique());
         try (FDBRecordContext context = openContext()) {
@@ -200,6 +207,96 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             // The error from the "uniqueness check" should block the transaction from committing
             RecordCoreException thrownRecordCoreException = assertThrows(RecordCoreException.class, context::commit);
             assertSame(err, thrownRecordCoreException);
+        }
+    }
+
+    @Test
+    public void changeIndexAtFixedSubspaceKey() throws Exception {
+        final Object subspaceKey = "fixed_subspace_key";
+
+        final List<TestRecords1Proto.MySimpleRecord> records = List.of(
+                TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1066L)
+                        .setStrValueIndexed("foo")
+                        .setNumValue2(1)
+                        .build(),
+                TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1415L)
+                        .setStrValueIndexed("bar")
+                        .setNumValue2(1)
+                        .build(),
+                TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1815L)
+                        .setStrValueIndexed("baz")
+                        .setNumValue2(1)
+                        .build()
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            records.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+
+        final Index firstIndex = new Index("first_index", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        firstIndex.setSubspaceKey(subspaceKey);
+        assertTrue(firstIndex.isUnique());
+        final RecordMetaDataHook hook1 = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", firstIndex);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            assertTrue(recordStore.isVersionChanged());
+
+            assertThat(recordStore.getIndexState(firstIndex), either(equalTo(IndexState.READABLE_UNIQUE_PENDING)).or(equalTo(IndexState.WRITE_ONLY)));
+            assertThat(recordStore.scanUniquenessViolations(firstIndex).asList().get(), hasSize(3));
+
+            commit(context);
+        }
+
+        final Index secondIndex = new Index("second_index", field("num_value_2"));
+        secondIndex.setSubspaceKey(subspaceKey);
+        assertFalse(secondIndex.isUnique());
+        final RecordMetaDataHook hook2 = metaDataBuilder -> {
+            metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+            metaDataBuilder.addIndex("MySimpleRecord", secondIndex);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            assertTrue(recordStore.isVersionChanged());
+
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(secondIndex));
+            List<IndexEntry> entries = recordStore.scanIndex(secondIndex, new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .get();
+            assertThat(entries, hasSize(3));
+            assertEquals(List.of(Tuple.from(1, 1066L), Tuple.from(1, 1415L), Tuple.from(1, 1815L)),
+                    entries.stream().map(IndexEntry::getKey).collect(Collectors.toList()));
+            assertThat(recordStore.scanUniquenessViolations(secondIndex).asList().get(), empty());
+
+            commit(context);
+        }
+
+        final Index thirdIndex = new Index("third_index", field("str_value_indexed"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        thirdIndex.setSubspaceKey(subspaceKey);
+        assertTrue(thirdIndex.isUnique());
+
+        final RecordMetaDataHook hook3 = metaDataBuilder -> {
+            metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 2);
+            metaDataBuilder.addIndex("MySimpleRecord", thirdIndex);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook3);
+            assertTrue(recordStore.isVersionChanged());
+
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(thirdIndex));
+            List<IndexEntry> entries = recordStore.scanIndex(thirdIndex, new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .get();
+            assertThat(entries, hasSize(3));
+            assertEquals(List.of(Tuple.from("bar", 1415L), Tuple.from("baz", 1815L), Tuple.from("foo", 1066L)),
+                    entries.stream().map(IndexEntry::getKey).collect(Collectors.toList()));
+            assertThat(recordStore.scanUniquenessViolations(thirdIndex).asList().get(), empty());
+
+            commit(context);
         }
     }
 }
