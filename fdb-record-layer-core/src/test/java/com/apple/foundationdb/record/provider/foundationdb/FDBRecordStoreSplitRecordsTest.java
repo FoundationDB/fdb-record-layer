@@ -842,16 +842,21 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         createOrOpenRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
     }
 
-    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
+    private FDBRecordStore openStoreForConflicts(final FDBRecordContext context, int formatVersion, boolean splitLongRecords) {
         final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
+        return getStoreBuilder(context, simpleMetaData(hook))
+                .setFormatVersion(formatVersion)
+                .createOrOpen();
+    }
+
+    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             // Ensure the store is created here to avoid conflicts on the store header
             // and ensure that the format version to the parameter given
-            storeBuilder = getStoreBuilder(context, simpleMetaData(hook))
-                    .setFormatVersion(formatVersion);
-            storeBuilder.createOrOpen();
+            FDBRecordStore store = openStoreForConflicts(context, formatVersion, splitLongRecords);
             commit(context);
+            storeBuilder = store.asBuilder();
         }
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             FDBRecordStore store1 = storeBuilder.copyBuilder().setContext(context1).open();
@@ -900,10 +905,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         SplitRecordsTestConfig.allConfigs().forEach(config -> {
             this.testConfig = config;
             try (FDBRecordContext context = openContext()) {
-                final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
-                FDBRecordStore recordStore = getStoreBuilder(context, simpleMetaData(hook))
-                        .setFormatVersion(formatVersion)
-                        .createOrOpen();
+                FDBRecordStore recordStore = openStoreForConflicts(context, formatVersion, splitLongRecords);
                 // Insert a record here so that the delete logic (1) sees the record is there and then
                 // (2) issues a real delete
                 recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build());
@@ -915,6 +917,29 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                         store2.loadRecord(Tuple.from(1066L));
                         store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
                     });
+        });
+    }
+
+    @ParameterizedTest(name = "saveDeleteConflict [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionAndSplitArgs")
+    public void saveDeleteConflict(int formatVersion, boolean splitLongRecords) {
+        SplitRecordsTestConfig.allConfigs().forEach(config -> {
+            this.testConfig = config;
+            try (FDBRecordContext context = openContext()) {
+                FDBRecordStore recordStore = openStoreForConflicts(context, formatVersion, splitLongRecords);
+                // Insert a record here so that the delete logic (1) sees the record is there and then
+                // (2) issues a real delete
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build());
+                commit(context);
+            }
+            // Ensure that deletes and saves to the same record conflict. This should be the case
+            // regardless of whether the save or the delete is committed first
+            checkForConflicts(formatVersion, splitLongRecords,
+                    store1 -> store1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("foo").build()),
+                    store2 -> store2.deleteRecord(Tuple.from(1066L)));
+            checkForConflicts(formatVersion, splitLongRecords,
+                    store1 -> store1.deleteRecord(Tuple.from(1066L)),
+                    store2 -> store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("bar").build()));
         });
     }
 }

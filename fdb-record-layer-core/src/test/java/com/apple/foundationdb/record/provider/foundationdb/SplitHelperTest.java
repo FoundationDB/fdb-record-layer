@@ -125,21 +125,6 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    public static Stream<Pair<Boolean, Boolean>> splitAndSuffixArgs() {
-        // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-        return Stream.of(false, true).flatMap(splitLongRecords ->
-                (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).map(omitUnsplitSuffix ->
-                        Pair.of(splitLongRecords, omitUnsplitSuffix)));
-    }
-
-    @Nonnull
-    public static Stream<Arguments> splitSuffixAndUnrollArgs() {
-        // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-        return splitAndSuffixArgs().flatMap(splitAndSuffix ->
-                        Stream.of(false, true).map(unrollSingleRecordDeletes ->
-                                Arguments.of(splitAndSuffix.getLeft(), splitAndSuffix.getRight(), unrollSingleRecordDeletes)));
-    }
-
     static class SplitHelperTestConfig {
         private final boolean splitLongRecords;
         private final boolean omitUnsplitSuffix;
@@ -728,13 +713,6 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     private FDBRawRecord loadWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, SplitHelperTestConfig testConfig,
                                        @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents) {
         return loadWithSplit(context, key, testConfig, expectedSizes, expectedContents, null);
-    }
-
-    private static Stream<Arguments> loadWithSplit() {
-        return splitAndSuffixArgs().flatMap(splitAndSuffix ->
-                Stream.of(false, true).flatMap(unroll ->
-                        Stream.of(false, true).map(loadViaGets ->
-                                Arguments.of(splitAndSuffix.getLeft(), splitAndSuffix.getRight(), unroll, loadViaGets))));
     }
 
     @MethodSource("testConfigs")
