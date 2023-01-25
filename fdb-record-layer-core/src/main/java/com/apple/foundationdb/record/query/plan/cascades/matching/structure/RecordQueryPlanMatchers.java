@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -75,6 +76,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofTypeOwning;
@@ -644,6 +646,11 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryStreamingAggregationPlan.class,
                 Extractor.of(RecordQueryStreamingAggregationPlan::getGroupingValue, name -> "grouping(" + name + ")"),
                 downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryAggregateIndexPlan> aggregateIndexPlan() {
+        return childrenPlans(RecordQueryAggregateIndexPlan.class, empty());
     }
 
     @Nonnull
