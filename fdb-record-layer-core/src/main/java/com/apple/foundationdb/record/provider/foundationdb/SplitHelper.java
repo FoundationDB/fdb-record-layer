@@ -291,7 +291,7 @@ public class SplitHelper {
         if (!splitLongRecords && missingUnsplitRecordSuffix) {
             return loadUnsplitLegacy(tr, context, subspace, key, sizeInfo);
         }
-        if (context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS)) {
+        if (Boolean.TRUE.equals(context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS))) {
             return loadSplitViaGets(tr, context, subspace, key, sizeInfo);
         }
 
@@ -300,9 +300,10 @@ public class SplitHelper {
         // It is still better to do a range read in that case than two point reads (probably).
         final long startTime = System.nanoTime();
         final Subspace recordSubspace = subspace.subspace(key);
+        final Range recordRange = recordSubspace.range();
         // Note that recordSubspace.range() includes only keys that are a strict prefix of recordSubspace.pack(). This means
         // it excludes recordSubspace.pack() itself as well as any keys that are greater than or equal to recordSubspace.pack() + \xff.
-        final AsyncIterable<KeyValue> rangeScan = tr.getRange(recordSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
+        final AsyncIterable<KeyValue> rangeScan = scanSingleRecord(tr, recordRange.begin, recordRange.end);
         final AsyncIterator<KeyValue> rangeIter = rangeScan.iterator();
         context.instrument(FDBStoreTimer.DetailEvents.GET_RECORD_RANGE_RAW_FIRST_CHUNK, rangeIter.onHasNext(), startTime);
         return new SingleKeyUnsplitter(context, key, recordSubspace, rangeIter, sizeInfo).run(context.getExecutor());
@@ -357,7 +358,7 @@ public class SplitHelper {
                 // Record is split. Do a scan for the rest of the keys
                 storedSizes.setSplit(true);
                 storedSizes.add(startSplitKey, startSplitValue);
-                final AsyncIterable<KeyValue> iterable = tr.getRange(recordSubspace.pack(START_SPLIT_RECORD + 1L), recordRange.end);
+                final AsyncIterable<KeyValue> iterable = scanSingleRecord(tr, recordSubspace.pack(START_SPLIT_RECORD + 1L), recordRange.end);
                 List<byte[]> values = new ArrayList<>();
                 values.add(startSplitValue);
 
@@ -380,6 +381,12 @@ public class SplitHelper {
                 });
             }
         })).thenCompose(Function.identity());
+    }
+
+    private static AsyncIterable<KeyValue> scanSingleRecord(final ReadTransaction tr, byte[] start, byte[] end) {
+        // Scan with WANT_ALL and no row limit because, for a single record, we need to load all of the keys to
+        // reconstitute the record
+        return tr.getRange(start, end, ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
     }
 
     // Old save behavior prior to SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
