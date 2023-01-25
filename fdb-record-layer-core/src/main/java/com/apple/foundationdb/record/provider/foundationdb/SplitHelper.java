@@ -58,6 +58,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Helper classes for splitting records across multiple key-value pairs.
@@ -289,6 +291,10 @@ public class SplitHelper {
         if (!splitLongRecords && missingUnsplitRecordSuffix) {
             return loadUnsplitLegacy(tr, context, subspace, key, sizeInfo);
         }
+        if (context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS)) {
+            return loadSplitViaGets(tr, context, subspace, key, sizeInfo);
+        }
+
         // Even if long records are not split, then unless we are using the old format, it might be the case
         // that there is a record version associated with this key, hence the range read.
         // It is still better to do a range read in that case than two point reads (probably).
@@ -300,6 +306,80 @@ public class SplitHelper {
         final AsyncIterator<KeyValue> rangeIter = rangeScan.iterator();
         context.instrument(FDBStoreTimer.DetailEvents.GET_RECORD_RANGE_RAW_FIRST_CHUNK, rangeIter.onHasNext(), startTime);
         return new SingleKeyUnsplitter(context, key, recordSubspace, rangeIter, sizeInfo).run(context.getExecutor());
+    }
+
+    private static CompletableFuture<FDBRawRecord> loadSplitViaGets(@Nonnull final ReadTransaction tr,
+                                                                    @Nonnull final FDBRecordContext context,
+                                                                    @Nonnull final Subspace subspace,
+                                                                    @Nonnull final Tuple key,
+                                                                    @Nullable SizeInfo sizeInfo) {
+        final SizeInfo storedSizes = sizeInfo == null ? new SizeInfo() : sizeInfo;
+        storedSizes.reset();
+
+        final Subspace recordSubspace = subspace.subspace(key);
+        final byte[] versionKey = recordSubspace.pack(RECORD_VERSION);
+        final byte[] unsplitKey = recordSubspace.pack(UNSPLIT_RECORD);
+        final byte[] startSplitKey = recordSubspace.pack(START_SPLIT_RECORD);
+
+        // Cover the whole record range in a singe read conflict range to decrease size of final commit request
+        // (when compared to having individual read conflicts keys added for each key read)
+        final Range recordRange = recordSubspace.range();
+        tr.addReadConflictRangeIfNotSnapshot(recordRange.begin, recordRange.end);
+
+        final CompletableFuture<FDBRecordVersion> versionValueFuture = context.getLocalVersion(versionKey)
+                .map(FDBRecordVersion::incomplete)
+                .map(CompletableFuture::completedFuture)
+                .orElseGet(() -> tr.get(versionKey).thenApply(SplitHelper::unpackVersion));
+        final CompletableFuture<byte[]> unsplitValueFuture = tr.get(unsplitKey);
+        final CompletableFuture<byte[]> startSplitValueFuture = tr.get(startSplitKey);
+
+        return versionValueFuture.thenCompose(version -> unsplitValueFuture.thenCombine(startSplitValueFuture, (unsplitValue, startSplitValue) -> {
+            storedSizes.add(versionKey, version);
+            if (unsplitValue == null && startSplitValue == null) {
+                // No record present
+                if (version != null) {
+                    throw new FoundSplitWithoutStartException(SplitHelper.RECORD_VERSION, false)
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(recordSubspace.pack()))
+                            .addLogInfo(LogMessageKeys.VERSION, version);
+                }
+                return CompletableFuture.completedFuture((FDBRawRecord)null);
+            } else if (unsplitValue != null && startSplitValue != null) {
+                throw new RecordCoreException("Unsplit value followed by split.")
+                        .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(recordSubspace.pack()));
+            } else if (unsplitValue != null) {
+                // Record is unsplit. No further scans needed
+                storedSizes.setSplit(false);
+                storedSizes.add(unsplitKey, unsplitValue);
+                return CompletableFuture.completedFuture(new FDBRawRecord(key, unsplitValue, version, storedSizes));
+            } else {
+                // Record is split. Do a scan for the rest of the keys
+                storedSizes.setSplit(true);
+                storedSizes.add(startSplitKey, startSplitValue);
+                final AsyncIterable<KeyValue> iterable = tr.getRange(recordSubspace.pack(START_SPLIT_RECORD + 1L), recordRange.end);
+                List<byte[]> values = new ArrayList<>();
+                values.add(startSplitValue);
+
+                AtomicLong lastSplit = new AtomicLong(START_SPLIT_RECORD);
+                return AsyncUtil.forEach(iterable, keyValue -> {
+                    long splitPoint = recordSubspace.unpack(keyValue.getKey()).getLong(0);
+                    long expectedSplit = lastSplit.incrementAndGet();
+                    if (splitPoint != expectedSplit) {
+                        throw new RecordCoreException("Split record segments out of order")
+                                .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(keyValue.getKey()))
+                                .addLogInfo(LogMessageKeys.EXPECTED_INDEX, expectedSplit)
+                                .addLogInfo(LogMessageKeys.FOUND_INDEX, splitPoint)
+                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                    }
+                    storedSizes.add(keyValue);
+                    values.add(keyValue.getValue());
+                }, context.getExecutor()).thenApply(vignore -> {
+                    byte[] rawRecord = ByteArrayUtil.join(values.toArray(new byte[0][0]));
+                    return new FDBRawRecord(key, rawRecord, version, storedSizes);
+                });
+            }
+        })).thenCompose(Function.identity());
     }
 
     // Old save behavior prior to SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
@@ -464,6 +544,15 @@ public class SplitHelper {
             valueSize += valueBytes.length;
         }
 
+        public void add(@Nonnull final byte[] keyBytes, @Nullable final FDBRecordVersion version) {
+            if (version != null) {
+                keyCount += 1;
+                keySize += keyBytes.length;
+                valueSize += FDBRecordVersion.VERSION_LENGTH + 1;
+                versionedInline = true;
+            }
+        }
+
         public void add(@Nonnull FDBStoredSizes sizes) {
             keyCount += sizes.getKeyCount();
             keySize += sizes.getKeySize();
@@ -541,10 +630,7 @@ public class SplitHelper {
             final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
             context.getLocalVersion(versionKey).ifPresent(localVersion -> {
                 version = FDBRecordVersion.incomplete(localVersion);
-                sizeInfo.setVersionedInline(true);
-                sizeInfo.keyCount += 1;
-                sizeInfo.keySize += versionKey.length;
-                sizeInfo.valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
+                sizeInfo.add(versionKey, version);
             });
             return AsyncUtil.whileTrue(() -> iter.onHasNext()
                 .thenApply(hasNext -> {

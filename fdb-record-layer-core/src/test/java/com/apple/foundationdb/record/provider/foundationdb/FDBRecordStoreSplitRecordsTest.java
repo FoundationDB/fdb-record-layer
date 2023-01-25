@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
@@ -45,6 +47,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -55,6 +58,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -74,8 +78,58 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
-    @Test
-    public void unsplitCompatibility() throws Exception {
+    static class SplitRecordsTestConfig {
+        private final boolean unrollRecordDeletes;
+        private final boolean loadViaGets;
+
+        public SplitRecordsTestConfig(boolean unrollRecordDeletes, boolean loadViaGets) {
+            this.unrollRecordDeletes = unrollRecordDeletes;
+            this.loadViaGets = loadViaGets;
+        }
+
+        public RecordLayerPropertyStorage.Builder setProps(RecordLayerPropertyStorage.Builder props) {
+            return props
+                    .addProp(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES, unrollRecordDeletes)
+                    .addProp(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS, loadViaGets);
+        }
+
+        @Override
+        public String toString() {
+            return "SplitRecordsTestConfig{" +
+                   "unrollRecordDeletes=" + unrollRecordDeletes +
+                   ", loadViaGets=" + loadViaGets +
+                   '}';
+        }
+
+        static Stream<SplitRecordsTestConfig> allConfigs() {
+            return Stream.of(false, true).flatMap(unrollRecordDeletes ->
+                    Stream.of(false, true).map(loadViaGets ->
+                            new SplitRecordsTestConfig(unrollRecordDeletes, loadViaGets)));
+        }
+
+        static SplitRecordsTestConfig getDefault() {
+            return new SplitRecordsTestConfig(
+                    FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
+                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue()
+            );
+        }
+    }
+
+    static Stream<Arguments> testConfigs() {
+        return SplitRecordsTestConfig.allConfigs().map(Arguments::of);
+    }
+
+    private SplitRecordsTestConfig testConfig = SplitRecordsTestConfig.getDefault();
+
+    @Override
+    protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+        return testConfig.setProps(super.addDefaultProps(props));
+    }
+
+    @ParameterizedTest(name = "unsplitCompatibility[{0}]")
+    @MethodSource("testConfigs")
+    public void unsplitCompatibility(SplitRecordsTestConfig testConfig) throws Exception {
+        this.testConfig = testConfig;
         TestRecords1Proto.MySimpleRecord rec1 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build();
         try (FDBRecordContext context = openContext()) {
             // Write a record using the old format
@@ -350,8 +404,10 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void unsplitToSplitUpgrade() throws Exception {
+    @ParameterizedTest(name = "unsplitToSplitUpgrade[{0}]")
+    @MethodSource("testConfigs")
+    public void unsplitToSplitUpgrade(SplitRecordsTestConfig testConfig) throws Exception {
+        this.testConfig = testConfig;
         TestRecords1Proto.MySimpleRecord rec1 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build();
         TestRecords1Proto.MySimpleRecord rec2 = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(1415L)
@@ -460,8 +516,11 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void longRecords() {
+    @ParameterizedTest(name = "longRecords[{0}]")
+    @MethodSource("testConfigs")
+    public void longRecords(SplitRecordsTestConfig testConfig) {
+        this.testConfig = testConfig;
+
         Random rand = new Random();
         byte[] bytes;
         bytes = new byte[10000];
@@ -580,8 +639,11 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         assertEquals(createdRecords, scannedRecords);
     }
 
-    @Test
-    public void testSaveRecordWithDifferentSplits() {
+    @ParameterizedTest(name = "testSaveRecordWithDifferentSplits[{0}]")
+    @MethodSource("testConfigs")
+    public void testSaveRecordWithDifferentSplits(SplitRecordsTestConfig testConfig) {
+        this.testConfig = testConfig;
+
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             commit(context);
@@ -682,8 +744,15 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD));
             context.ensureActive().clear(key);
 
-            runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
-                    "Found split record without start", "Loaded split record missing start key");
+            if (context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS)) {
+                // If we load via single key gets, we cannot distinguish between a record where the first split
+                // point is gone from an empty record because we do not a follow up scan. The whole point of this
+                // execution is to avoid those scans, so there's not much that can be done
+                assertNull(recordStore.loadRecord(Tuple.from(recno)));
+            } else {
+                runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
+                        "Found split record without start", "Loaded split record missing start key");
+            }
             runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get(),
                     "Found split record without start", "Scanned split records missing start key");
             runAndCheckSplitException(() -> recordStore.scanRecords(null, new ScanProperties(
@@ -781,7 +850,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             // and ensure that the format version to the parameter given
             storeBuilder = getStoreBuilder(context, simpleMetaData(hook))
                     .setFormatVersion(formatVersion);
-            storeBuilder.create();
+            storeBuilder.createOrOpen();
             commit(context);
         }
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
@@ -800,22 +869,52 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "recordReadConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
     public void recordReadConflict(int formatVersion, boolean splitLongRecords) {
-        checkForConflicts(formatVersion, splitLongRecords,
-                store1 -> store1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build()),
-                store2 -> {
-                    store2.addRecordReadConflict(Tuple.from(1066L));
-                    store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
-                });
+        SplitRecordsTestConfig.allConfigs().forEach(config -> {
+            this.testConfig = config;
+            checkForConflicts(formatVersion, splitLongRecords,
+                    store1 -> store1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build()),
+                    store2 -> {
+                        store2.addRecordReadConflict(Tuple.from(1066L));
+                        store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
+                    });
+        });
     }
 
     @ParameterizedTest(name = "recordWriteConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
     public void recordWriteConflict(int formatVersion, boolean splitLongRecords) {
-        checkForConflicts(formatVersion, splitLongRecords,
-                store1 -> store1.addRecordWriteConflict(Tuple.from(1066L)),
-                store2 -> {
-                    store2.loadRecord(Tuple.from(1066L));
-                    store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
-                });
+        SplitRecordsTestConfig.allConfigs().forEach(config -> {
+            this.testConfig = config;
+            checkForConflicts(formatVersion, splitLongRecords,
+                    store1 -> store1.addRecordWriteConflict(Tuple.from(1066L)),
+                    store2 -> {
+                        store2.loadRecord(Tuple.from(1066L));
+                        store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
+                    });
+        });
+    }
+
+    @ParameterizedTest(name = "recordDeleteConflict [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionAndSplitArgs")
+    public void recordDeleteConflict(int formatVersion, boolean splitLongRecords) {
+        SplitRecordsTestConfig.allConfigs().forEach(config -> {
+            this.testConfig = config;
+            try (FDBRecordContext context = openContext()) {
+                final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
+                FDBRecordStore recordStore = getStoreBuilder(context, simpleMetaData(hook))
+                        .setFormatVersion(formatVersion)
+                        .createOrOpen();
+                // Insert a record here so that the delete logic (1) sees the record is there and then
+                // (2) issues a real delete
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build());
+                commit(context);
+            }
+            checkForConflicts(formatVersion, splitLongRecords,
+                    store1 -> store1.deleteRecord(Tuple.from(1066L)),
+                    store2 -> {
+                        store2.loadRecord(Tuple.from(1066L));
+                        store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
+                    });
+        });
     }
 }

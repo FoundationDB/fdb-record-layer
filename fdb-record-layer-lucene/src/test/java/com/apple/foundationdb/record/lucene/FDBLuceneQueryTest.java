@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -222,8 +221,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Override
-    protected FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
-        return super.contextConfig(propsBuilder.addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService));
+    protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+        return super.addDefaultProps(props)
+                .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService);
     }
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
@@ -269,7 +269,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         hook.apply(metaDataBuilder);
         recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
-                .uncheckedOpen();
+                .createOrOpen();
         setupPlanner(null);
     }
 
