@@ -322,7 +322,7 @@ public class SplitHelper {
         final byte[] unsplitKey = recordSubspace.pack(UNSPLIT_RECORD);
         final byte[] startSplitKey = recordSubspace.pack(START_SPLIT_RECORD);
 
-        // Cover the whole record range in a singe read conflict range to decrease size of final commit request
+        // Cover the whole record range in a single read conflict range to decrease size of final commit request
         // (when compared to having individual read conflicts keys added for each key read)
         final Range recordRange = recordSubspace.range();
         tr.addReadConflictRangeIfNotSnapshot(recordRange.begin, recordRange.end);
