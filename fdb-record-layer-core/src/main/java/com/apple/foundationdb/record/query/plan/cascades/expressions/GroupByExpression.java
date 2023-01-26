@@ -260,11 +260,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final var matchInfo = partialMatch.getMatchInfo();
-
-        final var quantifiers = getQuantifiers();
-
-        Verify.verify(quantifiers.size() == 1);
-        final var quantifier = quantifiers.get(0);
+        final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)

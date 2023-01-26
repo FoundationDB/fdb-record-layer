@@ -160,7 +160,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> constructGroupByPlan(boolean withPredicate) {
+    private GroupExpressionRef<RelationalExpression> constructGroupByPlan(final boolean withPredicate) {
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
@@ -232,7 +232,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected void setupHookAndAddData(boolean addIndex, boolean addAggregateIndex) throws Exception {
+    protected void setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) throws Exception {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStoreTestBase.RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
