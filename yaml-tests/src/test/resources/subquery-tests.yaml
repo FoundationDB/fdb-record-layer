@@ -96,8 +96,10 @@
 # correlations inside aggregations are allowed inside a nested subquery with group by
 - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
 - result: [{!l 1}, {!l 2}, {!l 3}]
-#---
-#- query: drop schema template subquery_tests_template
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template subquery_tests_template
 ---
 - query: drop database /SUBQUERY_YAML
 ...

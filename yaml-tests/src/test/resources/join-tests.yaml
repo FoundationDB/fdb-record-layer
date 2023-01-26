@@ -107,8 +107,10 @@
 - result: [{"Engineering", "OLAP"},
            {"Sales", "Feedback"},
            {"Marketing", "SEO"}]
-#---
-#- query: drop schema template join_tests_template
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /JOIN_YAML
+---
+- query: drop schema template join_tests_template
 ...

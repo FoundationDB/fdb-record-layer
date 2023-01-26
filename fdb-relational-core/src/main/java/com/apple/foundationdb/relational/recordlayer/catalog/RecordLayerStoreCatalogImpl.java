@@ -102,6 +102,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     public static final String SCHEMA = "CATALOG";
     public static final String TEMPLATE = "CATALOG_TEMPLATE";
+    public static final long TEMPLATE_VERSION = 1L;
     public static final String SYS_DB = "/__SYS";
     private StructMetaData dbTableMetaData;
 
@@ -157,7 +158,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
         final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
         if (!schemaTemplateCatalog.doesSchemaTemplateExist(transaction, TEMPLATE)) {
-            schemaTemplateCatalog.updateTemplate(transaction, TEMPLATE, schemaTemplate);
+            schemaTemplateCatalog.updateTemplate(transaction, schemaTemplate);
         }
         if (!doesSchemaExist(transaction, dbUri, SCHEMA)) {
             //map the schema to the template
@@ -207,6 +208,9 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         Assert.that(schema instanceof RecordLayerSchema,
                 String.format("Unexpected schema type %s", schema.getClass()),
                 ErrorCode.INTERNAL_ERROR);
+        Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
+                String.format("Cannot create schema %s because schema template %s version %d does not exist.", schema.getName(), schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
+                ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         try {
             final var recordStore = openFDBRecordStore(txn);
             saveSchema((RecordLayerSchema) schema, recordStore);
@@ -386,13 +390,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
         long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-
-        return new ArrayRow(new Object[]{
-                dbId,
-                schemaName,
-                templateName,
-                version
-        });
+        return new ArrayRow(dbId, schemaName, templateName, version);
     }
 
     private Row transformDatabaseInfo(FDBStoredRecord<Message> record) {
@@ -421,8 +419,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         //TODO(bfines) unfortunate side effect--can we do this differently?
         dbTableMetaData = SqlTypeSupport.typeToMetaData(DataTypeUtils.toRecordLayerType(schemaBuilder.findType(SystemTableRegistry.DATABASE_TABLE_NAME).orElseThrow()));
         return schemaBuilder
-                .setName("CATALOG_TEMPLATE")
-                .setVersion(1L)
+                .setName(TEMPLATE)
+                .setVersion(TEMPLATE_VERSION)
                 .build();
     }
 

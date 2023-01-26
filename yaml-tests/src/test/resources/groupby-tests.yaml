@@ -137,8 +137,10 @@
 ---
 - query: select COUNT(col1) from T1;
 - result: [{!l 13}]
-#---
-#- query: drop schema template groupby_tests_template
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /GB_YAML
+---
+- query: drop schema template groupby_tests_template
 ...

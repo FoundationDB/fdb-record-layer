@@ -45,10 +45,9 @@ import java.util.stream.Collectors;
  * Quick and dirty in-memory implementation of a SchemaTemplate catalog, for use in testing.
  */
 public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
-    private final ConcurrentMap<String, SchemaTemplate> backingStore = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConcurrentMap<Long, SchemaTemplate>> backingStore = new ConcurrentHashMap<>();
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
         try {
             loadSchemaTemplate(txn, templateName);
@@ -61,35 +60,69 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         }
     }
 
+    @Override
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+        try {
+            loadSchemaTemplate(txn, templateName, version);
+            return true;
+        } catch (RelationalException ex) {
+            if (ex.getErrorCode() == ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
-        SchemaTemplate template = backingStore.get(templateId);
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+        final var versions = backingStore.get(templateName);
+        if (versions == null) {
+            throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        final var template = versions.entrySet().stream().max((a, b) -> (int) (a.getKey() - b.getKey()));
+        if (template.isEmpty()) {
+            throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        return template.get().getValue();
+    }
+
+    @Nonnull
+    @Override
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+        final var versions = backingStore.get(templateName);
+        if (versions == null) {
+            throw new RelationalException(String.format("Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        final var template = versions.get(version);
         if (template == null) {
-            throw new RelationalException("Unknown schema template <" + templateId + ">", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+            throw new RelationalException(String.format("Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         return template;
     }
 
-    @Nonnull
-    @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
-        return loadSchemaTemplate(txn, templateId);
-    }
-
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull String templateId, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
-        boolean doContinue;
-        do {
-            SchemaTemplate old = backingStore.get(templateId);
-            if (old != null) {
-                doContinue = !backingStore.replace(templateId, old, newTemplate);
-            } else {
-                old = backingStore.putIfAbsent(templateId, newTemplate);
-                doContinue = old != null;
+    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+        var versions = backingStore.get(newTemplate.getName());
+        if (versions == null) {
+            backingStore.putIfAbsent(newTemplate.getName(), new ConcurrentHashMap<>());
+            updateTemplate(txn, newTemplate);
+            return;
+        }
+        versions = backingStore.get(newTemplate.getName());
+        var oldTemplate = versions.get(newTemplate.getVersion());
+        if (oldTemplate == null) {
+            oldTemplate = versions.putIfAbsent(newTemplate.getVersion(), newTemplate);
+            if (oldTemplate != null) {
+                updateTemplate(txn, newTemplate);
             }
-        } while (doContinue);
+        } else {
+            final var replaced = versions.replace(newTemplate.getVersion(), oldTemplate, newTemplate);
+            if (!replaced) {
+                updateTemplate(txn, newTemplate);
+            }
+        }
     }
 
     @Override
@@ -103,7 +136,14 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId) {
-        backingStore.remove(templateId);
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName) {
+        backingStore.remove(templateName);
+    }
+
+    @Override
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
+        if (doesSchemaTemplateExist(txn, templateId, version)) {
+            backingStore.get(templateId).remove(version);
+        }
     }
 }

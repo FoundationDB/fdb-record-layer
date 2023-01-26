@@ -40,9 +40,14 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
+    @Override
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
+    }
+
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
@@ -53,7 +58,7 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull String templateId, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
@@ -65,5 +70,10 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
     @Override
     public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId) {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.").toUncheckedWrappedException();
+    }
+
+    @Override
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 }

@@ -57,5 +57,9 @@
 #---
 #- query: drop schema template standard_tests_template
 ---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
 - query: drop database /STANDARD_YAML
+---
+- query: drop schema template standard_tests_template
 ...

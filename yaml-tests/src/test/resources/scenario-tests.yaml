@@ -69,9 +69,11 @@
 # the query works now as expected, TODO: add data, verify results.
 - query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
 ---
-- query: drop schema template conversation_template
-#---
-#- query: drop schema template messenger_template
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /JOIN_YAML
+---
+- query: DROP SCHEMA TEMPLATE messenger_template;
+---
+- query: DROP SCHEMA TEMPLATE conversation_template;
 ...

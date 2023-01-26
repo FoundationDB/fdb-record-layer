@@ -108,9 +108,10 @@
 #- result: [{A1: 1 , A2: 10, A3: 1, 1},
 #           {A1: 2, A2: 10, A3: 2, 2},
 #           {A1: 3, A2: 10, A3: 3, 3}]
-###---
-#- query: drop schema template select_a_star_template
 #---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template select_a_star_template
+---
 - query: drop database /SELECT_A_STAR_YAML
 ...
-

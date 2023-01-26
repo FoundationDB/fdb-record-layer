@@ -60,8 +60,10 @@
 ---
 - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
 - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
-#---
-#- query: drop schema template standard_tests_template
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template standard_tests_template
 ---
 - query: drop database /STANDARD_YAML
 ...

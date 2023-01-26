@@ -53,7 +53,7 @@ public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory 
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return txn -> templateCatalog.updateTemplate(txn, template.getName(), template);
+        return txn -> templateCatalog.updateTemplate(txn, template);
     }
 
     @Nonnull

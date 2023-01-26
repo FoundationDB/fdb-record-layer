@@ -71,8 +71,9 @@
            {B1: 4, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}]
 ---
-#- query: drop schema template inserts_updates_deletes_template
-#---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
 - query: drop database /INSERTS_UPDATES_DELETES_YAML
+---
+- query: drop schema template inserts_updates_deletes_template
 ...
-

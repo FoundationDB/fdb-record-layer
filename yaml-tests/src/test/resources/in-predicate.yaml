@@ -168,5 +168,9 @@
 - query: select a from ta where 1 in (1, 2, 3)
 - result: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
 ---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
 - query: drop database /IN_PREDICATE_DB
+---
+- query: drop schema template in_predicate_schema_template
 ...

@@ -39,6 +39,6 @@ public class CreateSchemaTemplateConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        catalog.updateTemplate(txn, template.getName(), template);
+        catalog.updateTemplate(txn, template);
     }
 }

@@ -89,8 +89,10 @@
 ---
 - query: select count(col1) from t2 group by col2
 - result: []
-#---
-#- query: drop schema template aggregate_index_tests_template_count_empty
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /AGG_IDX_YAML_COUNT_EMPTY
+---
+- query: drop schema template aggregate_index_tests_template_count_empty
 ...
