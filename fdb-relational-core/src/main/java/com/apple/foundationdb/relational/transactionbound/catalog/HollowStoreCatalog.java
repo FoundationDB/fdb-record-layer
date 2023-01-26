@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -44,32 +43,12 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
-        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
-    }
-
-    @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
-    }
-
-    @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
-    }
-
-    @Override
     public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
     public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
-        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
-    }
-
-    @Override
-    public void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 

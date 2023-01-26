@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -44,28 +43,6 @@ public interface StoreCatalog {
      */
     @Nonnull
     Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
-
-    /**
-     * Returns a SchemaTemplate object.
-     *
-     * @param txn          a Transaction
-     * @param templateName name of the schema template
-     * @param version      version of the schema template
-     * @return the schema template
-     * @throws RelationalException UNKNOWN_SCHEMA_TEMPLATE if the combination of templateName and version not found
-     */
-    @Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;
-
-    /**
-     * Returns the latest version of a schema template.
-     *
-     * @param txn          a Transaction
-     * @param templateName name of the schema template
-     * @return the schema template
-     * @throws RelationalException UNKNOWN_SCHEMA_TEMPLATE if the templateName not found
-     */
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
 
     /**
      * Updates schema, returns true if succeeds. Change applied after transaction is committed.
@@ -89,18 +66,6 @@ public interface StoreCatalog {
      *                           UNDEFINED_SCHEMA if schema not found
      */
     void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException;
-
-    /**
-     * Updates a schema template. If version field in the new schema template is unset (=0L), set the version to be lastVersion (=0L if the template doesn't exist) + 1.
-     *
-     * @param txn         a Transaction
-     * @param dataToWrite the new schema template
-     * @throws RelationalException InternalError if txn is compatible type
-     *                           TransactionInactive if txn is no longer active
-     */
-    void saveSchemaTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate dataToWrite) throws RelationalException;
-
-    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
 
     void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
 

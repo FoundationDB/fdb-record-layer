@@ -66,5 +66,5 @@ public interface SchemaTemplateCatalog {
 
     RelationalResultSet listTemplates(@Nonnull Transaction txn);
 
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId);
+    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId) throws RelationalException;
 }

@@ -67,10 +67,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -105,15 +103,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public static final String SCHEMA = "CATALOG";
     public static final String TEMPLATE = "CATALOG_TEMPLATE";
     public static final String SYS_DB = "/__SYS";
-
-    private static final long MAX_SCHEMA_TEMPLATE_VERSION = 1000L;
-    private static final ExtensionRegistry EXTENSION_REGISTRY;
     private StructMetaData dbTableMetaData;
 
     static {
         ExtensionRegistry defaultExtensionRegistry = ExtensionRegistry.newInstance();
         RecordMetaDataOptionsProto.registerAllExtensions(defaultExtensionRegistry);
-        EXTENSION_REGISTRY = defaultExtensionRegistry.getUnmodifiable();
     }
 
     private final KeySpacePath keySpacePath;
@@ -122,13 +116,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     private final RecordMetaDataProvider metaDataProvider;
 
     private final SchemaTemplateCatalog schemaTemplateCatalog;
-
-    public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace) throws RelationalException {
-        this.keySpace = keySpace;
-        keySpacePath = KeySpaceUtils.uriToPath(URI.create(SYS_DB + "/" + SCHEMA), keySpace);
-        metaDataProvider = setupMetadataProvider();
-        schemaTemplateCatalog = null;
-    }
 
     public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace, @Nonnull SchemaTemplateCatalog schemaTemplateCatalog) throws RelationalException {
         this.keySpace = keySpace;
@@ -236,85 +223,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema);
-    }
-
-    @Override
-    @Nonnull
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
-        final FDBRecordStore recordStore = openFDBRecordStore(txn);
-        Assert.notNull(recordStore);
-        final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY, templateName, version);
-        try {
-            final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
-            if (record == null) {
-                throw new RelationalException("Schema Template " + templateName + " version " + version + " does not exist in the catalog!", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
-            }
-            Message m = record.getRecord();
-            return parseSchemaTemplateTable(m);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-    }
-
-    @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        final FDBRecordStore recordStore = openFDBRecordStore(txn);
-        Assert.notNull(recordStore);
-        // reverse scan primary key, return the first record
-        TupleRange scanRange = new TupleRange(Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY, templateName, 1L), Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY, templateName, MAX_SCHEMA_TEMPLATE_VERSION), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE);
-        try (RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(scanRange, null, ScanProperties.REVERSE_SCAN)) {
-            RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
-            if (!cursorResult.hasNext()) {
-                throw new RelationalException("Schema Template " + templateName + " does not exist in the catalog!", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
-            }
-            Message m = cursorResult.get().getRecord();
-            return parseSchemaTemplateTable(m);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-    }
-
-    @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        try {
-            loadSchemaTemplate(txn, templateName);
-            return true;
-        } catch (RelationalException ex) {
-            if (ex.getErrorCode() == ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
-                return false;
-            }
-            throw ex;
-        }
-    }
-
-    @Override
-    public void saveSchemaTemplate(@Nonnull final Transaction txn,
-                                   @Nonnull final SchemaTemplate schemaTemplate) throws RelationalException {
-        try {
-            final var recordSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
-            FDBRecordStore recordStore = openFDBRecordStore(txn);
-            long lastVersion = -1;
-            try {
-                final SchemaTemplate lastTemplate = loadSchemaTemplate(txn, schemaTemplate.getName());
-                lastVersion = lastTemplate.getVersion();
-            } catch (RelationalException ex) {
-                if (ex.getErrorCode() != ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
-                    throw ex;
-                }
-            }
-            // if version is unset (0L), set it to lastVersion + 1
-            if (schemaTemplate.getVersion() == 0L) {
-                final var schemaTemplateWithUpdatedVersion = RecordLayerSchemaTemplate.newBuilder()
-                        .setName(recordSchemaTemplate.getName())
-                        .setVersion(lastVersion + 1)
-                        .addTables(recordSchemaTemplate.getTables()).build();
-                saveSchemaTemplate(schemaTemplateWithUpdatedVersion, recordStore);
-            } else {
-                saveSchemaTemplate(recordSchemaTemplate, recordStore);
-            }
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
     }
 
     @Override
@@ -429,7 +337,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 Assert.that(recordStore.deleteRecord(primaryKey), "Schema primaryKey id " + primaryKey.get(1) + "/" + primaryKey.get(2) + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
                 KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri, keySpace);
                 final KeySpacePath schemaPath = dbPath.add("schema", primaryKey.get(2));
-                // KeySpacePath ksPath = keySpacePath.add("schema", primaryKey.get(2));
                 FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), schemaPath);
             } while (cursorResult.hasNext());
         } catch (RecordCoreStorageException ex) {
@@ -453,25 +360,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                     .build();
             recordStore.saveRecord(m);
         } catch (RecordCoreException | SQLException e) {
-            throw ExceptionUtil.toRelationalException(e);
-        }
-    }
-
-    private void saveSchemaTemplate(@Nonnull final RecordLayerSchemaTemplate schemaTemplate, @Nonnull final FDBRecordStore recordStore) throws RelationalException {
-        try {
-            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME).getDescriptor());
-            Message m = pmd.setField("TEMPLATE_NAME", schemaTemplate.getName())
-                    .setField("TEMPLATE_VERSION", schemaTemplate.getVersion())
-                    .setField("META_DATA", schemaTemplate.toRecordMetadata().toProto().toByteString())
-                    .build();
-            recordStore.saveRecord(m);
-        } catch (RecordCoreException e) {
-            if (e.getMessage().contains("Record is too long")) {
-                throw new RelationalException("Too many columns in schema template", ErrorCode.TOO_MANY_COLUMNS, e);
-            } else {
-                throw ExceptionUtil.toRelationalException(e);
-            }
-        } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
     }
@@ -524,29 +412,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return template.generateSchema(dbId, schemaName);
     }
 
-    private SchemaTemplate parseSchemaTemplateTable(Message m) throws RelationalException {
-        final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
-        final RecordType schemaTemplateTable = recordMetaData.getRecordType(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME);
-        final Descriptors.Descriptor descriptor = schemaTemplateTable.getDescriptor();
-        String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
-        long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-        ByteString tableDescBytes = (ByteString) m.getField(descriptor.findFieldByName("META_DATA"));
-        RecordMetaDataProto.MetaData tableDescriptor;
-        try {
-            tableDescriptor = RecordMetaDataProto.MetaData.parseFrom(tableDescBytes, EXTENSION_REGISTRY);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RelationalException("Corrupt Catalog: Message <" + m + "> cannot be parsed into a schema template", ErrorCode.INTERNAL_ERROR, e);
-        }
-
-        return RecordLayerSchemaTemplate.fromRecordMetadata(RecordMetaData.build(tableDescriptor), templateName, version);
-    }
-
     private RecordLayerSchemaTemplate getCatalogSchemaTemplate() throws RelationalException {
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
 
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME).addDefinition(schemaBuilder);
 
         //TODO(bfines) unfortunate side effect--can we do this differently?
         dbTableMetaData = SqlTypeSupport.typeToMetaData(DataTypeUtils.toRecordLayerType(schemaBuilder.findType(SystemTableRegistry.DATABASE_TABLE_NAME).orElseThrow()));
