@@ -60,6 +60,10 @@ public class Bindings {
             return name.startsWith(PREFIX);
         }
 
+        public boolean isOfType(@Nonnull String name) {
+            return name.startsWith(value);
+        }
+
         public String bindingName(@Nonnull String suffix) {
             return value + suffix;
         }

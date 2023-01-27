@@ -22,13 +22,19 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -58,6 +64,36 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
         }
 
         return resultBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<ScanComparisons> visitRecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+        return visitRecordQueryIntersectionPlan(intersectionOnKeyExpressionPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Set<ScanComparisons> visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        return visitRecordQueryIntersectionPlan(intersectionOnValuesPlan);
+    }
+
+    @Nonnull
+    private Set<ScanComparisons> visitRecordQueryIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
+        //TODO revisit this logic if we ever implement skipping intersections
+        final var scanComparisonsFromQuantifiers = visitQuantifiers(intersectionPlan);
+        Verify.verify(!scanComparisonsFromQuantifiers.isEmpty());
+
+        if (scanComparisonsFromQuantifiers.size() == 1) {
+            return Iterables.getOnlyElement(scanComparisonsFromQuantifiers);
+        }
+
+        final var it = scanComparisonsFromQuantifiers.iterator();
+        final var intersected = Sets.newHashSet(it.next());
+        while (it.hasNext()) {
+            intersected.retainAll(it.next());
+        }
+        return intersected;
     }
 
     @Nonnull

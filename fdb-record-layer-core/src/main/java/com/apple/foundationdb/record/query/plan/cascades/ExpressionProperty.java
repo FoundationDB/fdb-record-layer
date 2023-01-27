@@ -160,12 +160,18 @@ public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
     @Nonnull
     @Override
     default T visitDefault(@Nonnull RelationalExpression relationalExpression) {
+        final var quantifierResults = visitQuantifiers(relationalExpression);
+        return evaluateAtExpression(relationalExpression, quantifierResults);
+    }
+
+    @Nonnull
+    default List<T> visitQuantifiers(@Nonnull RelationalExpression relationalExpression) {
         final List<? extends Quantifier> quantifiers = relationalExpression.getQuantifiers();
         final var quantifierResults = Lists.<T>newArrayListWithCapacity(quantifiers.size());
         for (final Quantifier quantifier : quantifiers) {
             quantifierResults.add(quantifier.acceptPropertyVisitor(this));
         }
 
-        return evaluateAtExpression(relationalExpression, quantifierResults);
+        return quantifierResults;
     }
 }

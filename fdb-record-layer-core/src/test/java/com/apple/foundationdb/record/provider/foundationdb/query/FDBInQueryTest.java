@@ -66,6 +66,7 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyParameterComparison;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyValueComparison;
@@ -1571,4 +1572,24 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }));
     }
 
+    @Test
+    void testInQueryWithNonSargable() throws Exception {
+        final Index numValue2RepeaterIndex = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", numValue2RepeaterIndex);
+            metaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
+        };
+        complexQuerySetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("num_value_2").greaterThan(42),
+                        Query.field("num_value_3_indexed").in(List.of(1, 3, 5, 7, 9))
+                ))
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
+        System.out.println(plan);
+    }
 }
