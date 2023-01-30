@@ -65,19 +65,21 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
                                                              @Nonnull Options options) throws RelationalException, SQLException {
-        ensureTransactionActive();
+        conn.ensureTransactionActive();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
-        final FDBRecordStore store = conn.getRecordLayerDatabase().loadSchema(conn.getSchema()).loadStore();
-        final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
-        final Plan<?> plan = Plan.generate(query, planContext);
-        final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
-        if (plan instanceof QueryPlan) {
-            return Optional.of(((QueryPlan) plan).execute(executionContext));
-        } else {
-            plan.execute(executionContext);
-            return Optional.empty();
+        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+            final FDBRecordStore store = schema.loadStore();
+            final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
+            final Plan<?> plan = Plan.generate(query, planContext);
+            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
+            if (plan instanceof QueryPlan) {
+                return Optional.of(((QueryPlan) plan).execute(executionContext));
+            } else {
+                plan.execute(executionContext);
+                return Optional.empty();
+            }
         }
     }
 
@@ -159,7 +161,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
             options = Options.combine(conn.getOptions(), options);
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
@@ -187,7 +189,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         try {
             options = Options.combine(conn.getOptions(), options);
 
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -212,7 +214,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
         try {
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
             return schema.getDataBuilder(schemaAndTable[1]);
@@ -225,7 +227,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Nonnull
     public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
         try {
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), maybeQualifiedTableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
             final var typeAccessor = new java.util.ArrayList<>(List.of(schemaAndTable[1]));
@@ -245,7 +247,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return 0;
             }
 
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -277,7 +279,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return 0;
             }
 
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
@@ -307,7 +309,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
             options = Options.combine(conn.getOptions(), options);
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
@@ -385,19 +387,6 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     /* ****************************************************************************************************************/
     /*private helper methods*/
-    private void ensureTransactionActive() throws RelationalException {
-        if (!conn.inActiveTransaction()) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.beginTransaction();
-                } catch (SQLException e) {
-                    throw ExceptionUtil.toRelationalException(e);
-                }
-            } else {
-                throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
-            }
-        }
-    }
 
     // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
     //               instead of this string processing since that is error-prone and somewhat very low-level.

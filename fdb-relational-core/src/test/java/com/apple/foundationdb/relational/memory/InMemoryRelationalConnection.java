@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
@@ -68,6 +69,11 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
+        throw new RelationalException("InMemoryRelationalConnection does not support prepared statements", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+    }
+
+    @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
 
     }
@@ -100,7 +106,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
-        throw new UnsupportedOperationException("UNNot Implemented in the Relational layerED");
+        throw new RelationalException("InMemoryRelationalConnection does not support getMetaData", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
     }
 
     @Override

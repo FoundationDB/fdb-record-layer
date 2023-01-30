@@ -22,13 +22,13 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
@@ -128,6 +128,11 @@ class JDBCRelationalConnection implements RelationalConnection {
     @Override
     public RelationalStatement createStatement() throws SQLException {
         return new JDBCRelationalStatement(this);
+    }
+
+    @Override
+    public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override

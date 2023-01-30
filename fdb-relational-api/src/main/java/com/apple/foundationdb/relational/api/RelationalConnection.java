@@ -71,6 +71,24 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     RelationalStatement createStatement() throws SQLException;
 
+    /**
+     * Creates a {@link RelationalPreparedStatement} object for sending
+     * parameterized SQL statements to the database.
+            * <P>
+     * A SQL statement with or without IN parameters can be
+     * pre-compiled and stored in a <code>PreparedStatement</code> object. This
+     * object can then be used to efficiently execute this statement
+     * multiple times.
+     * @param sql an SQL statement that may contain one or more '?' IN
+     * parameter placeholders
+     * @return a new default <code>RelationalPreparedStatement</code> object containing the
+     * pre-compiled SQL statement
+     * @exception SQLException if a database access error occurs
+     * or this method is called on a closed connection
+     */
+    @Override
+    RelationalPreparedStatement prepareStatement(String sql) throws SQLException;
+
     //TODO(bfines) We would probably want to implement and support an "AsyncStatement" here, which
     // can capture the asyncronous operations necessary
 
@@ -101,12 +119,6 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default PreparedStatement prepareStatement(String sql) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

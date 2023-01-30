@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -65,6 +66,11 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Override
     public RelationalStatement createStatement() throws SQLException {
         return new ErrorCapturingStatement(new EmbeddedRelationalStatement(this));
+    }
+
+    @Override
+    public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
+        return new EmbeddedRelationalPreparedStatement(sql, this);
     }
 
     @Override
@@ -233,5 +239,19 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public AbstractDatabase getRecordLayerDatabase() {
         return frl;
+    }
+
+    public void ensureTransactionActive() throws RelationalException {
+        if (!inActiveTransaction()) {
+            if (getAutoCommit()) {
+                try {
+                    beginTransaction();
+                } catch (SQLException e) {
+                    throw ExceptionUtil.toRelationalException(e);
+                }
+            } else {
+                throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
+            }
+        }
     }
 }

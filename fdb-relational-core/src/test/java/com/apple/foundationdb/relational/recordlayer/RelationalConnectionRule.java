@@ -24,9 +24,9 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -74,6 +74,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public RelationalStatement createStatement() throws SQLException {
         return connection.createStatement();
+    }
+
+    @Override
+    public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
+        return connection.prepareStatement(sql);
     }
 
     @Override

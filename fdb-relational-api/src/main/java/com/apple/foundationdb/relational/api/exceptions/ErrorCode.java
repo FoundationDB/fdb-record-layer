@@ -39,6 +39,7 @@ import java.util.stream.Stream;
  * <p>
  * 00 | Success
  * 01 | Warning
+ * 02 | No Data
  * 08 | Connection Exception
  * 0A | Unsupported Operation
  * 22 | Data exception
@@ -62,6 +63,9 @@ import java.util.stream.Stream;
 public enum ErrorCode {
     // Class 00 - Successful Completion
     SUCCESS("00000"),
+
+    // Class 02 - No data
+    NO_RESULT_SET("02F01"),
 
     // Class 08 - Connection Exception
     UNABLE_TO_ESTABLISH_SQL_CONNECTION("08001"),
