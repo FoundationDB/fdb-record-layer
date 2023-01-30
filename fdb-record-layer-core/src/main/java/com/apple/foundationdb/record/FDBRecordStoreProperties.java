@@ -61,7 +61,7 @@ public final class FDBRecordStoreProperties {
      */
     @API(API.Status.EXPERIMENTAL)
     public static final RecordLayerPropertyKey<Boolean> LOAD_RECORDS_VIA_GETS = RecordLayerPropertyKey.booleanPropertyKey(
-            "com.apple.foundationdb.record.recordstore.load_records_via_gets", true);
+            "com.apple.foundationdb.record.recordstore.load_records_via_gets", false);
 
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");
