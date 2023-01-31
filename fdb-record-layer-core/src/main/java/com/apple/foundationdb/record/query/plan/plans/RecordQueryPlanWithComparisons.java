@@ -21,15 +21,34 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 /**
- * A query plan that uses {@link ScanComparisons} to drive some scan of the record store.
+ * A query plan that uses {@link ScanComparisons} or {@link Comparisons.Comparison} to drive some scan of
+ * the record store.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
+
+    default boolean hasComparisons() {
+        return hasScanComparisons();
+    }
+
+    default Set<Comparisons.Comparison> getComparisons() {
+        Preconditions.checkArgument(hasScanComparisons());
+        final var scanComparisons = getScanComparisons();
+        return ImmutableSet.<Comparisons.Comparison>builder()
+                .addAll(scanComparisons.getEqualityComparisons())
+                .addAll(scanComparisons.getInequalityComparisons())
+                .build();
+    }
+
     @Nonnull
     ScanComparisons getScanComparisons();
 

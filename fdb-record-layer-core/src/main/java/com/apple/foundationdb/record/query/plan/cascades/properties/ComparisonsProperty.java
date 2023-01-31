@@ -1,5 +1,5 @@
 /*
- * ScanComparisonsProperty.java
+ * ComparisonsProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -31,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -44,12 +47,12 @@ import java.util.Set;
  * A property for collecting all {@link ScanComparisons} for the sub tree the property is evaluated on.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanComparisons>>, RelationalExpressionVisitorWithDefaults<Set<ScanComparisons>> {
+public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.Comparison>>, RelationalExpressionVisitorWithDefaults<Set<Comparisons.Comparison>> {
     @Nonnull
     @Override
-    public Set<ScanComparisons> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<ScanComparisons>> childResults) {
-        final ImmutableSet.Builder<ScanComparisons> resultBuilder = ImmutableSet.builder();
-        for (Set<ScanComparisons> childResult : childResults) {
+    public Set<Comparisons.Comparison> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<Comparisons.Comparison>> childResults) {
+        final ImmutableSet.Builder<Comparisons.Comparison> resultBuilder = ImmutableSet.builder();
+        for (final var childResult : childResults) {
             if (childResult != null) {
                 resultBuilder.addAll(childResult);
             }
@@ -61,8 +64,8 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
 
         if (expression instanceof RecordQueryPlanWithComparisons) {
             final var planWithComparisons = (RecordQueryPlanWithComparisons)expression;
-            if (planWithComparisons.hasScanComparisons()) {
-                resultBuilder.add(planWithComparisons.getScanComparisons());
+            if (planWithComparisons.hasComparisons()) {
+                resultBuilder.addAll(planWithComparisons.getComparisons());
             }
         }
 
@@ -71,27 +74,27 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
 
     @Nonnull
     @Override
-    public Set<ScanComparisons> visitRecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+    public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
         return visitRecordQueryIntersectionPlan(intersectionOnKeyExpressionPlan);
     }
 
     @Nonnull
     @Override
-    public Set<ScanComparisons> visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+    public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
         return visitRecordQueryIntersectionPlan(intersectionOnValuesPlan);
     }
 
     @Nonnull
-    private Set<ScanComparisons> visitRecordQueryIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
+    private Set<Comparisons.Comparison> visitRecordQueryIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
         //TODO revisit this logic if we ever implement skipping intersections
-        final var scanComparisonsFromQuantifiers = visitQuantifiers(intersectionPlan);
-        Verify.verify(!scanComparisonsFromQuantifiers.isEmpty());
+        final var comparisonsFromQuantifiers = visitQuantifiers(intersectionPlan);
+        Verify.verify(!comparisonsFromQuantifiers.isEmpty());
 
-        if (scanComparisonsFromQuantifiers.size() == 1) {
-            return Iterables.getOnlyElement(scanComparisonsFromQuantifiers);
+        if (comparisonsFromQuantifiers.size() == 1) {
+            return Iterables.getOnlyElement(comparisonsFromQuantifiers);
         }
 
-        final var it = scanComparisonsFromQuantifiers.iterator();
+        final var it = comparisonsFromQuantifiers.iterator();
         final var intersected = Sets.newHashSet(it.next());
         while (it.hasNext()) {
             intersected.retainAll(it.next());
@@ -101,9 +104,32 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
 
     @Nonnull
     @Override
-    public Set<ScanComparisons> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Set<ScanComparisons>> memberResults) {
-        final ImmutableSet.Builder<ScanComparisons> resultBuilder = ImmutableSet.builder();
-        for (Set<ScanComparisons> memberResult : memberResults) {
+    public Set<Comparisons.Comparison> visitRecordQueryScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+        final var ranks = scoreForRankPlan.getRanks();
+        return ranks.stream()
+                .flatMap(rank -> rank.getComparisons().stream())
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
+    @Override
+    public Set<Comparisons.Comparison> visitRecordQueryTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan textIndexPlan) {
+        final ImmutableSet.Builder<Comparisons.Comparison> resultBuilder = ImmutableSet.builder();
+        final var scanComparisons = textIndexPlan.getTextScan().getGroupingComparisons();
+        if (scanComparisons != null) {
+            resultBuilder.addAll(scanComparisons.getEqualityComparisons())
+                    .addAll(scanComparisons.getInequalityComparisons());
+        }
+
+        resultBuilder.add(textIndexPlan.getTextScan().getTextComparison());
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<Comparisons.Comparison> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Set<Comparisons.Comparison>> memberResults) {
+        final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        for (final var memberResult : memberResults) {
             if (memberResult != null) {
                 resultBuilder.addAll(memberResult);
             }
@@ -111,8 +137,8 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
         return resultBuilder.build();
     }
 
-    public static Set<ScanComparisons> evaluate(@Nonnull RelationalExpression expression) {
-        Set<ScanComparisons> result = expression.acceptPropertyVisitor(new ScanComparisonsProperty());
+    public static Set<Comparisons.Comparison> evaluate(@Nonnull RelationalExpression expression) {
+        final var result = expression.acceptPropertyVisitor(new ComparisonsProperty());
         if (result == null) {
             return ImmutableSet.of();
         }

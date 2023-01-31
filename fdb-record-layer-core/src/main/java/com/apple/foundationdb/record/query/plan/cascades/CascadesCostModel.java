@@ -25,8 +25,13 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
@@ -34,12 +39,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ScanComparisonsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -273,16 +272,14 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         
         // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
         // plan is not useful.
-        final Set<ScanComparisons> scanComparisonsSet = ScanComparisonsProperty.evaluate(leftExpression);
+        final Set<Comparisons.Comparison> scanComparisonsSet = ComparisonsProperty.evaluate(leftExpression);
 
         final ImmutableSet<CorrelationIdentifier> scanComparisonsCorrelatedTo =
                 scanComparisonsSet
                         .stream()
-                        .flatMap(scanComparisons ->
-                                scanComparisons.getEqualityComparisons()
-                                        .stream()
-                                        .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
-                                        .map(comparison -> (Comparisons.ValueComparison)comparison))
+                        .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
+                        .map(comparison -> (Comparisons.ValueComparison)comparison)
+                        .filter(comparison -> comparison.getType() == Comparisons.Type.EQUALS)
                         .flatMap(comparison -> comparison.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet());
 

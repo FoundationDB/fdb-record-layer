@@ -295,6 +295,11 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
             return bindingName;
         }
 
+        @Nonnull
+        public List<Comparisons.Comparison> getComparisons() {
+            return comparisons;
+        }
+
         @Override
         public String toString() {
             return bindingName + " = " + callToString();

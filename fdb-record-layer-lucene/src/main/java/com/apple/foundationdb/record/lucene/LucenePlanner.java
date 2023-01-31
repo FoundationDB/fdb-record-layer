@@ -151,7 +151,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (hasRewrite) {
             plan = new LuceneHighlightTermsPlan(plan);
         }
-        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), Collections.emptySet(),  11 - filterMask.getUnsatisfiedFilters().size(),
+        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), computeSargedComparisons(plan),  11 - filterMask.getUnsatisfiedFilters().size(),
                 state.repeated, null);
     }
 
