@@ -43,7 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeRange;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -202,9 +202,12 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
             FDBRecordStoreTestBase.RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
 
+                final var compileTimeRange = CompileTimeRange.newBuilder();
+                compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
+
                 final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-                final var predicate = new ValueRangesPredicate.PredicateConjunction(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
-                        List.of(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42)));
+                final var predicate = new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+                        compileTimeRange.build().orElseThrow());
 
                 final var protoIndexBuilder = RecordMetaDataProto.Index.newBuilder()
                         .setName("SparseIndex")

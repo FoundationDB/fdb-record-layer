@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.PredicateConjunction;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Sargable;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
@@ -168,13 +168,13 @@ public class PredicateMultiMap {
 
         @NonNull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
-            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof PredicateConjunction)) {
+            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof Sargable)) {
                 return Optional.empty();
             }
 
-            final PredicateConjunction predicateConjunctionPredicate = (PredicateConjunction)this.queryPredicate;
+            final Sargable predicateConjunctionPredicate = (Sargable)this.queryPredicate;
 
-            return predicateConjunctionPredicate.getComparisonRange();
+            return Optional.of(predicateConjunctionPredicate.getRange().asComparisonRange());
         }
 
         @Nonnull

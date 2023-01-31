@@ -102,7 +102,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
      * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueRangesPredicate.PredicateConjunction}) on the query side.
+     * ({@link ValueRangesPredicate.Sargable}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -371,7 +371,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         } else if (proto.hasValuePredicate()) {
             return ValuePredicate.deserialize(proto.getValuePredicate(), alias, inputType);
         } else if (proto.hasSargable()) {
-            return ValueRangesPredicate.PredicateConjunction.deserialize(proto.getSargable(), alias, inputType);
+            return ValueRangesPredicate.Sargable.deserialize(proto.getSargable(), alias, inputType);
         } else {
             throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto.toString()));
         }

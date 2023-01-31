@@ -20,12 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 
 import javax.annotation.Nonnull;
@@ -40,7 +46,7 @@ import java.util.Set;
 /**
  * Represents a compile-time range that can be evaluated against other compile-time ranges.
  */
-public class CompileTimeRange {
+public class CompileTimeRange implements PlanHashable, Correlated<CompileTimeRange> {
 
     @Nonnull
     private final Range<Boundary> range;
@@ -50,22 +56,145 @@ public class CompileTimeRange {
     }
 
     @Nonnull
-    public ComparisonRange toComparisonRange() {
-        ComparisonRange result = ComparisonRange.EMPTY;
-        if (range.isEmpty()) {
-            return result;
+    List<Comparisons.Comparison> getComparisons() {
+        if (isEquality()) {
+            return List.of(range.upperEndpoint().comparison);
         }
+        ImmutableList.Builder<Comparisons.Comparison> result = ImmutableList.builder();
         if (range.hasUpperBound()) {
-            result = result.tryToAdd(range.upperEndpoint().getComparison()).orElseThrow();
+            result.add(range.upperEndpoint().getComparison());
         }
         if (range.hasLowerBound()) {
-            result = result.tryToAdd(range.lowerEndpoint().getComparison()).orElseThrow();
+            result.add(range.lowerEndpoint().getComparison());
         }
-        return result;
+        return result.build();
+    }
+
+    /**
+     * Returns an equivalent {@link ComparisonRange}.
+     * Note: This method is created for compatibility reasons.
+     * @return An equivalent {@link ComparisonRange}.
+     */
+    @Nonnull
+    public ComparisonRange asComparisonRange() {
+        var resultRange = ComparisonRange.EMPTY;
+        for (final var comparison : getComparisons()) {
+            resultRange = resultRange.merge(comparison).getComparisonRange();
+        }
+        return resultRange;
+    }
+
+    // todo: memoize
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> result = ImmutableSet.builder();
+        if (range.hasLowerBound()) {
+            result.addAll(range.lowerEndpoint().getComparison().getCorrelatedTo());
+        }
+        if (range.hasUpperBound()) {
+            result.addAll(range.upperEndpoint().getComparison().getCorrelatedTo());
+        }
+        return result.build();
+    }
+
+    @Nonnull
+    @Override
+    public CompileTimeRange rebase(@Nonnull final AliasMap translationMap) {
+        if (isEmpty()) {
+            return this;
+        } else {
+            boolean hasNewLowerComparison = false;
+            Comparisons.Comparison lower = null;
+            if (range.hasLowerBound()) {
+                final var origLower = range.lowerEndpoint().comparison;
+                final var newLower = origLower.rebase(translationMap);
+                if (origLower == newLower) {
+                    hasNewLowerComparison = true;
+                    lower = newLower;
+                }
+            }
+
+            boolean hasNewUpperComparison = false;
+            Comparisons.Comparison upper = null;
+            if (range.hasUpperBound()) {
+                final var origUpper = range.upperEndpoint().comparison;
+                final var newUpper = origUpper.rebase(translationMap);
+                if (origUpper == newUpper) {
+                    hasNewUpperComparison = true;
+                    upper = newUpper;
+                }
+            }
+
+            if (!hasNewUpperComparison && !hasNewLowerComparison) {
+                return this;
+            }
+
+            final var resultBuilder = CompileTimeRange.newBuilder();
+            if (hasNewLowerComparison) {
+                resultBuilder.tryAdd(lower);
+            }
+            if (hasNewUpperComparison) {
+                resultBuilder.tryAdd(upper);
+            }
+            return resultBuilder.build().orElseThrow();
+        }
+    }
+
+    @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final var that = (CompileTimeRange)other;
+
+        if (this.isEmpty() && that.isEmpty()) {
+            return true;
+        }
+
+        if (this.isEmpty() || that.isEmpty()) {
+            return false;
+        }
+
+        if (range.hasUpperBound()) {
+            if (!that.range.hasUpperBound()) {
+                return false;
+            }
+            if (!this.range.upperEndpoint().getComparison().semanticEquals(that.range.upperEndpoint().getComparison(), aliasMap)) {
+                return false;
+            }
+        }
+
+        if (range.hasLowerBound()) {
+            if (!that.range.hasLowerBound()) {
+                return false;
+            }
+            return this.range.lowerEndpoint().getComparison().semanticEquals(that.range.lowerEndpoint().getComparison(), aliasMap);
+        }
+
+        return true;
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return range.hashCode();
     }
 
     public boolean isEmpty() {
         return range.isEmpty();
+    }
+
+    public boolean isEquality() {
+        return range.hasLowerBound() && range.hasUpperBound() && range.lowerEndpoint().equals(range.upperEndpoint());
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        return PlanHashable.objectsPlanHash(hashKind, range);
     }
 
     static class Boundary implements Comparable<Boundary> {
@@ -108,6 +237,11 @@ public class CompileTimeRange {
         @Nonnull
         public Comparisons.Comparison getComparison() {
             return comparison;
+        }
+
+        @Override
+        public String toString() {
+            return comparison.getComparand() == null ? "<NULL>" : comparison.getComparand().toString();
         }
 
         public static class Builder {
@@ -208,7 +342,14 @@ public class CompileTimeRange {
             if (!canAdd(comparison)) {
                 return false;
             }
-            final var range = toRange(comparison);
+            return tryAdd(toRange(comparison));
+        }
+
+        public boolean tryAdd(@Nonnull final CompileTimeRange compileTimeRange) {
+            return tryAdd(compileTimeRange.range);
+        }
+
+        public boolean tryAdd(@Nonnull final Range<Boundary> range) {
             if (this.range == null) {
                 this.range = range;
             } else {

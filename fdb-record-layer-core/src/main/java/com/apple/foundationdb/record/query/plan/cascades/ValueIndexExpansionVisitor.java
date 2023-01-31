@@ -120,15 +120,15 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             final var mutablePlaceholders = new ArrayList<>(keyValueExpansion.getPlaceholders());
             // rewrite sargables as placeholder compile-time ranges.
             for (final var predicate : predicates) {
-                if (predicate instanceof ValueRangesPredicate.PredicateConjunction) {
-                    final var sargableValue = (ValueRangesPredicate.PredicateConjunction)predicate;
+                if (predicate instanceof ValueRangesPredicate.Sargable) {
+                    final var sargableValue = (ValueRangesPredicate.Sargable)predicate;
                     boolean found = false;
                     for (int i = 0; i < mutablePlaceholders.size(); ++i) {
                         final var placeholder = mutablePlaceholders.get(i);
                         if (placeholder.getValue().semanticEquals(sargableValue.getValue(), AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
                             found = true;
                             mutablePlaceholders.remove(i);
-                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getCompileTimeRange().orElseThrow()));
+                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getRange()));
                             break;
                         }
                         // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate

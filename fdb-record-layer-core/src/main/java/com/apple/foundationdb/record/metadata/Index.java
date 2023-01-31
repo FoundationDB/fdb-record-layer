@@ -120,6 +120,7 @@ public class Index {
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
      * @param options additional options, which may be type-specific
+     * @param predicates index predicates, for sparse indexes, can be empty.
      * @see IndexTypes
      */
     public Index(@Nonnull String name,
