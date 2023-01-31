@@ -31,9 +31,9 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
     @Nonnull
-    ScanComparisons getComparisons();
+    ScanComparisons getScanComparisons();
 
-    default boolean hasComparisons() {
+    default boolean hasScanComparisons() {
         return true;
     }
 }

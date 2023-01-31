@@ -61,7 +61,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 /**
@@ -242,20 +242,20 @@ public class InExtractor {
         return inClauses.stream().map(InClause::unionSource).collect(Collectors.toList());
     }
 
-    public InExtractor filter(@Nonnull Predicate<String> inBindingFilter) {
+    public InExtractor filter(@Nonnull final BiPredicate<ComponentWithComparison, String> inBindingFilter) {
         return fromFilter(this.filter, inBindingFilter);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static InExtractor fromFilter(@Nonnull final QueryComponent filter, @Nonnull Predicate<String> inBindingFilter) {
+    public static InExtractor fromFilter(@Nonnull final QueryComponent filter, @Nonnull BiPredicate<ComponentWithComparison, String> inBindingFilter) {
         final AtomicInteger bindingIndex = new AtomicInteger();
         final List<InClause> inClauses = Lists.newArrayList();
         final QueryComponent subFilter = mapClauses(filter, (withComparison, fields) -> {
             if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
                 final String bindingName = Bindings.Internal.IN.bindingName(
                         withComparison.getName() + "__" + bindingIndex.getAndIncrement());
-                if (inBindingFilter.test(bindingName)) {
+                if (inBindingFilter.test(withComparison, bindingName)) {
                     List<FieldKeyExpression> nestedFields = null;
                     if (fields != null && (withComparison instanceof FieldWithComparison || withComparison instanceof OneOfThemWithComparison)) {
                         nestedFields = new ArrayList<>(fields);

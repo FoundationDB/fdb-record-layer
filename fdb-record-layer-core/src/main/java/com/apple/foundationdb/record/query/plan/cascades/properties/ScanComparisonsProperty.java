@@ -60,7 +60,10 @@ public class ScanComparisonsProperty implements ExpressionProperty<Set<ScanCompa
         }
 
         if (expression instanceof RecordQueryPlanWithComparisons) {
-            resultBuilder.add(((RecordQueryPlanWithComparisons)expression).getComparisons());
+            final var planWithComparisons = (RecordQueryPlanWithComparisons)expression;
+            if (planWithComparisons.hasScanComparisons()) {
+                resultBuilder.add(planWithComparisons.getScanComparisons());
+            }
         }
 
         return resultBuilder.build();

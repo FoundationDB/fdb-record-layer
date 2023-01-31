@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Reco
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -102,6 +103,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.selfOrDescendantPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
@@ -1326,19 +1328,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         if (planner instanceof RecordQueryPlanner) {
-            // Without the join, these would be using the same index and so compatible, even though inequalities.
-            // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
             assertMatchesExactly(plan,
-                    unorderedPrimaryKeyDistinctPlan(
-                            unorderedUnionPlan(
+                            unionOnExpressionPlan(
                                     indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
-                                    inValuesJoinPlan(
-                                            filterPlan(
-                                                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
-                                    ).where(inValuesList(equalsObject(Arrays.asList(0, 2)))))));
-            assertEquals(-97067043, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(942676960, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(417180157, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                                    filterPlan(
+                                            indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
+                                            .where(queryComponents(only(equalsObject(Query.field("num_value_2").in(Arrays.asList(2, 0))))))));
+            assertEquals(224679143, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2117979117, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1561173074, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             // Cascades planner avoids IN-JOIN causing a primary scan and a UNION-ALL
             assertMatchesExactly(plan,
@@ -1581,15 +1579,75 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         };
         complexQuerySetup(hook);
 
+        final var inFilter = Query.field("num_value_3_indexed").in(List.of(1, 3, 5, 7, 9));
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
                         Query.field("num_value_2").greaterThan(42),
-                        Query.field("num_value_3_indexed").in(List.of(1, 3, 5, 7, 9))
+                        inFilter
                 ))
                 .build();
 
         RecordQueryPlan plan = planner.plan(query);
-        System.out.println(plan);
+
+        // Make sure we do not plan the IN as a JOIN and that we don't fall back to a primary scan but use an
+        // index.
+        assertMatchesExactly(plan,
+                fetchFromPartialRecordPlan(
+                        filterPlan(
+                                coveringIndexPlan()
+                                        .where(indexPlanOf(indexPlan()
+                                                .where(indexName("numValue2NumValue3"))
+                                                .and(scanComparisons(range("([42],>"))))))
+                                                .where(queryComponents(only(equalsObject(inFilter))))));
+        assertEquals(1306759254, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1359269242, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1842527418, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+    }
+
+    @ParameterizedTest(name = "testInQueryWithNonSargableReplan [shouldReplan = {0}]")
+    @BooleanSource
+    void testInQueryWithNonSargableReplan(final boolean shouldReplan) throws Exception {
+        complexQuerySetup(NO_HOOK);
+
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setMaxNumReplansForInToJoin(shouldReplan ? 1 : 0).build());
+        final var inListNumValue3Indexed = List.of(1, 3, 5, 7, 9);
+        final var inListNumValue2 = List.of(2, 4, 6, 8);
+        final var filter = Query.and(
+                Query.field("num_value_2").in(inListNumValue2),
+                Query.field("num_value_3_indexed").in(inListNumValue3Indexed)
+        );
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(filter)
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
+        if (shouldReplan) {
+            // With replanning we plan one IN as a JOIN over an index using that IN-bound equaltiy predicate
+            // and the other one as a residual IN.
+            assertMatchesExactly(plan,
+                    inValuesJoinPlan(
+                            filterPlan(
+                                    indexPlan()
+                                            .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                            .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__1]"))))
+                                    .where(queryComponents(only(equalsObject(Query.field("num_value_2").in(inListNumValue2)))))
+                    ).where(inValuesList(equalsObject(inListNumValue3Indexed))));
+            assertEquals(-440990190, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(529154549, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(188097148, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            // Without any replanning we plan with both IN predicates in a residual filter.
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            typeFilterPlan(
+                                    scanPlan().where(scanComparisons(unbounded()))))
+                            .where(queryComponents(only(equalsObject(filter)))));
+            assertEquals(-898685565, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-422258180, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(216911899, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 }
