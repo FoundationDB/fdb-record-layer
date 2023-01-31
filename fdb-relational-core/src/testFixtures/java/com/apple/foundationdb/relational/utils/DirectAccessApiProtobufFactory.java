@@ -114,6 +114,11 @@ public class DirectAccessApiProtobufFactory {
                         .setField("LOCATION",
                                 s.getDataBuilder(RESTAURANT, List.of("LOCATION"))
                                         .setField("ADDRESS", "12345 Easy Street")
+                                        // Add these fields for now so the ResultSetAssert#hasRow will work (source insert
+                                        // will match the returned ResultSet otherwise, the FRL adds fields to the
+                                        // ResultSet that were not in the insert... making ResultSetAssert fail.
+                                        .setField("LATITUDE", "0.000000")
+                                        .setField("LONGITUDE", "0.000000")
                                         .build())
                         .addRepeatedFields("TAGS",
                                 List.of(s.getDataBuilder(RESTAURANT, List.of("TAGS"))

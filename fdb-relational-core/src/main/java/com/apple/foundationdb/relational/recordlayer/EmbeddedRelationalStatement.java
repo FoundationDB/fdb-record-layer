@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
@@ -261,6 +262,39 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 while (data.hasNext()) {
                     Message message = data.next();
                     if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
+                        rowCount++;
+                    }
+                }
+                return rowCount;
+            });
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+            throws SQLException {
+        try {
+            options = Options.combine(conn.getOptions(), options);
+            //do this check first because otherwise we might start an expensive transaction that does nothing
+            if (data.isEmpty()) {
+                return 0;
+            }
+
+            ensureTransactionActive();
+
+            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+
+            Table table = schema.loadTable(schemaAndTable[1]);
+            table.validateTable(options);
+            final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
+
+            return executeMutation(() -> {
+                int rowCount = 0;
+                for (RelationalStruct struct : data) {
+                    if (table.insertRecord(struct, replaceOnDuplicate != null && replaceOnDuplicate)) {
                         rowCount++;
                     }
                 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -49,8 +50,25 @@ public interface Table extends DirectScannable, AutoCloseable {
 
     void deleteRange(Map<String, Object> prefix) throws RelationalException;
 
-    //TODO(bfines) should we really use a Protobuf here? Or a KV pair instead? For now, Message will work
+    /**
+     * Insert message content.
+     * @param message What to insert.
+     * @param replaceOnDuplicate Where to replace if duplicate insert.
+     * @return Whether insert was successful or not.
+     * @throws RelationalException Thrown if record exists already or if error on insert.
+     * @deprecated since 01/18/2023; use {@link #insertRecord(RelationalStruct, boolean)} instead.
+     */
+    @Deprecated
     boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException;
+
+    /**
+     * Replaces {@link #insertRecord(Message, boolean)} encapsulating protobuf usage.
+     * @param insert What to insert.
+     * @param replaceOnDuplicate Where to replace if duplicate insert.
+     * @return Whether insert was successful or not.
+     * @throws RelationalException Thrown if record exists already or if error on insert.
+     */
+    boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException;
 
     Set<Index> getAvailableIndexes() throws RelationalException;
 

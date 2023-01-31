@@ -40,15 +40,20 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -191,6 +196,108 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         }
         //TODO(bfines) maybe this should return something other than boolean?
         return true;
+    }
+
+    @Override
+    @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
+    public boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
+        FDBRecordStore store = schema.loadStore();
+        try {
+            final RecordType recordType = store.getRecordMetaData().getRecordType(this.tableName);
+            Message message = toDynamicMessage(insert, recordType.getDescriptor());
+            if (replaceOnDuplicate) {
+                store.saveRecord(message);
+            } else {
+                store.insertRecord(message);
+            }
+        } catch (RecordAlreadyExistsException raee) {
+            throw new RelationalException("Duplicate primary key for " + insert + " on table <" + tableName + ">",
+                    ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex);
+        }
+        //TODO(bfines) maybe this should return something other than boolean?
+        return true;
+    }
+
+    /**
+     * Convert {@link RelationalStruct} to Record Layer {@link Message}.
+     */
+    @VisibleForTesting
+    static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
+        Type.Record record = Type.Record.fromDescriptor(descriptor);
+        DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+        Map<String, Type.Record.Field> fieldMap = record.getFieldNameFieldMap();
+        try {
+            StructMetaData structMetaData = struct.getMetaData();
+            for (int i = 1; i <= structMetaData.getColumnCount(); i++) {
+                String columnName = structMetaData.getColumnName(i);
+                Type.Record.Field field = fieldMap.get(columnName);
+                if (field == null) {
+                    throw new RelationalException(String.format("Column <%s> does not exist on table/struct <%s>",
+                            columnName, record.getName()), ErrorCode.UNDEFINED_COLUMN);
+                }
+                Descriptors.FieldDescriptor fd = builder.getDescriptorForType().findFieldByName(field.getFieldName());
+                // java.sql.Types, not cascades types.
+                // TODO: Add type checking, nudging, and coercion at this point! Per bfines, good place to do it!
+                //  TODO (Add type checking, nudging, and coercion)
+                switch (structMetaData.getColumnType(i)) {
+                    case Types.BOOLEAN:
+                        builder.setField(fd, struct.getBoolean(i));
+                        break;
+                    case Types.BINARY:
+                        builder.setField(fd, struct.getBytes(i));
+                        break;
+                    case Types.DOUBLE:
+                        builder.setField(fd, struct.getDouble(i));
+                        break;
+                    case Types.FLOAT:
+                        builder.setField(fd, struct.getFloat(i));
+                        break;
+                    case Types.INTEGER:
+                        // TODO: Currently passing getLong
+                        builder.setField(fd, struct.getLong(i));
+                        break;
+                    case Types.BIGINT:
+                        builder.setField(fd, struct.getLong(i));
+                        break;
+                    case Types.VARCHAR:
+                        builder.setField(fd, struct.getString(i));
+                        break;
+                    case Types.STRUCT:
+                        var subStruct = struct.getStruct(i);
+                        builder.setField(fd, toDynamicMessage(subStruct, fd.getMessageType()));
+                        break;
+                    case Types.ARRAY:
+                        // An array is always an array of Structs.
+                        var subArray = struct.getArray(i);
+                        var arrayBuilder = DynamicMessage.newBuilder(fd.getMessageType());
+                        // Get array of RelationalStructs.
+                        RelationalStruct[] structs = (RelationalStruct[]) subArray.getArray();
+                        List<Descriptors.FieldDescriptor> innerFields = fd.getMessageType().getFields();
+                        if (innerFields != null && !innerFields.isEmpty()) {
+                            // Its an array. All of the element types should be Struct. Get the first one and use its
+                            // FieldDescriptor adding all of the array elements.
+                            Descriptors.FieldDescriptor structFieldDescriptor = innerFields.get(0);
+                            for (RelationalStruct relationalStruct : structs) {
+                                arrayBuilder.addRepeatedField(structFieldDescriptor,
+                                        toDynamicMessage(relationalStruct, structFieldDescriptor.getMessageType()));
+                            }
+                        }
+                        builder.setField(fd, arrayBuilder.build());
+                        break;
+                    default:
+                        // No handling of ENUMS.
+                        //programmer error
+                        throw new RelationalException(String.format("Internal Error:Unexpected Column type <%s> for column <%s>",
+                                structMetaData.getColumnType(i), field.getFieldName()), ErrorCode.INTERNAL_ERROR);
+                }
+            }
+        } catch (SQLException sqle) {
+            throw new RelationalException(sqle);
+        }
+
+        return builder.build();
     }
 
     @Override

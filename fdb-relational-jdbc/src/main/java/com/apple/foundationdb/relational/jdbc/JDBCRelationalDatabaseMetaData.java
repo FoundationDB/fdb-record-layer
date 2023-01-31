@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 

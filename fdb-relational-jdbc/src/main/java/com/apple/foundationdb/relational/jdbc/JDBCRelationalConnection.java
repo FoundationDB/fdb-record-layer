@@ -25,9 +25,9 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.grpc.GrpcConstants;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import io.grpc.ManagedChannel;

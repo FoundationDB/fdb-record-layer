@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.grpc;
+package com.apple.foundationdb.relational.jdbc.grpc;
 
 /**
  * Constants for consumers of GRPC such as the default port

@@ -1,5 +1,5 @@
 /*
- * JDBCProtobuf.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,18 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.jdbc;
-
 /**
- * Utility to support the JDBC Facades in this package backed by protobuf data structures.
+ * Utility shared by client and server.
+ * Facades over raw protobuf types to present Relational-customization views of base JDBC types.
+ * Protobuf schema is such that it facilitates type convertions to make it easy to convert a
+ * List of {@link com.apple.foundationdb.relational.api.RelationalStruct} into a {@link com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet}
+ * and so on.
  */
-class JDBCProtobuf {
-    /**
-     * Adjust 'oneBasedIndex' so can be used as a zero-based protobuf index.
-     * @param oneBasedIndex JDBC indices are oneBased; i.e. first item is at postion 1.
-     * @return Protobuf index derived from <code>oneBasedIndex</code>.
-     */
-    static int toProtobufIndex(int oneBasedIndex) {
-        return oneBasedIndex - 1;
-    }
-}
+package com.apple.foundationdb.relational.jdbc;

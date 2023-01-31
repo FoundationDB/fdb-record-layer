@@ -1,5 +1,5 @@
 /*
- * package-info.java
+ * RelationalStructFacadeTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,4 +18,19 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.grpc;
+package com.apple.foundationdb.relational.jdbc;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.sql.SQLException;
+
+public class RelationalStructFacadeTest {
+    @Test
+    public void testSimpleString() throws SQLException {
+        String key = "only-field";
+        String value = "some-value";
+        var relationalStruct = RelationalStructFacade.newBuilder().addString(key, value).build();
+        Assertions.assertEquals(relationalStruct.getString(key), value);
+    }
+}

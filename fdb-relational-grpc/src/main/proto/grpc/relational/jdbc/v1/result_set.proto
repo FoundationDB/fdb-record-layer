@@ -20,12 +20,15 @@
 
 // Based on google/spanner/v1/result_set.proto but simplified for now
 // with richer -- and ordered -- metadata to support relational Stucts/Arrays.
+// Note that this protobuf ResultSet is used both as the return vehicle for
+// query responses but also to carry insert data from the client to the
+// server.
 syntax = "proto3";
 package grpc.relational.jdbc.v1;
 option java_multiple_files = true;
 // Put the generated classes into grpc subpackage so I can exclude
 // these classes from checkstyle and spotbug checks.
-option java_package = "com.apple.foundationdb.relational.grpc.jdbc.v1";
+option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1";
 option java_outer_classname = "ResultSetProto";
 
 import "grpc/relational/jdbc/v1/column.proto";
@@ -37,12 +40,11 @@ message ResultSet {
 
   // Each element in `rows` is a row whose format is defined by metadata. The ith element
   // in each row matches the ith field in ResultSetMetadata.
-  // [here][google.spanner.v1.TypeCode].
-  repeated ListColumn rows = 2;
+  repeated Struct row = 2;
 }
 
 // Metadata about a [ResultSet][grpc.relational.jdbc.v1.ResultSet]
 message ResultSetMetadata {
   // Indicates the field names and types for the rows in the result set.
-  repeated ColumnMetadata columns = 1;
+  ListColumnMetadata columnMetadata = 1;
 }

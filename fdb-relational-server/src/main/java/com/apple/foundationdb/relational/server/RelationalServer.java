@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.grpc.GrpcConstants;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 

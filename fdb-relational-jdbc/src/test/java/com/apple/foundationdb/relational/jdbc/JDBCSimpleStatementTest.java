@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 
@@ -92,7 +92,7 @@ public class JDBCSimpleStatementTest {
                 try (RelationalResultSet resultSet = statement.executeQuery("select * from databases;")) {
                     Assertions.assertNotNull(resultSet);
                     Assertions.assertEquals(resultSet, statement.getResultSet());
-                    Assertions.assertTrue(resultSet.isWrapperFor(JDBCRelationalResultSet.class));
+                    Assertions.assertTrue(resultSet.isWrapperFor(RelationalResultSetFacade.class));
                     // Exercise some metadata methods to get our jacoco coverage up.
                     Assertions.assertEquals(1, resultSet.getMetaData().getColumnCount());
                     String columnName = "DATABASE_ID";

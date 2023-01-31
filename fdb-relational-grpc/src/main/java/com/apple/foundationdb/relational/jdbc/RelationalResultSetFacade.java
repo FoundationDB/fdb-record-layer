@@ -1,5 +1,5 @@
 /*
- * JDBCRelationalResultSet.java
+ * RelationalResultSetFacade.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,10 +26,11 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.ResultSet;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.column.Column;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.column.ColumnMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.apple.foundationdb.relational.util.PositionalIndex;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -37,7 +38,10 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
 
-class JDBCRelationalResultSet implements RelationalResultSet {
+/**
+ * Facade over grpc protobuf objects that offers a {@link RelationalResultSet} view.
+ */
+class RelationalResultSetFacade implements RelationalResultSet {
     private final ResultSet delegate;
     private final int rows;
     /**
@@ -45,9 +49,9 @@ class JDBCRelationalResultSet implements RelationalResultSet {
      */
     private int rowIndex = -1;
 
-    JDBCRelationalResultSet(ResultSet delegate) {
+    RelationalResultSetFacade(ResultSet delegate) {
         this.delegate = delegate;
-        this.rows = delegate.getRowsCount();
+        this.rows = delegate.getRowCount();
     }
 
     @Override
@@ -61,25 +65,27 @@ class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     public String getString(int oneBasedColumn) throws SQLException {
-        return this.delegate.getRows(rowIndex).getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getString();
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getString();
     }
 
     @Override
     public boolean getBoolean(int oneBasedColumn) throws SQLException {
-        return this.delegate.getRows(rowIndex).getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getBoolean();
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getBoolean();
     }
 
     @Override
     public int getInt(int oneBasedColumn) throws SQLException {
-        // Presume column is JDBC 1-based index.
         // TODO: This needs work.
-        return this.delegate.getRows(rowIndex).getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getInteger();
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getInteger();
     }
 
     @Override
     public long getLong(int oneBasedColumn) throws SQLException {
-        // TODO: This needs work.
-        return this.delegate.getRows(rowIndex).getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn)).getLong();
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getLong();
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -115,7 +121,7 @@ class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public String getString(String columnLabel) throws SQLException {
         // TOOD: Do getName for now.
-        return getString(columnLabelToColumnOneBasedIndex(this.delegate.getRows(rowIndex).getColumnsList(),
+        return getString(columnLabelToColumnOneBasedIndex(this.delegate.getRow(rowIndex).getColumns().getColumnList(),
                 columnLabel));
     }
 
@@ -168,7 +174,7 @@ class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     public RelationalResultSetMetaData getMetaData() throws SQLException {
-        return new JDBCRelationalResultSetMetaData(this.delegate.getMetadata());
+        return new RelationalResultSetMetaDataFacade(this.delegate.getMetadata());
     }
 
     @Override
@@ -187,9 +193,7 @@ class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
-        int index = JDBCProtobuf.toProtobufIndex(oneBasedColumn);
-        ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumns(index);
-        return new JDBCRelationalStruct(columnMetadata, this.delegate.getRows(rowIndex).getColumns(index).getStruct());
+        return TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
     }
 
     @Override
@@ -205,8 +209,8 @@ class JDBCRelationalResultSet implements RelationalResultSet {
             case Types.ARRAY:
                 return getArray(oneBasedColumn);
             case Types.BINARY:
-                Column column =
-                        this.delegate.getRows(rowIndex).getColumns(JDBCProtobuf.toProtobufIndex(oneBasedColumn));
+                int index = PositionalIndex.toProtobuf(oneBasedColumn);
+                Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
                 return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
             default:
                 throw new SQLException("Unsupported type " + type);
@@ -216,16 +220,17 @@ class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public Object getObject(String columnLabel) throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        return getObject(RelationalStruct.getOneBasedPosition(columnLabel, this));
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalArray getArray(int oneBasedColumn) throws SQLException {
-        int index = JDBCProtobuf.toProtobufIndex(oneBasedColumn);
-        ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumns(index);
-        Column column = this.delegate.getRows(rowIndex).getColumns(index);
-        return column == null || !column.hasArray() ? null : new JDBCRelationalArray(columnMetadata, column.getArray());
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumnMetadata().getColumnMetadata(index);
+        Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
+        return column == null || !column.hasArray() ? null :
+                new RelationalArrayFacade(columnMetadata.getArrayMetadata(), column.getArray());
     }
 
     @Override

@@ -21,18 +21,19 @@
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.grpc.GrpcSQLException;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.GetRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.GetResponse;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.InsertResponse;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.ScanResponse;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
+import com.apple.foundationdb.relational.jdbc.TypeConversion;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLException;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
@@ -81,7 +82,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         try (RelationalResultSet resultSet =
                 this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql())) {
             StatementResponse statementResponse = resultSet == null ? StatementResponse.newBuilder().build() :
-                    StatementResponse.newBuilder().setResultSet(ResultSetProtobuf.map(resultSet)).build();
+                    StatementResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(resultSet)).build();
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
@@ -134,8 +135,11 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return;
         }
         try {
-            int rowCount = this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    request.getDataList().iterator());
+            int rowCount = request.hasDataResultSet() ?
+                    this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
+                            TypeConversion.fromResultSetProtobuf(request.getDataResultSet())) :
+                    this.frl.insert(request.getDataListBytes().getBytesList(), request.getDatabase(),
+                            request.getSchema(), request.getTableName());
             InsertResponse insertResponse = InsertResponse.newBuilder().setRowCount(rowCount).build();
             responseObserver.onNext(insertResponse);
             responseObserver.onCompleted();
@@ -159,7 +163,10 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onError(createStatusRuntimeException("Empty table name"));
             return false;
         }
-        if (request.getDataCount() <= 0) {
+        if (request.hasDataResultSet() && request.getDataResultSet().getRowCount() <= 0) {
+            responseObserver.onError(createStatusRuntimeException("No data in insert"));
+            return false;
+        } else if (!request.hasDataResultSet() && request.getDataListBytes().getBytesCount() <= 0) {
             responseObserver.onError(createStatusRuntimeException("No data in insert"));
             return false;
         }
@@ -173,8 +180,8 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try {
             RelationalResultSet rs = this.frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    KeySetProtobuf.map(request.getKeySet()));
-            GetResponse getResponse = GetResponse.newBuilder().setResultSet(ResultSetProtobuf.map(rs)).build();
+                    TypeConversion.fromProtobuf(request.getKeySet()));
+            GetResponse getResponse = GetResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(getResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
@@ -220,8 +227,8 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try {
             RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    KeySetProtobuf.map(request.getKeySet()));
-            ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(ResultSetProtobuf.map(rs)).build();
+                    TypeConversion.fromProtobuf(request.getKeySet()));
+            ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(scanResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {

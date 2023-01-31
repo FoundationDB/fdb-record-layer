@@ -30,6 +30,7 @@ import java.sql.Wrapper;
  * As {@link java.sql.ResultSetMetaData} is for {@link java.sql.ResultSet}, so is this Interface for instances of
  * {@link java.sql.Struct}. The below is modeled on -- and a subset of -- {@link java.sql.ResultSetMetaData} with a
  * few extras such as {@link #getNestedMetaData} and {@link #getLeadingPhantomColumnCount()}.
+ * Types returned by {@link #getColumnType(int)} are {@link java.sql.Types}.
  */
 public interface StructMetaData extends Wrapper {
 

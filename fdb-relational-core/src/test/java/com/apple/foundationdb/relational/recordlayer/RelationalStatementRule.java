@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -80,6 +81,11 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
 
     @Override
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+        return statement.executeInsert(tableName, data, options);
+    }
+
+    @Override
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options) throws SQLException {
         return statement.executeInsert(tableName, data, options);
     }
 

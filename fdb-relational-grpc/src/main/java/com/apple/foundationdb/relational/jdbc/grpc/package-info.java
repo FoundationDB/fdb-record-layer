@@ -1,5 +1,5 @@
 /*
- * JDBCRelationalArray.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,4 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.jdbc;
-
-import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
-
-public final class JDBCRelationalArray {
-    private JDBCRelationalArray() {
-    }
-
-    /**
-     * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalArray} builder.
-     * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalArray}.
-     */
-    static RelationalArrayBuilder newBuilder() {
-        return new RelationalArrayFacade.RelationalArrayFacadeBuilder();
-    }
-}
+package com.apple.foundationdb.relational.jdbc.grpc;

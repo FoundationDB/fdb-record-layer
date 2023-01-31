@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
-import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementRequest;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.StatementResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 
 import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.Assertions;

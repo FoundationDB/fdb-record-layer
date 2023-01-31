@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
@@ -142,6 +143,11 @@ public class InMemoryRelationalStatement implements RelationalStatement {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
+    }
+
+    @Override
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options) throws SQLException {
+        throw new SQLException("Not implemented");
     }
 
     @Nonnull

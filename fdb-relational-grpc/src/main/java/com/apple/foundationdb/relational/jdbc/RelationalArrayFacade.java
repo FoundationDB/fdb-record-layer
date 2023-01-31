@@ -1,0 +1,199 @@
+/*
+ * RelationalArrayFacade.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.jdbc;
+
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
+import com.apple.foundationdb.relational.util.PositionalIndex;
+
+import java.sql.SQLException;
+import java.sql.Types;
+
+/**
+ * Facade over grpc protobuf objects that offers a {@link RelationalArray} view.
+ * Used by jdbc client but also serializable (protobuf) so can be passed over
+ * grpc and used server-side doing direct access api inserts.
+ * Package-private. Used internally. Not for general consumption.
+ * Use {@link #newBuilder()} building instances.
+ */
+// Array of Structs only -- for now at least. TODO: Add support for primitive types.
+class RelationalArrayFacade extends RelationalArray {
+    /**
+     * Column metadata for the Array Structs.
+     * Package-private so protobuf is available to serializer (in same package).
+     */
+    private final ColumnMetadata delegateMetadata;
+
+    /**
+     * Array data as protobuf.
+     * Array of Struct data.
+     * Package-private so protobuf is available to serializer (in same package).
+     */
+    private final Array delegate;
+
+    RelationalArrayFacade(ColumnMetadata delegateMetadata, Array array) {
+        this.delegateMetadata = delegateMetadata;
+        this.delegate = array;
+    }
+
+    /**
+     * Package-private so protobuf is available to serializer (in same package).
+     * @return The backing protobuf used to keep Array data.
+     */
+    Array getDelegate() {
+        return delegate;
+    }
+
+    /**
+     * Package-private so protobuf is available to serializer (in same package).
+     * @return The backing protobuf used to keep Array metadata.
+     */
+    ColumnMetadata getDelegateMetadata() {
+        return delegateMetadata;
+    }
+
+    @Override
+    public String getBaseTypeName() throws SQLException {
+        // Copied from com.apple.foundationdb.relational.apiRowArray.
+        return SqlTypeNamesSupport.getSqlTypeName(getBaseType());
+    }
+
+    @Override
+    public int getBaseType() {
+        // Copied from com.apple.foundationdb.relational.apiRowArray.
+        /*
+         * Confusion alert!
+         *
+         * The JDBC API for array uses this method to refer to "the JDBC type of the elements in the array
+         * designated by this Array object."--i.e. this is the Sql Type for the contents of the array.
+         * In Relational, the contents of an Array is _always_ a Struct (from the JDBC API's point view), mostly
+         * because it makes it much easier for us to implement the nested ResultSet implementation.
+         */
+        return Types.STRUCT;
+    }
+
+    // Javadoc copied from com.apple.foundationdb.relational.apiRowArray.
+    /**
+     * Retrieves a slice of the SQL <code>ARRAY</code>
+     * value designated by this <code>Array</code> object, beginning with the
+     * specified <code>index</code> and containing up to <code>count</code>
+     * successive elements of the SQL array.  This method uses the type map
+     * associated with the connection for customizations of the type mappings.
+     * <p>
+     * Note: In Relational, this method will always return an array of Struct types. This is
+     * _technically_ in violation of the SQL spec, but it allows for a user experience which
+     * is more consistent w.r.t how metadata is available and handled.
+     * @param oneBasedIndex index the array index of the first element to retrieve;
+     *              the first element is at index 1
+     * @param askedForCount the number of successive SQL array elements to retrieve
+     * @return an array containing up to <code>count</code> consecutive elements
+     * of the SQL array, beginning with element <code>index</code>
+     * @exception SQLException if an error occurs while attempting to
+     * access the array
+     */
+    @Override
+    public Object getArray(long oneBasedIndex, int askedForCount) throws SQLException {
+        int index = PositionalIndex.toProtobuf(Math.toIntExact(oneBasedIndex));
+        int count = getCount(askedForCount, this.delegate.getElementCount(), index);
+        RelationalStruct[] structs = new RelationalStruct[count];
+        int j = 0;
+        for (int i = index; i < count; i++) {
+            structs[j++] =
+                    new RelationalStructFacade(this.delegateMetadata.getStructMetadata(), this.delegate.getElement(i));
+        }
+        return structs;
+    }
+
+    /**
+     * Actionable record count.
+     * @param askedForCount Could be reasonable or it could be MAX_INT.
+     * @param elementCount How many actual elements in backing array.
+     * @param zeroBasedOffset Where to start counting from.
+     * @return Count to use returning records.
+     */
+    private static int getCount(int askedForCount, int elementCount, int zeroBasedOffset) {
+        // Protect against count being MAX_INT.
+        return Math.min(askedForCount, elementCount - zeroBasedOffset);
+    }
+
+    @Override
+    public RelationalResultSet getResultSet(long oneBasedIndex, int askedForCount) throws SQLException {
+        int index = PositionalIndex.toProtobuf(Math.toIntExact(oneBasedIndex));
+        int count = getCount(askedForCount, this.delegate.getElementCount(), index);
+        var resultSetBuilder = ResultSet.newBuilder();
+        for (int i = index; i < count; i++) {
+            if (!resultSetBuilder.hasMetadata()) {
+                var metadataBuilder = ResultSetMetadata.newBuilder();
+                resultSetBuilder.setMetadata(metadataBuilder
+                        .setColumnMetadata(this.delegateMetadata.getStructMetadata()).build());
+            }
+            resultSetBuilder.addRow(this.delegate.getElement(i));
+        }
+        return new RelationalResultSetFacade(resultSetBuilder.build());
+    }
+
+    static RelationalArrayBuilder newBuilder() {
+        return new RelationalArrayFacadeBuilder();
+    }
+
+    static class RelationalArrayFacadeBuilder implements RelationalArrayBuilder {
+        /**
+         * Protobuf Struct Builder.
+         * This class hides the backing protobuf.
+         * TODO: See if order is respected! If we need the List and Set?
+         */
+        private final Array.Builder builder = Array.newBuilder();
+
+        /**
+         * Column metadata for the Array Structs.
+         * Package-private so protobuf is available to serializer (in same package).
+         */
+        private ColumnMetadata metadata;
+
+        RelationalArrayFacadeBuilder() {
+        }
+
+        @Override
+        public RelationalArray build() {
+            return new RelationalArrayFacade(this.metadata, this.builder.build());
+        }
+
+        @Override
+        public RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException {
+            // TODO: Add verification that this struct has same scheme as any previously added. For now presume.
+            var relationalStructFacade = struct.unwrap(RelationalStructFacade.class);
+            this.builder.addElement(relationalStructFacade.getDelegate());
+            // RelationalArray is always an array-of-RelationalStructs, at least for now. Set metadata if not already set.
+            if (this.metadata == null) {
+                this.metadata = ColumnMetadata.newBuilder().setStructMetadata(relationalStructFacade.getDelegateMetadata())
+                        .setJavaSqlTypesCode(Types.STRUCT).build();
+            }
+            return this;
+        }
+    }
+}

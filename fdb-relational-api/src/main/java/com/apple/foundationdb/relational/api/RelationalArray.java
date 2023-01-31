@@ -23,9 +23,10 @@ package com.apple.foundationdb.relational.api;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Wrapper;
 import java.util.Map;
 
-public abstract class RelationalArray implements Array {
+public abstract class RelationalArray implements Array, Wrapper {
 
     @Override
     public Object getArray() throws SQLException {
@@ -66,4 +67,16 @@ public abstract class RelationalArray implements Array {
         //no-op
     }
 
+    @Override
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        if (isWrapperFor(iface)) {
+            return iface.cast(this);
+        }
+        throw new SQLException("Unwrap failed for: " + iface);
+    }
+
+    @Override
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        return iface.isInstance(this);
+    }
 }

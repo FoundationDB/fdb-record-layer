@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -59,7 +60,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -157,7 +157,20 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public int insert(String database, String schema, String tableName, Iterator<ByteString> data)
+    /**
+     * Insert.
+     * @param data List of ByteStrings with serialized Messages to insert.
+     * @param database Which database to insert into.
+     * @param schema Which schema to use.
+     * @param tableName Table to insert into.
+     * @return Count of rows inserted.
+     * @throws SQLException If error inserting.
+     * @deprecated Since 01/24/2023. Replaced by {@link #insert(String, String, String, List)}.
+     */
+    // Order of parameters here is intentionally different from insert List<RelationalStruct> to avoid clash of
+    // List erasure (ByteString vs RelationalStruct).
+    @Deprecated
+    public int insert(List<ByteString> data, String database, String schema, String tableName)
             throws SQLException {
         try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
             connection.setSchema(schema);
@@ -167,12 +180,26 @@ public class FRL implements AutoCloseable {
                     DynamicMessageBuilder dynamicMessageBuilder = relationalStatement.getDataBuilder(tableName);
                     Parser<? extends Message> parser = dynamicMessageBuilder.build().getParserForType();
                     List<Message> messages = new ArrayList<>();
-                    while (data.hasNext()) {
-                        messages.add(parser.parseFrom(data.next()));
+                    for (ByteString bytes : data) {
+                        messages.add(parser.parseFrom(bytes));
                     }
                     return relationalStatement.executeInsert(tableName, messages.iterator(), Options.NONE);
                 } catch (InvalidProtocolBufferException e) {
                     throw new RuntimeException(e);
+                }
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+    }
+
+    public int insert(String database, String schema, String tableName, List<RelationalStruct> data)
+            throws SQLException {
+        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
+            connection.setSchema(schema);
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    return relationalStatement.executeInsert(tableName, data, Options.NONE);
                 }
             }
         } catch (RelationalException ve) {

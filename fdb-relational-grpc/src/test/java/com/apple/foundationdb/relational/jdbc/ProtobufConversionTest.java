@@ -1,5 +1,5 @@
 /*
- * ResultSetProtobufTest.java
+ * ProtobufConversionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.server.jdbc.v1;
+package com.apple.foundationdb.relational.jdbc;
 
-
-import com.apple.foundationdb.relational.grpc.jdbc.v1.column.Column;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
@@ -29,15 +28,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.BiFunction;
 
-public class ResultSetProtobufTest {
+public class ProtobufConversionTest {
     @Test
     public void testToColumnStringBiFunction() {
         BiFunction<String, Column.Builder, Column.Builder> biFunction =
                 (a, b) -> a == null ? b.clearString() : b.setString((String) a);
-        Column column = ResultSetProtobuf.toColumn(null, biFunction);
+        Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasString());
         String a = "abc";
-        column = ResultSetProtobuf.toColumn(a, biFunction);
+        column = TypeConversion.toColumn(a, biFunction);
         Assertions.assertEquals(a, column.getString());
     }
 
@@ -45,10 +44,10 @@ public class ResultSetProtobufTest {
     public void testToColumnBinaryBiFunction() {
         BiFunction<byte[], Column.Builder, Column.Builder> biFunction =
                 (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom((byte[]) a));
-        Column column = ResultSetProtobuf.toColumn(null, biFunction);
+        Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasBinary());
         byte[] a = new byte[]{'a', 'b', 'c'};
-        column = ResultSetProtobuf.toColumn(a, biFunction);
+        column = TypeConversion.toColumn(a, biFunction);
         for (int i = 0; i < a.length; i++) {
             Assertions.assertEquals(a[i], column.getBinary().toByteArray()[i]);
         }
@@ -58,10 +57,10 @@ public class ResultSetProtobufTest {
     public void testToColumnIntegerBiFunction() {
         BiFunction<Integer, Column.Builder, Column.Builder> biFunction =
                 (a, b) -> a == null ? b.clearInteger() : b.setInteger((Integer) a);
-        Column column = ResultSetProtobuf.toColumn(null, biFunction);
+        Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasInteger());
         Integer a = 123;
-        column = ResultSetProtobuf.toColumn(a, biFunction);
+        column = TypeConversion.toColumn(a, biFunction);
         Assertions.assertEquals(a, column.getInteger());
     }
 }

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
-import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;

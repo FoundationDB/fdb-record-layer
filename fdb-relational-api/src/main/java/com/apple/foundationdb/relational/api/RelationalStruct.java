@@ -21,15 +21,17 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.sql.Wrapper;
 import java.util.Map;
 
 /**
  * A {@link Struct} but with metadata describing the instance.
  */
-public interface RelationalStruct extends Struct {
+public interface RelationalStruct extends Struct, Wrapper {
 
     StructMetaData getMetaData() throws SQLException;
 
@@ -108,4 +110,33 @@ public interface RelationalStruct extends Struct {
         return arr;
     }
 
+    @Override
+    default <T> T unwrap(Class<T> iface) throws SQLException {
+        if (isWrapperFor(iface)) {
+            return iface.cast(this);
+        }
+        throw new SQLException("Unwrap failed for: " + iface);
+    }
+
+    @Override
+    default boolean isWrapperFor(Class<?> iface) throws SQLException {
+        return iface.isInstance(this);
+    }
+
+    /**
+     * Utility for figuring out one-based-position of a column when passed columnName.
+     * @param columnName Name to lookup.
+     * @param relationalStruct Where to do the lookup.
+     * @return One-based positional index to use accessing the column.
+     * @throws SQLException Thrown if we can't find matching column of we have trouble getting metadata.
+     */
+    static int getOneBasedPosition(String columnName, RelationalStruct relationalStruct) throws SQLException {
+        StructMetaData metaData = relationalStruct.getMetaData();
+        for (int i = 1; i <= metaData.getColumnCount(); i++) {
+            if (metaData.getColumnName(i).equals(columnName)) {
+                return i;
+            }
+        }
+        throw new InvalidColumnReferenceException(columnName).toSqlException();
+    }
 }

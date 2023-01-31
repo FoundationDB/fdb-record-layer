@@ -1,5 +1,5 @@
 /*
- * JDBCRelationalArray.java
+ * RelationalArrayFacadeTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,17 +20,20 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 
-public final class JDBCRelationalArray {
-    private JDBCRelationalArray() {
-    }
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    /**
-     * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalArray} builder.
-     * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalArray}.
-     */
-    static RelationalArrayBuilder newBuilder() {
-        return new RelationalArrayFacade.RelationalArrayFacadeBuilder();
+import java.sql.SQLException;
+
+public class RelationalArrayFacadeTest {
+    @Test
+    public void testAddBasicStruct() throws SQLException {
+        var relationalArray =
+                RelationalArrayFacade.newBuilder().addStruct(RelationalStructFacade.newBuilder().build()).build();
+        RelationalStruct[] structs = (RelationalStruct[]) relationalArray.getArray();
+        Assertions.assertEquals(structs.length, 1);
+        Assertions.assertNotNull(structs[0]);
     }
 }

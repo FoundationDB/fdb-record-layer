@@ -24,7 +24,7 @@ package grpc.relational.jdbc.v1;
 option java_multiple_files = true;
 // Put the generated classes into grpc subpackage so I can exclude
 // these classes from checkstyle and spotbug checks.
-option java_package = "com.apple.foundationdb.relational.grpc.jdbc.v1";
+option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1";
 option java_outer_classname = "RelationalJDBCService";
 
 import "grpc/relational/jdbc/v1/result_set.proto";
@@ -75,10 +75,20 @@ message GetResponse {
 }
 
 message InsertRequest {
-  repeated bytes data = 1;
+  oneof data {
+    ListBytes dataListBytes = 1;
+    // We use ResultSet to carry data from client to server -- inverting its
+    // usual intent.
+    ResultSet dataResultSet = 5;
+  }
   optional string database = 2;
   optional string schema = 3;
   optional string table_name = 4;
+  // '5' is taken... see above in oneof 'data'.
+}
+
+message ListBytes {
+  repeated bytes bytes = 1;
 }
 
 message InsertResponse {

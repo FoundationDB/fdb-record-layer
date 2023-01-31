@@ -96,11 +96,30 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
     @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException;
 
+    /**
+     * Insert.
+     * @param tableName Table to insert into.
+     * @param message Protobuf to insert.
+     * @return How many rows inserted.
+     * @throws SQLException On failed insert.
+     * @deprecated since 01/19/2023 to avoid protobufs in our API; use {@link #executeInsert(String, List)} instead.
+     */
     // syntactic sugar to make it easier to insert a single record
+    @Deprecated
     default int executeInsert(@Nonnull String tableName, Message message) throws SQLException {
         return executeInsert(tableName, Collections.singleton(message).iterator(), Options.NONE);
     }
 
+    /**
+     * Insert.
+     * @param tableName Table to insert into.
+     * @param message Protobuf to insert.
+     * @param options Options to color the insert.
+     * @return How many rows inserted.
+     * @throws SQLException On failed insert.
+     * @deprecated since 01/19/2023 to avoid protobufs in our API; use {@link #executeInsert(String, List)} instead.
+     */
+    @Deprecated
     default int executeInsert(@Nonnull String tableName, Message message, Options options) throws SQLException {
         return executeInsert(tableName, Collections.singleton(message).iterator(), options);
     }
@@ -115,7 +134,10 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @param data      the data to insert.
      * @return the number of records inserted.
      * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
+     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
+     * {@link #executeInsert(String, List)} instead.
      */
+    @Deprecated
     default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data) throws SQLException {
         return executeInsert(tableName, data.iterator());
     }
@@ -126,14 +148,61 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @param tableName the name of the table to insert into.
      * @param data      the data to insert.
      * @return the number of records inserted.
-     * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
+     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
+     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
+     * {@link #executeInsert(String, List)} instead.
      */
+    @Deprecated
     default int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws SQLException {
         return executeInsert(tableName, data, Options.NONE);
     }
 
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data      the data to insert.
+     * @return the number of records inserted.
+     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
+     */
+    default int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data) throws SQLException {
+        return executeInsert(tableName, data, Options.NONE);
+    }
+
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data      the data to insert.
+     * @param options    options to apply to the insert.
+     * @return the number of records inserted.
+     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
+     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
+     * {@link #executeInsert(String, List, Options)} instead.
+     */
+    @Deprecated
     int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException;
 
+    /**
+     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
+     *
+     * @param tableName the name of the table to insert into.
+     * @param data      the data to insert.
+     * @param options    options to apply to the insert.
+     * @return the number of records inserted.
+     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
+     */
+    int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+            throws SQLException;
+
+    /**
+     * Get a DynamicMessageBuilder instance.
+     * @param tableName Table to build the message for.
+     * @return Message Builder.
+     * @throws SQLException On fail to get builder.
+     * @deprecated since 01/19/2023 to avoid protobuf in API; use {@link #executeInsert(String, List, Options)} instead.
+     */
+    @Deprecated
     DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException;
 
     /**

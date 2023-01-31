@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -97,6 +98,16 @@ public class ErrorCapturingStatement implements RelationalStatement {
 
     @Override
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+        try {
+            return delegate.executeInsert(tableName, data, options);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+            throws SQLException {
         try {
             return delegate.executeInsert(tableName, data, options);
         } catch (RuntimeException re) {
