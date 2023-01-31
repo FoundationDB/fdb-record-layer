@@ -21,7 +21,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Default value of `LOAD_RECORDS_VIA_GETS` property reverted to `false` to match behavior prior to [3.3.327.0](#333270) [(Issue #1982)](https://github.com/FoundationDB/fdb-record-layer/issues/1982)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.329.0
+
+* **Performance** Default value of `LOAD_RECORDS_VIA_GETS` property reverted to `false` to match behavior prior to [3.3.327.0](#333270) [(Issue #1982)](https://github.com/FoundationDB/fdb-record-layer/issues/1982)
 
 ### 3.3.328.0
 
