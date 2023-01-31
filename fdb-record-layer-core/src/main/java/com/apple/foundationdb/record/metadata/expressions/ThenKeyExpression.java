@@ -36,7 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Combine keys from two or more child keys.
@@ -135,7 +134,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
+        List<Descriptors.FieldDescriptor> fieldDescriptors = new ArrayList<>();
+        for (int i = 0; i < children.size(); i++) {
+            fieldDescriptors.addAll(children.get(i).validate(descriptor));
+        }
+        return fieldDescriptors;
     }
 
     @Override
