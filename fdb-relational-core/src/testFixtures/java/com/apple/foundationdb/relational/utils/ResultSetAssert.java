@@ -42,7 +42,6 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.SoftAssertions;
 
-import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -56,6 +55,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import javax.annotation.Nonnull;
 
 public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalResultSet> {
 
@@ -322,8 +323,6 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 actualRows.add(ResultSetTestUtils.currentRow(actual));
             }
 
-            Assertions.assertThat(actualRows.size()).describedAs("ResultSet size").isEqualTo(expectedRows.size());
-
             MutableRowStruct expectedStruct = new MutableRowStruct(expectedResultSet.getMetaData().unwrap(StructMetaData.class));
             int p = 0;
             SoftAssertions caughtAssertions = new SoftAssertions();
@@ -332,7 +331,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 expectedStruct.setRow(expectedRow);
                 final Iterator<RelationalStruct> iterator = getRelationalStructIterator(actualMetaData, actualRows);
                 caughtAssertions.proxy(RelationalStructAssert.class, RelationalStruct.class, expectedStruct)
-                        .as(expectedRow.toString()).isContainedIn(iterator);
+                        .as("Missing expected row in result set (@%d): %s", p, expectedRow).isContainedIn(iterator);
                 p++;
             }
 
@@ -347,9 +346,11 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
 
                 final Iterator<RelationalStruct> iterator = getRelationalStructIterator(expectedMetaData, expectedRows);
                 caughtAssertions.proxy(RelationalStructAssert.class, RelationalStruct.class, actualStruct)
-                        .as("Has Row %d", p).isContainedIn(iterator);
+                        .as("Unexpected row in result set (@%d): %s", p, actualRow).isContainedIn(iterator);
                 p++;
             }
+
+            caughtAssertions.assertThat(actualRows).as("ResultSet size").hasSameSizeAs(expectedRows);
 
             //check if there are no extra rows
             caughtAssertions.assertAll();
