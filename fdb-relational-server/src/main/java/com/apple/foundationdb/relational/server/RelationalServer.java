@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
  * Hosts the JDBC GRPC Service and an HTTP server to export metrics on.
  * (On why two ports in one server, see prometheus issue for discussion
  * https://github.com/prometheus/prometheus/issues/8414)
+ * @see InProcessRelationalServer
  */
 // Exceptions are ongoing work. SQLException 'works' now. Polish. Other exceptions need to be figured and handled.
 // TODO: Read config from json/yaml file: e.g:  Get default features file from classpath with:
@@ -95,6 +96,14 @@ public class RelationalServer implements Closeable {
 
     public RelationalServer(int grpcPort, int httpPort) {
         this(grpcPort, httpPort, CollectorRegistry.defaultRegistry);
+    }
+
+    @Override
+    public String toString() {
+        return "listening=" + this.grpcServer.getListenSockets() +
+                ", services=" + this.grpcServer.getServices().stream().map(m -> m.getServiceDescriptor().getName())
+                .collect(Collectors.toList()) +
+                ", httpPort=" + this.httpPort;
     }
 
     /**

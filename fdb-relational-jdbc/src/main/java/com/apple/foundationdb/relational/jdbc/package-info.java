@@ -20,7 +20,20 @@
 
 /**
  * <h1>Relational JDBC Driver</h1>
- * Use same JDBC URL format as mysql/postgres JDBC drivers; i.e. <code>jdbc:relational://HOST[:PORT]</code>.
+ * The Relational JDBC URL starts with <code>jdbc:relational://</code>. We use the same JDBC URL format as mysql/postgres
+ * JDBC drivers; i.e. <code>jdbc:relational://HOST[:PORT]</code> to specify the remote server and port. If no HOST+PORT
+ * specified, then the URL refers to an `inprocess` server; i.e.. a server running in the current process which is
+ * accessed directly without RPC and without serializations. The URL path can specifes the database to connect to. The
+ * query string is used for passing options. For example:
+ * <pre>
+ *  jdbc:relational://127.0.0.1/__SYS
+ *  jdbc:relational://127.0.0.1
+ *  jdbc:relational://localhost/__SYS
+ *  jdbc:relational://relational.apple.com:1234/__SYS
+ *  jdbc:relational://relational.apple.com:1234/__SYS?schema=TMPL&amp;options=X
+ *  jdbc:relational:///__SYS
+ *  jdbc:relational:///__SYS?schema=TMPL&amp;options=X
+ * </pre>
  *
  * <h2>Exceptions</h2>
  * Exceptions will for the most part come up out of RPC or will originate over on the server.

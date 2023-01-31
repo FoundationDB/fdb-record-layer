@@ -105,6 +105,7 @@ public interface SchemaTemplateCatalog {
      *
      * @param txn the transaction to use
      * @param templateName the template to update with
+     * @param version Version to use.
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
     void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;

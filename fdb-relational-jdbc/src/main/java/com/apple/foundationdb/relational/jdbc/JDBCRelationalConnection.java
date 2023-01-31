@@ -29,10 +29,16 @@ import com.apple.foundationdb.relational.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.grpc.jdbc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.inprocess.InProcessChannelBuilder;
 
 import javax.annotation.Nonnull;
+import java.io.Closeable;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -44,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Connect to a Relational Database Server.
- * JDBC URL says where to connect -- host and port -- and to which database.
+ * JDBC URL says where to connect -- host + port -- and to which database.
  * Optionally, pass schema and database options.
  * TODO: Formal specification of the JDBC Connection URL.
  */
@@ -73,6 +79,10 @@ class JDBCRelationalConnection implements RelationalConnection {
     private final String database;
     private String schema;
     private final JDBCServiceGrpc.JDBCServiceBlockingStub blockingStub;
+    /**
+     * If inprocess, this will be set and needs to be called on close.
+     */
+    private Closeable closeable;
 
     JDBCRelationalConnection(String url) {
         if (!url.startsWith(JDBCConstants.JDBC_URL_PREFIX)) {
@@ -88,21 +98,66 @@ class JDBCRelationalConnection implements RelationalConnection {
         if (!uri.getScheme().equals(JDBCConstants.JDBC_URL_SCHEME)) {
             throw new IllegalArgumentException("Not a relational jdbc url: " + url);
         }
-        int port = uri.getPort();
-        if (port == -1) {
-            // Port is -1 if not defined in the JDBC URL.
-            port = GrpcConstants.DEFAULT_SERVER_PORT;
-        }
         this.database = uri.getPath();
         // TODO: Better parsing here. Query may have 'options=', etc.
         String schemaPrefix = "schema=";
         if (uri.getQuery() != null && uri.getQuery().contains(schemaPrefix)) {
             this.schema = uri.getQuery().substring(schemaPrefix.length());
         }
-        this.managedChannel = ManagedChannelBuilder
-                .forAddress(uri.getHost(), port)
-                .usePlaintext().build();
+        this.managedChannel = createManagedChannel(uri);
         this.blockingStub = JDBCServiceGrpc.newBlockingStub(managedChannel);
+    }
+
+    ManagedChannel createManagedChannel(URI uri) {
+        if (uri.getHost() != null && uri.getHost().length() > 0) {
+            int port = uri.getPort();
+            if (port == -1) {
+                // Port is -1 if not defined in the JDBC URL.
+                port = GrpcConstants.DEFAULT_SERVER_PORT;
+            }
+            return ManagedChannelBuilder.forAddress(uri.getHost(), port).usePlaintext().build();
+        }
+        // No host specified so either an error or an attempt at accessing an inprocess server: the way a client
+        // refers to inprocess is to leave out specifying host and port as in jdbc:relational:///__SYS?schema=CATALOG.
+        // For inprocess server to work, we need InProcessRelationalServer on the CLASSPATH which may not be the
+        // case. If a pure JDBC driver free of fdb-relational-server and fdb-relational-core dependencies (the usual deploy
+        // type), it won't be present and the below attempt at loading it via reflection will fail. If fdb-relational-server
+        // is on the CLASSPATH then the below reflection should succeed.
+        //
+        // Currently, we start up an inprocess server whenever an access. This is least troublesome but also likely
+        // expensive and in tests we may want to have the client connect to an existing inprocess server -- a
+        // singleton started at the head of the test for example. Let's see. If we do need to go this route, I think
+        // options on the JDBC URL is how we'd convey what is wanted. For example, the 'inprocess' keywork on the
+        // JDBC URL query string might be used to pass the name of the inprocess server or if no name specified, we
+        // presume singleton and call #getInstance via reflection. E.g.
+        // jdbc:relational:///__SYS?schema=CATALOG&inprocess=singleton
+        // jdbc:relational:///__SYS?schema=CATALOG&inprocess=123e4567-e89b-12d3-a456-426614174000
+        // or just jdbc:relational:///__SYS?schema=CATALOG&inprocess
+        // The current default where we start a server on every access we might want to flip and instead have it so
+        // default is to search for a singleton instance. Lets see.
+        try {
+            Object obj = Class.forName("com.apple.foundationdb.relational.server.InProcessRelationalServer")
+                    .getDeclaredConstructor().newInstance();
+            // Call 'start' on our InProcessRelationalServer.
+            Method start = obj.getClass().getDeclaredMethod("start");
+            start.setAccessible(true);
+            start.invoke(obj);
+            // Make sure we get cleaned-up on close.
+            this.closeable = (Closeable) obj;
+            // The 'serverName' of the instance running inprocess is what is returned from toString.
+            return InProcessChannelBuilder.forName(obj.toString()).directExecutor().build();
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException("No 'host' specified and failed instantiation of " +
+                    "com.apple.foundationdb.relational.server.InProcessRelationalServer.class", e);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new IllegalArgumentException(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No such method 'start' on " +
+                    "com.apple.foundationdb.relational.server.InProcessRelationalServer.class", e);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("No 'host' specified and " +
+                    "com.apple.foundationdb.relational.server.InProcessRelationalServer.class not found", e);
+        }
     }
 
     JDBCServiceGrpc.JDBCServiceBlockingStub getStub() {
@@ -184,6 +239,14 @@ class JDBCRelationalConnection implements RelationalConnection {
             managedChannel.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new SQLException(e);
+        }
+        if (this.closeable != null) {
+            try {
+                this.closeable.close();
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+            this.closeable = null;
         }
     }
 

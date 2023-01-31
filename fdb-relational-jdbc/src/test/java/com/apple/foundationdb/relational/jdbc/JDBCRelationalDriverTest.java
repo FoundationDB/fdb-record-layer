@@ -79,6 +79,11 @@ public class JDBCRelationalDriverTest {
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational://example.org:1234/db"));
         Assertions.assertFalse(driver.acceptsURL("jdbc:rubbish://example.org:1234/db"));
         Assertions.assertFalse(driver.acceptsURL("jdbc:relational:WAH"));
+        // Have our driver allow through the 'inprocess' JDBC URLs even though support for these URLs is in a
+        // downstream module, not up in here; let the jdbc URL parse support both inprocess and rpc.
+        Assertions.assertTrue(driver.acceptsURL("jdbc:relational://"));
+        Assertions.assertTrue(driver.acceptsURL("jdbc:relational:///"));
+        Assertions.assertTrue(driver.acceptsURL("jdbc:relational:///db"));
         SQLException sqlException = null;
         // Assert bad connection url throws.
         try {

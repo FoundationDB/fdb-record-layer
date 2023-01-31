@@ -87,20 +87,11 @@ public class RelationalServerTest {
         return statementResponse.hasResultSet() ? statementResponse.getResultSet() : null;
     }
 
-    /**
-     * Stand up a server and then connect to it with a 'client', run
-     * some simple JDBCService invocations, verify basically returns and then
-     * shut it all down.
-     */
-    @Test
-    public void simpleJDBCServiceClientOperation() throws IOException, InterruptedException {
-        ManagedChannel managedChannel = ManagedChannelBuilder
-                .forTarget("localhost:" + relationalServer.getGrpcPort())
-                .usePlaintext().build();
-        JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
+    static void simpleJDBCServiceClientOperation(ManagedChannel managedChannel) {
         String sysdb = "/__SYS";
         String schema = "CATALOG";
         String testdb = "/test_db";
+        JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         try {
             update(stub, sysdb, schema, "Drop database \"" + testdb + "\"");
             update(stub, sysdb, schema,
@@ -124,6 +115,21 @@ public class RelationalServerTest {
             throw t;
         } finally {
             update(stub, sysdb, schema, "Drop database \"/test_db\"");
+        }
+    }
+
+    /**
+     * Stand up a server and then connect to it with a 'client', run
+     * some simple JDBCService invocations, verify basically returns and then
+     * shut it all down.
+     */
+    @Test
+    public void simpleJDBCServiceClientOperation() throws IOException, InterruptedException {
+        ManagedChannel managedChannel =
+                ManagedChannelBuilder.forTarget("localhost:" + relationalServer.getGrpcPort()).usePlaintext().build();
+        try {
+            simpleJDBCServiceClientOperation(managedChannel);
+        } finally {
             managedChannel.shutdownNow();
         }
     }

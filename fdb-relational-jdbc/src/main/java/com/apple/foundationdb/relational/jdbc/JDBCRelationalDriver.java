@@ -29,6 +29,7 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Locale;
 import java.util.Properties;
 // Unavoidable. This is part of the JDBC Driver Interface... getParentLogger returns it.
 // We ignore it. We use log4j2 logging in relational (so do some customers).
@@ -46,7 +47,6 @@ public class JDBCRelationalDriver implements Driver {
      * {@link #acceptsURL(String)} accepts any jdbc url that starts with the below.
      * Used to check passed urls in {@link #acceptsURL(String)} but also as a key
      * to pick out the loaded driver from DriverManager.
-     * jdbc:relational://...
      */
     static final String JDBC_BASE_URL = JDBCConstants.JDBC_URL_PREFIX + JDBCConstants.JDBC_URL_SCHEME + "://";
     /**
@@ -76,9 +76,7 @@ public class JDBCRelationalDriver implements Driver {
 
     @Override
     public boolean acceptsURL(String url) throws SQLException {
-        // Any url that starts with 'jdbc:relational://' is trying to be a relational jdbc url.
-        // Accept it.
-        return url.startsWith(JDBCConstants.JDBC_URL_PREFIX + JDBCConstants.JDBC_URL_SCHEME + "://");
+        return url.toLowerCase(Locale.US).startsWith(JDBC_BASE_URL);
     }
 
     @Override
