@@ -68,27 +68,28 @@ public class TestHelpers {
         };
     }
 
-    public static void assertLogs(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
-        assertLogs(loggingClass.getName(), pattern, callable);
+    public static List<String> assertLogs(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
+        return assertLogs(loggingClass.getName(), pattern, callable);
     }
 
-    public static void assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
+    public static List<String> assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
         MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
-        assertLogs(loggerName, appender, callable);
+        return assertLogs(loggerName, appender, callable);
     }
 
-    public static void assertLogs(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
-        assertLogs(loggingClass.getName(), messagePrefix, callable);
+    public static List<String> assertLogs(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
+        return assertLogs(loggingClass.getName(), messagePrefix, callable);
     }
 
-    public static void assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
+    public static List<String> assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
         MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
-        assertLogs(loggerName, appender, callable);
+        return assertLogs(loggerName, appender, callable);
     }
 
-    private static void assertLogs(String loggerName, MatchingAppender appender, Callable<?> callable) {
+    private static List<String> assertLogs(String loggerName, MatchingAppender appender, Callable<?> callable) {
         callAndMonitorLogging(loggerName, appender, callable);
         assertTrue(appender.matched(), () -> "No messages were logged matching [" + appender + "]");
+        return appender.getMatchedEvents();
     }
 
     public static void assertDidNotLog(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
@@ -309,7 +310,7 @@ public class TestHelpers {
         @Nullable
         private final String messagePrefix;
 
-        private List<LogEvent> matchedEvents = new ArrayList<>();
+        private final List<String> matchedEvents = new ArrayList<>();
 
         protected MatchingAppender(@Nonnull String name, @Nonnull Pattern pattern) {
             super(name, null, null, true, null);
@@ -328,15 +329,15 @@ public class TestHelpers {
         }
 
         @Nonnull
-        public List<LogEvent> getMatchedEvents() {
+        public List<String> getMatchedEvents() {
             return matchedEvents;
         }
 
         @Override
-        public void append(@Nonnull LogEvent event) {
+        public synchronized void append(@Nonnull LogEvent event) {
             if ((pattern != null && pattern.matcher(event.getMessage().getFormattedMessage()).matches())
                     || (messagePrefix != null && event.getMessage().getFormattedMessage().startsWith(messagePrefix)))  {
-                matchedEvents.add(event);
+                matchedEvents.add(event.getMessage().getFormattedMessage());
             }
         }
 
