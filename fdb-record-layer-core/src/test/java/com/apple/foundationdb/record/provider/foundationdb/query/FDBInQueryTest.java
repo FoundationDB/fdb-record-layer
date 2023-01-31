@@ -1152,15 +1152,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 .in(ls)))
                 .build();
 
-        // Index(rank_by_string [EQUALS str0, EQUALS $__in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0] BY_RANK) WHERE __in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0 IN [1, 3, 5]
+        // Index(rank_by_string [EQUALS str0, EQUALS $__in_rank__0] BY_RANK) WHERE __in_rank__0 IN [1, 3, 5]
         RecordQueryPlan plan = planner.plan(query);
         assertMatchesExactly(plan,
                 inValuesJoinPlan(
                         indexPlan().where(indexName("rank_by_string")).and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
                 ).where(inValuesList(equalsObject(ls))));
-        assertEquals(-778840248, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1474202802, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(2030164999, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1804746094, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(268875332, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-521724163, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         List<Long> recNos = new ArrayList<>();
         querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> recNos.add(record.getRecNo()),
@@ -1185,15 +1185,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.rank("num_value_2").in(ls))
                 .build();
 
-        // Index(rank [EQUALS $__in_rank(Field { 'num_value_2' None} group 1)__0] BY_RANK) WHERE __in_rank(Field { 'num_value_2' None} group 1)__0 IN [1, 3, 5]
+        // Index(rank [EQUALS $__in_rank__0] BY_RANK) WHERE __in_rank__0 IN [1, 3, 5]
         RecordQueryPlan plan = planner.plan(query);
         assertMatchesExactly(plan,
                 inValuesJoinPlan(
                         indexPlan().where(indexName("rank")).and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
                 ).where(inValuesList(equalsObject(ls))));
-        assertEquals(1518925028, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1422629447, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1422660327, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1334377108, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1071050249, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1071019369, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         List<Long> recNos = new ArrayList<>();
         querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> recNos.add(record.getRecNo()),
