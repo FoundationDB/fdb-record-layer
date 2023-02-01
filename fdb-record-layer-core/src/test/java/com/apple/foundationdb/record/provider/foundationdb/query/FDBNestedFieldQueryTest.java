@@ -146,11 +146,34 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1, myrec.getNumValueIndexed());
         }
 
-        var query = RecordQuery.newBuilder()
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyHierarchicalRecord")
+                .setFilter(Query.field("parent_path").equalsValue("photos"))
+                .build();
+
+        // Scan([[photos],[photos]])
+        RecordQueryPlan plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
+            assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-845866877, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1788735724, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertMatchesExactly(plan,
+                    scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
+            assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(117315419, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1543049276, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+        assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
+                this::openHierarchicalRecordStore,
+                TestHelpers::assertDiscardedNone));
+
+        query = RecordQuery.newBuilder()
                 .setRecordType("MyHierarchicalRecord")
                 .setFilter(Query.field("parent_path").startsWith("photos"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
 
         // Scan({[photos],[photos]})
         plan = planner.plan(query);
