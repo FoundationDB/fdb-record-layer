@@ -28,7 +28,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** planner should only attempt in-to-join if plan uses correlated predicate as a search argument for a scan [(Issue #1985)](https://github.com/FoundationDB/fdb-record-layer/issues/1985)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.330.0
+
+* **Feature** planner should only attempt in-to-join if plan uses correlated predicate as a search argument for a scan [(Issue #1985)](https://github.com/FoundationDB/fdb-record-layer/issues/1985)
 
 ### 3.3.329.0
 
