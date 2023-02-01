@@ -57,6 +57,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.False;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.True;
+
 /**
  * A special predicate used to represent a parameterized tuple range.
  */
@@ -116,7 +119,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         return new Placeholder(value, parameterAlias);
     }
 
-    public static Sargable sargable(@Nonnull Value value, @Nonnull final CompileTimeRange range) {
+    public static Sargable sargable(@Nonnull Value value, @Nonnull final CompileTimeEvaluableRange range) {
         return new Sargable(value, range);
     }
 
@@ -133,16 +136,16 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         private final CorrelationIdentifier alias;
 
         @Nullable
-        private final CompileTimeRange compileTimeRange;
+        private final CompileTimeEvaluableRange compileTimeEvaluableRange;
 
         public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias) {
             this(value, alias, null);
         }
 
-        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias, @Nullable CompileTimeRange compileTimeRange) {
+        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias, @Nullable CompileTimeEvaluableRange compileTimeEvaluableRange) {
             super(value);
             this.alias = alias;
-            this.compileTimeRange = compileTimeRange;
+            this.compileTimeEvaluableRange = compileTimeEvaluableRange;
         }
 
         @Nonnull
@@ -152,7 +155,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         }
 
         @Nonnull
-        public Placeholder withCompileTimeRange(@Nonnull final CompileTimeRange range) {
+        public Placeholder withCompileTimeRange(@Nonnull final CompileTimeEvaluableRange range) {
             return new Placeholder(getValue(), alias, range);
         }
 
@@ -162,8 +165,8 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         }
 
         @Nullable
-        public CompileTimeRange getComparisons() {
-            return compileTimeRange;
+        public CompileTimeEvaluableRange getComparisons() {
+            return compileTimeEvaluableRange;
         }
 
         @Nullable
@@ -221,9 +224,9 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
         @Nonnull
-        private final CompileTimeRange range;
+        private final CompileTimeEvaluableRange range;
 
-        public Sargable(@Nonnull final Value value, @Nonnull final CompileTimeRange range) {
+        public Sargable(@Nonnull final Value value, @Nonnull final CompileTimeEvaluableRange range) {
             super(value);
             this.range = range;
         }
@@ -235,7 +238,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         }
 
         @Nonnull
-        public CompileTimeRange getRange() {
+        public CompileTimeEvaluableRange getRange() {
             return range;
         }
 
@@ -276,7 +279,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Sargable translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
             final var translatedValue = getValue().translateCorrelations(translationMap);
-            final var newRange = range.rebase(translationMap.getAliasMapMaybe().orElseThrow(() -> new RecordCoreException("must have aliasMap")));
+            final var newRange = range.translateCorrelations(translationMap);
             if (translatedValue != getValue() || newRange != range) {
                 return new Sargable(translatedValue, newRange);
             }
@@ -307,8 +310,8 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
 
                 // if the placeholder has a compile-time range (filtered index) check to see whether it implies
                 // (some) of the predicate comparisons.
-                if (candidatePlaceholder.compileTimeRange != null) {
-                    if (!range.isEmpty() && candidatePlaceholder.compileTimeRange.implies(range)) {
+                if (candidatePlaceholder.compileTimeEvaluableRange != null) {
+                    if (range.isCompileTimeEvaluable() && range.isEmpty().equals(False) && candidatePlaceholder.compileTimeEvaluableRange.implies(range).equals(True)) {
                         return Optional.of(new PredicateMapping(this,
                                 candidatePredicate,
                                 ((partialMatch, boundParameterPrefixMap) -> {
@@ -417,7 +420,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
             Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", Sargable.class));
             final var value = new ScalarTranslationVisitor(KeyExpression.fromProto(proto.getValue())).toResultValue(alias, inputType);
             final var comparisons = proto.getComparisonsList().stream().map(Comparisons.Comparison::deserialize).collect(Collectors.toList());
-            final var compileTimeRangeBuilder = CompileTimeRange.newBuilder();
+            final var compileTimeRangeBuilder = CompileTimeEvaluableRange.newBuilder();
             for (final var comparison : comparisons) {
                 Verify.verify(compileTimeRangeBuilder.tryAdd(comparison), String.format("attempt to add non-compile-time range '%s'", comparison));
             }

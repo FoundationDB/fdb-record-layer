@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,85 +32,85 @@ public class TupleRangeTest {
 
     @Test
     public void testRangeImplication() {
-        final var largerRange = CompileTimeRange.newBuilder();
+        final var largerRange = CompileTimeEvaluableRange.newBuilder();
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
 
 
-        final var smallerRange = CompileTimeRange.newBuilder();
+        final var smallerRange = CompileTimeEvaluableRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
 
-        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
     }
 
     @Test
     public void testRangeImplication2() {
-        final var largerRange = CompileTimeRange.newBuilder();
+        final var largerRange = CompileTimeEvaluableRange.newBuilder();
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "aaa"));
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "ccc"));
 
-        final var smallerRange = CompileTimeRange.newBuilder();
+        final var smallerRange = CompileTimeEvaluableRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
 
-        final var otherRange = CompileTimeRange.newBuilder();
+        final var otherRange = CompileTimeEvaluableRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertFalse(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()));
+        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
     }
 
     @Test
     public void testRangeImplication3() {
-        final var largerRange = CompileTimeRange.newBuilder();
+        final var largerRange = CompileTimeEvaluableRange.newBuilder();
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "ccc"));
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
         largerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "aaa"));
 
-        final var smallerRange = CompileTimeRange.newBuilder();
+        final var smallerRange = CompileTimeEvaluableRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertTrue(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()));
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
 
-        final var otherRange = CompileTimeRange.newBuilder();
+        final var otherRange = CompileTimeEvaluableRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertFalse(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()));
+        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
     }
 
     @Test
     public void testRangeImplication4() {
-        final var emptyRangeBuilder = CompileTimeRange.newBuilder();
+        final var emptyRangeBuilder = CompileTimeEvaluableRange.newBuilder();
         emptyRangeBuilder.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0));
         emptyRangeBuilder.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0));
-        final var emptyRange = CompileTimeRange.empty();
+        final var emptyRange = CompileTimeEvaluableRange.empty();
 
-        Assertions.assertTrue(emptyRange.isEmpty());
+        Assertions.assertEquals(emptyRange.isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
 
-        final var zeroValueRange = CompileTimeRange.newBuilder();
+        final var zeroValueRange = CompileTimeEvaluableRange.newBuilder();
         zeroValueRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0));
 
-        Assertions.assertFalse(emptyRange.implies(zeroValueRange.build().orElseThrow()));
+        Assertions.assertEquals(emptyRange.implies(zeroValueRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.False);
 
-        final var largeRange = CompileTimeRange.newBuilder();
+        final var largeRange = CompileTimeEvaluableRange.newBuilder();
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
-        Assertions.assertFalse(emptyRange.implies(largeRange.build().orElseThrow()));
+        Assertions.assertEquals(emptyRange.implies(largeRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.False);
     }
 
     @Test
     public void creatingInvalidRangesEndUpWithEmptyRange() {
-        final var invalidRange = CompileTimeRange.newBuilder();
+        final var invalidRange = CompileTimeEvaluableRange.newBuilder();
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 30));
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 20));
-        Assertions.assertTrue(invalidRange.build().isEmpty());
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
 
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
-        Assertions.assertTrue(invalidRange.build().isEmpty());
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
 
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
-        Assertions.assertTrue(invalidRange.build().isEmpty());
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
     }
 }

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -42,7 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -656,7 +655,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         //  for the predicates that we can not handle, we add them as normal ValuePredicate.
 
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
-        final var rangeBuilder = CompileTimeRange.newBuilder();
+        final var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
 
         for (final var predicate : predicates) {
             if (predicate instanceof ValuePredicate) {
@@ -666,9 +665,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
             } else if (predicate instanceof Sargable) {
                 final var predicateRange = ((Sargable)predicate).getRange();
-                if (!rangeBuilder.tryAdd(predicateRange)) {
-                    result.add(predicate.toResidualPredicate()); // usually this should not happen.
-                }
+                rangeBuilder.add(predicateRange);
             } else {
                 result.add(predicate);
             }

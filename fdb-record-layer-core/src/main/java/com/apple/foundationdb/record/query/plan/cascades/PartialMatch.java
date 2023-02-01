@@ -111,7 +111,7 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.bindingPredicatesSupplier = Suppliers.memoize(this::computeBindingQueryPredicates);
+        this.bindingPredicatesSupplier = this::computeBindingQueryPredicates;
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
     }
 
