@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -296,6 +297,80 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                     entries.stream().map(IndexEntry::getKey).collect(Collectors.toList()));
             assertThat(recordStore.scanUniquenessViolations(thirdIndex).asList().get(), empty());
 
+            commit(context);
+        }
+    }
+
+    @Test
+    public void removeUniquenessConstraint() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue2(42)
+                    .build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .setNumValue2(42)
+                    .build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1815L)
+                    .setNumValue2(42)
+                    .build());
+
+            commit(context);
+        }
+
+        final Index uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        assertTrue(uniqueIndex.isUnique());
+        final RecordMetaDataHook uniqueHook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", uniqueIndex);
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, uniqueHook);
+            assertTrue(recordStore.isVersionChanged());
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertThat(recordStore.getIndexState(uniqueIndex), either(equalTo(IndexState.WRITE_ONLY)).or(equalTo(IndexState.READABLE_UNIQUE_PENDING)));
+            assertThat(recordStore.scanUniquenessViolations(uniqueIndex).asList().get(), hasSize(3));
+            commit(context);
+        }
+
+        // Copy the first index, but drop the uniqueness constraint. This keeps the index as is, including the
+        // last_modified_version, so adding it to the meta-data won't cause the index to be rebuilt during
+        // check version. However, bump the meta-data version to ensure that anyone with an old meta-data version
+        // (who will expect the index to be unique, if READABLE) knows to reload the meta-data.
+        final Index nonUniqueIndex = new Index(uniqueIndex);
+        nonUniqueIndex.getOptions().put(IndexOptions.UNIQUE_OPTION, Boolean.FALSE.toString());
+        assertFalse(nonUniqueIndex.isUnique());
+        final RecordMetaDataHook nonUniqueHook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", nonUniqueIndex);
+            metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+        };
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, nonUniqueHook);
+            assertTrue(recordStore.isVersionChanged());
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+
+            // We don't want a full rebuild of the index here, but it's possible that we'd want this to be done
+            // automatically during checkVersion. Perhaps the best thing would be for checkVersion to look
+            // for READABLE_UNIQUE_PENDING indexes that are not unique, which should only happen if a uniqueness
+            // constraint is dropped. For any such index, checkVersion can clear out the uniqueness space and then
+            // mark the index as READABLE.
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/1991
+            assertThat(recordStore.getIndexState(nonUniqueIndex), either(equalTo(IndexState.WRITE_ONLY)).or(equalTo(IndexState.READABLE_UNIQUE_PENDING)));
+            assertTrue(recordStore.markIndexReadable(nonUniqueIndex).get());
+
+            assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
+            List<IndexEntry> indexEntries = recordStore.scanIndex(nonUniqueIndex, new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL), null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertThat(indexEntries, hasSize(3));
+            Set<Long> indexKeys = indexEntries.stream()
+                    .map(IndexEntry::getKey)
+                    .map(indexKey -> indexKey.getLong(0))
+                    .collect(Collectors.toSet());
+            assertThat(indexKeys, hasSize(1));
             commit(context);
         }
     }
