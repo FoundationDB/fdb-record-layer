@@ -1129,9 +1129,9 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         return null;
                     });
             events.forEach(logEvent -> {
-                int batchGRVs = TestHelpers.extractCount(BATCH_GRV_PATTERN, logEvent);
+                int batchReadVersions = TestHelpers.extractCount(BATCH_GRV_PATTERN, logEvent);
                 int buildRanges = TestHelpers.extractCount(BUILD_RANGES_PATTERN, logEvent);
-                assertThat(buildRanges, lessThanOrEqualTo(batchGRVs));
+                assertThat(buildRanges, lessThanOrEqualTo(batchReadVersions));
                 assertEquals(1, buildRanges, () -> String.format("expected only 1 build range in \"%s\"", logEvent));
                 int scannedRecords = TestHelpers.extractCount(SCAN_RECORDS_PATTERN, logEvent);
                 assertThat(String.format("expected only %d records scanned in \"%s\"", limit, logEvent), scannedRecords, lessThanOrEqualTo(limit));
