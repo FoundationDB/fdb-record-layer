@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
@@ -47,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
@@ -55,6 +57,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Lucene query plan for including search-related scan parameters.
@@ -151,6 +154,43 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     public boolean allowedForCoveringIndexPlan() {
         return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
                && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
+    }
+
+    @Override
+    public boolean hasComparisons() {
+        return true;
+    }
+
+    @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        if (scanParameters instanceof LuceneScanParameters) {
+            final var luceneScanParameters = (LuceneScanParameters)scanParameters;
+            final var groupScanComparisons = luceneScanParameters.getGroupComparisons();
+            resultBuilder.addAll(groupScanComparisons.getEqualityComparisons());
+            resultBuilder.addAll(groupScanComparisons.getInequalityComparisons());
+
+            if (luceneScanParameters instanceof LuceneScanQueryParameters) {
+                final var luceneScanQueryParameters = (LuceneScanQueryParameters)luceneScanParameters;
+                final var queryClause = luceneScanQueryParameters.getQuery();
+                resultBuilder.addAll(collectComparisons(queryClause));
+            }
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private Set<Comparisons.Comparison> collectComparisons(@Nonnull final LuceneQueryClause queryClause) {
+        final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+
+        if (queryClause instanceof LuceneQueryFieldComparisonClause) {
+            resultBuilder.add(((LuceneQueryFieldComparisonClause)queryClause).getComparison());
+        } else if (queryClause instanceof LuceneBooleanQuery) {
+            for (final var andTerm : ((LuceneBooleanQuery)queryClause).getChildren()) {
+                resultBuilder.addAll(collectComparisons(andTerm));
+            }
+        }
+        return resultBuilder.build();
     }
 
     @Nullable

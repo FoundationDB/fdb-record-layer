@@ -93,7 +93,7 @@ public class IndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
 
         @Override
         public boolean matchesSafely(@Nonnull RecordQueryPlanWithComparisons plan) {
-            return boundsMatcher.matches(plan.getComparisons());
+            return boundsMatcher.matches(plan.getScanComparisons());
         }
 
         @Override

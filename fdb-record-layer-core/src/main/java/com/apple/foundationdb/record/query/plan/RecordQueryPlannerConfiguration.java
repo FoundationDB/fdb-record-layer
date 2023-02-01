@@ -58,6 +58,7 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
     private final IndexFetchMethod indexFetchMethod;
+    private final int maxNumReplansForInToJoin;
 
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
@@ -81,7 +82,8 @@ public class RecordQueryPlannerConfiguration {
                                             @Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
-                                            boolean planOtherAttemptWholeFilter) {
+                                            boolean planOtherAttemptWholeFilter,
+                                            int maxNumReplansForInToJoin) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -98,6 +100,7 @@ public class RecordQueryPlannerConfiguration {
         this.indexFetchMethod = indexFetchMethod;
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
         this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
+        this.maxNumReplansForInToJoin = maxNumReplansForInToJoin;
     }
 
     /**
@@ -254,6 +257,10 @@ public class RecordQueryPlannerConfiguration {
         return planOtherAttemptWholeFilter;
     }
 
+    public int getMaxNumReplansForInToJoin() {
+        return maxNumReplansForInToJoin;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -290,6 +297,7 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
         private boolean planOtherAttemptWholeFilter;
+        private int maxNumReplansForInToJoin = 0;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -484,6 +492,18 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the maximum number of replanning-attempts during IN-to-JOIN transformations in the planner. This
+         * option only applies to {@link RecordQueryPlanner}.
+         * @param maxNumReplansForInToJoin the number of replanning attempts; defaults to {@code 0} for no
+         *        replanning attempts
+         * @return this builder
+         */
+        public Builder setMaxNumReplansForInToJoin(final int maxNumReplansForInToJoin) {
+            this.maxNumReplansForInToJoin = maxNumReplansForInToJoin;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -500,7 +520,8 @@ public class RecordQueryPlannerConfiguration {
                     disabledTransformationRules,
                     indexFetchMethod,
                     valueIndexesOverScanNeeded,
-                    planOtherAttemptWholeFilter);
+                    planOtherAttemptWholeFilter,
+                    maxNumReplansForInToJoin);
         }
     }
 }

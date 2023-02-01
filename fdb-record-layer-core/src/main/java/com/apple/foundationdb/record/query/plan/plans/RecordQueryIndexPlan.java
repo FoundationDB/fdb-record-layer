@@ -510,7 +510,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 if (scanParameters instanceof IndexScanComparisons) {
                     // Keep hash stable for change in representation.
                     // TODO: If there is another event that changes hashes or they become less critical in tests, this can be removed.
-                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getComparisons(), reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getScanComparisons(), reverse, strictlySorted);
                 } else {
                     planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
                 }
@@ -545,13 +545,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Override
-    public boolean hasComparisons() {
+    public boolean hasScanComparisons() {
         return scanParameters instanceof IndexScanComparisons;
     }
 
     @Nonnull
     @Override
-    public ScanComparisons getComparisons() {
+    public ScanComparisons getScanComparisons() {
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
         } else {

@@ -244,7 +244,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryPlanWithComparisons> scanComparisons(@Nonnull BindingMatcher<ScanComparisons> scanComparisonsBindingMatcher) {
         return typedWithDownstream(RecordQueryPlanWithComparisons.class,
-                Extractor.of(RecordQueryPlanWithComparisons::getComparisons, name -> "comparisons(" + name + ")"),
+                Extractor.of(RecordQueryPlanWithComparisons::getScanComparisons, name -> "comparisons(" + name + ")"),
                 scanComparisonsBindingMatcher);
     }
 
