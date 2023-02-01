@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
@@ -56,7 +55,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -85,24 +83,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * build full indexes. ({@link #testConfigLoader()} does use a such API but it is not necessary.)
  */
 public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
-    private static final Pattern BATCH_GRV_PATTERN = eventCountPattern(FDBStoreTimer.Events.BATCH_GET_READ_VERSION);
-    private static final Pattern SCAN_RECORDS_PATTERN = eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
-    private static final Pattern BUILD_RANGES_PATTERN = eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-
-    private static Pattern eventCountPattern(StoreTimer.Event event) {
-        return Pattern.compile(".*" + event.logKeyWithSuffix("_count") + "=\"(\\d+)\".*");
-    }
-
-    private static int extractCount(Pattern pattern, String logEvent) {
-        Matcher matcher = pattern.matcher(logEvent);
-        assertTrue(matcher.matches(), () -> String.format("expected \"%s\" to have pattern \"%s\"", logEvent, pattern));
-        return Integer.parseInt(matcher.group(1));
-    }
-
-    private static void assertAbsent(Pattern pattern, String logEvent) {
-        Matcher matcher = pattern.matcher(logEvent);
-        assertFalse(matcher.matches(), () -> String.format("did not expect \"%s\" to have pattern \"%s\"", logEvent, pattern));
-    }
+    private static final Pattern BATCH_GRV_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Events.BATCH_GET_READ_VERSION);
+    private static final Pattern SCAN_RECORDS_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+    private static final Pattern BUILD_RANGES_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
 
     @Test
     @SuppressWarnings("deprecation")
@@ -1112,9 +1095,9 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         return null;
                     });
             events.forEach(logEvent -> {
-                assertAbsent(BATCH_GRV_PATTERN, logEvent);
-                assertAbsent(BUILD_RANGES_PATTERN, logEvent);
-                assertAbsent(SCAN_RECORDS_PATTERN, logEvent);
+                TestHelpers.assertDoesNotMatch(BATCH_GRV_PATTERN, logEvent);
+                TestHelpers.assertDoesNotMatch(BUILD_RANGES_PATTERN, logEvent);
+                TestHelpers.assertDoesNotMatch(SCAN_RECORDS_PATTERN, logEvent);
             });
         }
 
@@ -1146,11 +1129,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         return null;
                     });
             events.forEach(logEvent -> {
-                int batchGRVs = extractCount(BATCH_GRV_PATTERN, logEvent);
-                int buildRanges = extractCount(BUILD_RANGES_PATTERN, logEvent);
+                int batchGRVs = TestHelpers.extractCount(BATCH_GRV_PATTERN, logEvent);
+                int buildRanges = TestHelpers.extractCount(BUILD_RANGES_PATTERN, logEvent);
                 assertThat(buildRanges, lessThanOrEqualTo(batchGRVs));
                 assertEquals(1, buildRanges, () -> String.format("expected only 1 build range in \"%s\"", logEvent));
-                int scannedRecords = extractCount(SCAN_RECORDS_PATTERN, logEvent);
+                int scannedRecords = TestHelpers.extractCount(SCAN_RECORDS_PATTERN, logEvent);
                 assertThat(String.format("expected only %d records scanned in \"%s\"", limit, logEvent), scannedRecords, lessThanOrEqualTo(limit));
             });
         }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
@@ -113,6 +114,42 @@ public class TestHelpers {
     private static void assertDidNotLog(String loggerName, MatchingAppender appender, Callable<?> callable) {
         callAndMonitorLogging(loggerName, appender, callable);
         assertFalse(appender.matched(), () -> "Test should not have produced log message matching [" + appender + "]");
+    }
+
+    /**
+     * Returns a pattern that matches the count of an event in a log message. The pattern contains
+     * one group, which matches the count of the event in a log message.
+     *
+     * @param event store timer event to search for
+     * @return a {@link Pattern} that can be used to find event counts
+     */
+    public static Pattern eventCountPattern(StoreTimer.Event event) {
+        return Pattern.compile(".*" + event.logKeyWithSuffix("_count") + "=\"(\\d+)\".*");
+    }
+
+    /**
+     * Extract the count of an event from a log event. The supplied {@link Pattern} should come from
+     * {@link #eventCountPattern(StoreTimer.Event)} or should be equivalent.
+     *
+     * @param pattern pattern to use to extract a log event count
+     * @param logEvent a log formatted message string
+     * @return the count parsed from the log message
+     */
+    public static int extractCount(Pattern pattern, String logEvent) {
+        java.util.regex.Matcher matcher = pattern.matcher(logEvent);
+        assertTrue(matcher.matches(), () -> String.format("expected \"%s\" to match pattern \"%s\"", logEvent, pattern));
+        return Integer.parseInt(matcher.group(1));
+    }
+
+    /**
+     * Assert that a string does not match a pattern.
+     *
+     * @param pattern pattern to search for
+     * @param s string to search through
+     */
+    public static void assertDoesNotMatch(Pattern pattern, String s) {
+        java.util.regex.Matcher matcher = pattern.matcher(s);
+        assertFalse(matcher.matches(), () -> String.format("did not expect \"%s\" to have pattern \"%s\"", s, pattern));
     }
 
     private static void callAndMonitorLogging(String loggerName, MatchingAppender appender, Callable<?> callable) {
