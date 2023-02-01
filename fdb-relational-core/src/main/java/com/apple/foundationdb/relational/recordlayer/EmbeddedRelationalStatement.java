@@ -282,7 +282,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return 0;
             }
 
-            ensureTransactionActive();
+            conn.ensureTransactionActive();
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
