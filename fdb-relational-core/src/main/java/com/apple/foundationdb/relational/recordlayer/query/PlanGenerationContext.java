@@ -52,9 +52,13 @@ public class PlanGenerationContext {
     @Nonnull
     private final MetadataOperationsFactory metadataFactory;
 
-    PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory) {
+    @Nonnull
+    private final PreparedStatementParameters preparedStatementParameters;
+
+    PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters) {
         this.context = null;
         this.metadataFactory = metadataFactory;
+        this.preparedStatementParameters = preparedStatementParameters;
     }
 
     @Nonnull
@@ -138,8 +142,13 @@ public class PlanGenerationContext {
         return context.getType() == AbstractContext.TYPE.DQL;
     }
 
+    public PreparedStatementParameters getPreparedStatementParameters() {
+        return preparedStatementParameters;
+    }
+
     public static final class Builder {
         private MetadataOperationsFactory metadataFactory;
+        private PreparedStatementParameters preparedStatementParameters;
 
         private Builder() {
             this.metadataFactory = NoOpMetadataOperationsFactory.INSTANCE;
@@ -150,8 +159,13 @@ public class PlanGenerationContext {
             return this;
         }
 
+        public Builder setPreparedStatementParameters(@Nonnull final PreparedStatementParameters preparedStatementParameters) {
+            this.preparedStatementParameters = preparedStatementParameters;
+            return this;
+        }
+
         public PlanGenerationContext build() {
-            return new PlanGenerationContext(metadataFactory);
+            return new PlanGenerationContext(metadataFactory, preparedStatementParameters);
         }
     }
 

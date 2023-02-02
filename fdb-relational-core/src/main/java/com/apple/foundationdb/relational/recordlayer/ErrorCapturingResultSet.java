@@ -211,6 +211,11 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    public boolean isClosed() throws SQLException {
+        return delegate.isClosed();
+    }
+
+    @Override
     @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {

@@ -43,6 +43,8 @@ public final class PlanContext {
     private final DdlQueryFactory ddlQueryFactory;
     @Nonnull
     private final URI dbUri;
+    @Nonnull
+    private final PreparedStatementParameters preparedStatementParameters;
 
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
@@ -56,12 +58,14 @@ public final class PlanContext {
                         @Nonnull final RecordStoreState storeState,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                         @Nonnull final DdlQueryFactory ddlQueryFactory,
-                        @Nonnull final URI dbUri) {
+                        @Nonnull final URI dbUri,
+                        @Nonnull final PreparedStatementParameters preparedStatementParameters) {
         this.metaData = metaData;
         this.storeState = storeState;
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
+        this.preparedStatementParameters = preparedStatementParameters;
     }
 
     @Nonnull
@@ -89,6 +93,11 @@ public final class PlanContext {
         return dbUri;
     }
 
+    @Nonnull
+    public PreparedStatementParameters getPreparedStatementParameters() {
+        return preparedStatementParameters;
+    }
+
     public static final class Builder {
 
         private RecordMetaData metaData;
@@ -100,6 +109,8 @@ public final class PlanContext {
         private DdlQueryFactory ddlQueryFactory;
 
         private URI dbUri;
+
+        private PreparedStatementParameters preparedStatementParameters;
 
         private Builder() {
         }
@@ -135,6 +146,12 @@ public final class PlanContext {
         }
 
         @Nonnull
+        public Builder withPreparedParameters(@Nonnull final PreparedStatementParameters parameters) {
+            this.preparedStatementParameters = parameters;
+            return this;
+        }
+
+        @Nonnull
         public Builder fromRecordStore(@Nonnull final FDBRecordStore recordStore) {
             return withStoreState(recordStore.getRecordStoreState()).withMetadata(recordStore.getRecordMetaData());
         }
@@ -152,12 +169,15 @@ public final class PlanContext {
             Assert.notNull(metadataOperationsFactory);
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);
+            if (preparedStatementParameters == null) {
+                preparedStatementParameters = new PreparedStatementParameters();
+            }
         }
 
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri);
+            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters);
         }
 
         @Nonnull

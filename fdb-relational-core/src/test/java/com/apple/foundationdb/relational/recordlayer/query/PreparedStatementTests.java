@@ -33,11 +33,13 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -105,10 +107,202 @@ public class PreparedStatementTests {
     }
 
     @Test
-    void parametrizedQueryDoesNotWork() throws Exception {
+    void basicParameterizedQuery() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
+                ps.setLong(1, 10);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setLong(1, 0);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void parameterizedQueryMultipleParameters() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ? AND NAME = ?")) {
+                ps.setLong(1, 10);
+                ps.setString(2, "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setLong(1, 10);
+                ps.setString(2, "TEST");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+                ps.setLong(1, 0);
+                ps.setString(2, "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void parameterizedQueryNamedParameters() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no AND NAME = ?name")) {
+                ps.setLong("rest_no", 10);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setLong("rest_no", 10);
+                ps.setString("name", "TEST");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+                ps.setLong("rest_no", 0);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void parameterizedQueryNamedAndUnnamedParameters() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ? AND NAME = ?name")) {
+                ps.setLong(1, 10);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setLong(1, 10);
+                ps.setString("name", "TEST");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+                ps.setLong(1, 0);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void parameterizedQueryMissingNamedParameters() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no AND NAME = ?name")) {
+                ps.setLong("rest_no", 10);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+            }
+        }
+    }
+
+    @Test
+    void executeWithoutNeededParameterShouldThrow() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
-                RelationalAssertions.assertThrowsSqlException(ps::executeQuery).hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+                ps.setLong(0, 10);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+                ps.setLong(2, 10);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+            }
+        }
+    }
+
+    @Disabled
+    @Test
+    // TODO (Prepared Statement does not cast fields if set with the wrong types)
+    void setWrongTypeForQuestionMarkParameter() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
+                ps.setInt(1, 10);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setString(1, "10");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setDouble(1, 10.0);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setFloat(1, 10);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setBytes(1, "10".getBytes(StandardCharsets.UTF_8));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setBoolean(1, true);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+            }
+        }
+    }
+
+    @Disabled
+    @Test
+    // TODO (Prepared Statement does not cast fields if set with the wrong types)
+    void setWrongTypeForQuestionMarkNamedParameter() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no")) {
+                ps.setInt("rest_no", 10);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setString("rest_no", "10");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setDouble("rest_no", 10.0);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setFloat("rest_no", 10);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setBytes("rest_no", "10".getBytes(StandardCharsets.UTF_8));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setBoolean("rest_no", true);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
             }
         }
     }

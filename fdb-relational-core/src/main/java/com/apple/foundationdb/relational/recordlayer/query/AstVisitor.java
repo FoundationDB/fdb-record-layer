@@ -826,6 +826,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return (Value) visitChildren(ctx);
     }
 
+    @Override
+    public Value visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
+        Object param;
+        if (ctx.QUESTION() != null) {
+            param = context.getPreparedStatementParameters().getNextParameter();
+        } else {
+            param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
+        }
+        return new LiteralValue<>(param);
+    }
+
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Value visitCollateExpressionAtom(RelationalParser.CollateExpressionAtomContext ctx) {

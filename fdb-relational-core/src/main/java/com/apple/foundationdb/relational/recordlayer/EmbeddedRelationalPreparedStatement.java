@@ -28,16 +28,24 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public class EmbeddedRelationalPreparedStatement implements RelationalPreparedStatement {
     @Nonnull
     private final String sql;
+
+    private final Map<Integer, Object> parameters = new TreeMap<>();
+    private final Map<String, Object> namedParameters = new TreeMap<>();
+
+    private boolean closed;
 
     @Nonnull
     private final EmbeddedRelationalConnection conn;
@@ -63,6 +71,96 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
         }
     }
 
+    @Override
+    public void setBoolean(int parameterIndex, boolean x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setBoolean(String parameterName, boolean x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setInt(int parameterIndex, int x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setInt(String parameterName, int x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setLong(int parameterIndex, long x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setLong(String parameterName, long x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setFloat(int parameterIndex, float x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setFloat(String parameterName, float x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setDouble(int parameterIndex, double x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setDouble(String parameterName, double x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setString(int parameterIndex, String x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setString(String parameterName, String x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setBytes(int parameterIndex, byte[] x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setBytes(String parameterName, byte[] x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    private void ensureOpen() throws SQLException {
+        if (closed) {
+            throw new RelationalException("Cannot set parameter on closed RelationalPreparedStatement", ErrorCode.INVALID_PREPARED_STATEMENT_PARAMETER).toSqlException();
+        }
+    }
+
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
                                                              @Nonnull Options options) throws RelationalException, SQLException {
         conn.ensureTransactionActive();
@@ -71,7 +169,12 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
         }
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
             final FDBRecordStore store = schema.loadStore();
-            final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
+            final var preparedStatementParameters = new PreparedStatementParameters(parameters, namedParameters);
+            final var planContext = PlanContext.Builder.create()
+                    .fromRecordStore(store)
+                    .fromDatabase(conn.getRecordLayerDatabase())
+                    .withPreparedParameters(preparedStatementParameters)
+                    .build();
             final Plan<?> plan = Plan.generate(query, planContext);
             final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
             if (plan instanceof QueryPlan) {
@@ -85,6 +188,6 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     @Override
     public void close() throws SQLException {
-        // Nothing to do
+        closed = true;
     }
 }

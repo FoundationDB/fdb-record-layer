@@ -1281,6 +1281,8 @@ STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
 //DOT_ID:                              '.' ID_LITERAL;
 
 
+QUESTION:                            '?';
+NAMED_PARAMETER:                     '?'[A-Za-z][A-Za-z0-9_/]*;
 
 // Identifiers
 

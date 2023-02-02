@@ -54,6 +54,84 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     RelationalResultSet executeQuery() throws SQLException;
 
+    /**
+     * Sets the designated parameter to the given Java <code>boolean</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement;
+     * if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setBoolean(String parameterName, boolean x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>int</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setInt(String parameterName, int x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>long</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setLong(String parameterName, long x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>float</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setFloat(String parameterName, float x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>double</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setDouble(String parameterName, double x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>String</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setString(String parameterName, String x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java array of bytes.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setBytes(String parameterName, byte[] x) throws SQLException;
+
     @Override
     @ExcludeFromJacocoGeneratedReport
     default int executeUpdate() throws SQLException {
@@ -63,12 +141,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setNull(int parameterIndex, int sqlType) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setBoolean(int parameterIndex, boolean x) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -86,43 +158,7 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default void setInt(int parameterIndex, int x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setLong(int parameterIndex, long x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setFloat(int parameterIndex, float x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setDouble(int parameterIndex, double x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setString(int parameterIndex, String x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setBytes(int parameterIndex, byte[] x) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

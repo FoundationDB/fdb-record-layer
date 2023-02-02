@@ -1887,6 +1887,7 @@ expressionAtom
     : constant                                                      #constantExpressionAtom // done
     | fullColumnName                                                #fullColumnNameExpressionAtom // done
     | functionCall                                                  #functionCallExpressionAtom // done
+    | preparedStatementParameter                                    #preparedStatementParameterAtom // done
     | expressionAtom COLLATE collationName                          #collateExpressionAtom // done (unsupported)
     | mysqlVariable                                                 #mysqlVariableExpressionAtom // done (unsupported)
     | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)
@@ -1900,6 +1901,11 @@ expressionAtom
     | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done (unsupported)
     | left=expressionAtom mathOperator right=expressionAtom         #mathExpressionAtom // done
     | left=expressionAtom jsonOperator right=expressionAtom         #jsonExpressionAtom // done (unsupported)
+    ;
+
+preparedStatementParameter
+    : QUESTION
+    | NAMED_PARAMETER
     ;
 
 unaryOperator

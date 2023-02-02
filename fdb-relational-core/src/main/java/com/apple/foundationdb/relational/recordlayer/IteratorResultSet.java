@@ -89,6 +89,11 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    public boolean isClosed() throws SQLException {
+        return false;
+    }
+
+    @Override
     protected Row advanceRow() throws RelationalException {
         if (!rowIter.hasNext()) {
             return null;
