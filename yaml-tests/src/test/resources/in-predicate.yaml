@@ -34,17 +34,20 @@
 ---
 - connect: "jdbc:embed:/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
 ---
-- insert: [{A: 0, 9, 1.23, true , "foo", {90, 9}},
-           {A: 1, 8, 4.56, false, "bar", {81, 18}},
-           {A: 2, 7, 7.89, true , "doe", {72, 27}},
-           {A: 3, 6, 0.12, false, "arc", {63, 36}},
-           {A: 4, 5, 3.45, true , "per", {54, 45}},
-           {A: 5, 4, 6.78, false, "doe", {45, 54}},
-           {A: 6, 3, 9.01, true , "foo", {36, 63}},
-           {A: 7, 2, 2.34, false, "arc", {27, 72}},
-           {A: 8, 1, 5.67, true , "bar", {18, 81}},
-           {A: 9, 0, 8.90, false, "doe", {9, 90}}]
-- table: TA
+- query: INSERT INTO TA
+    VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
+           (1, 8, 4.56, false, 'bar', (81 as sa, 18 as sb)),
+           (2, 7, 7.89, true,  'doe', (72 as sa, 27 as sb)),
+           (3, 6, 0.12, false, 'arc', (63 as sa, 36 as sb)),
+           (4, 5, 3.45, true,  'per', (54 as sa, 45 as sb))
+---
+# with target fields and reorderings
+- query: INSERT INTO TA(a, b, c, d, e, f(sa, sb))
+    VALUES (5, 4, 6.78, false, 'doe', (45, 54)),
+           (6, 3, 9.01, true,  'foo', (36, 63)),
+           (7, 2, 2.34, false, 'arc', (27, 72)),
+           (8, 1, 5.67, true , 'bar', (18, 81)),
+           (9, 0, 8.90, false, 'doe', (9, 90))
 ---
 # LONG value matched against IN list of only LONG values
 - query: select a, b from ta where b in (1, 3, 5, 7)

@@ -34,20 +34,20 @@
 ---
 - connect: "jdbc:embed:/STANDARD_YAML?schema=TEST"
 ---
-- insert: [{ID: 1, 10, 1},
-           {ID: 2, 10, 2},
-           {ID: 3, 10, 3},
-           {ID: 4, 10, 4},
-           {ID: 5, 10, 5},
-           {ID: 6, 20, 6},
-           {ID: 7, 20, 7},
-           {ID: 8, 20, 8},
-           {ID: 9, 20, 9},
-           {ID: 10, 20, 10},
-           {ID: 11, 20, 11},
-           {ID: 12, 20, 12},
-           {ID: 13, 20, 13}]
-- table: T1
+- query: INSERT INTO T1
+    VALUES (1, 10, 1),
+           (2, 10, 2),
+           (3, 10, 3),
+           (4, 10, 4),
+           (5, 10, 5),
+           (6, 20, 6),
+           (7, 20, 7),
+           (8, 20, 8),
+           (9, 20, 9),
+           (10, 20, 10),
+           (11, 20, 11),
+           (12, 20, 12),
+           (13, 20, 13)
 ---
 - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
 - result: [{ID: !l 5, !l 10, !l 5}]

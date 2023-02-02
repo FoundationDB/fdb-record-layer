@@ -240,7 +240,7 @@ insertStatement
       IGNORE? INTO? tableName
       (PARTITION '(' partitions=uidList? ')' )?
       (
-        ('(' columns=uidList ')')? insertStatementValue
+        (columns=uidListWithNestingsInParens)? insertStatementValue
         | SET
             setFirst=updatedElement
             (',' setElements+=updatedElement)*
@@ -1564,6 +1564,18 @@ lengthTwoOptionalDimension
 
 uidList
     : uid (',' uid)*
+    ;
+
+uidWithNestings
+    : uid uidListWithNestingsInParens?
+    ;
+
+uidListWithNestingsInParens
+    : '(' uidListWithNestings ')'
+    ;
+
+uidListWithNestings
+    : uidWithNestings (',' uidWithNestings)*
     ;
 
 tables

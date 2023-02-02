@@ -37,18 +37,17 @@
 ---
 - connect: "jdbc:embed:/STANDARD_YAML?schema=TEST"
 ---
-- insert: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
-           {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
-- table: T1
+- query: INSERT INTO T1
+    VALUES (1, 2, ((3, 4), (5, 6))),
+           (10, 20, ((30, 40), (50, 60)))
 ---
 - query: select * from t1;
 - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
            {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
 ---
-# use !null placeholder (with a space afterwards) to set the field to null.
-- insert: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
-           {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
-- table: T2
+- query: INSERT INTO T2
+      VALUES (1, 2, ((3, 4), null)),
+             (10, 20, ((null, null), null))
 ---
 # multiple !null placeholders in the same level should be named.
 - query: select * from t2;

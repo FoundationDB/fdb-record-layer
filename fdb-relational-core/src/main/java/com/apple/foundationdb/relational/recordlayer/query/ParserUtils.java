@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
@@ -59,6 +61,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
@@ -665,6 +668,54 @@ public final class ParserUtils {
             valueSet.add(value);
         }
         return toReturn;
+    }
+
+    @Nonnull
+    public static Value resolveDefaultValue(@Nonnull final Type type) {
+        // TODO use metadata default values -- for now just do this:
+        //
+        // resolution rules:
+        // - type is nullable ==> null
+        // - type is not nullable
+        //   - type is of an array type ==> empty array
+        //   - type is a numeric type ==> 0 element
+        //   - type is string ==> ''
+        //   - type is a boolean ==> false
+        //   - type is bytes ==> zero length byte array
+        //   - type is record or enum ==> error
+        if (type.isNullable()) {
+            return new NullValue(type);
+        } else {
+            switch (type.getTypeCode()) {
+                case UNKNOWN:
+                case ANY:
+                case NULL:
+                    throw Assert.failUnchecked("internal typing error; target type is not properly resolved");
+                case BOOLEAN:
+                    return LiteralValue.ofScalar(false);
+                case BYTES:
+                    return LiteralValue.ofScalar(ByteString.empty());
+                case DOUBLE:
+                    return LiteralValue.ofScalar(0.0d);
+                case FLOAT:
+                    return LiteralValue.ofScalar(0.0f);
+                case INT:
+                    return LiteralValue.ofScalar(0);
+                case LONG:
+                    return LiteralValue.ofScalar(0L);
+                case STRING:
+                    return LiteralValue.ofScalar("");
+                case ENUM:
+                    throw Assert.failUnchecked("non-nullable enums must be specified", ErrorCode.CANNOT_CONVERT_TYPE);
+                case RECORD:
+                    throw Assert.failUnchecked("non-nullable records must be specified", ErrorCode.CANNOT_CONVERT_TYPE);
+                case ARRAY:
+                    final var elementType = Assert.notNullUnchecked(((Type.Array) type).getElementType());
+                    return AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType);
+                default:
+                    throw Assert.failUnchecked("unsupported type");
+            }
+        }
     }
 
     // warning: expensive, TODO (Relational semantic analysis)

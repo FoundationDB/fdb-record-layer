@@ -88,15 +88,26 @@ class QueryCommand extends Command {
 
     private void executeNoCheckStatement(@Nonnull String queryString, @Nonnull final DbStateCommandFactory factory) throws Exception {
         debug(String.format("executing query '%s'", queryString));
+        Object queryResults = null;
         SQLException sqlException = null;
         try {
-            factory.getQueryCommand(queryString).call();
+            queryResults = factory.getQueryCommand(queryString).call();
         } catch (SQLException se) {
             sqlException = se;
         }
         debug(String.format("finished executing query '%s'", queryString));
         if (sqlException != null) {
             logAndThrowUnexpectedException(sqlException);
+        }
+
+        if (queryResults instanceof ErrorCapturingResultSet) {
+            final var resultSet = (ErrorCapturingResultSet)queryResults;
+            // slurp
+            boolean valid = true;
+            while (valid) { // suppress check style
+                valid = ((ErrorCapturingResultSet) queryResults).next();
+            }
+            resultSet.close();
         }
     }
 

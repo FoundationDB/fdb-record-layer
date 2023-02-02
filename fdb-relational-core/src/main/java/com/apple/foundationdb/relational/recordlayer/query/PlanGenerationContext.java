@@ -32,12 +32,10 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -292,7 +290,7 @@ public class PlanGenerationContext {
         private Type targetType;
 
         @Nullable
-        private List<String> targetTypeReorderings;
+        private StringTrieNode targetTypeReorderings;
 
         private DMLContext(@Nullable AbstractContext parent) {
             super(parent, TYPE.DML);
@@ -312,12 +310,12 @@ public class PlanGenerationContext {
             return targetType != null;
         }
 
-        public void setTargetTypeReorderings(@Nonnull final List<String> targetTypeReorderings) {
-            this.targetTypeReorderings = ImmutableList.copyOf(targetTypeReorderings);
+        public void setTargetTypeReorderings(@Nonnull final StringTrieNode targetTypeReorderings) {
+            this.targetTypeReorderings = targetTypeReorderings;
         }
 
         @Nonnull
-        public List<String> getTargetTypeReorderings() {
+        public StringTrieNode getTargetTypeReorderings() {
             if (!hasTargetTypeReorderings()) {
                 throw new RecordCoreException("attempt to retrieve non-existing target type reorderings");
             } else {

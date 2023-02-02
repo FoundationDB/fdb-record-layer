@@ -45,13 +45,10 @@
 ---
 - connect: "jdbc:embed:/YOUSSEF?schema=TEST"
 ---
-# Here, we're inserting a number of rows using YAML format, which
-# is similar to JSON, but much more readable.
-# we are inserting an array of three rows, each containing two columns
+# We are inserting an array of three rows, each containing two columns
 # note the `table` configuration is very important
 # also note the casing of your table names.
-- insert: [{10, 20}, {30, 40}, {50, 60}]
-- table: T1
+- query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 # We check here an error code, as you can see, the statement is syntactically
 # incorrect, this should throw SYNTAX_ERROR error whose SQL state is 42601

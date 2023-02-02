@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -78,15 +79,15 @@ public final class Assert {
         }
     }
 
-    public static void fail() throws RelationalException {
-        fail("unexpected error");
+    public static RelationalException fail() throws RelationalException {
+        throw fail("unexpected error");
     }
 
-    public static void fail(@Nonnull final String failMessage) throws RelationalException {
-        fail(failMessage, ErrorCode.INTERNAL_ERROR);
+    public static RelationalException fail(@Nonnull final String failMessage) throws RelationalException {
+        throw fail(failMessage, ErrorCode.INTERNAL_ERROR);
     }
 
-    public static void fail(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) throws RelationalException {
+    public static RelationalException fail(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) throws RelationalException {
         throw new RelationalException(failMessage, failErrorCode);
     }
 
@@ -134,15 +135,15 @@ public final class Assert {
         }
     }
 
-    public static void failUnchecked() {
-        failUnchecked("unexpected error");
+    public static UncheckedRelationalException failUnchecked() {
+        throw failUnchecked("unexpected error");
     }
 
-    public static void failUnchecked(@Nonnull final String failMessage) {
-        failUnchecked(failMessage, ErrorCode.INTERNAL_ERROR);
+    public static UncheckedRelationalException failUnchecked(@Nonnull final String failMessage) {
+        throw failUnchecked(failMessage, ErrorCode.INTERNAL_ERROR);
     }
 
-    public static void failUnchecked(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) {
+    public static UncheckedRelationalException failUnchecked(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) {
         throw new RelationalException(failMessage, failErrorCode).toUncheckedWrappedException();
     }
 

@@ -1080,18 +1080,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var elementFields = Assert.notNullUnchecked(targetType.getFields());
 
         if (currentScope.hasTargetTypeReorderings()) {
-            final var targetTypeReorderings = currentScope.getTargetTypeReorderings();
+            final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(currentScope.getTargetTypeReorderings().getChildrenMap()).keySet());
             final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
 
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                Assert.thatUnchecked(index >= 0 || fieldType.isNullable(), "field that is not supplied must be nullable", ErrorCode.CANNOT_CONVERT_TYPE);
                 final Column<? extends Value> currentFieldColumns;
                 if (index >= 0) {
                     currentFieldColumns = visitRecordFieldContext(providedColumnContexts.get(index), elementField);
                 } else {
-                    currentFieldColumns = Column.unnamedOf(new NullValue(fieldType));
+                    currentFieldColumns = Column.unnamedOf(ParserUtils.resolveDefaultValue(fieldType));
                 }
                 resultColumnsBuilder.add(currentFieldColumns);
             }
@@ -1121,13 +1120,31 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     private Column<? extends Value> visitRecordFieldContext(@Nonnull final ParserRuleContext parserRuleContext,
                                                             @Nullable final Type.Record.Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
-        final var dmlContext = context.pushDmlContext();
-        if (fieldType != null) {
-            dmlContext.setTargetType(fieldType);
-            // we cannot further set reorderings
+        final StringTrieNode reorderings;
+        if (targetField != null && context.isDml()) {
+            final var dmlContext = context.asDml();
+            if (dmlContext.hasTargetTypeReorderings()) {
+                reorderings = dmlContext.getTargetTypeReorderings();
+            } else {
+                reorderings = null;
+            }
+        } else {
+            reorderings = null;
         }
-        final var column = (Column<? extends Value>) parserRuleContext.accept(this);
-        context.pop();
+        final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ? null : reorderings.getChildrenMap().get(targetField.getFieldName());
+        final var nestedDmlContext = context.pushDmlContext();
+        final Column<? extends Value> column;
+        try {
+            if (fieldType != null) {
+                nestedDmlContext.setTargetType(fieldType);
+            }
+            if (targetFieldReorderings != null && targetFieldReorderings.getChildrenMap() != null) {
+                nestedDmlContext.setTargetTypeReorderings(targetFieldReorderings);
+            }
+            column = (Column<? extends Value>) parserRuleContext.accept(this);
+        } finally {
+            context.pop();
+        }
         Assert.notNullUnchecked(column);
         if (fieldType == null) {
             return column;
@@ -1161,7 +1178,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Object visitExpressionWithOptionalName(RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var nestedValue = (Value) visit(ctx.expression());
         if (ctx.AS() != null) {
-            final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(ctx.uid(), String.class));
+            final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
             return Column.of(Type.Record.Field.of(nestedValue.getResultType(), Optional.of(name)), nestedValue);
         } else {
             return Column.unnamedOf(nestedValue);
@@ -1201,6 +1218,39 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitDecimalLiteral(RelationalParser.DecimalLiteralContext ctx) {
         return ParserUtils.parseDecimal(ctx.getText(), false);
+    }
+
+    /////// Lists //////
+
+
+    @Override
+    public StringTrieNode visitUidListWithNestingsInParens(RelationalParser.UidListWithNestingsInParensContext ctx) {
+        return visitUidListWithNestings(ctx.uidListWithNestings());
+    }
+
+    @Override
+    public StringTrieNode visitUidListWithNestings(RelationalParser.UidListWithNestingsContext ctx) {
+        final var uidMap =
+                ctx.uidWithNestings()
+                        .stream()
+                        .map(this::visitUidWithNestings)
+                        .collect(ImmutableMap.toImmutableMap(pair -> Assert.notNullUnchecked(pair).getLeft(),
+                                pair -> Assert.notNullUnchecked(pair).getRight(),
+                                (l, r) -> {
+                                    throw Assert.failUnchecked("duplicate column", ErrorCode.AMBIGUOUS_COLUMN);
+                                }));
+        return new StringTrieNode(uidMap);
+    }
+
+    @Override
+    @Nonnull
+    public Pair<String, StringTrieNode> visitUidWithNestings(RelationalParser.UidWithNestingsContext ctx) {
+        final var uid = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
+        if (ctx.uidListWithNestingsInParens() == null) {
+            return Pair.of(uid, StringTrieNode.leafNode());
+        } else {
+            return Pair.of(uid, visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
+        }
     }
 
     /////// Functions ////////////////////
@@ -1480,7 +1530,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final var targetTypeReorderings =
                     ctx.columns == null ?
                             null :
-                            ctx.columns.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).collect(ImmutableList.toImmutableList());
+                            visitUidListWithNestingsInParens(ctx.columns);
 
             final var dmlContext = context.pushDmlContext();
             dmlContext.setTargetType(targetType);

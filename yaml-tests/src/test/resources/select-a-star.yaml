@@ -36,15 +36,15 @@
 ---
 - connect: "jdbc:embed:/SELECT_A_STAR_YAML?schema=TEST"
 ---
-- insert: [{A1: 1, 10, 1},
-           {A1: 2, 10, 2},
-           {A1: 3, 10, 3}]
-- table: A
+- query: INSERT INTO A
+    VALUES (1, 10, 1),
+           (2, 10, 2),
+           (3, 10, 3)
 ---
-- insert: [{B1: 1, 20, {4, 40}},
-           {B1: 2, 20, {5, 50}},
-           {B1: 3, 20, {6, 60}}]
-- table: B
+- query: INSERT INTO B
+    VALUES (1, 20, (4, 40)),
+           (2, 20, (5, 50)),
+           (3, 20, (6, 60))
 ---
 - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
 - result: [{1}, {2}, {3}]

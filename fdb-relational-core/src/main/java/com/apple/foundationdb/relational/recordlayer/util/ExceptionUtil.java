@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.util;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -54,6 +55,8 @@ public final class ExceptionUtil {
             code = ErrorCode.TRANSACTION_TIMEOUT;
         } else if (re instanceof RecordCoreStorageException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
+        } else if (re.getCause() instanceof RecordAlreadyExistsException) {
+            code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
         }
         Map<String, Object> extraContext = re.getLogInfo();
         return new RelationalException(code, re).withContext(extraContext);
