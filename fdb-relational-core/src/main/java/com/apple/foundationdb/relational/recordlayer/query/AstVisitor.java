@@ -233,30 +233,29 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public RelationalExpression visitQuerySpecification(RelationalParser.QuerySpecificationContext ctx) {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.havingClause(), ctx.orderByClause(), ctx.limitClause());
     }
 
     @Override
     public RelationalExpression visitQuerySpecificationNointo(RelationalParser.QuerySpecificationNointoContext ctx) {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.havingClause(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.orderByClause(), ctx.limitClause());
+        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.havingClause(), ctx.orderByClause(), ctx.limitClause());
     }
 
     private RelationalExpression handleSelectInternal(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                       @Nonnull final RelationalParser.FromClauseContext fromClause,
                                                       @Nullable final RelationalParser.GroupByClauseContext groupByClause,
+                                                      @Nullable final RelationalParser.HavingClauseContext havingClauseContext,
                                                       @Nullable final RelationalParser.OrderByClauseContext orderByClause,
                                                       @Nullable final RelationalParser.LimitClauseContext limitClause) {
         if (groupByClause != null || ParserUtils.hasAggregation(selectElements)) {
-            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause, orderByClause, limitClause);
+            return handleSelectWithGroupBy(selectElements, fromClause, groupByClause, havingClauseContext, orderByClause, limitClause);
         } else {
             scopes.sibling();
             fromClause.accept(this); // includes checking predicates
@@ -275,6 +274,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     private RelationalExpression handleSelectWithGroupBy(@Nonnull final RelationalParser.SelectElementsContext selectElements,
                                                          @Nonnull final RelationalParser.FromClauseContext fromClause,
                                                          @Nullable final RelationalParser.GroupByClauseContext groupByClause,
+                                                         @Nullable final RelationalParser.HavingClauseContext havingClauseContext,
                                                          @Nullable final RelationalParser.OrderByClauseContext orderByClause,
                                                          @Nullable final RelationalParser.LimitClauseContext limitClause) {
         /*
@@ -336,7 +336,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         {
             final var scope = scopes.getCurrentScope();
             scope.setFlag(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE); // set this flag, so we can resolve grouping identifiers correctly.
-            selectElements.accept(this); // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by) columns.
+            // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by and having) columns.
+            selectElements.accept(this);
+            if (havingClauseContext != null) {
+                havingClauseContext.accept(this);
+            }
             // (yhatem) resolve order-by columns _now_ because we need them to build using the same resolution rules for group by
             if (orderByClause != null) {
                 // currently this is not supported. (TODO)
@@ -353,9 +357,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                     Column.of(Type.Record.Field.of(agg.getResultType(), Optional.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()))), agg)).collect(Collectors.toList()));
             final var groupByExpression = new GroupByExpression(aggregationValue, groupByClause == null ? null : FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0), underlyingSelectQun);
             groupByExpressionType = groupByExpression.getResultValue().getResultType();
-            scopes.pop();
+            final var groupByScope = scopes.pop();
             groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);
-            scopes.push().addQuantifier(groupByQuantifier);
+            final var selectHavingScope = scopes.push();
+            selectHavingScope.addQuantifier(groupByQuantifier);
+            selectHavingScope.addAllAggregateReferences(groupByScope.getAggregateReferences());
         }
 
         // 3. handle select on top of group by
@@ -367,6 +373,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             scope.setGroupByType(groupByExpressionType);
             scope.getProjectList().clear();
             visit(selectElements);
+            if (havingClauseContext != null) {
+                visit(havingClauseContext);
+            }
             orderByColumns.ifPresent(columns -> columns.forEach(column -> scope.addOrderByColumn(column, false)));
             if (limitClause != null) {
                 visit(limitClause);
@@ -391,7 +400,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(record.getFields().stream().noneMatch(f -> f.getFieldNameOptional().isEmpty()), "unable to expand '*' because of unnamed underlying columns");
             return record.getFields().stream().map(Type.Record.Field::getFieldName);
         }).collect(Collectors.toList());
-        return fieldNames.stream().map(fieldName -> ParserUtils.resolveField(List.of(fieldName), scopes.getCurrentScope())).map(ParserUtils::toColumn).collect(Collectors.toList());
+        return fieldNames.stream().map(fieldName -> ParserUtils.resolveField(List.of(fieldName), scopes)).map(ParserUtils::toColumn).collect(Collectors.toList());
     }
 
     @Nonnull
@@ -549,6 +558,23 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var scope = scopes.getCurrentScope();
         for (final var groupingCol : ctx.groupByItem()) {
             scope.addProjectionColumn((Column<? extends Value>) groupingCol.accept(this));
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitHavingClause(RelationalParser.HavingClauseContext ctx) {
+        if (ctx.HAVING() != null) {
+            final var predicateObj = ctx.havingExpr.accept(this);
+            Assert.notNullUnchecked(predicateObj);
+            Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
+            final Value predicate = (Value) predicateObj;
+            Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
+            final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
+            Assert.thatUnchecked(!aliases.isEmpty());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(aliases.stream().findFirst().get());
+            Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
+            scopes.getCurrentScope().setPredicate(predicateOptional.get()); // improve
         }
         return null;
     }
@@ -721,7 +747,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final List<Value> values = new ArrayList<>();
         ctx.expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
 
-        final var typedList = ParserUtils.encapsulate(new AbstractArrayConstructorValue.ArrayFn(), ParserUtils.validateInValuesList(values));
+        final Typed typedList = ParserUtils.encapsulate(new AbstractArrayConstructorValue.ArrayFn(), ParserUtils.validateInValuesList(values));
         final var left = (Value) visit(ctx.predicate());
         return (Value) ParserUtils.encapsulate(ParserUtils.getFunction("IN"), List.of(left, typedList));
     }
@@ -895,7 +921,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(id instanceof QualifiedIdentifierValue);
         final QualifiedIdentifierValue qualifiedIdentifierValue = (QualifiedIdentifierValue) id;
         final var fieldParts = Arrays.stream(qualifiedIdentifierValue.getParts()).collect(Collectors.toList());
-        return ParserUtils.resolveField(fieldParts, scopes.getCurrentScope());
+        return ParserUtils.resolveField(fieldParts, scopes);
         //        final var qunInfo = ParserUtils.findFieldPath(fieldParts.get(0), parserContext);
         //        if (qunInfo.getLeft().getAlias().toString().equals(fieldParts.get(0))) {
         //            fieldParts = fieldParts.stream().skip(1).collect(Collectors.toList());
@@ -1231,7 +1257,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING)) {
             final var groupByQuantifier = QuantifiedObjectValue.of(Objects.requireNonNull(scope.getGroupByQuantifierCorrelation()), Objects.requireNonNull(scope.getGroupByType()));
             final var aggExprSelector = FieldValue.ofOrdinalNumber(groupByQuantifier, ParserUtils.getLastFieldIndex(groupByQuantifier.getResultType()));
-            final var aggregationReference = FieldValue.ofOrdinalNumber(aggExprSelector, scope.getAggCounter());
+            final var aggregationReference = FieldValue.ofOrdinalNumber(aggExprSelector, scope.getAggregateReferences().get(scope.getAggregateCounter()));
             scope.increaseAggCounter();
             return aggregationReference;
         } else {

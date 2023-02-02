@@ -138,6 +138,13 @@
 - query: explain select min_ever(col3) from t2
 - result: [{!sc "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"}]
 ---
+- query: select col1, sum(col2) from T1 where col1 > 15 group by col1;
+- result: [{!l 20, !l 76}]
+---
+# make sure we're not choosing the aggregate index (because we have condition that we can't currently process)
+- query: explain select col1, sum(col2) from T1 where col1 > 15 group by col1;
+- result: [{!sc "AGGREGATE BY (sum_l"}]
+---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /AGG_IDX_YAML

@@ -169,6 +169,9 @@ public class Scopes {
         @Nonnull
         private List<AggregateValue> aggregateValues;
 
+        @Nonnull
+        private List<Integer> aggregateReferences;
+
         @Nullable
         private Type targetType;
 
@@ -190,6 +193,7 @@ public class Scopes {
             this.groupByQuantifierCorrelation = null;
             this.groupByType = null;
             this.aggregateValues = new ArrayList<>();
+            this.aggregateReferences = new ArrayList<>();
             this.orderByCardinals = new ArrayList<>();
         }
 
@@ -331,12 +335,29 @@ public class Scopes {
             return sibling;
         }
 
-        public int getAggCounter() {
+        public int getAggregateCounter() {
             return aggCounter;
         }
 
-        public void addAggregateValue(@Nonnull final AggregateValue aggregateValue) {
-            this.aggregateValues.add(aggregateValue);
+        public void addAllAggregateReferences(@Nonnull final List<Integer> aggregateReferences) {
+            this.aggregateReferences.addAll(aggregateReferences);
+        }
+
+        public List<Integer> getAggregateReferences() {
+            return aggregateReferences;
+        }
+
+        public void addAggregateValue(@Nonnull final AggregateValue newAggregateValue) {
+            for (int i = 0; i < aggregateValues.size(); i++) {
+                final var aggregateValue = aggregateValues.get(i);
+                if (aggregateValue.semanticEquals(newAggregateValue, AliasMap.identitiesFor(aggregateValue.getCorrelatedTo()))) {
+                    aggregateReferences.add(i);
+                    return;
+                }
+            }
+            aggregateValues.add(newAggregateValue);
+            int newAggregateIndex = aggregateValues.size() - 1;
+            aggregateReferences.add(newAggregateIndex);
         }
 
         @Nonnull

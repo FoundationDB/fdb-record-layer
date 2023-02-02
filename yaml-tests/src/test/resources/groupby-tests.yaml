@@ -25,6 +25,12 @@
 - query: create schema template groupby_tests_template
     create table t1(id int64, col1 int64, col2 int64, primary key(id))
     create index i1 as select col1 from t1
+    create type as struct st1(y int64, z int64) 
+    create type as struct st2(w int64, x int64)
+    create type as struct st3(u st2, v st1) 
+    create type as struct st4(s int64, t int64)
+    create table nested(id int64, q st4, r st3, primary key(q.s, r.u.w))
+    create index i2 as select r.v.z from nested order by r.v.z
 ---
 - query: drop database /GB_YAML
 ---
@@ -48,6 +54,25 @@
            {ID: 12, 20, 12},
            {ID: 13, 20, 13}]
 - table: T1
+---
+- insert: [{ID: 1, Q: {S: 200, T: 1}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 100}}},
+           {ID: 2, Q: {S: 201, T: 2}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 100}}},
+           {ID: 3, Q: {S: 202, T: 3}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 100}}},
+           {ID: 4, Q: {S: 203, T: 4}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 100}}},
+           {ID: 5, Q: {S: 330, T: 5}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 140}}},
+           {ID: 6, Q: {S: 329, T: 6}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 140}}},
+           {ID: 7, Q: {S: 328, T: 7}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 140}}},
+           {ID: 8, Q: {S: 327, T: 8}, R: {U: {W: 5, X: 15}, V: {Y: 10, Z: 140}}}]
+- table: NESTED
+---
+- query: select max(q.s) from nested group by r.v.z having r.v.z > 120
+- result: [{330}]
+---
+- query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
+- result: [{13}]
+---
+- query: select max(id) from t1 group by col1
+- result: [{5}, {13}]
 #---
 #- query: select sum(col2) from T1 group by 3;
 #- result: [{!l 210}]

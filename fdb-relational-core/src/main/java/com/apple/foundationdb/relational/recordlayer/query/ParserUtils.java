@@ -41,11 +41,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggrega
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -67,6 +69,7 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -79,6 +82,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -197,19 +202,21 @@ public final class ParserUtils {
         return value;
     }
 
-    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
+    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+        final var currentScope = scopes.getCurrentScope();
         Assert.thatUnchecked(!fieldPath.isEmpty());
         final var isUnderlyingSelectWhere = currentScope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         if (isUnderlyingSelectWhere) {
-            return resolveFieldGroupedQuantifier(fieldPath, currentScope);
+            return resolveFieldGroupedQuantifier(fieldPath, scopes);
         } else {
-            return resolveFieldSimpleQuantifier(fieldPath, currentScope);
+            return resolveFieldSimpleQuantifier(fieldPath, scopes);
         }
     }
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
+    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+        final var currentScope = scopes.getCurrentScope();
         Assert.thatUnchecked(!fieldPath.isEmpty());
         FieldValue result = null;
         var fieldAccessors = toAccessors(fieldPath);
@@ -222,7 +229,6 @@ public final class ParserUtils {
         final var qun = currentScope.getForEachQuantifiers().get(0);
         final var types = splitSelectWhereType(qun.getFlowedObjectType());
 
-        // todo: check qualified columns.
         final var visibleType = isResolvingAggregations ? types.getRight() : types.getLeft();
         if (resolveFieldPath(visibleType, fieldAccessors)) {
             result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath);
@@ -230,10 +236,15 @@ public final class ParserUtils {
 
         final var flownColumnsSplit = splitSelectWhereFlownColumns(qun);
         final var visibleColumns = isResolvingAggregations ? flownColumnsSplit.getRight() : flownColumnsSplit.getLeft();
-        for (final var visibleField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
-            if (resolveFieldPath(visibleField.getFieldType(), fieldAccessors)) {
+        final var visibleColumnsDeref = visibleColumns.stream().map(c -> Column.of(c.getField(), dereference(c.getValue(), scopes))).collect(toList());
+        for (final var visibleField : visibleColumnsDeref) {
+            final var columnPathWithQuantifier = isResolvingAggregations ?
+                    ImmutableList.<String>builder().add(visibleField.getField().getFieldName()).addAll(fieldPath).build() :
+                    ImmutableList.<String>builder().add(visibleField.getField().getFieldName()).add(fieldPath.get(fieldPath.size() - 1)).build();
+            final var resolved = resolveFieldPath(qun.getFlowedObjectValue().getResultType(), toAccessors(columnPathWithQuantifier));
+            if (resolved) {
                 Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleField.getFieldName()).addAll(fieldPath).build());
+                result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), columnPathWithQuantifier);
             }
         }
 
@@ -243,10 +254,10 @@ public final class ParserUtils {
 
         // corner case:
         if (!isResolvingAggregations && fieldPath.size() > 1) {
-            for (final var groupingColumnField : visibleColumns.stream().map(Column::getField).collect(Collectors.toList())) {
+            for (final var groupingColumnField : visibleColumnsDeref.stream().map(Column::getField).collect(toList())) {
                 if ((isResolvingSelectHaving || resolveFieldPath(types.getRight(), fieldAccessors)) && resolveFieldPath(groupingColumnField.getFieldType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
                     Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
-                    result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleColumns.get(0).getField().getFieldName()).addAll(fieldPath.subList(1, fieldPath.size())).build());
+                    result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleColumnsDeref.get(0).getField().getFieldName()).addAll(fieldPath.subList(1, fieldPath.size())).build());
                 }
             }
         }
@@ -274,7 +285,8 @@ public final class ParserUtils {
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes.Scope currentScope) {
+    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+        final var currentScope = scopes.getCurrentScope();
         final var fieldAccessors = toAccessors(fieldPath);
         final var fieldPathStr = String.join(".", fieldPath);
 
@@ -397,6 +409,7 @@ public final class ParserUtils {
             Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
+            // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
                     Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames, allAvailableRecordTypes, accessHintSet))),
                     recordType.get());
@@ -588,7 +601,7 @@ public final class ParserUtils {
 
     @Nonnull
     public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<? extends Typed> arguments) {
-        return function.encapsulate(emptyBuilder, arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(Collectors.toList()));
+        return function.encapsulate(emptyBuilder, arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(toList()));
     }
 
     @Nonnull
@@ -597,7 +610,7 @@ public final class ParserUtils {
             return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
         }
         if (value instanceof Value) {
-            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false).map(ParserUtils::flattenRecordWithOneField).map(v -> (Value) v).collect(Collectors.toList()));
+            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false).map(ParserUtils::flattenRecordWithOneField).map(v -> (Value) v).collect(toList()));
         }
         return value;
     }
@@ -652,5 +665,35 @@ public final class ParserUtils {
             valueSet.add(value);
         }
         return toReturn;
+    }
+
+    // warning: expensive, TODO (Relational semantic analysis)
+    @Nonnull
+    public static Value dereference(@Nonnull final Value value,
+                                    @Nonnull final Scopes scopes) {
+        if (value instanceof RecordConstructorValue) {
+            return RecordConstructorValue.ofColumns(
+                    ((RecordConstructorValue) value).getColumns()
+                            .stream()
+                            .map(c -> Column.of(c.getField(), dereference(c.getValue(), scopes)))
+                            .collect(toList()));
+        } else if (value instanceof CountValue) {
+            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).collect(toList());
+            Verify.verify(children.size() <= 1);
+            if (!children.isEmpty()) {
+                return value.withChildren(Collections.singleton(dereference(children.get(0), scopes)));
+            } else {
+                return value;
+            }
+        } else if (value instanceof FieldValue || value instanceof IndexableAggregateValue || value instanceof NumericAggregationValue) {
+            final var valueWithChild = (ValueWithChild) value;
+            return valueWithChild.withNewChild(dereference(valueWithChild.getChild(), scopes));
+        } else if (value instanceof QuantifiedObjectValue) {
+            final var qov = (QuantifiedObjectValue) value;
+            final var quantifier = scopes.resolveQuantifier(qov.getAlias(), true);
+            return quantifier.map(q -> dereference(q.getRangesOver().get().getResultValue(), scopes)).orElse(value);
+        } else {
+            return value;
+        }
     }
 }
