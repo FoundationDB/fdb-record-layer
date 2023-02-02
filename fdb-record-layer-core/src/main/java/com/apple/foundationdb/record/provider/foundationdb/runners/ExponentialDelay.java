@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
- * This class mantains a delay that should be used when retrying transactional operations that have failed due to
+ * This class maintains a delay that should be used when retrying transactional operations that have failed due to
  * something retriable.
  * <p>
  *     The goal here is to avoid making the situation worse when the system is overloaded, by backing off.

@@ -162,6 +162,8 @@ public class FDBStoreTimer extends StoreTimer {
         REBUILD_INDEX_EXPLICIT("rebuild index by an explicit request"),
         /** The amount of time spent rebuilding an index during a test. */
         REBUILD_INDEX_TEST("rebuild index during test"),
+        /** The amount of time spent delayed during index builds. This is injected by the indexing process to avoid overwhelming the database server. */
+        INDEXER_DELAY("indexer delay"),
 
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
@@ -224,6 +226,8 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory"),
+        /** The amount of time spent during backoff delay on retryable errors in {@link FDBDatabase#run}. */
+        RETRY_DELAY("retry delay"),
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
         TIMEOUTS("timeouts"),
         /** Total number and duration of commits. */
@@ -415,7 +419,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOCATABLE_RESOLVER_COMPUTE_DIGEST("wait for computing directory layer digest"),
         /** Wait for {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverMappingReplicator} to copy a directory layer. */
         WAIT_LOCATABLE_RESOLVER_MAPPING_COPY("wait for copying contents of directory layer"),
-        /** Wait for a backoff delay on retryable error in {@link FDBDatabase#run}. */
+        /** Wait for a backoff delay on retryable errors in {@link FDBDatabase#run}. */
         WAIT_RETRY_DELAY("wait for retry delay"),
         /** Wait for statistics to be collected. */
         WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index"),
