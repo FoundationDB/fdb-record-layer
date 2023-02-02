@@ -117,9 +117,17 @@ templateClause
 
 createStatement
    : CREATE SCHEMA schemaId WITH TEMPLATE templateId                                                  #createSchemaStatement
-   | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+                                         #createSchemaTemplateStatement
+   | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+ optionsClause?                          #createSchemaTemplateStatement
    | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
+
+optionsClause
+    : WITH OPTIONS '(' option (COMMA option)* ')'
+    ;
+
+option
+    : ENABLE_LONG_ROWS EQUAL_SYMBOL booleanLiteral
+    ;
 
 dropStatement
    : DROP DATABASE path       #dropDatabaseStatement

@@ -939,6 +939,7 @@ DES_ENCRYPT:                         'DES_ENCRYPT';
 DIMENSION:                           'DIMENSION';
 DISJOINT:                            'DISJOINT';
 ELT:                                 'ELT';
+ENABLE_LONG_ROWS:                    'ENABLE_LONG_ROWS';
 ENCODE:                              'ENCODE';
 ENCRYPT:                             'ENCRYPT';
 ENDPOINT:                            'ENDPOINT';

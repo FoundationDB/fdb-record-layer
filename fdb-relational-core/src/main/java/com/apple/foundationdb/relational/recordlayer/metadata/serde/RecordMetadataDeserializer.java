@@ -42,7 +42,7 @@ public class RecordMetadataDeserializer {
         this.recordMetaData = recordMetaData;
     }
 
-    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, long version) {
+    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, long version, boolean enableLongRows) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
@@ -70,9 +70,7 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
-        return schemaTemplateBuilder
-                .setVersion(version)
-                .setName(schemaTemplateName);
+        return schemaTemplateBuilder.setVersion(version).setName(schemaTemplateName).setEnableLongRows(enableLongRows);
     }
 
     @Nonnull

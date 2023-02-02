@@ -42,6 +42,13 @@ public interface SchemaTemplate extends Metadata {
     long getVersion();
 
     /**
+     * Returns {@code true} if long rows are permitted in tables of this template, else {@code false}.
+     *
+     * @return {@code true} if long rows are permitted in tables of this template, else {@code false}.
+     */
+    boolean isEnableLongRows();
+
+    /**
      * Returns the {@link Table}s inside the schema template.
      *
      * @return The {@link Table}s inside the schema template.

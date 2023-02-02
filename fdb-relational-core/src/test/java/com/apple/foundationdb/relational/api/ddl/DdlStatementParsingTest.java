@@ -49,6 +49,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -424,6 +426,31 @@ public class DdlStatementParsingTest {
                     Assertions.assertEquals(unindexedColumns.get(i), ve.getField().getFieldName(), "Incorrect column at position " + i);
                 }
 
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(booleans =  {true, false})
+    void createSchemaTemplateSplitLongRecord(Boolean enableLongRows) throws Exception {
+        String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                " CREATE TABLE test_table (A INT64, PRIMARY KEY(A))";
+        if (enableLongRows != null) {
+            templateStatement += " WITH OPTIONS (ENABLE_LONG_ROWS = " + enableLongRows + ")";
+        }
+        shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                if (enableLongRows == null || enableLongRows) {
+                    Assertions.assertTrue(template.isEnableLongRows());
+                } else {
+                    Assertions.assertFalse(template.isEnableLongRows());
+                }
                 return txn -> {
                 };
             }

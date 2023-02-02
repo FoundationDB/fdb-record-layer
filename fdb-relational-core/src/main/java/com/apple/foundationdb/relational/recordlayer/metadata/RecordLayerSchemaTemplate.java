@@ -57,25 +57,30 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private final long version;
 
+    private final boolean enableLongRows;
+
     @Nonnull
     private final Supplier<RecordMetaData> metaDataSupplier;
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      long version) {
+                                      long version, boolean enableLongRows) {
         this.name = name;
         this.version = version;
         this.tables = tables;
+        this.enableLongRows = enableLongRows;
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
     }
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       long version,
+                                      boolean enableLongRows,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
         this.tables = tables;
+        this.enableLongRows = enableLongRows;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
     }
 
@@ -88,6 +93,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public long getVersion() {
         return version;
+    }
+
+    @Override
+    public boolean isEnableLongRows() {
+        return enableLongRows;
     }
 
     @Nonnull
@@ -134,7 +144,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                                                @Nonnull final String templateName,
                                                                long version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
-        final var builder = deserializer.getSchemaTemplate(templateName, version);
+        final var builder = deserializer.getSchemaTemplate(templateName, version, metaData.isSplitLongRecords());
         return builder.setCachedMetadata(metaData).build();
     }
 
@@ -149,6 +159,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private long version;
 
+        private boolean enableLongRows;
+
         private final Map<String, RecordLayerTable> tables;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
@@ -158,6 +170,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private Builder() {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
+            // enable long rows is TRUE by default
+            enableLongRows = true;
         }
 
         @Nonnull
@@ -169,6 +183,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder setVersion(long version) {
             this.version = version;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setEnableLongRows(boolean value) {
+            this.enableLongRows = value;
             return this;
         }
 
@@ -279,9 +299,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows);
             }
         }
 

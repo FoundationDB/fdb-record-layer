@@ -59,7 +59,6 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
@@ -598,7 +597,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 "LIMIT clause can only be specified with top-level SQL query.", ErrorCode.UNSUPPORTED_OPERATION);
         context.asDql().setLimit(ParserUtils.parseBoundInteger(ctx.limit.getText(), 1, null));
         if (ctx.offset != null) {
-            context.asDql().setOffset(ParserUtils.parseBoundInteger(ctx.offset.getText(), 0, null));
+            // Owing to TODO
+            Assert.failUnchecked("OFFSET clause is not supported.");
+            // context.asDql().setOffset(ParserUtils.parseBoundInteger(ctx.offset.getText(), 0, null));
         }
         // Owing to TODO
         if (scopes.getCurrentScope().getAllQuantifiers().size() > 1) {
@@ -1328,14 +1329,20 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class);
-
-        context.asDdl().getMetadataBuilder().setName(schemaTemplateName);
+        // schema template version will be set automatically at update operation to lastVersion + 1
+        final var schemaTemplateBuilder = context.asDdl().getMetadataBuilder().setName(schemaTemplateName).setVersion(1L);
         // collect all tables, their indices, and custom types definitions.
         ctx.templateClause().forEach(s -> s.accept(this));
-
-        // schema template version will be set automatically at update operation to lastVersion + 1
-        SchemaTemplate schemaTemplate = context.asDdl().getMetadataBuilder().setVersion(1L).build();
-        return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateSchemaTemplateConstantAction(schemaTemplate, Options.NONE));
+        if (ctx.optionsClause() != null) {
+            for (var option: ctx.optionsClause().option()) {
+                if (option.ENABLE_LONG_ROWS() != null) {
+                    schemaTemplateBuilder.setEnableLongRows(option.booleanLiteral().TRUE() != null);
+                } else {
+                    Assert.failUnchecked("Encountered unknown options in schema template creation", ErrorCode.SYNTAX_ERROR);
+                }
+            }
+        }
+        return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateSchemaTemplateConstantAction(schemaTemplateBuilder.build(), Options.NONE));
     }
 
     @Override

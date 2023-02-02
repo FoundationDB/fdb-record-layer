@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -70,6 +72,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
                 ((RecordLayerIndex) index).getKeyExpression(),
                 index.getIndexType(),
                 Map.of(IndexOptions.UNIQUE_OPTION, Boolean.toString(index.isUnique()))));
+    }
+
+    @Override
+    public void visit(@Nonnull SchemaTemplate schemaTemplate) {
+        Assert.thatUnchecked(schemaTemplate instanceof RecordLayerSchemaTemplate);
+        getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
+        getBuilder().setVersion((int) schemaTemplate.getVersion());
     }
 
     @Nonnull

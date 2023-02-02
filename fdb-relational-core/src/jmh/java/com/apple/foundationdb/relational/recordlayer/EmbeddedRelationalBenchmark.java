@@ -104,8 +104,7 @@ public abstract class EmbeddedRelationalBenchmark {
             RecordLayerConfig rlConfig = new RecordLayerConfig(
                     (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                     storePath -> DynamicMessageRecordSerializer.instance(),
-                    1
-            );
+                    1);
             SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
             RecordLayerStoreCatalogImpl rlCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
             try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {

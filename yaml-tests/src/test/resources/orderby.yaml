@@ -128,10 +128,6 @@
 - query: select b, c from t1 order by b limit 4;
 - result: [{1, 0}, {2, 0}, {3, 1}, {4, 1}]
 ---
-# Simple ordering on 1 variable, with limit and offset
-- query: select b, c from t1 order by b limit 4 offset 2;
-- result: [{3, 1}, {4, 1}, {5, 8}, {6, 8}]
----
 # Simple ordering on 1 variable, with continuation
 - query: select b, c from t1 order by b limit 1;
 - result: [{1, 0}]
