@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -89,7 +90,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         private final String query;
 
-        private boolean forExplain;
+        private final boolean forExplain;
 
         @Nullable
         byte[] continuation;
@@ -118,16 +119,30 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         @VisibleForTesting
         private RecordQueryPlan generatePhysicalPlan(@Nonnull final PlanContext planContext) throws RelationalException {
-            final CascadesPlanner planner = createPlanner(planContext);
-            try {
-                return planner.planGraph(
-                        () -> GroupExpressionRef.of(relationalExpression),
-                        Optional.empty(),
-                        IndexQueryabilityFilter.TRUE,
-                        ((LogicalSortExpression) relationalExpression).isReverse(), ParameterRelationshipGraph.empty());
-            } catch (UncheckedRelationalException uve) {
-                throw uve.unwrap();
+            PlanCache cache = planContext.getPlanCache();
+            RecordQueryPlan plan = null;
+            LogicalQuery logicalQuery = LogicalQuery.of(query, relationalExpression);
+            if (cache != null) {
+                //TODO(bfines) this is where we input the stripped literals
+                plan = cache.getPlan(logicalQuery, planContext.getSchemaState());
             }
+            if (plan == null) {
+                final CascadesPlanner planner = createPlanner(planContext);
+                try {
+                    plan = planner.planGraph(
+                            () -> GroupExpressionRef.of(relationalExpression),
+                            Optional.empty(),
+                            IndexQueryabilityFilter.TRUE,
+                            ((LogicalSortExpression) relationalExpression).isReverse(), ParameterRelationshipGraph.empty());
+                } catch (UncheckedRelationalException uve) {
+                    throw uve.unwrap();
+                }
+
+                if (cache != null) {
+                    cache.cacheEntry(logicalQuery, plan);
+                }
+            }
+            return plan;
         }
 
         @Override
@@ -219,7 +234,6 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                                           @Nullable final byte[] continuation) {
             return new LogicalQueryPlan(relationalExpression, query, forExplain, limit, offset, continuation);
         }
-
     }
 
     private static CascadesPlanner createPlanner(PlanContext planContext) {

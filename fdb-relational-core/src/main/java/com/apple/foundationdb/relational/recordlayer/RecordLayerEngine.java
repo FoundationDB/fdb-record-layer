@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
 import com.codahale.metrics.MetricRegistry;
 
@@ -48,12 +49,14 @@ public final class RecordLayerEngine {
                                                     @Nonnull RecordLayerStoreCatalogImpl schemaCatalog,
                                                     @Nonnull SchemaTemplateCatalog templateCatalog,
                                                     @Nullable MetricRegistry metricsEngine,
-                                                    @Nonnull RecordLayerMetadataOperationsFactory ddlFactory) throws RelationalException {
+                                                    @Nonnull RecordLayerMetadataOperationsFactory ddlFactory,
+                                                    @Nullable PlanCache planCache
+                                                    ) throws RelationalException {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 
         List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, templateCatalog, ddlFactory)).collect(Collectors.toList());
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, planCache, templateCatalog, ddlFactory)).collect(Collectors.toList());
         try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction(Options.NONE)) {
             schemaCatalog.initialize(txn);
             txn.commit();

@@ -32,8 +32,10 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.base.Suppliers;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -48,14 +50,23 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
 
+    private final Supplier<PlanCache> planCacheSupplier;
+
     public EmbeddedRelationalExtension() {
-        this.keySpaceSupplier = this::createNewKeySpace;
-        this.ddlFactoryBuilder = RecordLayerMetadataOperationsFactory::defaultFactory;
+        this(RecordLayerMetadataOperationsFactory::defaultFactory);
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
         this.keySpaceSupplier = this::createNewKeySpace;
         this.ddlFactoryBuilder = ddlFactory;
+        this.planCacheSupplier = Suppliers.ofInstance(null);
+    }
+
+    public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory,
+                                     Supplier<PlanCache> planCacheSupplier) {
+        this.keySpaceSupplier = this::createNewKeySpace;
+        this.ddlFactoryBuilder = ddlFactory;
+        this.planCacheSupplier = planCacheSupplier;
     }
 
     @Override
@@ -103,7 +114,8 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
                 schemaCatalog,
                 templateCatalog,
                 storeTimer,
-                ddlFactory);
+                ddlFactory,
+                planCacheSupplier.get());
         engine.registerDriver(); //register the engine driver
     }
 

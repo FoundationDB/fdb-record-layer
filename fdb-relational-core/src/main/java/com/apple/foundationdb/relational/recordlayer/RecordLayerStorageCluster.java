@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStor
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQueryFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,10 +55,14 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final SchemaTemplateCatalog schemaTemplateCatalog;
     private final RecordLayerMetadataOperationsFactory ddlFactory;
 
+    @Nullable
+    private final PlanCache planCache;
+
     public RecordLayerStorageCluster(FdbConnection connection,
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
+                                     PlanCache planCache,
                                      SchemaTemplateCatalog schemaTemplateCatalog,
                                      RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
@@ -67,6 +72,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
         this.schemaTemplateCatalog = schemaTemplateCatalog;
         this.rlConfiguration = rlConfig;
         this.ddlFactory = ddlFactory;
+        this.planCache = planCache;
     }
 
     private Map<String, String> parseConnectionQueryString(@Nullable String queryStr) {
@@ -128,6 +134,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                 ksPath,
                 ddlFactory,
                 ddlQueryFactory,
+                planCache,
                 presetSchema,
                 connOptions);
     }

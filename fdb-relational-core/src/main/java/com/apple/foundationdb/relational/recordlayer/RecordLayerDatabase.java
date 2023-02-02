@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CachedMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Throwables;
@@ -76,6 +77,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
      * @param dbPathPrefix          the path to the database that this represents
      * @param metadataOperationsFactory a factory for constant actions
      * @param ddlQueryFactory       a factory for DDL queries
+     * @param planCache             a plan cache to use, or null if no caching should be enabled.
      * @param defaultSchema         if not null, then a pre-validated schema to start all connections with.
      * @param options               any database-level options.
      */
@@ -86,9 +88,10 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                KeySpacePath dbPathPrefix,
                                @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                @Nonnull final DdlQueryFactory ddlQueryFactory,
+                               @Nullable PlanCache planCache,
                                @Nullable String defaultSchema,
                                @Nonnull Options options) {
-        super(metadataOperationsFactory, ddlQueryFactory);
+        super(metadataOperationsFactory, ddlQueryFactory, planCache);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;

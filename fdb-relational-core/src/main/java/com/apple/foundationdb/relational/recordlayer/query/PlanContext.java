@@ -27,12 +27,15 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.SchemaState;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
-public final class PlanContext {
+public final class PlanContext implements SchemaState {
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
@@ -45,6 +48,8 @@ public final class PlanContext {
     private final URI dbUri;
     @Nonnull
     private final PreparedStatementParameters preparedStatementParameters;
+    @Nullable
+    private final PlanCache planCache;
 
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
@@ -53,11 +58,12 @@ public final class PlanContext {
      * @param storeState            The record store state.
      * @param metadataOperationsFactory The constant action factory used for DDL and metadata queries
      * @param dbUri                 The URI of the database.
-     */
+     **/
     private PlanContext(@Nonnull final RecordMetaData metaData,
                         @Nonnull final RecordStoreState storeState,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                         @Nonnull final DdlQueryFactory ddlQueryFactory,
+                        @Nullable final PlanCache planCache,
                         @Nonnull final URI dbUri,
                         @Nonnull final PreparedStatementParameters preparedStatementParameters) {
         this.metaData = metaData;
@@ -66,6 +72,12 @@ public final class PlanContext {
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
+        this.planCache = planCache;
+    }
+
+    @Nullable
+    public PlanCache getPlanCache() {
+        return planCache;
     }
 
     @Nonnull
@@ -98,6 +110,20 @@ public final class PlanContext {
         return preparedStatementParameters;
     }
 
+    public SchemaState getSchemaState() {
+        return this;
+    }
+
+    @Override
+    public RecordStoreState getState() {
+        return storeState;
+    }
+
+    @Override
+    public RecordMetaData getSchemaMetaData() {
+        return metaData;
+    }
+
     public static final class Builder {
 
         private RecordMetaData metaData;
@@ -109,6 +135,8 @@ public final class PlanContext {
         private DdlQueryFactory ddlQueryFactory;
 
         private URI dbUri;
+        @Nullable
+        private PlanCache planCache;
 
         private PreparedStatementParameters preparedStatementParameters;
 
@@ -139,6 +167,11 @@ public final class PlanContext {
             return this;
         }
 
+        public Builder withPlanCache(@Nullable PlanCache planCache) {
+            this.planCache = planCache;
+            return this;
+        }
+
         @Nonnull
         public Builder withDbUri(@Nonnull final URI dbUri) {
             this.dbUri = dbUri;
@@ -160,6 +193,7 @@ public final class PlanContext {
         public Builder fromDatabase(@Nonnull final AbstractDatabase database) {
             return withDdlQueryFactory(database.getDdlQueryFactory())
                     .withConstantActionFactory(database.getDdlFactory())
+                    .withPlanCache(database.getPlanCache())
                     .withDbUri(database.getURI());
         }
 
@@ -177,7 +211,7 @@ public final class PlanContext {
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters);
+            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, planCache, dbUri, preparedStatementParameters);
         }
 
         @Nonnull

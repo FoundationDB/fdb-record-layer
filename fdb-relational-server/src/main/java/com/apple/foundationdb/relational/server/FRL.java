@@ -47,6 +47,8 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.cache.ChainedPlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.ByteString;
@@ -102,6 +104,8 @@ public class FRL implements AutoCloseable {
                 .setTemplateCatalog(templateCatalog)
                 .setStoreCatalog(schemaCatalog).build();
 
+        //TODO(bfines) configuration here
+        PlanCache planCache = new ChainedPlanCache(128);
         this.engine = RecordLayerEngine.makeEngine(
                 rlConfig,
                 Collections.singletonList(fdbDb),
@@ -109,7 +113,8 @@ public class FRL implements AutoCloseable {
                 schemaCatalog,
                 templateCatalog,
                 null,
-                ddlFactory);
+                ddlFactory,
+                planCache);
 
         // Throws ErrorCode.PROTOCOL_VIOLATION if driver already registered.
         // TODO: Clean up driver registration/get registered driver. Should it register w/ DriverManager?

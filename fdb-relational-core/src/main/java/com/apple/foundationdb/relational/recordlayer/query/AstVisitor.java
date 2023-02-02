@@ -1334,7 +1334,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // collect all tables, their indices, and custom types definitions.
         ctx.templateClause().forEach(s -> s.accept(this));
         if (ctx.optionsClause() != null) {
-            for (var option: ctx.optionsClause().option()) {
+            for (var option : ctx.optionsClause().option()) {
                 if (option.ENABLE_LONG_ROWS() != null) {
                     schemaTemplateBuilder.setEnableLongRows(option.booleanLiteral().TRUE() != null);
                 } else {

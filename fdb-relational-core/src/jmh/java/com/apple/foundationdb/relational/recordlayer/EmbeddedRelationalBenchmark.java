@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
@@ -69,7 +70,7 @@ public abstract class EmbeddedRelationalBenchmark {
                     "CREATE TABLE \"RestaurantReviewer\" (\"id\" int64, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
 
                     "CREATE INDEX \"record_name_idx\" as select \"name\" from \"RestaurantRecord\" " +
-                    "CREATE INDEX \"reviewer_name_idx\" as select \"name\" from \"RestaurantReviewer\") ";
+                    "CREATE INDEX \"reviewer_name_idx\" as select \"name\" from \"RestaurantReviewer\" ";
 
     static final String restaurantRecordTable = "RestaurantRecord";
 
@@ -82,6 +83,8 @@ public abstract class EmbeddedRelationalBenchmark {
 
         private final String templateName;
         private final String templateDef;
+
+        private final PlanCache planCache;
         public StoreCatalog catalog;
 
 
@@ -89,9 +92,20 @@ public abstract class EmbeddedRelationalBenchmark {
             this(schemaTemplateName, templateDefinition);
         }
 
+        public Driver(PlanCache planCache) {
+            this(schemaTemplateName,templateDefinition,planCache);
+        }
+
         public Driver(String templateName, String templateDef) {
             this.templateName = templateName;
             this.templateDef = templateDef;
+            this.planCache = null;
+        }
+
+        public Driver(String templateName, String templateDef, PlanCache planCache) {
+            this.templateName = templateName;
+            this.templateDef = templateDef;
+            this.planCache = planCache;
         }
 
         public void up() throws RelationalException, SQLException {
@@ -126,7 +140,8 @@ public abstract class EmbeddedRelationalBenchmark {
                     schemaCatalog,
                     templateCatalog,
                     null,
-                    ddlFactory);
+                    ddlFactory,
+                    planCache);
             engine.registerDriver();
 
             createSchemaTemplate();

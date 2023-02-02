@@ -58,7 +58,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     final Options options;
 
     public TransactionBoundDatabase(URI uri, @Nonnull Options options) {
-        super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE);
+        super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null);
         this.uri = uri;
         this.options = options;
     }
