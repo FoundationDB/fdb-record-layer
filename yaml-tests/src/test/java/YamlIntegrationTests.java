@@ -39,7 +39,7 @@ public class YamlIntegrationTests {
         Debugger.setup();
     }
 
-    private void doRun(@Nonnull final String fileName) throws Exception {
+    protected final void doRun(@Nonnull final String fileName) throws Exception {
         try (var yamlRunner = YamlRunner.create(fileName)) {
             try {
                 yamlRunner.run();

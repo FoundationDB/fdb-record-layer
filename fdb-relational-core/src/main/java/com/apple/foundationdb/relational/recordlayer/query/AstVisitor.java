@@ -691,11 +691,18 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.FALSE() == null && ctx.TRUE() == null) {
             Assert.failUnchecked(String.format("unexpected value %s", ctx.getText()));
         }
-        final Value right = (ctx.TRUE() != null) ?
+        Value right = (ctx.TRUE() != null) ?
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
         if (ctx.NOT() != null) {
-            return (Value) ParserUtils.encapsulate(new RelOpValue.NotEqualsFn(), List.of(left, right));
+            //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
+            right = (ctx.TRUE() != null) ?
+                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false) :
+                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
+            final Typed inverted = ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
+            final Typed nullTerm = ParserUtils.encapsulate(new RelOpValue.IsNullFn(), List.of(left));
+
+            return (Value) ParserUtils.encapsulate(new AndOrValue.OrFn(), List.of(inverted, nullTerm));
         } else {
             return (Value) ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
         }
