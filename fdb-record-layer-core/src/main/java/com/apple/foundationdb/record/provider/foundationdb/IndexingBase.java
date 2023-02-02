@@ -56,13 +56,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -459,11 +460,25 @@ public abstract class IndexingBase {
     }
 
     private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        return policy.shouldAllowTakeoverContinue() &&
+        return
+            areSimilar(newStamp, savedStamp)
+            ?
+            (!isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockDescription()))
+            :
+            policy.shouldAllowTakeoverContinue() &&
                (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
                 savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) ||
                (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-               savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
+                savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
+    }
+
+    private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        return savedStamp.getMethod() == newStamp.getMethod()
+               && savedStamp.getTargetIndexList().size() == newStamp.getTargetIndexList().size()
+               && new HashSet<>(savedStamp.getTargetIndexList()).containsAll(newStamp.getTargetIndexList())
+               && (savedStamp.getMethod() != IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX
+                   || (savedStamp.getSourceIndexSubspaceKey().equals(newStamp.getSourceIndexSubspaceKey())
+                       && savedStamp.getSourceIndexLastModifiedVersion() == newStamp.getSourceIndexLastModifiedVersion()));
     }
 
     @Nonnull
@@ -570,6 +585,8 @@ public abstract class IndexingBase {
                                                 IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
                                                 Index index) {
         return new PartlyBuiltException(savedStamp, expectedStamp, index.getName(),
+                savedStamp.hasBlock() && savedStamp.getBlock() ?
+                "This index was partly built, and blocked" :
                 "This index was partly built by another method",
                 LogMessageKeys.INDEX_NAME, index,
                 LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
@@ -935,7 +952,7 @@ public abstract class IndexingBase {
         }
     }
 
-    CompletableFuture<Void> indexingStamp(@Nonnull AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
+    CompletableFuture<Void> indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
                                           @Nullable OnlineIndexer.IndexingStampOperation op,
                                           @Nullable String id,
                                           @Nullable  Integer timeoutSeconds) {
@@ -945,7 +962,7 @@ public abstract class IndexingBase {
         ));
     }
 
-    boolean indexingStamp(@Nonnull AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
+    boolean indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
                           @Nonnull FDBRecordStore store,
                           @Nonnull Index index,
                           @Nullable IndexBuildProto.IndexBuildIndexingStamp stamp,
@@ -953,7 +970,10 @@ public abstract class IndexingBase {
                           @Nullable String id,
                           @Nullable  Integer timeoutSeconds
     ) {
-        oldStamps.put(index.getName(), stamp);
+        oldStamps.put(index.getName(), stamp != null ? stamp :
+                                       IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                                               .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.INVALID)
+                                               .build());
         if (op == null || stamp == null || op.equals(OnlineIndexer.IndexingStampOperation.QUERY)) {
             return false;
         }

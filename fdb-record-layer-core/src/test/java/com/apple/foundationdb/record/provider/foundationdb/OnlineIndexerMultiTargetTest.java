@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -775,5 +776,154 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         System.out.printf("%d indexes, %d records. Single build took %d milliSeconds, MultiIndex took %d%n",
                 indexes.size(), numRecords, endSingle - startSingle, endMulti - startMulti);
+    }
+
+    @Test
+    void testMultiTargetIndexingBlocker() {
+        // block indexing, then release
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 107;
+        final int chunkSize  = 17;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
+                .setTargetIndexes(indexes));
+
+        // 2. Block indexing
+        FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+        openSimpleMetaData(localHook);
+        String luka = "my name is Luka";
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.BLOCK, luka, 10);
+        }
+
+        // 3. query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.QUERY, null, 0);
+            System.out.println(stampMap);
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+                assertEquals(luka, stamp.getBlockDescription());
+                assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
+                assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
+            }
+        }
+
+        // 4. fail continue without unblock
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .setLimit(chunkSize)
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // 5. continue with unblock
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setAllowUnblock(true)
+                        .build())
+                .build()) {
+
+            indexBuilder.buildIndex();
+        }
+
+        // validate
+        validateIndexes(indexes);
+    }
+
+    @Test
+    void testMultiTargetIndexingBlockerExpiration() {
+        // block indexing with a short ttl, continue after sleep
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 59;
+        final int chunkSize  = 13;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
+                .setTargetIndexes(indexes));
+
+        // 2. Block indexing
+        FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+        openSimpleMetaData(localHook);
+        String luka = "my name is Luka";
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.BLOCK, luka, 2);
+        }
+
+        // 3. fail continue without unblock
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .setLimit(chunkSize)
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // 4. sleep
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        // 5. continue normally, the block should have expired
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .setTimer(timer)
+                .setLimit(chunkSize)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // validate
+        validateIndexes(indexes);
     }
 }

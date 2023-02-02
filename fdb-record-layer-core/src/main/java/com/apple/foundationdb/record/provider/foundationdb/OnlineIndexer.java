@@ -820,7 +820,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @API(API.Status.EXPERIMENTAL)
     AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingStampOperation op, @Nullable String id, @Nullable  Integer timeoutSeconds) {
-        AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
         // any indexer will do
         asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OP, getIndexer().indexingStamp(oldStamps, op, id, timeoutSeconds));
         return oldStamps;
@@ -2036,6 +2036,8 @@ public class OnlineIndexer implements AutoCloseable {
         private final long checkIndexingMethodFrequencyMilliseconds;
         private final boolean mutualIndexing;
         private final List<Tuple> mutualIndexingBoundaries;
+        private final boolean allowUnblock;
+        private final String allowUnblockId;
 
         /**
          * Possible actions when an index is already partially built.
@@ -2063,9 +2065,10 @@ public class OnlineIndexer implements AutoCloseable {
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
-                              DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
-                              boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
-                              boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries) {
+                               DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
+                               boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
+                               boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
+                               boolean allowUnblock, String allowUnblockId) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2078,6 +2081,8 @@ public class OnlineIndexer implements AutoCloseable {
             this.checkIndexingMethodFrequencyMilliseconds = checkIndexingMethodFrequencyMilliseconds;
             this.mutualIndexing = mutualIndexing;
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
+            this.allowUnblock = allowUnblock;
+            this.allowUnblockId = allowUnblockId;
         }
 
         /**
@@ -2143,8 +2148,10 @@ public class OnlineIndexer implements AutoCloseable {
                     .setIfReadable(ifReadable)
                     .allowUniquePendingState(allowUniquePendingState)
                     .allowTakeoverContinue(allowTakeoverContinue)
-                    .setMutualIndexingBoundaries(mutualIndexingBoundaries)
+                    .checkIndexingStampFrequencyMilliseconds(checkIndexingMethodFrequencyMilliseconds)
                     .setMutualIndexing(mutualIndexing)
+                    .setMutualIndexingBoundaries(mutualIndexingBoundaries)
+                    .setAllowUnblock(allowUnblock, allowUnblockId)
                     ;
         }
 
@@ -2213,6 +2220,17 @@ public class OnlineIndexer implements AutoCloseable {
             return allowTakeoverContinue;
         }
 
+
+        /**
+         * If true, allow indexing continuation of a blocked partly built index.
+         * @param stampBlockId if non-null and non-empty, allow unblock only if matches the existing stamp's block id
+         * @return true if unblock is allowed
+         */
+        public boolean shouldAllowUnblock(String stampBlockId) {
+            return allowUnblock &&
+                   (allowUnblockId == null || allowUnblockId.isEmpty() || allowUnblockId.equals(stampBlockId));
+        }
+
         /**
          * If negative, avoid checks. Else, minimal interval between checks.
          * @return minmal interval in milliseconds.
@@ -2248,6 +2266,8 @@ public class OnlineIndexer implements AutoCloseable {
             private long checkIndexingStampFrequency = 0;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
+            private boolean allowUnblock = false;
+            private String allowUnblockId = null;
 
             protected Builder() {
             }
@@ -2473,6 +2493,29 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * If the index is partly built and blocked, control if allowed to unblock and continue.
+             * @param allowUnblock if true, unblock (if blocked) and continue.
+             * @param allowUnblockId if non-null and non-empty, unblock only if the indexing stamp's id matches it. Will not continue if not blocked.
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setAllowUnblock(boolean allowUnblock, @Nullable String allowUnblockId) {
+                this.allowUnblock = allowUnblock;
+                this.allowUnblockId = allowUnblockId;
+                return this;
+            }
+
+            /**
+             * Call {@link #setAllowUnblock(boolean, String)} will null id.
+             * @param allowUnblock if true, allow unblock and continue
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setAllowUnblock(boolean allowUnblock) {
+                return setAllowUnblock(allowUnblock, null);
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -2480,7 +2523,7 @@ public class OnlineIndexer implements AutoCloseable {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
-                        useMutualIndexing, useMutualIndexingBoundaries);
+                        useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId);
             }
         }
     }
