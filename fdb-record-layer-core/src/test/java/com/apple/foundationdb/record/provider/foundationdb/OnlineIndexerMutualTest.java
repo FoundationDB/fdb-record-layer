@@ -1155,7 +1155,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Continue with unblock, correct id
         openSimpleMetaData(hook);
-        openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
