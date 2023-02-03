@@ -42,11 +42,13 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -72,7 +74,11 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {
-        complexQuerySetup(metaData -> setupIndex(metaData, 42));
+        final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
+        compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
+        final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
+        complexQuerySetup(metaData -> setupIndex(metaData, new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+                compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner, 50);
         assertMatchesExactly(plan,
@@ -84,26 +90,26 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsNotUsedWhenItsPredicateIsNotImplied() throws Exception {
-        complexQuerySetup(metaData -> setupIndex(metaData, 100));
+        final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
+        compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
+        final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
+        complexQuerySetup(metaData -> setupIndex(metaData, new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+                compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner, 50);
         assertMatchesExactly(plan, mapPlan(descendantPlans(scanPlan())));
     }
 
-    private static void setupIndex(@Nonnull final RecordMetaDataBuilder metaData, int boundary) {
-        final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
-        compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, boundary));
+    private static void setupIndex(@Nonnull final RecordMetaDataBuilder metaData, final QueryPredicate predicate) {
 
-        final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        final var predicate = new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
-                compileTimeRange.build().orElseThrow());
+        final QueryPredicate.Serializable normalized = (QueryPredicate.Serializable)BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(predicate).orElse(predicate);
 
         final var protoIndexBuilder = RecordMetaDataProto.Index.newBuilder()
                 .setName("SparseIndex")
                 .addRecordType("MySimpleRecord")
                 .setType(IndexTypes.VALUE)
                 .setRootExpression(field("num_value_2").toKeyExpression())
-                .addPredicate(predicate.toProto())
+                .setPredicate(normalized.toProto())
                 .build();
         final var index = new Index(protoIndexBuilder);
         // index: (num_value_2, num_value_3_indexed) where num_value_2 > <boundary>

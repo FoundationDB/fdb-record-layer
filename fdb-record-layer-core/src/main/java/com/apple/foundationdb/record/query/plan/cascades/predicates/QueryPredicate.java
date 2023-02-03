@@ -370,8 +370,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return NotPredicate.deserialize(proto.getNotPredicate(), alias, inputType);
         } else if (proto.hasValuePredicate()) {
             return ValuePredicate.deserialize(proto.getValuePredicate(), alias, inputType);
-        } else if (proto.hasSargable()) {
-            return ValueRangesPredicate.Sargable.deserialize(proto.getSargable(), alias, inputType);
         } else {
             throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto.toString()));
         }

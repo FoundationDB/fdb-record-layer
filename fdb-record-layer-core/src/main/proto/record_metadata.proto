@@ -63,7 +63,7 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
-  repeated Predicate predicate = 11;
+  optional Predicate predicate = 11;
   extensions 1000 to 2000;
 }
 

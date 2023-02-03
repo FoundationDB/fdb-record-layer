@@ -30,12 +30,18 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,8 +49,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
@@ -112,32 +118,31 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 pop(rootExpression.expand(push(initialState)));
 
         if (index.hasPredicate()) {
-            final var predicates = index.getPredicates().stream().map(predicate ->  QueryPredicate.deserialize(Objects.requireNonNull(predicate), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())).collect(Collectors.toList());
+            final var predicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+            // predicate must be in DNF.
+            // TODO check
+            // OR ( AND(ValuePredicate(col1, <100), ValuePredicate(col1, >0)), AND(ValuePredicate(col2, =10), AND(ValuePredicate(col1, >40))) )
             final var predicatedGraphExpansion = GraphExpansion.builder();
             predicatedGraphExpansion.addAllPredicates(keyValueExpansion.getPredicates());
             predicatedGraphExpansion.addAllQuantifiers(keyValueExpansion.getQuantifiers());
             predicatedGraphExpansion.addAllResultColumns(keyValueExpansion.getResultColumns());
             final var mutablePlaceholders = new ArrayList<>(keyValueExpansion.getPlaceholders());
+            final var valueRanges = dfnPredicateToRanges(predicate);
             // rewrite sargables as placeholder compile-time ranges.
-            for (final var predicate : predicates) {
-                if (predicate instanceof ValueRangesPredicate.Sargable) {
-                    final var sargableValue = (ValueRangesPredicate.Sargable)predicate;
-                    boolean found = false;
-                    for (int i = 0; i < mutablePlaceholders.size(); ++i) {
-                        final var placeholder = mutablePlaceholders.get(i);
-                        if (placeholder.getValue().semanticEquals(sargableValue.getValue(), AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
-                            found = true;
-                            mutablePlaceholders.remove(i);
-                            mutablePlaceholders.add(placeholder.withCompileTimeRange(sargableValue.getRange()));
-                            break;
-                        }
-                        // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate
-                        // that is used only for matching, but NOT as a placeholder. For now we just throw.
+            for (final var value : valueRanges.keySet()) {
+                boolean found = false;
+                for (int i = 0; i < mutablePlaceholders.size(); ++i) {
+                    final var placeholder = mutablePlaceholders.get(i);
+                    if (placeholder.getValue().semanticEquals(value, AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
+                        found = true;
+                        mutablePlaceholders.remove(i);
+                        mutablePlaceholders.add(placeholder.withCompileTimeRanges(valueRanges.get(value)));
+                        break;
                     }
-                    if (!found) {
-                        throw new RecordCoreException(String.format("Unexpected predicate type '%s'", predicate.getClass()));
-                    }
-                } else {
+                    // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate
+                    // that is used only for matching, but NOT as a placeholder. For now we just throw.
+                }
+                if (!found) {
                     throw new RecordCoreException(String.format("Unexpected predicate type '%s'", predicate.getClass()));
                 }
             }
@@ -186,6 +191,66 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 fullKey(index, primaryKey),
                 primaryKey);
     }
+
+    @Nonnull
+    private static Multimap<Value, CompileTimeEvaluableRange> dfnPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+        ImmutableMultimap.Builder<Value, CompileTimeEvaluableRange> result = ImmutableMultimap.builder();
+
+        if (!(predicate instanceof OrPredicate)) {
+            conjunctionToRange(predicate, result, predicate);
+        } else {
+            final var groups = predicate.getChildren();
+            for (final var group : groups) {
+                conjunctionToRange(predicate, result, group);
+            }
+        }
+        return result.build();
+    }
+
+    private static void conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, CompileTimeEvaluableRange> result, final QueryPredicate group) {
+        if (group instanceof AndPredicate) {
+            final var terms = ((AndPredicate)group).getChildren();
+            Optional<Value> key = Optional.empty();
+            var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
+            for (final var term : terms) {
+                if (!(term instanceof ValuePredicate)) {
+                    throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+                }
+                final var valuePredicate = (ValuePredicate)term;
+                if (key.isEmpty()) {
+                    key = Optional.of(valuePredicate.getValue());
+                } else {
+                    if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.identitiesFor(key.get().getCorrelatedTo()))) {
+                        throw new RecordCoreException(String.format("found two different values ('%s', '%s') in the same conjunction group", key.get(), valuePredicate.getValue()));
+                    }
+                }
+                if (!rangeBuilder.tryAdd(valuePredicate.getComparison())) {
+                    throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
+                }
+            }
+            final var range = rangeBuilder.build();
+            if (key.isEmpty() || range.isEmpty()) {
+                throw new RecordCoreException(String.format("invalid predicate '%s'", predicate));
+            }
+            result.put(key.get(), range.get());
+        } else {
+            if (!(group instanceof ValuePredicate)) {
+                throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+            }
+            final var valuePredicate = (ValuePredicate)group;
+            final var key = valuePredicate.getValue();
+            var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
+            if (!rangeBuilder.tryAdd(valuePredicate.getComparison())) {
+                throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
+            }
+            final var range = rangeBuilder.build();
+            if (range.isEmpty()) {
+                throw new RecordCoreException(String.format("invalid predicate '%s'", predicate));
+            }
+            result.put(key, range.get());
+        }
+    }
+
 
     /**
      * Compute the full key of an index (given that the index is a value index).

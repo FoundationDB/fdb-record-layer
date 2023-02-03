@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -77,8 +76,8 @@ public class Index {
     private int addedVersion;
     private int lastModifiedVersion;
 
-    @Nonnull
-    private List<RecordMetaDataProto.Predicate> predicates;
+    @Nullable
+    private RecordMetaDataProto.Predicate predicate;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -111,7 +110,7 @@ public class Index {
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options) {
-        this(name, rootExpression, type, options, List.of());
+        this(name, rootExpression, type, options, null);
     }
 
     /**
@@ -120,21 +119,21 @@ public class Index {
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
      * @param options additional options, which may be type-specific
-     * @param predicates index predicates, for sparse indexes, can be empty.
+     * @param predicate index predicate, for sparse indexes, can be null.
      * @see IndexTypes
      */
     public Index(@Nonnull String name,
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options,
-                 @Nonnull List<RecordMetaDataProto.Predicate> predicates) {
+                 @Nullable RecordMetaDataProto.Predicate predicate) {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
         this.options = options;
         this.subspaceKey = normalizeSubspaceKey(name, name);
         this.lastModifiedVersion = 0;
-        this.predicates = predicates;
+        this.predicate = predicate;
     }
 
     public Index(@Nonnull String name,
@@ -181,9 +180,9 @@ public class Index {
         this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
-        if (orig.predicates != null) {
+        if (orig.predicate != null) {
             // yhatem: not sure if this deep-copies
-            this.predicates = orig.predicates.stream().map(pred -> RecordMetaDataProto.Predicate.newBuilder(pred).build()).collect(Collectors.toList());
+            this.predicate = RecordMetaDataProto.Predicate.newBuilder(orig.predicate).build();
         }
     }
 
@@ -231,10 +230,10 @@ public class Index {
         if (proto.hasLastModifiedVersion()) {
             lastModifiedVersion = proto.getLastModifiedVersion();
         }
-        if (proto.getPredicateCount() > 0) {
-            this.predicates = proto.getPredicateList();
+        if (proto.hasPredicate()) {
+            this.predicate = proto.getPredicate();
         } else {
-            this.predicates = List.of();
+            this.predicate = null;
         }
     }
 
@@ -622,9 +621,9 @@ public class Index {
      *
      * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
      */
-    @Nonnull
-    public List<RecordMetaDataProto.Predicate> getPredicates() {
-        return predicates;
+    @Nullable
+    public RecordMetaDataProto.Predicate getPredicate() {
+        return predicate;
     }
 
     /**
@@ -633,7 +632,7 @@ public class Index {
      * @return {@code true} if the index has a predicate, otherwise {@code false}.
      */
     public boolean hasPredicate() {
-        return !predicates.isEmpty();
+        return predicate != null;
     }
 
     /**
@@ -664,7 +663,7 @@ public class Index {
         if (lastModifiedVersion > 0) {
             builder.setLastModifiedVersion(lastModifiedVersion);
         }
-        builder.addAllPredicate(predicates);
+        builder.setPredicate(predicate);
         return builder.build();
     }
 
@@ -679,9 +678,9 @@ public class Index {
         if (lastModifiedVersion > 0) {
             str.append("#").append(lastModifiedVersion);
         }
-        if (!predicates.isEmpty()) {
+        if (predicate != null) {
             // TODO (hatyo) pretty-print this.
-            str.append("Predicates ").append(predicates);
+            str.append("Predicate ").append(predicate);
         }
         return str.toString();
     }
@@ -702,12 +701,12 @@ public class Index {
                 && this.lastModifiedVersion == that.lastModifiedVersion
                 && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
                 && this.options.equals(that.options)
-                && (Objects.equals(this.predicates, that.predicates));
+                && (Objects.equals(this.predicate, that.predicate));
     }
 
     @Override
     public int hashCode() {
         // Within the context of a single RecordMetaData, this should be sufficient
-        return this.predicates.isEmpty() ? Objects.hash(name, type) : Objects.hash(name, type, predicates);
+        return predicate == null ? Objects.hash(name, type) : Objects.hash(name, type, predicate); // for backward-compatibility.
     }
 }
