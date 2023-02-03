@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -93,6 +95,7 @@ public abstract class IndexingBase {
     private final boolean isScrubber;
 
     private long timeOfLastProgressLogMillis = 0;
+    private StoreTimerSnapshot lastProgressSnapshot = null;
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
 
@@ -182,6 +185,9 @@ public abstract class IndexingBase {
         final CompletableFuture<Void> buildIndexAsyncFuture;
         FDBDatabaseRunner runner = common.getRunner();
         Index index = common.getPrimaryIndex();
+        if (runner.getTimer() != null) {
+            lastProgressSnapshot = StoreTimerSnapshot.from(runner.getTimer());
+        }
         if (useSyncLock) {
             buildIndexAsyncFuture = runner
                     .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
@@ -583,6 +589,12 @@ public abstract class IndexingBase {
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
+            FDBStoreTimer timer = common.getRunner().getTimer();
+            StoreTimer metricsDiff = null;
+            if (timer != null) {
+                metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
+                lastProgressSnapshot = StoreTimerSnapshot.from(timer);
+            }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.LIMIT, limit,
@@ -591,6 +603,7 @@ public abstract class IndexingBase {
                     .addKeysAndValues(additionalLogMessageKeyValues)
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
                     .toString());
         }
 
