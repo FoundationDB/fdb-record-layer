@@ -159,15 +159,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
         IndexScanRange scanRange = (IndexScanRange)scanBounds;
         Tuple mapper = createRemoteFetchMapper(commonPrimaryKeyLength);
-        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
+        final RecordCursor<MappedKeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, mapper.pack())
                 .setContext(state.context)
                 .setRange(scanRange.getScanRange())
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)
                 .build();
-        // Hard cast - Not ideal but likely needed to avoid complex implementation of specific cursor
-        RecordCursor<MappedKeyValue> mappedResults = keyValues.map(MappedKeyValue.class::cast);
-        return mappedResults.map(this::unpackRemoteFetchRecord);
+        return keyValues.map(this::unpackRemoteFetchRecord);
     }
 
     /**
@@ -289,6 +287,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 inRange ? update(oldRecord, newRecord) : AsyncUtil.DONE);
     }
 
+    @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
     private <M extends Message> CompletableFuture<Void> updateWriteOnlyByIndex(@Nonnull Index sourceIndex, @Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);

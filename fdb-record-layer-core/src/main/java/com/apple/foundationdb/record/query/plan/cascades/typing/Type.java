@@ -439,12 +439,11 @@ public interface Type extends Narrowable<Type> {
             if (PromoteValue.resolvePromotionFunction(t1, t2) != null) {
                 return t2.withNullability(isResultNullable);
             }
-
-            if (PromoteValue.isPromotionNeeded(t2, t1)) {
-                return t2.withNullability(isResultNullable);
+            if (PromoteValue.resolvePromotionFunction(t2, t1) != null) {
+                return t1.withNullability(isResultNullable);
             }
-
-            throw new RecordCoreException("should not be here");
+            // Type are primitive but not equal, no promotion possible.
+            return null;
         }
 
         if (t1.getTypeCode() != t2.getTypeCode()) {
@@ -1517,8 +1516,7 @@ public interface Type extends Narrowable<Type> {
                 }
                 final var field = (Field)o;
                 return getFieldType().equals(field.getFieldType()) &&
-                       getFieldNameOptional().equals(field.getFieldNameOptional()) &&
-                       getFieldIndexOptional().equals(field.getFieldIndexOptional());
+                       getFieldNameOptional().equals(field.getFieldNameOptional());
             }
 
             @Override

@@ -1470,7 +1470,7 @@ public class Comparisons {
                 case IN:
                     break;
                 default:
-                    throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS and STARTS_WITH");
+                    throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS, STARTS_WITH and IN");
             }
             if (comparand == null || (this.type == Type.IN && comparand.stream().anyMatch(o -> o == null))) {
                 throw new NullPointerException("List comparand is null, or contains null");

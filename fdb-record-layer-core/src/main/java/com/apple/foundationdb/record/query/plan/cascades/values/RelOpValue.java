@@ -290,8 +290,6 @@ public class RelOpValue implements BooleanValue {
                         return physicalOperator.eval(it.next(), it.next());
                     });
         }
-        // TODO: we should also allow encapsulating variadic comparison functions such as IN
-        // when doing this we must make sure that arguments are literals and not e.g. field values.
     }
 
     private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> computeUnaryOperatorMap() {

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
@@ -42,9 +44,11 @@ import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
@@ -53,6 +57,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Lucene query plan for including search-related scan parameters.
@@ -63,9 +68,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Nullable
     private final List<KeyExpression> storedFields;
 
-    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters, boolean reverse,
+    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters,
+                                @Nonnull FetchIndexRecords fetchIndexRecords, boolean reverse,
                                 @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
-        super(indexName, scanParameters, reverse);
+        super(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, fetchIndexRecords, reverse, false);
         this.planOrderingKey = planOrderingKey;
         this.storedFields = storedFields;
     }
@@ -148,6 +154,43 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     public boolean allowedForCoveringIndexPlan() {
         return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
                && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
+    }
+
+    @Override
+    public boolean hasComparisons() {
+        return true;
+    }
+
+    @Override
+    public Set<Comparisons.Comparison> getComparisons() {
+        final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        if (scanParameters instanceof LuceneScanParameters) {
+            final var luceneScanParameters = (LuceneScanParameters)scanParameters;
+            final var groupScanComparisons = luceneScanParameters.getGroupComparisons();
+            resultBuilder.addAll(groupScanComparisons.getEqualityComparisons());
+            resultBuilder.addAll(groupScanComparisons.getInequalityComparisons());
+
+            if (luceneScanParameters instanceof LuceneScanQueryParameters) {
+                final var luceneScanQueryParameters = (LuceneScanQueryParameters)luceneScanParameters;
+                final var queryClause = luceneScanQueryParameters.getQuery();
+                resultBuilder.addAll(collectComparisons(queryClause));
+            }
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private Set<Comparisons.Comparison> collectComparisons(@Nonnull final LuceneQueryClause queryClause) {
+        final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+
+        if (queryClause instanceof LuceneQueryFieldComparisonClause) {
+            resultBuilder.add(((LuceneQueryFieldComparisonClause)queryClause).getComparison());
+        } else if (queryClause instanceof LuceneBooleanQuery) {
+            for (final var andTerm : ((LuceneBooleanQuery)queryClause).getChildren()) {
+                resultBuilder.addAll(collectComparisons(andTerm));
+            }
+        }
+        return resultBuilder.build();
     }
 
     @Nullable
@@ -237,6 +280,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
 
         // TODO this seems to be too simplistic
-        return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, reverse, planOrderingKey, storedFields);
+        return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, planOrderingKey, storedFields);
     }
 }

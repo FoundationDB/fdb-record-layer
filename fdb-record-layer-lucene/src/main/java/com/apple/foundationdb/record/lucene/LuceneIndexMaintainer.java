@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
@@ -164,6 +166,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
+
     /**
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
@@ -201,9 +204,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 storedField = field.isStored() ? new StoredField(fieldName, (Double)value) : null;
                 break;
             case BOOLEAN:
-                luceneField = new StringField(fieldName, ((Boolean)value).toString(), field.isStored() ? Field.Store.YES : Field.Store.NO);
-                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef(((Boolean)value).toString())) : null;
-                storedField = null;
+                byte[] bytes = Boolean.TRUE.equals(value) ? BooleanPointsConfig.TRUE_BYTES : BooleanPointsConfig.FALSE_BYTES;
+                luceneField = new BinaryPoint(fieldName, bytes);
+                storedField = field.isStored() ? new StoredField(fieldName, bytes) : null;
+                sortedField = field.isSorted() ? new SortedDocValuesField(fieldName, new BytesRef(bytes)) : null;
                 break;
             default:
                 throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", field.getType());

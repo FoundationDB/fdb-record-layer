@@ -55,6 +55,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -66,6 +67,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,6 +83,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * build full indexes. ({@link #testConfigLoader()} does use a such API but it is not necessary.)
  */
 public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
+    private static final Pattern BATCH_GRV_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Events.BATCH_GET_READ_VERSION);
+    private static final Pattern SCAN_RECORDS_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+    private static final Pattern BUILD_RANGES_PATTERN = TestHelpers.eventCountPattern(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+
     @Test
     @SuppressWarnings("deprecation")
     public void buildEndpointIdempotency() {
@@ -1054,6 +1060,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @Test
     public void testLogInterval() {
+        final int limit = 20;
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
@@ -1067,10 +1074,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
                 .setProgressLogIntervalMillis(10)
-                .setLimit(20)
+                .setLimit(limit)
+                .setTimer(null)
                 .setConfigLoader(old -> {
                     // Ensure that time limit is exceeded
                     try {
@@ -1081,11 +1089,16 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     return old;
                 })
                 .build()) {
-            TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
+            List<String> events = TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
                     () -> {
                         indexer.buildIndex();
                         return null;
                     });
+            events.forEach(logEvent -> {
+                TestHelpers.assertDoesNotMatch(BATCH_GRV_PATTERN, logEvent);
+                TestHelpers.assertDoesNotMatch(BUILD_RANGES_PATTERN, logEvent);
+                TestHelpers.assertDoesNotMatch(SCAN_RECORDS_PATTERN, logEvent);
+            });
         }
 
         // test with zero interval (always log)
@@ -1094,10 +1107,12 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             recordStore.markIndexDisabled(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
+                .setTimer(timer)
                 .setProgressLogIntervalMillis(0)
-                .setLimit(20)
+                .setLimit(limit)
                 .setConfigLoader(old -> {
                     // Ensure that time limit is exceeded
                     try {
@@ -1108,11 +1123,19 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     return old;
                 })
                 .build()) {
-            TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
+            List<String> events = TestHelpers.assertLogs(IndexingBase.class, "Indexer: Built Range",
                     () -> {
                         indexer.buildIndex();
                         return null;
                     });
+            events.forEach(logEvent -> {
+                int batchReadVersions = TestHelpers.extractCount(BATCH_GRV_PATTERN, logEvent);
+                int buildRanges = TestHelpers.extractCount(BUILD_RANGES_PATTERN, logEvent);
+                assertThat(buildRanges, lessThanOrEqualTo(batchReadVersions));
+                assertEquals(1, buildRanges, () -> String.format("expected only 1 build range in \"%s\"", logEvent));
+                int scannedRecords = TestHelpers.extractCount(SCAN_RECORDS_PATTERN, logEvent);
+                assertThat(String.format("expected only %d records scanned in \"%s\"", limit, logEvent), scannedRecords, lessThanOrEqualTo(limit));
+            });
         }
 
         // test with negative interval (never log)
@@ -1121,8 +1144,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             recordStore.markIndexDisabled(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+        try (OnlineIndexer indexer = newIndexerBuilder()
+                .setIndex(index)
                 .setProgressLogIntervalMillis(-1)
                 .setLimit(20)
                 .setConfigLoader(old -> {

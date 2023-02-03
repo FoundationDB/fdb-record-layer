@@ -132,10 +132,10 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
-                if (!((RecordQueryIndexPlan)indexPlan).hasComparisons()) {
+                if (!((RecordQueryIndexPlan)indexPlan).hasScanComparisons()) {
                     return null;
                 }
-                prefixSize = ((RecordQueryIndexPlan)indexPlan).getComparisons().getEqualitySize();
+                prefixSize = ((RecordQueryIndexPlan)indexPlan).getScanComparisons().getEqualitySize();
             } else if (indexPlan instanceof RecordQueryTextIndexPlan) {
                 final TextScan textScan = ((RecordQueryTextIndexPlan)indexPlan).getTextScan();
                 int groupingSize = textScan.getGroupingComparisons() != null ? textScan.getGroupingComparisons().getEqualitySize() : 0;
@@ -157,7 +157,7 @@ public class PlanOrderingKey {
         } else if (queryPlan instanceof RecordQueryScanPlan) {
             final RecordQueryScanPlan scanPlan = (RecordQueryScanPlan)queryPlan;
             return new PlanOrderingKey(primaryKey.normalizeKeyForPositions(),
-                                       scanPlan.getComparisons().getEqualitySize(),
+                                       scanPlan.getScanComparisons().getEqualitySize(),
                                        0, 0);
         } else if (queryPlan instanceof RecordQueryIntersectionOnKeyExpressionPlan) {
             return forComparisonKey(((RecordQueryIntersectionOnKeyExpressionPlan)queryPlan).getComparisonKeyExpression(), primaryKey);

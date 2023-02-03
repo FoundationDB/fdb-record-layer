@@ -38,9 +38,9 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -109,21 +109,30 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext() {
-        return openContext(RecordLayerPropertyStorage.newBuilder());
+        return openContext(RecordLayerPropertyStorage.getEmptyInstance());
     }
 
-    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
-        final FDBRecordContextConfig config = contextConfig(propsBuilder).build();
+    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
+        return openContext(props.toBuilder());
+    }
+
+    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
+        final FDBRecordContextConfig config = contextConfig(props).build();
         return fdb.openContext(config);
     }
 
-    protected FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
+    private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         return FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
                 .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
                 .setTrackOpen(true)
                 .setSaveOpenStackTrace(true)
-                .setRecordContextProperties(propsBuilder.build());
+                .setRecordContextProperties(addDefaultProps(props).build());
+    }
+
+    // By default, do not set any props by default, but leave open for sub-classes to extend
+    protected RecordLayerPropertyStorage.Builder addDefaultProps(RecordLayerPropertyStorage.Builder props) {
+        return props;
     }
 
     @BeforeEach
@@ -133,6 +142,13 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
             path.deleteAllData(context);
             return null;
         });
+
+        // Reset these indexes added and last modified versions, which can be updated during tests.
+        // For example, adding the indexes to a RecordMetaDataBuilder can update these fields
+        COUNT_INDEX.setAddedVersion(0);
+        COUNT_INDEX.setLastModifiedVersion(0);
+        COUNT_UPDATES_INDEX.setAddedVersion(0);
+        COUNT_UPDATES_INDEX.setLastModifiedVersion(0);
     }
 
     @AfterEach

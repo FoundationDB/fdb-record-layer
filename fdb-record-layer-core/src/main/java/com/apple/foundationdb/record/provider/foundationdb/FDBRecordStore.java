@@ -242,6 +242,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected final RecordMetaDataProvider metaDataProvider;
 
+    private volatile boolean versionChanged;
+
     @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
@@ -348,6 +350,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nullable
     public RecordMetaDataProvider getMetaDataProvider() {
         return metaDataProvider;
+    }
+
+    /**
+     * Returns {@code true} if the RecordMetadata version is changed in the RecordStore. Alternatively, returns
+     * {@code false} if the version is either not checked (checkVersion() not called) or it is up-to-date.
+     * @return the versionChanged boolean
+     */
+    public boolean isVersionChanged() {
+        return versionChanged;
     }
 
     /**
@@ -2017,7 +2028,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             storeHeaderFuture = subspacePreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
         }
         CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
-        return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
+        return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result).thenApply(versionChanged -> {
+            if (versionChanged) {
+                this.versionChanged = true;
+            }
+            return versionChanged;
+        });
     }
 
     @Nonnull
@@ -4382,11 +4398,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
+        return getPrimaryKeyBoundaries(recordsSubspace().pack(low), recordsSubspace().pack(high));
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nullable TupleRange tupleRange) {
+        if (tupleRange == null) {
+            tupleRange = TupleRange.ALL;
+        }
+        Range range = tupleRange.toRange(recordsSubspace());
+        return getPrimaryKeyBoundaries(range.begin, range.end);
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private RecordCursor<Tuple> getPrimaryKeyBoundaries(byte[] rangeStart, byte[] rangeEnd) {
         final Transaction transaction = ensureContextActive();
-        byte[] rangeStart = recordsSubspace().pack(low);
-        byte[] rangeEnd = recordsSubspace().pack(high);
         CloseableAsyncIterator<byte[]> cursor = context.getDatabase().getLocalityProvider().getBoundaryKeys(transaction, rangeStart, rangeEnd);
         final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
         DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();

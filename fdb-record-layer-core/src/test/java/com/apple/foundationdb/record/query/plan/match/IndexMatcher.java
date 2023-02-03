@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -92,7 +93,7 @@ public class IndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
 
         @Override
         public boolean matchesSafely(@Nonnull RecordQueryPlanWithComparisons plan) {
-            return boundsMatcher.matches(plan.getComparisons());
+            return boundsMatcher.matches(plan.getScanComparisons());
         }
 
         @Override
@@ -122,6 +123,28 @@ public class IndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
         @Override
         public void describeTo(Description description) {
             scanTypeMatcher.describeTo(description);
+        }
+    }
+
+    /**
+     * Match the index plan's {@link FetchIndexRecords}.
+     */
+    public static class FetchIndexRecordsMatcher extends TypeSafeMatcher<RecordQueryPlanWithIndex> {
+        @Nonnull
+        private final Matcher<FetchIndexRecords> fetchIndexRecordsMatcher;
+
+        public FetchIndexRecordsMatcher(@Nonnull Matcher<FetchIndexRecords> fetchIndexRecordsMatcher) {
+            this.fetchIndexRecordsMatcher = fetchIndexRecordsMatcher;
+        }
+
+        @Override
+        public boolean matchesSafely(@Nonnull RecordQueryPlanWithIndex plan) {
+            return fetchIndexRecordsMatcher.matches(plan.getFetchIndexRecords());
+        }
+
+        @Override
+        public void describeTo(Description description) {
+            fetchIndexRecordsMatcher.describeTo(description);
         }
     }
 }

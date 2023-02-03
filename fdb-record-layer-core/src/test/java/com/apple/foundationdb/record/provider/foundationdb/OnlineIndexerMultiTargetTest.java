@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -44,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for building indexes from other indexes with {@link OnlineIndexer}.
+ * Tests for building multi target indexes {@link OnlineIndexer}.
  */
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
@@ -78,16 +79,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         } ;
     }
 
-    private void disableAll(List<Index> indexes) {
-        try (FDBRecordContext context = openContext()) {
-            // disable all
-            for (Index index : indexes) {
-                recordStore.markIndexDisabled(index).join();
-            }
-            context.commit();
-        }
-    }
-
     private void buildIndexAndCrashHalfway(int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.Builder builder) {
         final AtomicLong counter = new AtomicLong(0);
         try (OnlineIndexer indexBuilder = builder
@@ -105,27 +96,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             // The index should be partially built
         }
         assertEquals(count , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-    }
-
-    private void validateIndexes(List<Index> indexes) {
-        final FDBStoreTimer timer = new FDBStoreTimer();
-        for (Index index: indexes) {
-            if (index.getType().equals(IndexTypes.VALUE)) {
-                try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
-                        .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                        .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                                .setLogWarningsLimit(Integer.MAX_VALUE)
-                                .setAllowRepair(false)
-                                .build())
-                        .setTimer(timer)
-                        .build()) {
-                    indexScrubber.scrubDanglingIndexEntries();
-                    indexScrubber.scrubMissingIndexEntries();
-                }
-                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-            }
-        }
     }
 
     @Test
@@ -337,9 +307,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTargetIndexes(indexes));
 
         // 2. let one index continue ahead
+        Index indexAhead = indexes.get(2);
         timer.reset();
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
-                .setIndex(indexes.get(2)));
+                .setIndex(indexAhead)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue()));
 
         // 3. assert mismatch type stamp
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
@@ -353,6 +326,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS, savedStamp.getMethod());
         }
     }
 
@@ -396,6 +372,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, savedStamp.getMethod());
+            assertTrue(savedStamp.getTargetIndexList().containsAll(Arrays.asList("indexA", "indexB", "indexC", "indexD")));
         }
     }
 
@@ -481,6 +461,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     .setLimit(chunkSize)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                            .allowTakeoverContinue()
                             .build())
                     .build()) {
 
@@ -529,6 +510,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(indexes.get(0))
                 .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue()
+                        .build())
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -555,6 +539,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setIndex(indexes.get(1))
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(indexes.get(0).getName())
+                        .allowTakeoverContinue()
                         .build())
                 .setLimit(chunkSize)
                 .build()) {

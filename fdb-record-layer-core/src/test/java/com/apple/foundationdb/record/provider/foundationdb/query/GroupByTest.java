@@ -22,10 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -39,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -58,6 +62,7 @@ import java.util.Optional;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregateIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.groupings;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
@@ -75,10 +80,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testSimpleGroupBy() throws Exception {
-        setupHookAndAddData(true);
+        setupHookAndAddData(true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                this::constructGroupByPlan,
+                () -> constructGroupByPlan(false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
@@ -96,10 +101,58 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void attemptToPlanGroupByWithoutCompatiblySortedIndexFails() throws Exception {
-        setupHookAndAddData(false);
+        setupHookAndAddData(false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
-                this::constructGroupByPlan,
+                () -> constructGroupByPlan(false),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty()), "Cascades planner could not plan query");
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanning() throws Exception {
+        setupHookAndAddData(false, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testIndexPlanningWithPredicate() throws Exception {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
+        assertMatchesExactly(plan,
+                mapPlan(
+                        streamingAggregationPlan(
+                                mapPlan(
+                                        indexPlan()
+                                                .where(scanComparisons(range("[[42],>")))
+                                )).where(aggregations(recordConstructorValue(exactly(sumAggregationValue())))
+                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testIndexPlanningWithPredicateNoValueIndex() throws Exception {
+        setupHookAndAddData(false, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+
+        Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
@@ -107,7 +160,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> constructGroupByPlan() {
+    private GroupExpressionRef<RelationalExpression> constructGroupByPlan(final boolean withPredicate) {
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
@@ -140,6 +193,11 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var col2 = Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue);
 
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
+
+            if (withPredicate) {
+                selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
+            }
+
             qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
         }
 
@@ -174,12 +232,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected void setupHookAndAddData(boolean addIndex) throws Exception {
+    protected void setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) throws Exception {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStoreTestBase.RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                }
+                if (addAggregateIndex) {
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
             };
             openSimpleRecordStore(context, hook);

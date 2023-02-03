@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -56,7 +58,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -91,6 +95,7 @@ public abstract class IndexingBase {
     private final boolean isScrubber;
 
     private long timeOfLastProgressLogMillis = 0;
+    private StoreTimerSnapshot lastProgressSnapshot = null;
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
 
@@ -172,7 +177,7 @@ public abstract class IndexingBase {
 
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
+    public CompletableFuture<Void> buildIndexAsync(boolean markReadable, boolean useSyncLock) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable)
                 .addKeysAndValues(indexingLogMessageKeyValues())
@@ -180,7 +185,10 @@ public abstract class IndexingBase {
         final CompletableFuture<Void> buildIndexAsyncFuture;
         FDBDatabaseRunner runner = common.getRunner();
         Index index = common.getPrimaryIndex();
-        if (common.isUseSynchronizedSession()) {
+        if (runner.getTimer() != null) {
+            lastProgressSnapshot = StoreTimerSnapshot.from(runner.getTimer());
+        }
+        if (useSyncLock) {
             buildIndexAsyncFuture = runner
                     .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
                             common.indexLogMessageKeyValues("IndexingBase::indexBuildLockSubspace"))
@@ -282,7 +290,7 @@ public abstract class IndexingBase {
             List<Index> indexesToClear = new ArrayList<>(targetIndexes.size());
             if (shouldClear) {
                 indexesToClear.add(primaryIndex);
-                forceStampOverwrite = true; // The code can work without this line, but it'll save probing the missing ranges
+                enforceStampOverwrite(); // The code can work without this line, but it'll save probing the missing ranges
             }
 
             boolean continuedBuild = !shouldClear && indexState == IndexState.WRITE_ONLY;
@@ -430,9 +438,7 @@ public abstract class IndexingBase {
                         // A matching stamp is already there - One less thing to worry about
                         return AsyncUtil.DONE;
                     }
-                    if (continuedBuild &&
-                            indexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                            savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
+                    if (continuedBuild && shouldAllowTakeoverContinue(indexingTypeStamp, savedStamp)) {
                         // Special case: partly built with multi target, but may be continued indexing on its own
                         store.saveIndexingTypeStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
@@ -447,6 +453,14 @@ public abstract class IndexingBase {
                     // fall down to exception
                     throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp, index);
                 });
+    }
+
+    private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        return policy.shouldAllowTakeoverContinue() &&
+               (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
+                savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) ||
+               (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
+               savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
     }
 
     @Nonnull
@@ -575,6 +589,12 @@ public abstract class IndexingBase {
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
+            FDBStoreTimer timer = common.getRunner().getTimer();
+            StoreTimer metricsDiff = null;
+            if (timer != null) {
+                metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
+                lastProgressSnapshot = StoreTimerSnapshot.from(timer);
+            }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.LIMIT, limit,
@@ -583,6 +603,7 @@ public abstract class IndexingBase {
                     .addKeysAndValues(additionalLogMessageKeyValues)
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
                     .toString());
         }
 
@@ -907,7 +928,7 @@ public abstract class IndexingBase {
     }
 
     /**
-     * thrown when IndexFromIndex validation fails.
+     * thrown when partly built by another method.
      */
     @SuppressWarnings("serial")
     public static class  PartlyBuiltException extends RecordCoreException {
@@ -917,15 +938,42 @@ public abstract class IndexingBase {
             super(msg, keyValues);
             this.savedStamp = savedStamp;
         }
+
+        public IndexBuildProto.IndexBuildIndexingStamp getSavedStamp() {
+            return savedStamp;
+        }
     }
 
-    public static PartlyBuiltException getAPartlyBuildExceptionIfApplicable(@Nullable Throwable ex) {
+    public static PartlyBuiltException getAPartlyBuiltExceptionIfApplicable(@Nullable Throwable ex) {
+        return findException(ex, PartlyBuiltException.class);
+    }
+
+    /**
+     * thrown if some or all of the indexes to build became readable (maybe by another process).
+     */
+    @SuppressWarnings("serial")
+    public static class UnexpectedReadableException extends RecordCoreException {
+        final boolean allReadable;
+
+        public UnexpectedReadableException(boolean allReadable, @Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+            this.allReadable = allReadable;
+        }
+    }
+
+    public static UnexpectedReadableException getUnexpectedReadableIfApplicable(@Nullable Throwable ex) {
+        return findException(ex, UnexpectedReadableException.class);
+    }
+
+    private static <T> T findException(@Nullable Throwable ex, Class<T> classT) {
+        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = ex;
-                current != null;
+                current != null && !seenSet.contains(current);
                 current = current.getCause()) {
-            if (current instanceof PartlyBuiltException) {
-                return (PartlyBuiltException) current;
+            if (classT.isInstance(current)) {
+                return classT.cast(current);
             }
+            seenSet.add(current);
         }
         return null;
     }

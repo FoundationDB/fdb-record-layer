@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -158,9 +159,11 @@ public class LuceneIndexExpressions {
                     return new PointsConfig(NumberFormat.getInstance(), Long.class);
                 case DOUBLE:
                     return new PointsConfig(NumberFormat.getInstance(), Double.class);
+                case BOOLEAN:
+                    //booleans are weird, they are put in here to allow us to catch boolean fields in the parser
+                    return new BooleanPointsConfig(NumberFormat.getInstance());
                 case STRING:
                 case TEXT:
-                case BOOLEAN:
                 default:
                     //we skip fields that are non-numeric because they don't parse differently in lucene anyway
                     return null;

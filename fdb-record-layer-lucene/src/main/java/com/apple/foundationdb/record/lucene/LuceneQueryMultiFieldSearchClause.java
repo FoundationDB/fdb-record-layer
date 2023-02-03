@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedMultiFieldQueryParser;
 import com.apple.foundationdb.record.metadata.Index;
@@ -91,7 +90,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {
-            throw new RecordCoreArgumentException("Unable to parse search given for query", ioe);
+            throw new RecordCoreException("Unable to parse search given for query", ioe);
         }
     }
 

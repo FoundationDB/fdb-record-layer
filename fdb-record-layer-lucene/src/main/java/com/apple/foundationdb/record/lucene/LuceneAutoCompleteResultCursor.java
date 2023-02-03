@@ -220,7 +220,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
-        return createResults(searcher, topDocs, tokenSet, prefixToken);
+        return createResults(searcher, topDocs, tokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken));
     }
 
     private Set<String> getAllIndexedFieldNames(IndexReader indexReader) {
@@ -355,10 +355,10 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     protected RecordCursor<IndexEntry> createResults(IndexSearcher searcher,
                                                      TopDocs topDocs,
                                                      Set<String> queryTokens,
-                                                     @Nullable String prefixToken) {
+                                                     Set<String> prefixTokens) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> scoreDocsFromLookup(searcher, topDocs),
-                (scoreDocAndRecord, innerContinuation) -> findIndexEntriesInRecord(scoreDocAndRecord, queryTokens, prefixToken, innerContinuation),
+                (scoreDocAndRecord, innerContinuation) -> findIndexEntriesInRecord(scoreDocAndRecord, queryTokens, prefixTokens, innerContinuation),
                 scoreDocAndRecord -> scoreDocAndRecord.rec.getPrimaryKey().pack(),
                 null,
                 1 // Use a pipeline size of 1 because the inner cursors don't do I/O and the outer cursor has its own pipelining
@@ -406,7 +406,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
     }
 
-    private RecordCursor<IndexEntry> findIndexEntriesInRecord(ScoreDocAndRecord scoreDocAndRecord, Set<String> queryTokens, @Nullable String prefixToken, @Nullable byte[] continuation) {
+    private RecordCursor<IndexEntry> findIndexEntriesInRecord(ScoreDocAndRecord scoreDocAndRecord, Set<String> queryTokens, Set<String> prefixTokens, @Nullable byte[] continuation) {
         // Extract the indexed fields from the document again
         final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), scoreDocAndRecord.rec)
                 .get(groupingKey == null ? TupleHelpers.EMPTY : groupingKey)
@@ -428,7 +428,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 // matched terms
                 return null;
             }
-            String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixToken, true,
+            String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
                     new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
             if (match == null) {
                 // Text not found in this field

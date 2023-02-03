@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
@@ -95,6 +96,16 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
         }
         //parse the text as the correct type and convert it to a query
 
+        if (cfg instanceof BooleanPointsConfig) {
+            //this is a boolean field, so change it to a binary type
+
+            if ("true".equalsIgnoreCase(queryText)) {
+                return BinaryPoint.newExactQuery(field, BooleanPointsConfig.TRUE_BYTES);
+            } else {
+                return BinaryPoint.newExactQuery(field, BooleanPointsConfig.FALSE_BYTES);
+            }
+        }
+
         NumberFormat format = cfg.getNumberFormat();
         Number point;
         try {
@@ -136,6 +147,10 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
         PointsConfig cfg = pointsConfig.get(field);
         if (cfg == null) {
             return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
+        } else if (cfg instanceof BooleanPointsConfig) {
+            byte[] p1 = "true".equalsIgnoreCase(part1) ? BooleanPointsConfig.TRUE_BYTES : BooleanPointsConfig.FALSE_BYTES;
+            byte[] p2 = "true".equalsIgnoreCase(part2) ? BooleanPointsConfig.TRUE_BYTES : BooleanPointsConfig.FALSE_BYTES;
+            return BinaryPoint.newRangeQuery(field, p1, p2);
         } else {
             NumberFormat format = cfg.getNumberFormat();
             Number start;

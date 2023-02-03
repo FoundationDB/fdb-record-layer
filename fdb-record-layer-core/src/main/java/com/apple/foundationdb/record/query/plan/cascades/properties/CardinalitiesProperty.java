@@ -152,7 +152,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         }
         final var ordering = primaryMatchCandidate.get()
                 .computeOrderingFromScanComparisons(
-                        indexScanPlan.getComparisons(),
+                        indexScanPlan.getScanComparisons(),
                         indexScanPlan.isReverse(),
                         false);
         if (ordering.getEqualityBoundValues().contains(groupingValue)) {

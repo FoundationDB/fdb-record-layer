@@ -39,14 +39,11 @@ public class ProtoUtils {
     }
 
     /**
-     * Generates a JVM-wide unique correlation name.
-     * @return a unique type name.
+     * Generates a JVM-wide unique correlation name with a prefix.
+     * @param prefix the type name prefix.
+     * @return a unique type name prefixed with {@code prefix}.
      */
-    public static String uniqueCorrelationName() {
-        return uniqueName("__corr__");
-    }
-
-    private static String uniqueName(String prefix) {
+    public static String uniqueName(String prefix) {
         final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
         return prefix + safeUuid;
     }

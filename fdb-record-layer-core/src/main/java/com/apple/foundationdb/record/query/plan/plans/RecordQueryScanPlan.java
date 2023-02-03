@@ -186,7 +186,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public ScanComparisons getComparisons() {
+    public ScanComparisons getScanComparisons() {
         return comparisons;
     }
 

@@ -72,7 +72,7 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
 
         final int columnSize;
         if (expression instanceof RecordQueryPlanWithComparisons) {
-            final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getComparisons();
+            final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getScanComparisons();
             final int numComparisons = comparisons.getEqualitySize() + (comparisons.isEquality() ? 0 : 1);
             if (expression instanceof RecordQueryPlanWithIndex) {
                 final var matchCandidateOptional =

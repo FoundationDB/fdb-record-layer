@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
@@ -130,7 +131,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
 
     @Nonnull
     private static Type resolveElementType(@Nonnull final Iterable<? extends Typed> argumentTypeds) {
-        return Verify.verifyNotNull(StreamSupport.stream(argumentTypeds.spliterator(), false)
+        final var resolvedType = StreamSupport.stream(argumentTypeds.spliterator(), false)
                 .map(Typed::getResultType)
                 .reduce(null, (l, r) -> {
                     if (l == null) {
@@ -139,7 +140,9 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
                     Verify.verifyNotNull(r);
 
                     return Type.maximumType(l, r);
-                }));
+                });
+        SemanticException.check(resolvedType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        return resolvedType;
     }
 
     @Nonnull

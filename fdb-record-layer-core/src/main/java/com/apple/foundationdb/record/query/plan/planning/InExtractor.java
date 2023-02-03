@@ -47,7 +47,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,8 +58,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 /**
@@ -64,56 +69,40 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class InExtractor {
-
+    @Nonnull
     private final QueryComponent filter;
+    @Nonnull
     private final List<InClause> inClauses;
+    @Nonnull
     private QueryComponent subFilter;
 
-    public InExtractor(QueryComponent filter) {
+    public InExtractor(@Nonnull final InExtractor other) {
+        this(other.filter, Lists.newArrayList(other.inClauses), other.subFilter);
+    }
+
+    private InExtractor(@Nonnull final QueryComponent filter,
+                        @Nonnull final List<InClause> inClauses,
+                        @Nonnull final QueryComponent subFilter) {
         this.filter = filter;
-        inClauses = new ArrayList<>();
-        subFilter = extractInClauses();
+        this.inClauses = inClauses;
+        this.subFilter = subFilter;
     }
 
-    public InExtractor(InExtractor other) {
-        filter = other.filter;
-        inClauses = new ArrayList<>(other.inClauses);
-        subFilter = other.subFilter;
+    @Nonnull
+    public QueryComponent getFilter() {
+        return filter;
     }
 
-    @SuppressWarnings("unchecked")
-    private QueryComponent extractInClauses() {
-        final AtomicInteger bindingIndex = new AtomicInteger();
-        return mapClauses(filter, (withComparison, fields) -> {
-            if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
-                String bindingName = Bindings.Internal.IN.bindingName(
-                        withComparison.getName() + "__" + bindingIndex.getAndIncrement());
-                List<FieldKeyExpression> nestedFields = null;
-                if (fields != null && (withComparison instanceof FieldWithComparison || withComparison instanceof OneOfThemWithComparison)) {
-                    nestedFields = new ArrayList<>(fields);
-                    nestedFields.add(Key.Expressions.field(((BaseField) withComparison).getFieldName(),
-                            withComparison instanceof FieldWithComparison ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
-                }
-                KeyExpression orderingKey = getOrderingKey(nestedFields);
+    @Nonnull
+    public QueryComponent getSubFilter() {
+        return subFilter;
+    }
 
-                if (withComparison.getComparison() instanceof Comparisons.ComparisonWithParameter) {
-                    final String parameterName = ((Comparisons.ComparisonWithParameter)withComparison.getComparison()).getParameter();
-                    inClauses.add(new InParameterClause(bindingName, parameterName, orderingKey));
-                } else if (withComparison.getComparison() instanceof Comparisons.ListComparison || withComparison.getComparison() instanceof Comparisons.SimpleComparison) {
-                    final List<Object> comparand = (List<Object>) withComparison.getComparison().getComparand();
-                    // ListComparison does not allow empty/null
-                    if (comparand != null && comparand.size() == 1) {
-                        return withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand.get(0)));
-                    }
-                    inClauses.add(new InValuesClause(bindingName, comparand, orderingKey));
-                } else {
-                    inClauses.add(new InComparandClause(bindingName, withComparison.getComparison(), orderingKey));
-                }
-                return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
-            } else {
-                return withComparison;
-            }
-        }, Collections.emptyList());
+    @Nonnull
+    public Set<String> getInBindings() {
+        return inClauses.stream()
+                .map(inClause -> inClause.bindingName)
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
@@ -124,7 +113,7 @@ public class InExtractor {
                 if (withComparison.getComparison() instanceof Comparisons.ParameterComparison) {
                     return withComparison;
                 } else {
-                    final List<Object> comparands = (List<Object>) withComparison.getComparison().getComparand();
+                    final List<Object> comparands = Verify.verifyNotNull((List<Object>)withComparison.getComparison().getComparand());
                     final List<QueryComponent> orBranches = new ArrayList<>();
                     for (Object comparand : comparands) {
                         orBranches.add(withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand)));
@@ -142,34 +131,6 @@ public class InExtractor {
             }
 
         }, Collections.emptyList());
-    }
-
-    private QueryComponent mapClauses(QueryComponent filter, BiFunction<ComponentWithComparison, List<FieldKeyExpression>, QueryComponent> mapper, @Nullable List<FieldKeyExpression> fields) {
-        if (filter instanceof ComponentWithComparison) {
-            final ComponentWithComparison withComparison = (ComponentWithComparison) filter;
-            return mapper.apply(withComparison, fields);
-        } else if (filter instanceof ComponentWithChildren) {
-            ComponentWithChildren componentWithChildren = (ComponentWithChildren) filter;
-            return componentWithChildren.withOtherChildren(
-                    componentWithChildren.getChildren().stream()
-                            .map(component -> mapClauses(component, mapper, fields))
-                            .collect(Collectors.toList())
-            );
-        } else if (filter instanceof ComponentWithSingleChild) {
-            ComponentWithSingleChild componentWithSingleChild = (ComponentWithSingleChild) filter;
-            List<FieldKeyExpression> nestedFields = null;
-            if (fields != null && (componentWithSingleChild instanceof NestedField || componentWithSingleChild instanceof OneOfThemWithComponent)) {
-                nestedFields = new ArrayList<>(fields);
-                nestedFields.add(Key.Expressions.field(((BaseField) componentWithSingleChild).getFieldName(),
-                        componentWithSingleChild instanceof NestedField ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
-            }
-            return componentWithSingleChild.withOtherChild(
-                    mapClauses(componentWithSingleChild.getChild(), mapper, nestedFields));
-        } else if (filter instanceof ComponentWithNoChildren) {
-            return filter;
-        } else {
-            throw new Query.InvalidExpressionException("Unsupported query type " + filter.getClass());
-        }
     }
 
     @Nullable
@@ -279,6 +240,78 @@ public class InExtractor {
     @Nonnull
     public List<InSource> unionSources() {
         return inClauses.stream().map(InClause::unionSource).collect(Collectors.toList());
+    }
+
+    public InExtractor filter(@Nonnull final BiPredicate<ComponentWithComparison, String> inBindingFilter) {
+        return fromFilter(this.filter, inBindingFilter);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static InExtractor fromFilter(@Nonnull final QueryComponent filter, @Nonnull BiPredicate<ComponentWithComparison, String> inBindingFilter) {
+        final AtomicInteger bindingIndex = new AtomicInteger();
+        final List<InClause> inClauses = Lists.newArrayList();
+        final QueryComponent subFilter = mapClauses(filter, (withComparison, fields) -> {
+            if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
+                final String bindingName = Bindings.Internal.IN.bindingName(
+                        withComparison.getName() + "__" + bindingIndex.getAndIncrement());
+                if (inBindingFilter.test(withComparison, bindingName)) {
+                    List<FieldKeyExpression> nestedFields = null;
+                    if (fields != null && (withComparison instanceof FieldWithComparison || withComparison instanceof OneOfThemWithComparison)) {
+                        nestedFields = new ArrayList<>(fields);
+                        nestedFields.add(Key.Expressions.field(((BaseField)withComparison).getFieldName(),
+                                withComparison instanceof FieldWithComparison ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
+                    }
+                    KeyExpression orderingKey = getOrderingKey(nestedFields);
+
+                    if (withComparison.getComparison() instanceof Comparisons.ComparisonWithParameter) {
+                        final String parameterName = ((Comparisons.ComparisonWithParameter)withComparison.getComparison()).getParameter();
+                        inClauses.add(new InParameterClause(bindingName, parameterName, orderingKey));
+                    } else if (withComparison.getComparison() instanceof Comparisons.ListComparison || withComparison.getComparison() instanceof Comparisons.SimpleComparison) {
+                        final List<Object> comparand = (List<Object>)withComparison.getComparison().getComparand();
+                        // ListComparison does not allow empty/null
+                        if (comparand != null && comparand.size() == 1) {
+                            return withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand.get(0)));
+                        }
+                        inClauses.add(new InValuesClause(bindingName, comparand, orderingKey));
+                    } else {
+                        inClauses.add(new InComparandClause(bindingName, withComparison.getComparison(), orderingKey));
+                    }
+                    return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
+                }
+            }
+            return withComparison;
+        }, Collections.emptyList());
+        return new InExtractor(filter, inClauses, subFilter);
+    }
+
+    @Nonnull
+    private static QueryComponent mapClauses(QueryComponent filter, BiFunction<ComponentWithComparison, List<FieldKeyExpression>, QueryComponent> mapper, @Nullable List<FieldKeyExpression> fields) {
+        if (filter instanceof ComponentWithComparison) {
+            final ComponentWithComparison withComparison = (ComponentWithComparison) filter;
+            return mapper.apply(withComparison, fields);
+        } else if (filter instanceof ComponentWithChildren) {
+            ComponentWithChildren componentWithChildren = (ComponentWithChildren) filter;
+            return componentWithChildren.withOtherChildren(
+                    componentWithChildren.getChildren().stream()
+                            .map(component -> mapClauses(component, mapper, fields))
+                            .collect(Collectors.toList())
+            );
+        } else if (filter instanceof ComponentWithSingleChild) {
+            ComponentWithSingleChild componentWithSingleChild = (ComponentWithSingleChild) filter;
+            List<FieldKeyExpression> nestedFields = null;
+            if (fields != null && (componentWithSingleChild instanceof NestedField || componentWithSingleChild instanceof OneOfThemWithComponent)) {
+                nestedFields = new ArrayList<>(fields);
+                nestedFields.add(Key.Expressions.field(((BaseField) componentWithSingleChild).getFieldName(),
+                        componentWithSingleChild instanceof NestedField ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
+            }
+            return componentWithSingleChild.withOtherChild(
+                    mapClauses(componentWithSingleChild.getChild(), mapper, nestedFields));
+        } else if (filter instanceof ComponentWithNoChildren) {
+            return filter;
+        } else {
+            throw new Query.InvalidExpressionException("Unsupported query type " + filter.getClass());
+        }
     }
 
     abstract static class InClause {

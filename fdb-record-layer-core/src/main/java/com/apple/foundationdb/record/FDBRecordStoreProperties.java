@@ -44,6 +44,25 @@ public final class FDBRecordStoreProperties {
     public static final RecordLayerPropertyKey<Boolean> UNROLL_SINGLE_RECORD_DELETES = RecordLayerPropertyKey.booleanPropertyKey(
             "com.apple.foundationdb.record.recordstore.unroll_single_record_deletes", true);
 
+    /**
+     * Whether {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#loadRecord(Tuple) loading a record}
+     * should use multiple single-key gets instead of a single scan. This option may help latencies and storage server
+     * throughput on certain workloads when running with an LSM-based FDB storage engine. Note that records are stored
+     * across multiple keys in the Record Layer to support
+     * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion versionstamps} and records
+     * larger than the {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#VALUE_SIZE_LIMIT max value size}.
+     * Those keys are stored contiguously, and so they can be scanned with a single small range read, but if the data
+     * are stored on an LSM, then the single scan may be less efficient than multiple gets.
+     *
+     * <p>
+     * At the moment, this option is not recommended except during performance testing. Adopters should verify whether
+     * this change increases their measured performance on their workload before using.
+     * </p>
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static final RecordLayerPropertyKey<Boolean> LOAD_RECORDS_VIA_GETS = RecordLayerPropertyKey.booleanPropertyKey(
+            "com.apple.foundationdb.record.recordstore.load_records_via_gets", false);
+
     private FDBRecordStoreProperties() {
         throw new RecordCoreException("should not instantiate class of static prop");
     }

@@ -23,7 +23,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,47 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.330.0
+
+* **Feature** planner should only attempt in-to-join if plan uses correlated predicate as a search argument for a scan [(Issue #1985)](https://github.com/FoundationDB/fdb-record-layer/issues/1985)
+
+### 3.3.329.0
+
+* **Performance** Default value of `LOAD_RECORDS_VIA_GETS` property reverted to `false` to match behavior prior to [3.3.327.0](#333270) [(Issue #1982)](https://github.com/FoundationDB/fdb-record-layer/issues/1982)
+
+### 3.3.328.0
+
+* **Bug fix** Cascades Aggregate index plan matching ignores predicates [(Issue #1974)](https://github.com/FoundationDB/fdb-record-layer/issues/1974)
+
+### 3.3.327.0
+
+* **Performance** Add optional mechanism for loading records via single-key gets instead of a scan [(Issue #1967)](https://github.com/FoundationDB/fdb-record-layer/issues/1967)
+
+### 3.3.326.0
+
+* **Performance** A new counter, `EMPTY_SCANS`, tracks how many empty range reads are executed [(Issue #1970)](https://github.com/FoundationDB/fdb-record-layer/issues/1970)
+
+### 3.3.325.0
+
+* **Feature** Refactor KeyValueCursor to allow extension [(Issue #1957)](https://github.com/FoundationDB/fdb-record-layer/issues/1957)
+* **Feature** Expose version change info from FDBRecordStore [(Issue #1965)](https://github.com/FoundationDB/fdb-record-layer/issues/1965)
+* **Feature** Mutual concurrent indexing [(Issue #1853)](https://github.com/FoundationDB/fdb-record-layer/issues/1853)
+* **Feature** Indexing: Throw PartlyBuiltException when appropriate [(Issue #1961)](https://github.com/FoundationDB/fdb-record-layer/issues/1961)
+
+### 3.3.324.0
+
+* **Bug fix** fix bug to allow non-covering lucene index scans over synthetic records [(Issue #1959)](https://github.com/FoundationDB/fdb-record-layer/issues/1959)
+
+### 3.3.323.0
+
+
+### 3.3.322.0
+
+* **Feature** Support for IN predicates in Cascades planner [(Issue #1955)](https://github.com/FoundationDB/fdb-record-layer/issues/1955)
+
+### 3.3.321.0
+
 
 ### 3.3.320.0
 

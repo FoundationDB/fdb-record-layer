@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -219,6 +218,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
+    private static final Index TEXT_AND_BOOLEAN_INDEX = new Index(
+            "text_and_number_idx",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap());
+
     private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE = new Index("Map_with_auto_complete$entry-value",
             new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
             LuceneIndexTypes.LUCENE,
@@ -238,9 +243,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
-                                                "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
-                                                "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
-                                                "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
+            "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
+            "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
+            "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
 
     private static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
 
@@ -281,11 +286,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
+        return createComplexDocument(docId, text, text2, group, true);
+    }
+
+    private TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, int group, boolean isSeen) {
         return TestRecordsTextProto.ComplexDocument.newBuilder()
                 .setDocId(docId)
                 .setText(text)
                 .setText2(text2)
                 .setGroup(group)
+                .setIsSeen(isSeen)
                 .build();
     }
 
@@ -308,10 +318,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setDocId(docId)
                 .setGroup(group)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
-                    .setKey(text2)
-                    .setValue(text)
-                    .setSecondValue("firstEntrySecondValue")
-                    .setThirdValue("firstEntryThirdValue"))
+                        .setKey(text2)
+                        .setValue(text)
+                        .setSecondValue("firstEntrySecondValue")
+                        .setThirdValue("firstEntryThirdValue"))
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
                         .setKey(text4)
                         .setValue(text3)
@@ -337,8 +347,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Override
-    protected FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder propsBuilder) {
-        return super.contextConfig(propsBuilder.addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true));
+    protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+        return super.addDefaultProps(props)
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true);
     }
 
     private LuceneScanBounds fullTextSearch(Index index, String search) {
@@ -411,6 +422,100 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void searchTextQueryWithBooleanEquals() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2, 1623L)),
+                    recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: true"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_BOOLEAN_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithBooleanNotEquals() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2, 1547L)),
+                    recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND NOT is_seen: true"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_BOOLEAN_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithBooleanRange() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
+                    recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(2, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_BOOLEAN_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithBooleanBoth() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(),
+                    recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: true AND is_seen: false"), null, ScanProperties.FORWARD_SCAN));
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_BOOLEAN_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchTextQueryWithBooleanEither() {
+        /*
+         * Check that a point query on a number type and a text match together return the correct result
+         */
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
+                    recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND (is_seen: true OR is_seen: false)"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(2, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_BOOLEAN_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
     void searchTextQueryWithNumberEquals() {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -427,6 +532,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_NUMBER_INDEX), context, "_0.cfs", true);
         }
     }
+
 
     @Test
     void searchTextQueryWithNumberRange() {
@@ -512,7 +618,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1625L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1626L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            LuceneContinuationProto.LuceneIndexContinuation continuation =  LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
+            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
                     .setScore(0.22025093F)
                     .setShard(0)
@@ -641,7 +747,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
 
             for (int i = 0; i < 200; i++) {
-                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + +1623 + 2 * i + 1, 2));
             }
             // Only 50 results are returned, although each matching doc has 2 fields that contain the search key
             assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
@@ -662,7 +768,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
 
             for (int i = 0; i < 200; i++) {
-                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + + 1623 + 2 * i + 1, 2));
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "auto complete suggestions " + +1623 + 2 * i + 1, 2));
             }
             // 50 results are returned, although each matching doc has 2 fields that contain the search key, and the first 10 results are skipped
             assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
@@ -683,7 +789,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
 
             for (int i = 0; i < 200; i++) {
-                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "other suggestions " + + 1623 + 2 * i + 1, 2));
+                recordStore.saveRecord(createComplexDocument(1623L + i, "auto complete suggestions " + 1623 + 2 * i, "other suggestions " + +1623 + 2 * i + 1, 2));
             }
             // 50 results are returned, with one result for each matching doc, although the first 10 results are skipped
             assertEquals(50, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, autoComplete(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, "complete", false), null,
@@ -698,7 +804,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
             recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
-            recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
+            recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase", 1));
             assertIndexEntryPrimaryKeys(List.of(1623L),
                     recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
@@ -779,6 +885,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void highlightedPrefix() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            recordStore.saveRecord(createSimpleDocument(1645L, "Hello record layer", 1));
+            assertRecordTexts(List.of("Hello <b>recor</b>d layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "recor*", true), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
     void testCommit() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
@@ -849,8 +967,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private String matchAll(String... words) {
         return "text:(" +
-               Arrays.stream(words).map(word -> "+\"" + word + "\"").collect(Collectors.joining(" AND ")) +
-               ")";
+                Arrays.stream(words).map(word -> "+\"" + word + "\"").collect(Collectors.joining(" AND ")) +
+                ")";
     }
 
     @Test
@@ -1310,7 +1428,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1623L, message.getField(docIdDescriptor));
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
-            Message entry = (Message)message.getRepeatedField(entryDescriptor, 0);
+            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
 
             Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
             Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
@@ -1588,7 +1706,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 ScanProperties.FORWARD_SCAN).asList().get();
 
         assertEquals(expectedSuggestions.size(), suggestions.size());
-        for (int i = 0 ; i < expectedSuggestions.size(); ++i) {
+        for (int i = 0; i < expectedSuggestions.size(); ++i) {
             assertThat(suggestions.get(i).getKey().get(1), equalTo(expectedSuggestions.get(i).getKey()));
             assertThat(suggestions.get(i).getKey().get(0), equalTo(expectedSuggestions.get(i).getValue()));
         }
@@ -2110,7 +2228,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         for (int i = 0; i < numberOfWords; i++) {
             word = new char[random.nextInt(8) + 3]; // words of length 3 through 10. (1 and 2 letter words are boring.)
             for (int j = 0; j < word.length; j++) {
-                word[j] = (char)('a' + random.nextInt(26));
+                word[j] = (char) ('a' + random.nextInt(26));
             }
             if (i != numberOfWords - 1) {
                 builder.append(word).append(" ");
@@ -2321,7 +2439,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
             return storedRecord;
         }
-        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
+        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry) indexEntry;
         if (!docIndexEntry.getLuceneQueryHighlightParameters().isHighlight()) {
             return storedRecord;
         }
