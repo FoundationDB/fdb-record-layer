@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -41,11 +40,10 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
@@ -145,17 +143,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return getCorrelatedTo().isEmpty()
                && StreamSupport.stream(filter(NondeterministicValue.class::isInstance).spliterator(), false)
                        .findAny().isEmpty(); // TODO: use CompileTime tag interface.
-    }
-
-    /**
-     * Checks whether this {@link Value} is serializable.
-     *
-     * @return {@code true} if {@link Value} is serializable, otherwise {@code false}.
-     */
-    default boolean isSerializable() {
-        return getCorrelatedTo().isEmpty()
-               && StreamSupport.stream(filter(node -> !(node instanceof SerializableValue)).spliterator(), false)
-                       .findAny().isEmpty();
     }
 
     /**
@@ -446,15 +433,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     interface NondeterministicValue extends Value {}
 
     /**
-     * Tag interface for making a {@link Value} as serializable to protobuf.
-     */
-    @API(API.Status.EXPERIMENTAL)
-    interface SerializableValue extends Value {
-        @Nonnull
-        RecordMetaDataProto.Expression toProto();
-    }
-
-    /**
      * Method to simplify this value using a rule set passed in.
      * @param ruleSet a rule set
      * @param aliasMap and alias map of equalities
@@ -632,24 +610,5 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         return other.getClass() == getClass();
-    }
-
-    @Nonnull
-    static Value.SerializableValue deserialize(@Nonnull final TypeRepository.Builder typeRepository,
-                                               @Nonnull final RecordMetaDataProto.Expression expression,
-                                               @Nonnull final CorrelationIdentifier baseQuantifier,
-                                               @Nonnull final Type baseType) {
-        if (expression.hasLiteralExpression()) {
-            return LiteralValue.fromProto(expression.getLiteralExpression());
-        } else if (expression.hasRelOpExpression()) {
-            return RelOpValue.fromProto(typeRepository, expression.getRelOpExpression(), baseQuantifier, baseType);
-        } else if (expression.hasAndOrExpression()) {
-            return AndOrValue.fromProto(typeRepository, expression.getAndOrExpression(), baseQuantifier, baseType);
-        } else if (expression.hasFieldExpression()) {
-            return FieldValue.fromProto(typeRepository, expression.getFieldExpression(), baseQuantifier, baseType);
-        } else if (expression.hasQuantifiedObjectExpression()) {
-            return QuantifiedObjectValue.fromProto(baseQuantifier, baseType);
-        }
-        throw new RecordCoreException(String.format("Unknown expression '%s'", expression.toString()));
     }
 }

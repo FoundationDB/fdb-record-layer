@@ -25,8 +25,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -37,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -54,7 +51,7 @@ import java.util.Optional;
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class AndOrValue implements BooleanValue, Value.SerializableValue {
+public class AndOrValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Or-Value");
     @Nonnull
     protected final String functionName;
@@ -64,53 +61,6 @@ public class AndOrValue implements BooleanValue, Value.SerializableValue {
     protected final Value rightChild;
     @Nonnull
     protected final Operator operator;
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Expression toProto() {
-        // TODO (hatyo) memoize
-        Verify.verify(leftChild instanceof Value.SerializableValue, "attempt to serialize non-serializable value");
-        Verify.verify(rightChild instanceof Value.SerializableValue, "attempt to serialize non-serializable value");
-
-        @Nonnull final var andOrExpBuilder = RecordMetaDataProto.AndOrExpression.newBuilder();
-
-        andOrExpBuilder.setLeft(((SerializableValue)leftChild).toProto());
-        andOrExpBuilder.setRight(((SerializableValue)rightChild).toProto());
-
-        switch (operator) {
-            case AND:
-                andOrExpBuilder.setOperatorType(RecordMetaDataProto.AndOrExpression.OperatorType.AND);
-                break;
-            case OR:
-                andOrExpBuilder.setOperatorType(RecordMetaDataProto.AndOrExpression.OperatorType.OR);
-                break;
-            default:
-                throw new RecordCoreException(String.format("Unexpected operator type '%s'", operator));
-        }
-
-        return RecordMetaDataProto.Expression.newBuilder().setAndOrExpression(andOrExpBuilder.build()).build();
-    }
-
-    @Nonnull
-    public static AndOrValue fromProto(@Nonnull final TypeRepository.Builder builder,
-                                       @Nonnull final RecordMetaDataProto.AndOrExpression andOrExpression,
-                                       @Nonnull final CorrelationIdentifier baseQuantifier,
-                                       @Nonnull final Type baseType) {
-        Verify.verify(andOrExpression.hasLeft(), String.format("unexpected serialized %s without left child", RecordMetaDataProto.AndOrExpression.class));
-        Verify.verify(andOrExpression.hasRight(), String.format("unexpected serialized %s without right child", RecordMetaDataProto.AndOrExpression.class));
-
-        @Nonnull final var left = Value.deserialize(builder, andOrExpression.getLeft(), baseQuantifier, baseType);
-        @Nonnull final var right = Value.deserialize(builder, andOrExpression.getRight(), baseQuantifier, baseType);
-
-        switch (andOrExpression.getOperatorType()) {
-            case AND:
-                return (AndOrValue)(new AndFn().encapsulate(builder, List.of(left, right)));
-            case OR:
-                return (AndOrValue)(new OrFn().encapsulate(builder, List.of(left, right)));
-            default:
-                throw new RecordCoreException(String.format("Unknown operator '%s'", andOrExpression.getOperatorType()));
-        }
-    }
 
     private enum Operator {
         AND("AND"),

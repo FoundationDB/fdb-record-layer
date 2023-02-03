@@ -25,14 +25,12 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -45,7 +43,7 @@ import java.util.Objects;
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> implements LeafValue, Value.SerializableValue {
+public class LiteralValue<T> implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nonnull
@@ -218,67 +216,5 @@ public class LiteralValue<T> implements LeafValue, Value.SerializableValue {
                        ? new Type.Any()
                        : resolvedElementType;
         return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Expression toProto() {
-        // TODO (hatyo) memoize
-        @Nonnull final var messageBuilder = RecordMetaDataProto.LiteralExpression.newBuilder();
-        @Nonnull final var typeCode = getResultType().getTypeCode();
-
-        switch (typeCode) {
-            case BOOLEAN:
-                messageBuilder.setBoolValue(Objects.requireNonNull((Boolean)value));
-                break;
-            case INT:
-                messageBuilder.setIntValue(Objects.requireNonNull((Integer)value));
-                break;
-            case LONG:
-                messageBuilder.setLongValue(Objects.requireNonNull((Long)value));
-                break;
-            case FLOAT:
-                messageBuilder.setFloatValue(Objects.requireNonNull((Float)value));
-                break;
-            case DOUBLE:
-                messageBuilder.setDoubleValue(Objects.requireNonNull((Double)value));
-                break;
-            case STRING:
-                messageBuilder.setStringValue(Objects.requireNonNull((String)value));
-                break;
-            case BYTES:
-                messageBuilder.setBytesValue(Objects.requireNonNull((ByteString)value));
-                break;
-            case UNKNOWN: // fallthrough
-            case ANY: // fallthrough
-            case RECORD: // fallthrough
-            case ARRAY: // fallthrough
-            case RELATION: // fallthrough
-            default:
-                throw new UnsupportedOperationException(String.format("serializing '%s' is not supported", typeCode));
-        }
-
-        return RecordMetaDataProto.Expression.newBuilder().setLiteralExpression(messageBuilder.build()).build();
-    }
-
-    @Nonnull
-    public static Value.SerializableValue fromProto(@Nonnull final RecordMetaDataProto.LiteralExpression expression) {
-        if (expression.hasBoolValue()) {
-            return new LiteralValue<>(expression.getBoolValue());
-        } else if (expression.hasIntValue()) {
-            return new LiteralValue<>(expression.getIntValue());
-        } else if (expression.hasLongValue()) {
-            return new LiteralValue<>(expression.getLongValue());
-        } else if (expression.hasFloatValue()) {
-            return new LiteralValue<>(expression.getFloatValue());
-        } else if (expression.hasDoubleValue()) {
-            return new LiteralValue<>(expression.getLongValue());
-        } else if (expression.hasStringValue()) {
-            return new LiteralValue<>(expression.getStringValue());
-        } else if (expression.hasBytesValue()) {
-            return new LiteralValue<>(expression.getBytesValue());
-        } else {
-            throw new UnsupportedOperationException(String.format("attempt to deserialize unknown message '%s'", expression.toString()));
-        }
     }
 }
