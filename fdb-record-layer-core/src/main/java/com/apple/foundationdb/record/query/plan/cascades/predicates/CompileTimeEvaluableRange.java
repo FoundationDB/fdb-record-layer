@@ -343,14 +343,14 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     @Override
     public String toString() {
         final var result = new StringBuilder();
-        if (range != null) {
-            result.append("[ ").append(range).append(" ]");
+        if (range == null) {
+            result.append("(-∞..+∞)");
+        } else {
+            result.append(range);
         }
         if (!nonCompileTimeComparisons.isEmpty()) {
             result.append(nonCompileTimeComparisons.stream().map(Comparisons.Comparison::toString)
-                    .collect(Collectors.joining(" && ", "[", "]")));
-        } else {
-            result.append("[]");
+                    .collect(Collectors.joining(" && " )));
         }
         return result.toString();
     }

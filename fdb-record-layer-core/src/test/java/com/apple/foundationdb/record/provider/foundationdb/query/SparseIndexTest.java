@@ -41,7 +41,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
@@ -56,6 +58,7 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -71,6 +74,24 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @Tag(Tags.RequiresFDB)
 public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void sparseIndexIsUsedWhenItsOrPredicateIsImplied() throws Exception {
+        final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
+        final var numValue2 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2");
+        final var range = OrPredicate.or(List.of(
+                new ValuePredicate(numValue2, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42)),
+                new ValuePredicate(numValue2, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10))
+        ));
+        complexQuerySetup(metaData -> setupIndex(metaData, range));
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = planQuery(cascadesPlanner, 50);
+        assertMatchesExactly(plan,
+                mapPlan(indexPlan()
+                        .where(RecordQueryPlanMatchers.indexName("SparseIndex"))
+                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
+                        .and(scanComparisons(range("([50],>")))));
+    }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {

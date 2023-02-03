@@ -212,7 +212,13 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
 
         @Override
         public String toString() {
-            return "(" + getValue() + " -> " + alias + ")";
+            final var result = new StringBuilder();
+            result.append("(").append(getValue()).append(" -> ").append(alias);
+            if (compileTimeEvaluableRanges != null) {
+                result.append(compileTimeEvaluableRanges.stream().map(CompileTimeEvaluableRange::toString).collect(Collectors.joining("||")));
+            }
+            result.append(")");
+            return result.toString();
         }
     }
 
