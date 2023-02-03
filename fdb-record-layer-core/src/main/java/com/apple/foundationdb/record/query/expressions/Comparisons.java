@@ -753,6 +753,8 @@ public class Comparisons {
         static Comparison deserialize(@Nonnull final RecordMetaDataProto.Comparison comparison) {
             if (comparison.hasSimpleComparison()) {
                 return SimpleComparison.deserialize(comparison.getSimpleComparison());
+            } else if (comparison.hasNullComparison()) {
+                return NullComparison.deserialize(comparison.getNullComparison());
             }
             throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", comparison.toString()));
         }
@@ -1598,7 +1600,7 @@ public class Comparisons {
     /**
      * A unary predicate for special nullity checks, such as {@code NULL} and {@code NOT NULL}.
      */
-    public static class NullComparison implements Comparison {
+    public static class NullComparison implements Comparison, Comparison.Serializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Comparison");
 
         @Nonnull
@@ -1688,6 +1690,18 @@ public class Comparisons {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
+        }
+
+        @Nonnull
+        @Override
+        public RecordMetaDataProto.Comparison toProto() {
+            return RecordMetaDataProto.Comparison.newBuilder()
+                    .setNullComparison(RecordMetaDataProto.NullComparison.newBuilder().setIsNull(type.equals(Type.IS_NULL)).build()).build();
+        }
+
+        @Nonnull
+        public static NullComparison deserialize(@Nonnull final RecordMetaDataProto.NullComparison proto) {
+            return new NullComparison(proto.getIsNull() ? Type.IS_NULL : Type.NOT_NULL);
         }
     }
 

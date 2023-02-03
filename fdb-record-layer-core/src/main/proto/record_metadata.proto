@@ -223,9 +223,16 @@ message SimpleComparison {
   optional Value operand = 2;
 }
 
+// in Comparisons.Comparison we have a special NullComparison that takes care of comparing
+// an operand to null.
+message NullComparison {
+  optional bool isNull = 1;
+}
+
 message Comparison {
   // exactly one of the following
   optional SimpleComparison simple_comparison = 1;
+  optional NullComparison null_comparison = 2;
 }
 
 message AndPredicate {

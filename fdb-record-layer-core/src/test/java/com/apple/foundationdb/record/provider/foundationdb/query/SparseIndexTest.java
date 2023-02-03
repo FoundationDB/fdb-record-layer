@@ -95,7 +95,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {
         final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
-        compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
+        compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
@@ -111,7 +111,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsNotUsedWhenItsPredicateIsNotImplied() throws Exception {
         final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
-        compileTimeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
+        compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, new ValueRangesPredicate.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));

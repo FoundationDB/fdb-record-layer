@@ -224,7 +224,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         throw new RecordCoreException(String.format("found two different values ('%s', '%s') in the same conjunction group", key.get(), valuePredicate.getValue()));
                     }
                 }
-                if (!rangeBuilder.tryAdd(valuePredicate.getComparison())) {
+                if (!rangeBuilder.addMaybe(valuePredicate.getComparison())) {
                     throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
                 }
             }
@@ -240,7 +240,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             final var valuePredicate = (ValuePredicate)group;
             final var key = valuePredicate.getValue();
             var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
-            if (!rangeBuilder.tryAdd(valuePredicate.getComparison())) {
+            if (!rangeBuilder.addMaybe(valuePredicate.getComparison())) {
                 throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
             }
             final var range = rangeBuilder.build();

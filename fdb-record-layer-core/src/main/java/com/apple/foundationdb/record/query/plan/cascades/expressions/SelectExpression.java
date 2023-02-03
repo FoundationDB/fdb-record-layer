@@ -660,7 +660,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         for (final var predicate : predicates) {
             if (predicate instanceof ValuePredicate) {
                 final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.tryAdd(predicateRange)) {
+                if (!rangeBuilder.addMaybe(predicateRange)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
             } else if (predicate instanceof Sargable) {

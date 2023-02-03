@@ -170,13 +170,13 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
             final var resultBuilder = CompileTimeEvaluableRange.newBuilder();
             if (hasNewLowerComparison) {
-                resultBuilder.tryAdd(lower);
+                resultBuilder.addMaybe(lower);
             }
             if (hasNewUpperComparison) {
-                resultBuilder.tryAdd(upper);
+                resultBuilder.addMaybe(upper);
             }
             for (final var nonCompilableComparison : nonCompileTimeComparisons) {
-                resultBuilder.tryAdd(nonCompilableComparison);
+                resultBuilder.addMaybe(nonCompilableComparison);
             }
             return resultBuilder.build().orElseThrow();
         }
@@ -222,13 +222,13 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
             final var resultBuilder = CompileTimeEvaluableRange.newBuilder();
             if (hasNewLowerComparison) {
-                resultBuilder.tryAdd(lower);
+                resultBuilder.addMaybe(lower);
             }
             if (hasNewUpperComparison) {
-                resultBuilder.tryAdd(upper);
+                resultBuilder.addMaybe(upper);
             }
             for (final var nonCompilableComparison : nonCompileTimeComparisons) {
-                resultBuilder.tryAdd(nonCompilableComparison);
+                resultBuilder.addMaybe(nonCompilableComparison);
             }
             return resultBuilder.build().orElseThrow();
         }
@@ -466,6 +466,8 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             allowedComparisonTypes.add(Comparisons.Type.LESS_THAN);
             allowedComparisonTypes.add(Comparisons.Type.LESS_THAN_OR_EQUALS);
             allowedComparisonTypes.add(Comparisons.Type.EQUALS);
+            allowedComparisonTypes.add(Comparisons.Type.IS_NULL);
+            allowedComparisonTypes.add(Comparisons.Type.NOT_NULL);
         }
 
         @Nullable
@@ -499,8 +501,8 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             this.nonCompilableComparisons = ImmutableList.builder();
         }
 
-        public boolean canAdd(@Nonnull final Comparisons.Comparison comparison) {
-            return comparison instanceof Comparisons.SimpleComparison && allowedComparisonTypes.contains(comparison.getType());
+        public boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
+            return comparison instanceof Comparisons.Comparison.Serializable && allowedComparisonTypes.contains(comparison.getType());
         }
 
         private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {
@@ -530,19 +532,19 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             }
         }
 
-        public boolean tryAdd(@Nonnull final Comparisons.Comparison comparison) {
+        public boolean addMaybe(@Nonnull final Comparisons.Comparison comparison) {
             if (!canBeUsedInScanPrefix(comparison)) {
                 return false;
             }
-            if (!canAdd(comparison)) {
+            if (!isCompileTime(comparison)) {
                 nonCompilableComparisons.add(comparison);
             } else {
-                tryAdd(toRange(comparison));
+                addMaybe(toRange(comparison));
             }
             return true;
         }
 
-        private boolean tryAdd(@Nonnull final Range<Boundary> range) {
+        private boolean addMaybe(@Nonnull final Range<Boundary> range) {
             if (this.range == null) {
                 this.range = range;
             } else {
@@ -564,7 +566,8 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         public Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison) {
             final var boundary = Boundary.newBuilder().setComparison(comparison).build();
             switch (comparison.getType()) {
-                case GREATER_THAN:
+                case GREATER_THAN: // fallthrough
+                case NOT_NULL:
                     return Range.greaterThan(boundary);
                 case GREATER_THAN_OR_EQUALS:
                     return Range.atLeast(boundary);
@@ -572,7 +575,8 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
                     return Range.lessThan(boundary);
                 case LESS_THAN_OR_EQUALS:
                     return Range.atMost(boundary);
-                case EQUALS:
+                case EQUALS: // fallthrough
+                case IS_NULL:
                     return Range.singleton(boundary);
                 default:
                     throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
