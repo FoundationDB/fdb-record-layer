@@ -59,11 +59,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.predicates.Compi
  * A special predicate used to represent a parameterized tuple range.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueRangesPredicate implements PredicateWithValue {
+public abstract class ValueWithRanges implements PredicateWithValue {
     @Nonnull
     private final Value value;
 
-    protected ValueRangesPredicate(@Nonnull final Value value) {
+    protected ValueWithRanges(@Nonnull final Value value) {
         this.value = value;
     }
 
@@ -91,7 +91,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
-        final ValueRangesPredicate that = (ValueRangesPredicate)other;
+        final ValueWithRanges that = (ValueWithRanges)other;
         return value.semanticEquals(that.value, equivalenceMap);
     }
 
@@ -122,7 +122,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
      * A placeholder predicate solely used for index matching.
      */
     @SuppressWarnings("java:S2160")
-    public static class Placeholder extends ValueRangesPredicate {
+    public static class Placeholder extends ValueWithRanges {
 
         @Nonnull
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Place-Holder");
@@ -226,7 +226,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
      * A query predicate that can be used as a (s)earch (arg)ument for an index scan.
      */
     @SuppressWarnings("java:S2160")
-    public static class Sargable extends ValueRangesPredicate {
+    public static class Sargable extends ValueWithRanges {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
         @Nonnull
@@ -331,7 +331,6 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
                     } else {
                         return Optional.empty();
                     }
-
                 } else {
                     // we found a compatible association between a comparison range in the query and a
                     // parameter placeholder in the candidate
@@ -339,14 +338,31 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
                             candidatePredicate,
                             ((partialMatch, boundParameterPrefixMap) -> {
                                 if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
-                                    if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
-                                        return Optional.empty();
-                                    }
-                                    return injectCompensationFunctionMaybe();
+                                    return Optional.empty();
                                 }
                                 return injectCompensationFunctionMaybe();
                             }),
                             candidatePlaceholder.getAlias()));
+                }
+            } else if (candidatePredicate instanceof ValueConstraint) {
+                final var valueConstraint = (ValueConstraint)candidatePredicate;
+                // the value on which the placeholder is defined must be the same as the sargable's.
+                if (!getValue().semanticEquals(valueConstraint.getValue(), aliasMap)) {
+                    return Optional.empty();
+                }
+                final var constraintRanges = valueConstraint.getRanges();
+                if (range.isCompileTimeEvaluable() && range.isEmpty().equals(FALSE) && constraintRanges.stream().anyMatch(placeHolderRange -> placeHolderRange.implies(range).equals(TRUE))) {
+                    return Optional.of(new PredicateMapping(this,
+                            candidatePredicate,
+                            ((partialMatch, boundParameterPrefixMap) -> {
+                                // no need for compensation if range boundaries match between candidate placeholder and query sargable
+                                if (constraintRanges.stream().anyMatch(placeHolderRange -> range.implies(placeHolderRange).equals(TRUE))) {
+                                    return Optional.empty();
+                                }
+                                return injectCompensationFunctionMaybe();
+                            })));
+                } else {
+                    return Optional.empty();
                 }
             } else if (candidatePredicate.isTautology()) {
                 return Optional.of(new PredicateMapping(this,
@@ -403,6 +419,72 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         @Override
         public String toString() {
             return getValue() + " " + range;
+        }
+    }
+
+    /**
+     * Value with a disjunction of ranges, used only for matching.
+     */
+    @SuppressWarnings(("java:S2160"))
+    public static class ValueConstraint extends ValueWithRanges {
+
+        /**
+         * Collection (disjunction) of ranges.
+         */
+        @Nonnull
+        private final Collection<CompileTimeEvaluableRange> ranges;
+
+        /**
+         * Constructs a new instance of {@link ValueConstraint}.
+         *
+         * @param value The value on which the predicated ranges are defined.
+         * @param ranges The predicates ranges.
+         */
+        public ValueConstraint(@Nonnull final Value value, @Nonnull final Collection<CompileTimeEvaluableRange> ranges) {
+            super(value);
+            this.ranges = ranges;
+        }
+
+        @Nonnull
+        public Collection<CompileTimeEvaluableRange> getRanges() {
+            return ranges;
+        }
+
+        @Nonnull
+        @Override
+        public PredicateWithValue withValue(@Nonnull final Value value) {
+            return new ValueConstraint(value, ranges);
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+            throw new RecordCoreException("constraints are used for matching and should never be evaluated");
+        }
+
+        /**
+         * Returns an equivalent disjoint normal form (DNF) representation of {@code this} {@link ValueConstraint} to be used
+         * as a residual.
+         *
+         * @return an equivalent disjoint normal form (DNF) representation.
+         */
+        @Override
+        @Nonnull
+        public QueryPredicate toResidualPredicate() {
+            final ImmutableList.Builder<QueryPredicate> dnfParts = ImmutableList.builder();
+            for (final var range : ranges) {
+                final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
+                residuals.addAll(range.getComparisons().stream().map(c -> getValue().withComparison(c)).collect(Collectors.toList()));
+                dnfParts.add(AndPredicate.and(residuals.build()));
+            }
+            return OrPredicate.or(dnfParts.build());
+        }
+
+        @Override
+        public String toString() {
+            return "(" + getValue() +
+                   ranges.stream().map(CompileTimeEvaluableRange::toString).collect(Collectors.joining("||")) +
+                   ")";
         }
     }
 }

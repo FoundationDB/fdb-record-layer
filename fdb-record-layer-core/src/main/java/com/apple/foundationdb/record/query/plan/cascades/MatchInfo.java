@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
@@ -182,11 +182,11 @@ public class MatchInfo {
             return Optional.empty();
         }
 
-        if (!(candidatePredicate instanceof ValueRangesPredicate.Placeholder)) {
+        if (!(candidatePredicate instanceof ValueWithRanges.Placeholder)) {
             return Optional.empty();
         }
 
-        return Optional.of(((ValueRangesPredicate.Placeholder)candidatePredicate).getAlias());
+        return Optional.of(((ValueWithRanges.Placeholder)candidatePredicate).getAlias());
     }
 
     /**

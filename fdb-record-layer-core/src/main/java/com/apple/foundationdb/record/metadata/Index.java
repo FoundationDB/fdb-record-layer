@@ -181,7 +181,6 @@ public class Index {
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
         if (orig.predicate != null) {
-            // yhatem: not sure if this deep-copies
             this.predicate = RecordMetaDataProto.Predicate.newBuilder(orig.predicate).build();
         }
     }
@@ -681,7 +680,6 @@ public class Index {
             str.append("#").append(lastModifiedVersion);
         }
         if (predicate != null) {
-            // TODO (hatyo) pretty-print this.
             str.append("Predicate ").append(predicate);
         }
         return str.toString();

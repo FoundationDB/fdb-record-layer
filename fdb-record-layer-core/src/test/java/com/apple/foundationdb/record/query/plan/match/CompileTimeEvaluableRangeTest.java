@@ -26,9 +26,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link com.apple.foundationdb.record.TupleRange}.
+ * Unit tests for {@link CompileTimeEvaluableRange}.
  */
-public class TupleRangeTest {
+public class CompileTimeEvaluableRangeTest {
 
     @Test
     public void testRangeImplication() {

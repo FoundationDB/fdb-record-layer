@@ -741,14 +741,28 @@ public class Comparisons {
          * Tag interface marking a {@link Comparison} as serializable for Protobuf.
          */
         interface Serializable extends Comparison {
+
+            /**
+             * Returns a serialized protobuf version of the {@link Comparison}.
+             * @return a serialized protobuf version of the {@link Comparison}.
+             */
             @Nonnull
             RecordMetaDataProto.Comparison toProto();
         }
 
+        /**
+         * Determines whether the {@link Comparison} is serializable or not.
+         * @return {@code true} of the {@link Comparison} is serializable, otherwise {@code false}.
+         */
         default boolean isSerializable() {
             return this instanceof Comparison.Serializable;
         }
 
+        /**
+         * Deserializes a given protobuf {@link Comparison} message into an equivalent {@link Comparison} object.
+         * @param comparison The {@link Comparison} serialized protobuf message.
+         * @return An equivalent {@link Comparison} object.
+         */
         @Nonnull
         static Comparison deserialize(@Nonnull final RecordMetaDataProto.Comparison comparison) {
             if (comparison.hasSimpleComparison()) {
@@ -756,7 +770,7 @@ public class Comparisons {
             } else if (comparison.hasNullComparison()) {
                 return NullComparison.deserialize(comparison.getNullComparison());
             }
-            throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", comparison.toString()));
+            throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", comparison));
         }
     }
 

@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -184,11 +184,11 @@ public class PartialMatch {
         for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
             final var predicateMapping = entry.getValue();
             final var candidatePredicate = predicateMapping.getCandidatePredicate();
-            if (!(candidatePredicate instanceof ValueRangesPredicate.Placeholder)) {
+            if (!(candidatePredicate instanceof ValueWithRanges.Placeholder)) {
                 continue;
             }
 
-            final var placeholder = (ValueRangesPredicate.Placeholder)candidatePredicate;
+            final var placeholder = (ValueWithRanges.Placeholder)candidatePredicate;
             if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
                 bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
             }

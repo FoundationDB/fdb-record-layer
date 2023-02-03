@@ -45,9 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate.Sargable;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Sargable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -645,15 +645,17 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return resultPredicatesBuilder.build();
     }
 
+    /**
+     * Simplifies the conjunction of predicates defined on a value into a sargable with coalesced compile-time range (and
+     * other predicates which are not compile-time evaluable but can be used as scan prefix) and a set of residual predicates
+     * comprising those which are not compile-time and can not be used as a scan prefix.
+     *
+     * @param value The value on which the predicates are defined.
+     * @param predicates a conjunction of predicates defined on the value.
+     * @return a simplified list of predicates.
+     */
     @Nonnull
     private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value, @Nonnull final Collection<PredicateWithValue> predicates) {
-        // I think this should change in the following way:
-        //  the `predicatesOnValue` form a conjunction. we try to simplify it in a way that makes sense
-        //  for example, suppose the predicates are: >0, <50, <70, the result should be: >0, <50.
-        //  it could also form an empty (impossible) predicate range, as in e.g.: >0, <-10.
-        //  we do this simplification only for the predicates that we know how to handle (compile-time)
-        //  for the predicates that we can not handle, we add them as normal ValuePredicate.
-
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
         final var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
 
@@ -671,9 +673,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        // If the compile-time range is defined, create a sargable out of it.
+        // If the compile-time range is defined, create a sargable from it.
         final var rangeMaybe = rangeBuilder.build();
-        rangeMaybe.ifPresent(compileTimeRange -> result.add(ValueRangesPredicate.sargable(value, compileTimeRange)));
+        rangeMaybe.ifPresent(compileTimeRange -> result.add(ValueWithRanges.sargable(value, compileTimeRange)));
 
         return result.build();
     }

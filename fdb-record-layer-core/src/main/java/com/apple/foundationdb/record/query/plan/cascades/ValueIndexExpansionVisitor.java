@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueRangesPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +76,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueRangesPredicate.Placeholder.class, old -> 0);
+        Debugger.updateIndex(ValueWithRanges.Placeholder.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -143,7 +143,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                     // that is used only for matching, but NOT as a placeholder. For now we just throw.
                 }
                 if (!found) {
-                    throw new RecordCoreException(String.format("could not find '%s' in candidate definition", value));
+                    predicatedGraphExpansion.addPredicate(new ValueWithRanges.ValueConstraint(value, valueRanges.get(value)));
                 }
             }
             predicatedGraphExpansion.addAllPlaceholders(mutablePlaceholders);
