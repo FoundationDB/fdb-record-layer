@@ -68,6 +68,36 @@
 - query: select lb.* from lb where B is not null
 - result: [ { 1,true }, { 2, false } ]
 ---
+- query: select B = true from lb
+- result: [ { true }, { false }, { !null } ]
+---
+- query: select B = false from lb
+- result: [ { false }, { true }, { !null } ]
+---
+- query: select B <> TRUE from lb
+- result: [ { false }, { true }, { !null } ]
+---
+- query: select B <> FALSE from lb
+- result: [ { true }, { false }, { !null } ]
+---
+- query: select B IS TRUE from lb
+- result: [ { true }, { false }, { false } ]
+---
+- query: select B IS FALSE from lb
+- result: [ { false }, { true }, { false} ]
+---
+- query: select B IS NULL FROM lb
+- result: [ { false }, { false }, { true } ]
+---
+- query: select B IS NOT TRUE from lb
+- result: [ { false }, { true }, { true } ]
+---
+- query: select B IS NOT FALSE from lb
+- result: [ { true }, { false }, { true } ]
+---
+- query: select B IS NOT NULL from lb
+- result: [ { true }, { true }, { false } ]
+---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /BOOLEAN_YAML

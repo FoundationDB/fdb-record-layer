@@ -101,7 +101,7 @@ class QueryCommand extends Command {
         }
 
         if (queryResults instanceof ErrorCapturingResultSet) {
-            final var resultSet = (ErrorCapturingResultSet)queryResults;
+            final var resultSet = (ErrorCapturingResultSet) queryResults;
             // slurp
             boolean valid = true;
             while (valid) { // suppress check style

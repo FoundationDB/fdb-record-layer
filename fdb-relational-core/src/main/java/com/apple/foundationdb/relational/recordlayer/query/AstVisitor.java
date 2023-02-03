@@ -718,21 +718,22 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.FALSE() == null && ctx.TRUE() == null) {
             Assert.failUnchecked(String.format("unexpected value %s", ctx.getText()));
         }
-        Value right = (ctx.TRUE() != null) ?
+        LiteralValue<Boolean> right = (ctx.TRUE() != null) ?
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
+        final Typed nullClause;
+        BuiltInFunction<Value> combineFunc;
         if (ctx.NOT() != null) {
             //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
-            right = (ctx.TRUE() != null) ?
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false) :
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
-            final Typed inverted = ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
-            final Typed nullTerm = ParserUtils.encapsulate(new RelOpValue.IsNullFn(), List.of(left));
-
-            return (Value) ParserUtils.encapsulate(new AndOrValue.OrFn(), List.of(inverted, nullTerm));
+            right = new LiteralValue<>(right.getResultType(), Boolean.FALSE.equals(right.getLiteralValue()));
+            nullClause = ParserUtils.encapsulate(new RelOpValue.IsNullFn(), List.of(left));
+            combineFunc = new AndOrValue.OrFn();
         } else {
-            return (Value) ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
+            nullClause = ParserUtils.encapsulate(new RelOpValue.NotNullFn(), List.of(left));
+            combineFunc = new AndOrValue.AndFn();
         }
+        final Typed equals = ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
+        return (Value) ParserUtils.encapsulate(combineFunc, List.of(nullClause, equals));
     }
 
     ///// Predicates ///////
