@@ -2263,7 +2263,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniqueuPendingState = false;
             private boolean doAllowTakeoverContinue = false;
-            private long checkIndexingStampFrequency = 0;
+            private long checkIndexingStampFrequency = 60_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
@@ -2426,8 +2426,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * During indexing, the indexer can check the current indexing stamp and throw an exception if it had changed.
-             * This can be useful if there is a high probability of another indexing process taking over or a deliberate
-             * attempt to pause the indexing process by applying {TODO: add link}
+             * This may happen if another indexing type takes over or by an indexing block (see {@link #indexingStamp}).
              * The argument may be:
              *  * -1: never check
              *  *  0: check during every transaction
@@ -2494,7 +2493,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * If the index is partly built and blocked, control if allowed to unblock and continue.
+             * If the index is partly built and blocked, allowed (or disallow) unblocking before indexing.
              * @param allowUnblock if true, unblock (if blocked) and continue.
              * @param allowUnblockId if non-null and non-empty, unblock only if the indexing stamp's id matches it. Will not continue if not blocked.
              * @return this builder
@@ -2507,7 +2506,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Call {@link #setAllowUnblock(boolean, String)} will null id.
+             * Call {@link #setAllowUnblock(boolean, String)} without block-id.
              * @param allowUnblock if true, allow unblock and continue
              * @return this builder
              */

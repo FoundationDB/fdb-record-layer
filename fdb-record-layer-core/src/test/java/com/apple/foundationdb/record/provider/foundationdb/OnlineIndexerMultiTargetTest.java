@@ -829,7 +829,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
-                assertEquals(luka, stamp.getBlockDescription());
+                assertEquals(luka, stamp.getBlockID());
                 assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
                 assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
             }
@@ -914,7 +914,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             throw new RuntimeException(e);
         }
 
-        // 5. continue normally, the block should have expired
+        // 5. continue normally, the block should been have expired
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setTimer(timer)

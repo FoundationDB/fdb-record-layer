@@ -463,7 +463,7 @@ public abstract class IndexingBase {
         return
             areSimilar(newStamp, savedStamp)
             ?
-            (!isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockDescription()))
+            (!isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockID()))
             :
             policy.shouldAllowTakeoverContinue() &&
                (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
@@ -988,14 +988,14 @@ public abstract class IndexingBase {
         if (op == OnlineIndexer.IndexingStampOperation.BLOCK) {
             builder.setBlock(true);
             if (id != null) {
-                builder.setBlockDescription(id);
+                builder.setBlockID(id);
             }
             if (timeoutSeconds != null && timeoutSeconds > 0) {
                 builder.setBlockExpireEpochSeconds((int)(System.currentTimeMillis() / 1000) + timeoutSeconds);
             }
         }
         if (op == OnlineIndexer.IndexingStampOperation.UNBLOCK &&
-                (id == null || id.isEmpty() || id.equals(stamp.getBlockDescription()))) {
+                (id == null || id.isEmpty() || id.equals(stamp.getBlockID()))) {
             builder.setBlock(false);
         }
         store.saveIndexingTypeStamp(index, builder.build());

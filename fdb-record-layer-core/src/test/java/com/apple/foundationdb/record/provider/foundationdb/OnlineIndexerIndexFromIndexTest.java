@@ -1161,7 +1161,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertTrue(stamp.getBlock());
-            assertEquals(luka, stamp.getBlockDescription());
+            assertEquals(luka, stamp.getBlockID());
             assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
             assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
         }

@@ -38,11 +38,11 @@ message IndexBuildIndexingStamp {
   optional Method method = 1;
   optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method
   optional int32 source_index_last_modified_version = 3; // only with BY_INDEX method
-  repeated string targetIndex = 4; //only with *_MULTI_TARGET: list of target indexes sorted alphabetically
+  repeated string targetIndex = 4; // (Only with MULTI_TARGET & MUTUAL) list of target indexes sorted alphabetically
                                    // the first item is used as the primary index
   optional bool block = 5; // if true and unexpired, indexing may not be continued
-  optional uint32 blockExpireEpochSeconds = 6; // if non zero, the date in seconds since epoch to invalidated pause
-  optional string blockDescription = 7; // optional, info only - allow adding a string describing the reason for the pause.
+  optional uint32 blockExpireEpochSeconds = 6; // if non zero, the block expiration time in seconds since epoch
+  optional string blockID = 7; // optional, a short string that describes the reason for the block.
  }
 
 

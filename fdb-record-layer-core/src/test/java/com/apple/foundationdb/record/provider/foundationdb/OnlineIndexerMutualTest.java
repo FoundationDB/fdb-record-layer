@@ -1133,7 +1133,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
-                assertEquals(luka, stamp.getBlockDescription());
+                assertEquals(luka, stamp.getBlockID());
                 assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
                 assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
             }
