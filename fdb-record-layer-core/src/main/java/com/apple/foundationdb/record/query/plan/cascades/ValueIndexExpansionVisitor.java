@@ -143,7 +143,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                     // that is used only for matching, but NOT as a placeholder. For now we just throw.
                 }
                 if (!found) {
-                    throw new RecordCoreException(String.format("Unexpected predicate type '%s'", predicate.getClass()));
+                    throw new RecordCoreException(String.format("could not find '%s' in candidate definition", value));
                 }
             }
             predicatedGraphExpansion.addAllPlaceholders(mutablePlaceholders);
