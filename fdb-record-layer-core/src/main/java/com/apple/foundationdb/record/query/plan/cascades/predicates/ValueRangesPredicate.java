@@ -52,8 +52,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.False;
-import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.True;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.FALSE;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.TRUE;
 
 /**
  * A special predicate used to represent a parameterized tuple range.
@@ -264,6 +264,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
         }
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
             if (this == other) {
                 return true;
@@ -317,7 +318,7 @@ public abstract class ValueRangesPredicate implements PredicateWithValue {
                 // if the placeholder has a compile-time range (filtered index) check to see whether it implies
                 // (some) of the predicate comparisons.
                 if (candidatePlaceholder.compileTimeEvaluableRanges != null) {
-                    if (range.isCompileTimeEvaluable() && range.isEmpty().equals(False) && candidatePlaceholder.compileTimeEvaluableRanges.stream().anyMatch(placeHolderRange -> placeHolderRange.implies(range).equals(True))) {
+                    if (range.isCompileTimeEvaluable() && range.isEmpty().equals(FALSE) && candidatePlaceholder.compileTimeEvaluableRanges.stream().anyMatch(placeHolderRange -> placeHolderRange.implies(range).equals(TRUE))) {
                         return Optional.of(new PredicateMapping(this,
                                 candidatePredicate,
                                 ((partialMatch, boundParameterPrefixMap) -> {

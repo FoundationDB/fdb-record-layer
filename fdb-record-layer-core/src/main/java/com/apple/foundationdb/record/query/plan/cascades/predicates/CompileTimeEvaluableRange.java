@@ -54,9 +54,9 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
      * Evaluation result, ternary logic.
      */
     public enum EvalResult {
-        True,
-        False,
-        Unknown
+        TRUE,
+        FALSE,
+        UNKNOWN
     }
 
 
@@ -72,30 +72,6 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         this.nonCompileTimeComparisons = nonCompileTimeComparisons;
     }
 
-    CompileTimeEvaluableRange intersect(@Nonnull final CompileTimeEvaluableRange other) {
-        Range<Boundary> intersectingRange;
-        if (range == null && other.range == null) {
-            intersectingRange = null;
-        }
-        if (range == null || Objects.requireNonNull(other.range).isEmpty()) {
-            intersectingRange = other.range;
-        }
-        if (other.range == null || Objects.requireNonNull(range).isEmpty()) {
-            intersectingRange = range;
-        }
-        if (this.range.isConnected(other.range)) {
-            intersectingRange = this.range.intersection(other.range);
-        } else {
-            intersectingRange =  CompileTimeEvaluableRange.empty().range;
-        }
-
-        ImmutableSet.Builder<Comparisons.Comparison> newNonCompileTimeComparisons = ImmutableSet.builder();
-        newNonCompileTimeComparisons.addAll(nonCompileTimeComparisons);
-        newNonCompileTimeComparisons.addAll(other.nonCompileTimeComparisons);
-
-        return new CompileTimeEvaluableRange(intersectingRange, List.of(newNonCompileTimeComparisons.build().toArray(new Comparisons.Comparison[0])));
-    }
-
     CompileTimeEvaluableRange(@Nonnull final Range<Boundary> range) {
         this(range, List.of());
     }
@@ -106,7 +82,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
     @Nonnull
     List<Comparisons.Comparison> getComparisons() {
-        if (isEquality().equals(EvalResult.True)) {
+        if (isEquality().equals(EvalResult.TRUE)) {
             return List.of(Objects.requireNonNull(range).upperEndpoint().comparison);
         }
         ImmutableList.Builder<Comparisons.Comparison> result = ImmutableList.builder();
@@ -156,7 +132,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     @Nonnull
     @Override
     public CompileTimeEvaluableRange rebase(@Nonnull final AliasMap translationMap) {
-        if (isEmpty().equals(EvalResult.True)) {
+        if (isEmpty().equals(EvalResult.TRUE)) {
             return this;
         } else if (range == null) {
             if (nonCompileTimeComparisons.isEmpty()) {
@@ -208,7 +184,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
     @Nonnull
     public CompileTimeEvaluableRange translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        if (isEmpty().equals(EvalResult.True)) {
+        if (isEmpty().equals(EvalResult.TRUE)) {
             return this;
         } else if (range == null) {
             if (nonCompileTimeComparisons.isEmpty()) {
@@ -259,6 +235,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -316,23 +293,23 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     public EvalResult isEmpty() {
         if (nonCompileTimeComparisons.isEmpty()) {
             if (Objects.requireNonNull(range).isEmpty()) {
-                return EvalResult.True;
+                return EvalResult.TRUE;
             } else {
-                return EvalResult.False;
+                return EvalResult.FALSE;
             }
         }
-        return EvalResult.Unknown;
+        return EvalResult.UNKNOWN;
     }
 
     public EvalResult isEquality() {
         if (nonCompileTimeComparisons.isEmpty()) {
             if (Objects.requireNonNull(range).hasLowerBound() && range.hasUpperBound() && range.lowerEndpoint().equals(range.upperEndpoint())) {
-                return EvalResult.True;
+                return EvalResult.TRUE;
             } else {
-                return EvalResult.False;
+                return EvalResult.FALSE;
             }
         }
-        return EvalResult.Unknown;
+        return EvalResult.UNKNOWN;
     }
 
     @Override
@@ -626,15 +603,15 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     @Nonnull
     public EvalResult implies(@Nonnull final CompileTimeEvaluableRange other) {
         if (!isCompileTimeEvaluable() || !other.isCompileTimeEvaluable()) {
-            return EvalResult.Unknown;
+            return EvalResult.UNKNOWN;
         } else if (range == null) { // full range implies everything
-            return EvalResult.True;
+            return EvalResult.TRUE;
         } else if (other.range == null) { // other is full range, we are not -> false
-            return EvalResult.False;
+            return EvalResult.FALSE;
         } else if (range.encloses(other.range)) {
-            return EvalResult.True;
+            return EvalResult.TRUE;
         } else {
-            return EvalResult.False;
+            return EvalResult.FALSE;
         }
     }
 }

@@ -41,7 +41,7 @@ public class TupleRangeTest {
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
 
-        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.TRUE);
     }
 
     @Test
@@ -53,12 +53,12 @@ public class TupleRangeTest {
         final var smallerRange = CompileTimeEvaluableRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.TRUE);
 
         final var otherRange = CompileTimeEvaluableRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.TRUE);
     }
 
     @Test
@@ -71,12 +71,12 @@ public class TupleRangeTest {
         final var smallerRange = CompileTimeEvaluableRange.newBuilder();
         smallerRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bbb"));
 
-        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(largerRange.build().orElseThrow().implies(smallerRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.TRUE);
 
         final var otherRange = CompileTimeEvaluableRange.newBuilder();
         otherRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "z"));
 
-        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertNotEquals(largerRange.build().orElseThrow().implies(otherRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.TRUE);
     }
 
     @Test
@@ -86,18 +86,18 @@ public class TupleRangeTest {
         emptyRangeBuilder.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0));
         final var emptyRange = CompileTimeEvaluableRange.empty();
 
-        Assertions.assertEquals(emptyRange.isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(emptyRange.isEmpty(), CompileTimeEvaluableRange.EvalResult.TRUE);
 
         final var zeroValueRange = CompileTimeEvaluableRange.newBuilder();
         zeroValueRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0));
 
-        Assertions.assertEquals(emptyRange.implies(zeroValueRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.False);
+        Assertions.assertEquals(emptyRange.implies(zeroValueRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.FALSE);
 
         final var largeRange = CompileTimeEvaluableRange.newBuilder();
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 0));
         largeRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
-        Assertions.assertEquals(emptyRange.implies(largeRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.False);
+        Assertions.assertEquals(emptyRange.implies(largeRange.build().orElseThrow()), CompileTimeEvaluableRange.EvalResult.FALSE);
     }
 
     @Test
@@ -105,12 +105,12 @@ public class TupleRangeTest {
         final var invalidRange = CompileTimeEvaluableRange.newBuilder();
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 30));
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 20));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.TRUE);
 
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.TRUE);
 
         invalidRange.tryAdd(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.True);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(), CompileTimeEvaluableRange.EvalResult.TRUE);
     }
 }

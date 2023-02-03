@@ -663,7 +663,9 @@ public class Index {
         if (lastModifiedVersion > 0) {
             builder.setLastModifiedVersion(lastModifiedVersion);
         }
-        builder.setPredicate(predicate);
+        if (predicate != null) {
+            builder.setPredicate(predicate);
+        }
         return builder.build();
     }
 
