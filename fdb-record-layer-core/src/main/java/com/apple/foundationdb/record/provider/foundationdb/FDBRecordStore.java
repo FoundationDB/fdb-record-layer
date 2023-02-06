@@ -1406,6 +1406,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        if (!index.isUnique()) {
+            return RecordCursor.empty(getExecutor());
+        }
         RecordCursor<IndexEntry> tupleCursor = getIndexMaintainer(index).scanUniquenessViolations(range, continuation, scanProperties);
         return tupleCursor.map(entry -> {
             int indexColumns = index.getColumnSize();
@@ -3073,8 +3076,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<Boolean> checkAndUpdateBuiltIndexState(Index index, byte[] indexKey, boolean allowUniquePending) {
         // An extension function to reduce markIndexReadable's complexity
         CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-        CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
-                .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
+        CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture;
+        if (index.isUnique()) {
+            uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
+                    .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
+        } else {
+            uniquenessFuture = CompletableFuture.completedFuture(Optional.empty());
+        }
         return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
             Optional<Range> firstUnbuilt = context.join(builtFuture);
             Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
@@ -4267,7 +4275,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
-        tr.clear(indexUniquenessViolationsSubspace(index).range());
+        if (index.isUnique()) {
+            tr.clear(indexUniquenessViolationsSubspace(index).range());
+        }
         // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
         // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
         // run online index jobs which may invoke this method. We should clear:
