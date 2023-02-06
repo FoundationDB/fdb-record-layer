@@ -241,7 +241,12 @@ public class IndexingThrottle {
                             message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
                             LOGGER.warn(message.toString(), e);
                         }
-                        return delay.delay().thenApply(vignore3 -> true);
+                        CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(vignore3 -> true);
+                        if (common.getRunner().getTimer() != null) {
+                            delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
+                                    delayedContinue, common.getRunner().getExecutor());
+                        }
+                        return delayedContinue;
                     } else {
                         return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                     }
