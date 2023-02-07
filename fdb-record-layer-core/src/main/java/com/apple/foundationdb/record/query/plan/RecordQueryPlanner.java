@@ -521,7 +521,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        int maxNumReplans = getConfiguration().getMaxNumReplansForInToJoin();
+        int maxNumReplans = Math.max(getConfiguration().getMaxNumReplansForInToJoin(), 0);
+        boolean allowNonSargedInBindings = getConfiguration().getMaxNumReplansForInToJoin() < 0;
         int numReplan = 0;
         boolean progress = true;
         ScoredPlan bestPlan = null;
@@ -533,7 +534,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             
             final Set<String> inBindings = inExtractor.getInBindings();
             final Set<String> sargedInBindings = bestPlan.getSargedInBindings();
-            if (sargedInBindings.containsAll(inBindings)) {
+            if (allowNonSargedInBindings || sargedInBindings.containsAll(inBindings)) {
                 break;
             }
 
