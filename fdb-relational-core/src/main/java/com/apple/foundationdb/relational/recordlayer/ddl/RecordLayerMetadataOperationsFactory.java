@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -34,17 +33,13 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 public class RecordLayerMetadataOperationsFactory implements MetadataOperationsFactory {
-    public static final int DEFAULT_FORMAT_VERSION = 8;
-
     private final RecordLayerConfig rlConfig;
     private final StoreCatalog catalog;
-    private final SchemaTemplateCatalog templateCatalog;
     private final KeySpace baseKeySpace;
 
-    public RecordLayerMetadataOperationsFactory(RecordLayerConfig rlConfig, StoreCatalog catalog, SchemaTemplateCatalog templateCatalog, KeySpace baseKeySpace) {
+    public RecordLayerMetadataOperationsFactory(RecordLayerConfig rlConfig, StoreCatalog catalog, KeySpace baseKeySpace) {
         this.rlConfig = rlConfig;
         this.catalog = catalog;
-        this.templateCatalog = templateCatalog;
         this.baseKeySpace = baseKeySpace;
     }
 
@@ -52,14 +47,14 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
         return txn -> {
-            templateCatalog.deleteTemplate(txn, templateId);
+            catalog.getSchemaTemplateCatalog().deleteTemplate(txn, templateId);
         };
     }
 
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return new CreateSchemaTemplateConstantAction(template, templateCatalog);
+        return new CreateSchemaTemplateConstantAction(template, catalog.getSchemaTemplateCatalog());
     }
 
     @Nonnull
@@ -71,7 +66,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
-        return new RecordLayerCreateSchemaConstantAction(dbUri, schemaName, templateId, rlConfig, baseKeySpace, catalog, templateCatalog);
+        return new RecordLayerCreateSchemaConstantAction(dbUri, schemaName, templateId, rlConfig, baseKeySpace, catalog);
     }
 
     @Nonnull
@@ -88,17 +83,11 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
 
     public static class Builder {
         protected StoreCatalog storeCatalog;
-        protected SchemaTemplateCatalog templateCatalog;
         protected RecordLayerConfig rlConfig;
         protected KeySpace baseKeySpace;
 
         public Builder setStoreCatalog(StoreCatalog storeCatalog) {
             this.storeCatalog = storeCatalog;
-            return this;
-        }
-
-        public Builder setTemplateCatalog(SchemaTemplateCatalog templateCatalog) {
-            this.templateCatalog = templateCatalog;
             return this;
         }
 
@@ -113,7 +102,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         }
 
         public RecordLayerMetadataOperationsFactory build() {
-            return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace);
+            return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, baseKeySpace);
         }
     }
 

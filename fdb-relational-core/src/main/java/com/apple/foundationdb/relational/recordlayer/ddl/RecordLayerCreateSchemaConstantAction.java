@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExi
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -47,7 +46,6 @@ import java.net.URI;
  */
 public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
     private final StoreCatalog catalog;
-    private final SchemaTemplateCatalog templateCatalog;
     private final RecordLayerConfig rlConfig;
     private final URI dbUri;
     private final String schemaName;
@@ -59,12 +57,10 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
                                                  String templateName,
                                                  RecordLayerConfig rlConfig,
                                                  KeySpace keySpace,
-                                                 StoreCatalog catalog,
-                                                 SchemaTemplateCatalog templateCatalog) {
+                                                 StoreCatalog catalog) {
         this.schemaName = schemaName;
         this.templateName = templateName;
         this.catalog = catalog;
-        this.templateCatalog = templateCatalog;
         this.dbUri = dbUri;
         this.rlConfig = rlConfig;
         this.keySpace = keySpace;
@@ -91,7 +87,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
             }
         }
 
-        final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, templateName);
+        final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateName);
 
         //map the schema to the template
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);

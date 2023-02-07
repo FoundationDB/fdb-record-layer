@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -46,8 +45,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
-    public RecordLayerCatalogQueryFactory(StoreCatalog catalog, SchemaTemplateCatalog templateCatalog) {
-        super(catalog, templateCatalog);
+    public RecordLayerCatalogQueryFactory(StoreCatalog catalog) {
+        super(catalog);
     }
 
     @Override
@@ -97,7 +96,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, schemaId);
+                final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, schemaId);
 
                 final FieldDescription[] tableDescription = new FieldDescription[]{
                         FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),

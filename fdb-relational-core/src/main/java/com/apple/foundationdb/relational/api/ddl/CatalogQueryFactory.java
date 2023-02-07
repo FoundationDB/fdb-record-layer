@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
@@ -38,11 +37,9 @@ import java.util.stream.Collectors;
 public abstract class CatalogQueryFactory implements DdlQueryFactory {
 
     protected final StoreCatalog catalog;
-    protected final SchemaTemplateCatalog templateCatalog;
 
-    public CatalogQueryFactory(StoreCatalog catalog, SchemaTemplateCatalog templateCatalog) {
+    public CatalogQueryFactory(StoreCatalog catalog) {
         this.catalog = catalog;
-        this.templateCatalog = templateCatalog;
     }
 
     @Override
@@ -77,7 +74,7 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                return templateCatalog.listTemplates(txn);
+                return catalog.getSchemaTemplateCatalog().listTemplates(txn);
             }
         };
     }

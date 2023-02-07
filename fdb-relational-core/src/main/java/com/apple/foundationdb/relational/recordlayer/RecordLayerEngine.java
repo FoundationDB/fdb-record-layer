@@ -23,13 +23,9 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
@@ -46,21 +42,16 @@ public final class RecordLayerEngine {
     public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
                                                     @Nonnull List<FDBDatabase> databases,
                                                     @Nonnull KeySpace baseKeySpace,
-                                                    @Nonnull RecordLayerStoreCatalogImpl schemaCatalog,
-                                                    @Nonnull SchemaTemplateCatalog templateCatalog,
+                                                    @Nonnull StoreCatalog schemaCatalog,
                                                     @Nullable MetricRegistry metricsEngine,
                                                     @Nonnull RecordLayerMetadataOperationsFactory ddlFactory,
                                                     @Nullable PlanCache planCache
-                                                    ) throws RelationalException {
+                                                    ) {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 
         List<StorageCluster> clusters = databases.stream().map(db ->
-                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, planCache, templateCatalog, ddlFactory)).collect(Collectors.toList());
-        try (Transaction txn = clusters.get(0).getTransactionManager().createTransaction(Options.NONE)) {
-            schemaCatalog.initialize(txn);
-            txn.commit();
-        }
+                new RecordLayerStorageCluster(new DirectFdbConnection(db, mEngine), baseKeySpace, cfg, schemaCatalog, planCache, ddlFactory)).collect(Collectors.toList());
 
         return new EmbeddedRelationalEngine(clusters, mEngine);
     }

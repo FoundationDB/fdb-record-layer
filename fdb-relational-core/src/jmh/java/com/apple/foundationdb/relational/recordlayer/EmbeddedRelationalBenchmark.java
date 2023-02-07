@@ -20,26 +20,22 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
@@ -55,7 +51,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -109,36 +104,25 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         public void up() throws RelationalException, SQLException {
-            KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-            dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
-            KeySpaceDirectory catalogDir = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
-            keySpace = new KeySpace(dbDirectory, catalogDir);
+            keySpace = RelationalKeyspaceProvider.getKeySpace();
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
             fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
-            RecordLayerConfig rlConfig = new RecordLayerConfig(
-                    (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
-                    storePath -> DynamicMessageRecordSerializer.instance(),
-                    1);
-            SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-            RecordLayerStoreCatalogImpl rlCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
+
+            RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
             try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-                rlCatalog.initialize(txn);
+                catalog = StoreCatalogProvider.getCatalog(txn);
                 txn.commit();
             }
-            catalog = rlCatalog;
 
-            RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
             RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                     .setRlConfig(rlConfig)
                     .setBaseKeySpace(keySpace)
-                    .setTemplateCatalog(templateCatalog)
-                    .setStoreCatalog(schemaCatalog).build();
+                    .setStoreCatalog(catalog).build();
             engine = RecordLayerEngine.makeEngine(
                     rlConfig,
                     Collections.singletonList(fdbDb),
                     keySpace,
-                    schemaCatalog,
-                    templateCatalog,
+                    catalog,
                     null,
                     ddlFactory,
                     planCache);

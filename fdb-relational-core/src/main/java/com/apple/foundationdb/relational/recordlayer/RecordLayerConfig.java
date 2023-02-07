@@ -20,7 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
@@ -46,5 +50,12 @@ public class RecordLayerConfig {
 
     public int getFormatVersion() {
         return formatVersion;
+    }
+
+    public static RecordLayerConfig getDefault() {
+        return new RecordLayerConfig(
+                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
+                storePath -> DynamicMessageRecordSerializer.instance(),
+                FDBRecordStore.DEFAULT_FORMAT_VERSION);
     }
 }

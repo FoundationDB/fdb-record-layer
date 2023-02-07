@@ -38,7 +38,7 @@ public class NoTypeKeyDdlFactory {
         return new RecordLayerMetadataOperationsFactory.Builder() {
             @Override
             public RecordLayerMetadataOperationsFactory build() {
-                return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, templateCatalog, baseKeySpace) {
+                return new RecordLayerMetadataOperationsFactory(rlConfig, storeCatalog, baseKeySpace) {
                     @Nonnull
                     @Override
                     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
@@ -58,7 +58,7 @@ public class NoTypeKeyDdlFactory {
                                 .addTables(newTables)
                                 .setVersion(template.getVersion())
                                 .build();
-                        return new CreateSchemaTemplateConstantAction(template, templateCatalog);
+                        return new CreateSchemaTemplateConstantAction(template, storeCatalog.getSchemaTemplateCatalog());
                     }
                 };
             }

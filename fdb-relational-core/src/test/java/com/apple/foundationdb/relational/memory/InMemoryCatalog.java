@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -43,7 +45,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryCatalog implements StoreCatalog {
 
     Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
-    Map<String, List<InMemorySchemaTemplate>> nameToTemplates = new ConcurrentHashMap<>();
+    SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
+
+    @Override
+    public SchemaTemplateCatalog getSchemaTemplateCatalog() {
+        return schemaTemplateCatalog;
+    }
 
     @Override
     @Nonnull

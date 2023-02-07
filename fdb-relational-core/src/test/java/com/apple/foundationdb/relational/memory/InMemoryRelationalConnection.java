@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -30,8 +29,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -48,11 +45,9 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.concurrent.CompletableFuture;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
-    private final SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
 
     private final URI databaseUri;
     private final RecordMetaData recordMetaData;
@@ -161,16 +156,13 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     public MetadataOperationsFactory getConstantActionFactory() {
-        RecordLayerConfig rlCfg = new RecordLayerConfig(
-                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
-                storePath -> DynamicMessageRecordSerializer.instance(),
-                1);
-        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, templateCatalog, createNewKeySpace()) {
+        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
+        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, createNewKeySpace()) {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
                 return txn -> {
-                    final SchemaTemplate schemaTemplate = templateCatalog.loadSchemaTemplate(txn, templateId);
+                    final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateId);
 
                     //map the schema to the template
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);

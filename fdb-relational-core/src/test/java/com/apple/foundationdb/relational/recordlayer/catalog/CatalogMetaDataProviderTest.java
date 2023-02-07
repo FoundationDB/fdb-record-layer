@@ -25,14 +25,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceExtension;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -40,7 +37,6 @@ import com.apple.foundationdb.relational.utils.DescriptorAssert;
 
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 
@@ -49,20 +45,17 @@ import java.net.URI;
  * we can load a RecordMetaData object based off of StoreCatalog information.
  */
 class CatalogMetaDataProviderTest {
-    @RegisterExtension
-    public static final KeySpaceExtension keySpaceExt = new KeySpaceExtension();
 
     @Test
     void canLoadMetaDataFromStore() throws RelationalException, Descriptors.DescriptorValidationException {
-        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpaceExt.getKeySpace(), templateCatalog);
 
         //now create a RecordStore in that Catalog
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         FdbConnection fdbConn = new DirectFdbConnection(factory.getDatabase());
+        StoreCatalog storeCatalog;
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //create the Catalog RecordStore
-            catalog.initialize(txn);
+            storeCatalog = StoreCatalogProvider.getCatalog(txn);
             txn.commit();
         }
 
@@ -72,13 +65,13 @@ class CatalogMetaDataProviderTest {
         RecordLayerSchemaTemplate schemaTemplate = createSchemaTemplate();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //write template into template catalog
-            templateCatalog.updateTemplate(txn, schemaTemplate);
+            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schemaTemplate);
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
-            catalog.createDatabase(txn, dbUri);
-            catalog.saveSchema(txn, schema);
+            storeCatalog.createDatabase(txn, dbUri);
+            storeCatalog.saveSchema(txn, schema);
 
-            CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn);
+            CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(storeCatalog, dbUri, schemaName, txn);
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
             final Descriptors.FileDescriptor descriptor = recordMetaData.getRecordsDescriptor();
 

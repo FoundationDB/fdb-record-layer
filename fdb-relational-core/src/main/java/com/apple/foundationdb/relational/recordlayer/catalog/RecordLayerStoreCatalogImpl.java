@@ -182,6 +182,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
+    public SchemaTemplateCatalog getSchemaTemplateCatalog() {
+        return schemaTemplateCatalog;
+    }
+
+    @Override
     @Nonnull
     public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         final FDBRecordStore recordStore = openFDBRecordStore(txn);

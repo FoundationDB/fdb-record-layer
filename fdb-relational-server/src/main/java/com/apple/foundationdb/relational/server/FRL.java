@@ -21,11 +21,9 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -36,8 +34,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
@@ -45,7 +41,9 @@ import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.ChainedPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
@@ -63,7 +61,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Temporary class. "The Relational Database".
@@ -85,24 +82,18 @@ public class FRL implements AutoCloseable {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
-        KeySpace keySpace = getKeySpaceForSetup();
-        RecordLayerConfig rlConfig = new RecordLayerConfig(
-                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
-                storePath -> DynamicMessageRecordSerializer.instance(),
-                1);
-        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-        RecordLayerStoreCatalogImpl catalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
+        KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
+        RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
+        StoreCatalog storeCatalog;
         try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-            catalog.initialize(txn);
+            storeCatalog = StoreCatalogProvider.getCatalog(txn);
             txn.commit();
         }
 
-        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
         RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setRlConfig(rlConfig)
                 .setBaseKeySpace(keySpace)
-                .setTemplateCatalog(templateCatalog)
-                .setStoreCatalog(schemaCatalog).build();
+                .setStoreCatalog(storeCatalog).build();
 
         //TODO(bfines) configuration here
         PlanCache planCache = new ChainedPlanCache(128);
@@ -110,8 +101,7 @@ public class FRL implements AutoCloseable {
                 rlConfig,
                 Collections.singletonList(fdbDb),
                 keySpace,
-                schemaCatalog,
-                templateCatalog,
+                storeCatalog,
                 null,
                 ddlFactory,
                 planCache);
@@ -126,13 +116,6 @@ public class FRL implements AutoCloseable {
                 throw ve;
             }
         }
-    }
-
-    private KeySpace getKeySpaceForSetup() {
-        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        dbDirectory.addSubdirectory(new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING));
-        KeySpaceDirectory catalogDir = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
-        return new KeySpace(dbDirectory, catalogDir);
     }
 
     @Nullable

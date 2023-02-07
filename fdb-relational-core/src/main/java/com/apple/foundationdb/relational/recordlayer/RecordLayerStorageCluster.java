@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -52,7 +51,6 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final RecordLayerConfig rlConfiguration;
     private final FdbConnection fdb;
     private final KeySpace keySpace;
-    private final SchemaTemplateCatalog schemaTemplateCatalog;
     private final RecordLayerMetadataOperationsFactory ddlFactory;
 
     @Nullable
@@ -63,13 +61,11 @@ public class RecordLayerStorageCluster implements StorageCluster {
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
                                      PlanCache planCache,
-                                     SchemaTemplateCatalog schemaTemplateCatalog,
                                      RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;
         this.keySpace = keySpace;
         this.catalog = storeCatalog;
-        this.schemaTemplateCatalog = schemaTemplateCatalog;
         this.rlConfiguration = rlConfig;
         this.ddlFactory = ddlFactory;
         this.planCache = planCache;
@@ -126,7 +122,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
         }
         KeySpacePath ksPath = KeySpaceUtils.uriToPath(url, keySpace);
 
-        final var ddlQueryFactory = new RecordLayerCatalogQueryFactory(catalog, schemaTemplateCatalog);
+        final var ddlQueryFactory = new RecordLayerCatalogQueryFactory(catalog);
 
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,

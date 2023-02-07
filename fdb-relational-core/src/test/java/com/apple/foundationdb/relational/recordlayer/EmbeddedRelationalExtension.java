@@ -20,17 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerStoreCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
@@ -41,11 +39,10 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
-    private final Supplier<KeySpace> keySpaceSupplier;
+    private final KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
     private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
@@ -57,14 +54,12 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
-        this.keySpaceSupplier = this::createNewKeySpace;
         this.ddlFactoryBuilder = ddlFactory;
         this.planCacheSupplier = Suppliers.ofInstance(null);
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory,
                                      Supplier<PlanCache> planCacheSupplier) {
-        this.keySpaceSupplier = this::createNewKeySpace;
         this.ddlFactoryBuilder = ddlFactory;
         this.planCacheSupplier = planCacheSupplier;
     }
@@ -86,10 +81,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         if (engine != null) {
             return; //nothing to do
         }
-        RecordLayerConfig rlCfg = new RecordLayerConfig(
-                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
-                path -> DynamicMessageRecordSerializer.instance(),
-                1);
+        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
         //here we are extending the StorageCluster so that we can track which internal Databases were
         // connected to and we can validate that they were all closed properly
 
@@ -97,34 +89,26 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        final KeySpace keySpace = keySpaceSupplier.get();
-        SchemaTemplateCatalog templateCatalog = new InMemorySchemaTemplateCatalog();
-        RecordLayerStoreCatalogImpl schemaCatalog = new RecordLayerStoreCatalogImpl(keySpace, templateCatalog);
+        StoreCatalog storeCatalog;
+        try (var txn = new DirectFdbConnection(database).getTransactionManager().createTransaction(Options.NONE)) {
+            storeCatalog = StoreCatalogProvider.getCatalog(txn);
+            txn.commit();
+        }
 
         RecordLayerMetadataOperationsFactory ddlFactory = ddlFactoryBuilder.get()
                 .setBaseKeySpace(keySpace)
                 .setRlConfig(rlCfg)
-                .setStoreCatalog(schemaCatalog)
-                .setTemplateCatalog(templateCatalog)
+                .setStoreCatalog(storeCatalog)
                 .build();
         engine = RecordLayerEngine.makeEngine(
                 rlCfg,
                 Collections.singletonList(database),
                 keySpace,
-                schemaCatalog,
-                templateCatalog,
+                storeCatalog,
                 storeTimer,
                 ddlFactory,
                 planCacheSupplier.get());
         engine.registerDriver(); //register the engine driver
-    }
-
-    private KeySpace createNewKeySpace() {
-        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        KeySpaceDirectory schemaDir = new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING);
-        dbDirectory.addSubdirectory(schemaDir);
-        KeySpaceDirectory catalogDirectory = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
-        return new KeySpace(dbDirectory, catalogDirectory);
     }
 
     public EmbeddedRelationalEngine getEngine() {
