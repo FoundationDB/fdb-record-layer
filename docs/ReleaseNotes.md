@@ -20,11 +20,11 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Non-unique indexes no longer read or clear the uniqueness violation space during maintenance [(Issue #1973)](https://github.com/FoundationDB/fdb-record-layer/issues/1973)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)
-* **Performance** Instrumentation is added for delays inserted during retries and index builds [(Issue #1993)](https://github.com/FoundationDB/fdb-record-layer/issues/1993)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.331.0
+
+* **Performance** Non-unique indexes no longer read or clear the uniqueness violation space during maintenance [(Issue #1973)](https://github.com/FoundationDB/fdb-record-layer/issues/1973)
+* **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)
+* **Performance** Instrumentation is added for delays inserted during retries and index builds [(Issue #1993)](https://github.com/FoundationDB/fdb-record-layer/issues/1993)
 
 ### 3.3.330.0
 
