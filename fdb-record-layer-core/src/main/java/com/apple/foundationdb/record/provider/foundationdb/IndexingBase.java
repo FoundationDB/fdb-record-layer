@@ -23,9 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -43,6 +41,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -142,13 +141,13 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    protected static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
     }
 
     @Nonnull
-    protected static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
     }
@@ -340,10 +339,10 @@ public abstract class IndexingBase {
                 if (store.isIndexReadable(index)) {
                     return AsyncUtil.DONE;
                 }
-                final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-                return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
-                        .thenCompose(hasNext -> {
-                            if (hasNext) {
+                final IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
+                return rangeSet.firstMissingRangeAsync()
+                        .thenCompose(range -> {
+                            if (range != null) {
                                 allReadable.set(false);
                                 return AsyncUtil.DONE;
                             }
@@ -512,20 +511,17 @@ public abstract class IndexingBase {
         // HERE: The index must be readable, checked by the caller
         //   if scrubber had already run and still have missing ranges, do nothing
         //   else: clear ranges and overwrite type-stamp
-        Transaction tr = store.getContext().ensureActive();
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
         validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
                 "Not a scrubber type-stamp");
 
         final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
-        final Subspace indexesRangeSubspace = indexScrubIndexRangeSubspace(store, index);
-        final Subspace recordsRangeSubspace = indexScrubRecordsRangeSubspace(store, index);
-        RangeSet indexRangeSet = new RangeSet(indexesRangeSubspace);
-        RangeSet recordsRangeSet = new RangeSet(recordsRangeSubspace);
-        AsyncIterator<Range> indexRanges = indexRangeSet.missingRanges(tr).iterator();
-        AsyncIterator<Range> recordsRanges = recordsRangeSet.missingRanges(tr).iterator();
-        return indexRanges.onHasNext().thenCompose(hasNextIndex -> {
-            if (Boolean.FALSE.equals(hasNextIndex)) {
+        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
+        IndexingRangeSet recordsRangeSet = IndexingRangeSet.forScrubbingRecords(store, index);
+        final CompletableFuture<Range> indexRangeFuture = indexRangeSet.firstMissingRangeAsync();
+        final CompletableFuture<Range> recordRangeFuture = recordsRangeSet.firstMissingRangeAsync();
+        return indexRangeFuture.thenCompose(indexRange -> {
+            if (indexRange == null) {
                 // Here: no un-scrubbed index range was left for this call. We will
                 // erase the 'ranges' data to allow a fresh index re-scrubbing.
                 if (LOGGER.isInfoEnabled()) {
@@ -533,10 +529,10 @@ public abstract class IndexingBase {
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .toString());
                 }
-                tr.clear(indexesRangeSubspace.range());
+                indexRangeSet.clear();
             }
-            return recordsRanges.onHasNext().thenAccept(hasNextRecord -> {
-                if (Boolean.FALSE.equals(hasNextRecord)) {
+            return recordRangeFuture.thenAccept(recordRange -> {
+                if (recordRange == null) {
                     // Here: no un-scrubbed records range was left for this call. We will
                     // erase the 'ranges' data to allow a fresh records re-scrubbing.
                     if (LOGGER.isInfoEnabled()) {
@@ -544,7 +540,7 @@ public abstract class IndexingBase {
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
-                    tr.clear(recordsRangeSubspace.range());
+                    recordsRangeSet.clear();
                 }
             });
         });
@@ -556,16 +552,13 @@ public abstract class IndexingBase {
     abstract CompletableFuture<Void> buildIndexInternalAsync();
 
     private CompletableFuture<Boolean> isWriteOnlyButNoRecordScanned(FDBRecordStore store, Index index) {
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
-        return ranges.onHasNext().thenCompose(hasNext -> {
-                    if (hasNext) {
-                        final Range range = ranges.next();
-                        return CompletableFuture.completedFuture(RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end));
-                    }
-                    return AsyncUtil.READY_FALSE; // fully built - no missing ranges
-                }
-        );
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
+        return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
+            if (range == null) {
+                return AsyncUtil.READY_FALSE; // fully built - no missing ranges
+            }
+            return CompletableFuture.completedFuture(RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end));
+        });
     }
 
     RecordCoreException newPartlyBuildException(boolean continuedBuild,
@@ -851,9 +844,8 @@ public abstract class IndexingBase {
             // example, because of uniqueness violations), we still want to record in the range set that the entire
             // range was built so that future index builds don't re-scan the record data and so that non-idempotent
             // indexes know to update the index on all record saves.
-            Transaction tr = store.ensureContextActive();
-            RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-            return rangeSet.insertRange(tr, null, null);
+            IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
+            return rangeSet.insertRangeAsync(null, null);
         })).thenCompose(vignore -> rebuildIndexInternalAsync(store));
     }
 

@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -35,6 +33,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -304,13 +303,12 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
                     // can be preemptively marked as indexed.
                     final List<Index> targetIndexes = common.getTargetIndexes();
-                    final List<RangeSet> targetRangeSets = targetIndexes.stream()
-                            .map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex)))
+                    final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
+                            .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
                             .collect(Collectors.toList());
-                    final Transaction tr = store.ensureContextActive();
                     return CompletableFuture.allOf(
-                                    insertRanges(tr, targetRangeSets, null, rangeStart),
-                                    insertRanges(tr, targetRangeSets, rangeEnd, null))
+                                    insertRanges(targetRangeSets, null, rangeStart),
+                                    insertRanges(targetRangeSets, rangeEnd, null))
                             .thenApply(ignore -> null);
                 }, false, null);
 
@@ -339,8 +337,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             throw new ValidationException("Mutual indexing failure - third iteration");
         }
         validateSameMetadataOrThrow(store);
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getPrimaryIndex()));
-        return rangeSet.missingRanges(store.ensureContextActive()).asList().thenCompose(missingRanges ->
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getPrimaryIndex());
+        return rangeSet.listMissingRangesAsync().thenCompose(missingRanges ->
                 buildNextRangeOnly(sortAndSquash(missingRanges), subspaceProvider, subspace));
     }
 
@@ -387,8 +385,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                                           Range thisRange) {
 
         final List<Index> targetIndexes = common.getTargetIndexes();
-        final List<RangeSet> targetRangeSets = targetIndexes.stream().map(targetIndex -> new RangeSet(store.indexRangeSubspace(targetIndex))).collect(Collectors.toList());
-        AsyncIterator<Range> ranges = targetRangeSets.get(0).missingRanges(store.ensureContextActive(), thisRange).iterator();
+        final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
+                .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
+                .collect(Collectors.toList());
 
         final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
         final IsolationLevel isolationLevel =
@@ -401,11 +400,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
-        return ranges.onHasNext().thenCompose(hasNext -> {
-            if (Boolean.FALSE.equals(hasNext)) {
+        return targetRangeSets.get(0).firstMissingRangeAsync(thisRange.begin, thisRange.end).thenCompose(range -> {
+            if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            final Range range = ranges.next();
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
             final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
@@ -422,7 +420,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
-                    .thenCompose(cont -> insertRanges(store.ensureContextActive(), targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
+                    .thenCompose(cont -> insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
                             .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
         });
     }
@@ -499,10 +497,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                ranges;
     }
 
-    private static CompletableFuture<Void> insertRanges(Transaction transaction,
-                                                        List<RangeSet> rangeSets,
+    private static CompletableFuture<Void> insertRanges(List<IndexingRangeSet> rangeSets,
                                                         byte[] start, byte[] end) {
-        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRange(transaction, start, end, true)).collect(Collectors.toList()));
+        return AsyncUtil.whenAll(rangeSets.stream().map(set -> set.insertRangeAsync(start, end, true)).collect(Collectors.toList()));
     }
 
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {

@@ -24,6 +24,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
@@ -603,15 +604,22 @@ public class RangeSet {
     }
 
     /**
-     * Clears the subspace used by this RangeSet instance. This will delete the records of any
-     * data used by this set.
+     * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
+     * @param tr transaction with which to run the operation
+     */
+    public void clear(@Nonnull Transaction tr) {
+        tr.clear(subspace.range());
+    }
+
+    /**
+     * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
      * @param tc transaction or database in which to run operation
      * @return a future that is completed when the range has been cleared
      */
     @Nonnull
     public CompletableFuture<Void> clear(@Nonnull TransactionContext tc) {
         return tc.runAsync(tr -> {
-            tr.clear(subspace.range());
+            clear(tr);
             return AsyncUtil.DONE;
         });
     }

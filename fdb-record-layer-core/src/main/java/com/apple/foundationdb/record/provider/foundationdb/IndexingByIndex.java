@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -38,6 +36,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -144,19 +143,16 @@ public class IndexingByIndex extends IndexingBase {
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
 
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
-
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE)
                 .setReturnedRowLimit(getLimit() + 1); // respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
-        return ranges.onHasNext().thenCompose(hasNext -> {
-            if (Boolean.FALSE.equals(hasNext)) {
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
+        return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
+            if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            final Range range = ranges.next();
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
             final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
@@ -173,7 +169,7 @@ public class IndexingByIndex extends IndexingBase {
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                    .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
                                 .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
 
         });
