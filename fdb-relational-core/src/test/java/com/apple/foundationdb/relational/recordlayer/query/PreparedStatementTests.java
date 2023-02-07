@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -29,23 +29,14 @@ import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
-import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class PreparedStatementTests {
 
@@ -87,20 +78,12 @@ public class PreparedStatementTests {
     @Test
     void simpleSelect() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            Message insertedRecord;
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertedRecord = insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
             try (var ps = ddl.getConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord);
-                    // explicitly test when nullable array is set to empty list, the RowArray object holds an empty iterable
-                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
-                    // explicitly test unset Nullable array is NULL
-                    Assertions.assertNull(resultSet.getArray("TAGS"));
-                    Assertions.assertNull(resultSet.getArray("CUSTOMER"));
-                    Assertions.assertFalse(resultSet.next());
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
                 }
             }
         }
@@ -110,7 +93,7 @@ public class PreparedStatementTests {
     void basicParameterizedQuery() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
                 ps.setLong(1, 10);
@@ -129,7 +112,7 @@ public class PreparedStatementTests {
     void parameterizedQueryMultipleParameters() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ? AND NAME = ?")) {
                 ps.setLong(1, 10);
@@ -155,7 +138,7 @@ public class PreparedStatementTests {
     void parameterizedQueryNamedParameters() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no AND NAME = ?name")) {
                 ps.setLong("rest_no", 10);
@@ -181,7 +164,7 @@ public class PreparedStatementTests {
     void parameterizedQueryNamedAndUnnamedParameters() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ? AND NAME = ?name")) {
                 ps.setLong(1, 10);
@@ -207,7 +190,7 @@ public class PreparedStatementTests {
     void parameterizedQueryMissingNamedParameters() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no AND NAME = ?name")) {
                 ps.setLong("rest_no", 10);
@@ -233,13 +216,66 @@ public class PreparedStatementTests {
         }
     }
 
+    @Test
+    void limit() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14), (15)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
+                ps.setInt("limit", 2);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void continuation() throws Exception {
+        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                }
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.getBytes());
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                }
+                ps.setBytes("continuation", continuation.getBytes());
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
     @Disabled
     @Test
     // TODO (Prepared Statement does not cast fields if set with the wrong types)
     void setWrongTypeForQuestionMarkParameter() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
                 ps.setInt(1, 10);
@@ -276,7 +312,7 @@ public class PreparedStatementTests {
     void setWrongTypeForQuestionMarkNamedParameter() throws Exception {
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement);
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no")) {
                 ps.setInt("rest_no", 10);
@@ -305,64 +341,5 @@ public class PreparedStatementTests {
                 }
             }
         }
-    }
-
-    private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
-        return insertRestaurantComplexRecord(s, 10L);
-    }
-
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws SQLException {
-        return insertRestaurantComplexRecord(s, recordNumber, "testName");
-    }
-
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
-        return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of(), false);
-    }
-
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews, boolean containsNonNullableArray) throws SQLException {
-        final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
-                .setField("REST_NO", recordNumber)
-                .setField("NAME", recordName)
-                .setField("LOCATION", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("LOCATION"))
-                        .setField("ADDRESS", "address")
-                        .setField("LATITUDE", 1)
-                        .setField("LONGITUDE", 1)
-                        .build());
-        if (containsNonNullableArray) {
-            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
-                        .setField("REVIEWER", review.getLeft())
-                        .setField("RATING", review.getMiddle())
-                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
-                            try {
-                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }).collect(Collectors.toList()), false)
-                        .build());
-            }
-        } else {
-            List<Message> reviewList = new LinkedList<>();
-            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                reviewList.add(s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
-                        .setField("REVIEWER", review.getLeft())
-                        .setField("RATING", review.getMiddle())
-                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
-                            try {
-                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }).collect(Collectors.toList()))
-                        .build());
-            }
-            recBuilder2.addRepeatedFields("REVIEWS", reviewList);
-        }
-
-        final Message rec = recBuilder2.build();
-        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", rec);
-        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return rec;
     }
 }

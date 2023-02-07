@@ -305,7 +305,12 @@ explainStatement
     ;
 
 selectStatementWithContinuation
-    : selectStatement (WITH CONTINUATION stringLiteral)?
+    : selectStatement (WITH CONTINUATION continuationAtom)?
+    ;
+
+continuationAtom
+    : stringLiteral
+    | preparedStatementParameter
     ;
 
 // done
@@ -567,6 +572,7 @@ limitClause
 
 limitClauseAtom
     : DECIMAL_LITERAL | ZERO_DECIMAL | ONE_DECIMAL | TWO_DECIMAL
+    | preparedStatementParameter
     ;
 
 // Transaction's Statements

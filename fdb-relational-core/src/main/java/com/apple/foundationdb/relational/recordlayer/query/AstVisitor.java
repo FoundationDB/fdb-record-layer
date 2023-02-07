@@ -68,7 +68,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -180,14 +179,23 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
         RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
         if (ctx.CONTINUATION() != null) {
+            Assert.thatUnchecked(context.asDql().getOffset() == 0, "Offset cannot be specified with continuation.");
+            return QueryPlan.LogicalQueryPlan.of(result, query, false, context.asDql().getLimit(), context.asDql().getOffset(),
+                    (byte[]) visit(ctx.continuationAtom()));
+        } else {
+            return QueryPlan.LogicalQueryPlan.of(result, query, context.asDql().getLimit(), context.asDql().getOffset());
+        }
+    }
+
+    @Override
+    public byte[] visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
+        if (ctx.stringLiteral() != null) {
             final String continuationStr = ParserUtils.safeCastLiteral(ctx.stringLiteral().accept(this), String.class);
             Assert.notNullUnchecked(continuationStr, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
             Assert.thatUnchecked(!continuationStr.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
-            Assert.thatUnchecked(context.asDql().getOffset() == 0, "Offset cannot be specified with continuation.");
-            return QueryPlan.LogicalQueryPlan.of(result, query, false, context.asDql().getLimit(), context.asDql().getOffset(),
-                    Base64.getDecoder().decode(continuationStr));
+            return Base64.getDecoder().decode(continuationStr);
         } else {
-            return QueryPlan.LogicalQueryPlan.of(result, query, context.asDql().getLimit(), context.asDql().getOffset());
+            return ParserUtils.safeCastLiteral(visit(ctx.preparedStatementParameter()), byte[].class);
         }
     }
 
@@ -595,7 +603,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         var siblingScope = scopes.getCurrentScope().getSibling();
         Assert.thatUnchecked(parentScope == null && siblingScope == null,
                 "LIMIT clause can only be specified with top-level SQL query.", ErrorCode.UNSUPPORTED_OPERATION);
-        context.asDql().setLimit(ParserUtils.parseBoundInteger(ctx.limit.getText(), 1, null));
+        Integer limit = (Integer) visit(ctx.limit);
+        context.asDql().setLimit(limit);
         if (ctx.offset != null) {
             // Owing to TODO
             Assert.failUnchecked("OFFSET clause is not supported.");
@@ -607,6 +616,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                     "LIMIT / OFFSET with multiple FROM elements is not supported.", ErrorCode.UNSUPPORTED_OPERATION);
         }
         return null;
+    }
+
+    @Override
+    public Integer visitLimitClauseAtom(RelationalParser.LimitClauseAtomContext ctx) {
+        if (ctx.preparedStatementParameter() != null) {
+            return ParserUtils.safeCastLiteral(visit(ctx.preparedStatementParameter()), Integer.class);
+        } else {
+            return ParserUtils.parseBoundInteger(ctx.getText(), 1, null);
+        }
     }
 
     @Override
