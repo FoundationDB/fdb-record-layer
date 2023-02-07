@@ -55,7 +55,9 @@ public final class Options {
         /**
          * During insertion, if the primary key of the inserted row is already in the table, replace the old row with the new row.
          */
-        REPLACE_ON_DUPLICATE_PK
+        REPLACE_ON_DUPLICATE_PK,
+
+        PLAN_CACHE_MAX_ENTRIES
     }
 
     private static final Map<Name, List<OptionContract>> contracts = Map.of(
@@ -64,7 +66,8 @@ public final class Options {
             Name.CONTINUATION_PAGE_SIZE, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE)),
             Name.REQUIRED_METADATA_TABLE_VERSION, List.of(new TypeContract<>(Integer.class), new RangeContract<>(-1, Integer.MAX_VALUE)),
             Name.TRANSACTION_TIMEOUT, List.of(new TypeContract<>(Long.class), new RangeContract<>(-1L, Long.MAX_VALUE)),
-            Name.REPLACE_ON_DUPLICATE_PK, List.of(new TypeContract<>(Boolean.class))
+            Name.REPLACE_ON_DUPLICATE_PK, List.of(new TypeContract<>(Boolean.class)),
+            Name.PLAN_CACHE_MAX_ENTRIES, List.of(new TypeContract<>(Integer.class))
     );
 
     public static final Options NONE = Options.builder().build();

@@ -91,4 +91,43 @@ public class TransactionBoundDatabaseTest {
             }
         }
     }
+
+    @Test
+    void selectWithIncludedPlanCache() throws RelationalException, SQLException {
+        // First create a transaction object out of the connection and the statement
+        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
+        FDBRecordStore store = schema.loadStore();
+        try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
+
+                // Then, once we have a transaction that contains both an FDBRecordStore and an FDBRecordContext,
+                // connect to a TransactionBoundDatabase
+                TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.builder().withOption(Options.Name.PLAN_CACHE_MAX_ENTRIES, 1).build());
+                Assertions.assertThat(engine.getPlanCache()).isNotNull()
+                        .extracting(planCache -> planCache.getStats().numEntries()).isEqualTo(0L);
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        Message record = statement.getDataBuilder("RESTAURANT")
+                                .setField("REST_NO", 42)
+                                .setField("NAME", "FOO")
+                                .build();
+                        statement.executeInsert("RESTAURANT", record);
+                    }
+
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        try (RelationalResultSet resultSet = statement.executeQuery("select * from RESTAURANT")) {
+                            Assertions.assertThat(resultSet.next()).isTrue();
+                            Assertions.assertThat(resultSet.getString("NAME")).isEqualTo("FOO");
+                            Assertions.assertThat(resultSet.getLong("REST_NO")).isEqualTo(42L);
+                        }
+                    }
+                }
+
+                //we should have populated the plan cache;
+                Assertions.assertThat(engine.getPlanCache().getStats().numEntries()).isEqualTo(1L);
+            }
+        }
+    }
 }

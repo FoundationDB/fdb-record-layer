@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,12 +38,17 @@ import java.net.URI;
  * when {@link #loadDatabase(URI, Options)} is called.
  */
 public class TransactionBoundStorageCluster implements StorageCluster {
-    public static final TransactionBoundStorageCluster INSTANCE = new TransactionBoundStorageCluster();
+    @Nullable
+    private final PlanCache planCache;
+
+    public TransactionBoundStorageCluster(@Nullable PlanCache planCache) {
+        this.planCache = planCache;
+    }
 
     @Nullable
     @Override
     public RelationalDatabase loadDatabase(@Nonnull URI url, @Nonnull Options connOptions) throws RelationalException {
-        return new TransactionBoundDatabase(url, connOptions);
+        return new TransactionBoundDatabase(url, connOptions, planCache);
     }
 
     @Override
