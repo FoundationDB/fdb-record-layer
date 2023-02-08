@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAct
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
