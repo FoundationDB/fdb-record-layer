@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
@@ -46,12 +46,18 @@ public class FDBTransactionContext {
     protected Transaction transaction;
     @Nullable
     protected FDBStoreTimer timer;
+    @Nullable
+    protected FDBStoreTimer delayedTimer;
 
-    protected FDBTransactionContext(@Nonnull FDBDatabase database, @Nonnull Transaction transaction, @Nullable FDBStoreTimer timer) {
+    protected FDBTransactionContext(@Nonnull FDBDatabase database,
+                                    @Nonnull Transaction transaction,
+                                    @Nullable FDBStoreTimer timer,
+                                    @Nullable FDBStoreTimer delayedTimer) {
         this.database = database;
         this.transaction = transaction;
         this.executor = transaction.getExecutor();
         this.timer = timer;
+        this.delayedTimer = delayedTimer;
 
         if (timer != null) {
             timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);
@@ -111,34 +117,57 @@ public class FDBTransactionContext {
         return timer;
     }
 
+    @Nullable
+    public FDBStoreTimer getTimerForEvent(@Nonnull StoreTimer.Event event) {
+        return event.isDelayedUntilCommit() ? delayedTimer : timer;
+    }
+
+    public FDBStoreTimer getTimerForEvents(@Nonnull Set<StoreTimer.Event> events) {
+        if (events.isEmpty()) {
+            return null;
+        }
+        if (timer == null && delayedTimer == null) {
+            return null;
+        }
+        if (events.stream().allMatch(StoreTimer.Event::isDelayedUntilCommit)) {
+            return delayedTimer;
+        } else {
+            return timer;
+        }
+    }
+
     public void setTimer(@Nullable FDBStoreTimer timer) {
         this.timer = timer;
     }
 
     public <T> CompletableFuture<T> instrument(StoreTimer.Event event, CompletableFuture<T> future) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor());
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            future = eventTimer.instrument(event, future, getExecutor());
         }
         return future;
     }
 
     public <T> CompletableFuture<T> instrument(Set<StoreTimer.Event> event, CompletableFuture<T> future) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor());
+        FDBStoreTimer eventTimer = getTimerForEvents(event);
+        if (eventTimer != null) {
+            future = eventTimer.instrument(event, future, getExecutor());
         }
         return future;
     }
 
     public <T> CompletableFuture<T> instrument(StoreTimer.Event event, CompletableFuture<T> future, long startTime) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor(), startTime);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            future = eventTimer.instrument(event, future, getExecutor(), startTime);
         }
         return future;
     }
 
     public <T> RecordCursor<T> instrument(StoreTimer.Event event, RecordCursor<T> inner) {
-        if (timer != null) {
-            inner = timer.instrument(event, inner);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            inner = eventTimer.instrument(event, inner);
         }
         return inner;
     }
@@ -151,8 +180,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#record(StoreTimer.Event, long) StoreTimer.record()
      */
     public void record(@Nonnull StoreTimer.Event event, long timeDelta) {
-        if (timer != null) {
-            timer.record(event, timeDelta);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            eventTimer.record(event, timeDelta);
         }
     }
 
@@ -163,8 +193,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#increment(StoreTimer.Count) StoreTimer.increment()
      */
     public void increment(@Nonnull StoreTimer.Count count) {
-        if (timer != null) {
-            timer.increment(count);
+        FDBStoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count);
         }
     }
 
@@ -176,8 +207,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#increment(StoreTimer.Count, int) StoreTimer.increment()
      */
     public void increment(@Nonnull StoreTimer.Count count, int amount) {
-        if (timer != null) {
-            timer.increment(count, amount);
+        FDBStoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count, amount);
         }
     }
 }

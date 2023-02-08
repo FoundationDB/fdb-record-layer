@@ -1152,17 +1152,19 @@ public class VersionIndexTest extends FDBTestBase {
                 // We leave the version if it's stored with the record
                 assertEquals(version, newVersion);
             }
+            // The legacy version space should be empty now, either because it was deleted or because the version was
+            // never there
+            assertFalse(context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext());
+            context.commit();
+
             // There should be 4 range deletes per former index, plus 1 for the version space, if required.
             // This assert may need to change if additional indexes subspaces are created
-            long rangeDeletes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
+            long rangeDeletes = context.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
             if (inLegacyVersionSpace) {
                 assertEquals(9L, rangeDeletes);
             } else {
                 assertEquals(8L, rangeDeletes);
             }
-            // The legacy version space should be empty now, either because it was deleted or because the version was
-            // never there
-            assertFalse(context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext());
         }
     }
 

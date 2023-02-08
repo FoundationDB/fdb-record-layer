@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -341,8 +342,8 @@ public class FDBStoreTimerTest {
                 try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     Transaction tr = context.ensureActive();
                     tr.set(subspace.pack(Tuple.from(1L)), Tuple.from(1L).pack());
-                    tr.get(subspace.pack(Tuple.from(1L)));
-                    tr.get(subspace.pack(Tuple.from(1L)));
+                    tr.get(subspace.pack(Tuple.from(1L))).join();
+                    tr.get(subspace.pack(Tuple.from(1L))).join();
 
                     // Make sure we get metrics even if there is no commit
                     if (i != 1) {
@@ -351,13 +352,115 @@ public class FDBStoreTimerTest {
                 }
             }
             assertThat(listener.transactions, equalTo(3));
-            assertThat(listener.reads, equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
-            assertThat(listener.writes, equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+            assertThat(listener.reads, equalTo(6));
+            assertThat(listener.writes, equalTo(2));
             assertThat(listener.commits, equalTo(2));
             assertThat(listener.closes, equalTo(3));
         } finally {
             FDBDatabaseFactory.instance().setTransactionListener(null);
         }
+    }
+
+    @Test
+    void testDelayedForCommit() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.RANGE_DELETES));
+            context.commit();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.RANGE_DELETES));
+        }
+    }
+
+    @Test
+    void testMultipleTransactionsShareTimerSomeCommit() {
+        final int contextCount = 20;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final List<FDBRecordContext> contexts = new ArrayList<>(contextCount);
+        try {
+            for (int i = 0; i < contextCount; i++) {
+                FDBRecordContext context = fdb.openContext(null, timer);
+                context.getReadVersion();
+                contexts.add(context);
+            }
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+
+            int bytesRead = 0;
+            int bytesWritten = 0;
+            for (int i = 0; i < contextCount; i++) {
+                FDBRecordContext context = contexts.get(i);
+                byte[] key = subspace.pack(Tuple.from(i / 5, i % 5));
+                byte[] value = context.ensureActive().get(key).join();
+                context.ensureActive().set(key, value);
+
+                bytesRead += value.length;
+                if (i % 2 == 0) {
+                    bytesWritten += key.length + value.length;
+                }
+            }
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+
+            // Only commit the event transactions (note: i += 2, not i++)
+            for (int i = 0; i < contextCount; i += 2) {
+                contexts.get(i).commit();
+            }
+
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+            assertEquals(contextCount / 2, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            assertEquals(bytesWritten, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+        } finally {
+            contexts.forEach(FDBRecordContext::close);
+        }
+    }
+
+    @Test
+    void doNotAddDelayedMetricsOnFailedCommit() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context1 = fdb.openContext(null, timer);
+                FDBRecordContext context2 = fdb.openContext(null, timer)) {
+            context1.getReadVersion();
+            context2.getReadVersion();
+
+            // Use context1 to read all keys beginning with 1
+            final List<KeyValue> beginsWith1 = context1.ensureActive()
+                    .getRange(subspace.range(Tuple.from(1)))
+                    .asList()
+                    .join();
+
+            // Use context2 to read all keys beginning with 2
+            final List<KeyValue> beginsWith2 = context2.ensureActive()
+                    .getRange(subspace.range(Tuple.from(2)))
+                    .asList()
+                    .join();
+
+            byte[] value = Tuple.from("blah").pack();
+            // Update a key beginning with 2 using context 1
+            byte[] key1 = subspace.pack(Tuple.from(2, 3));
+            context1.ensureActive().set(key1, value);
+
+            // Update a key beginning with 1 using context 2
+            byte[] key2 = subspace.pack(Tuple.from(1, 4));
+            context2.ensureActive().set(key2, value);
+
+            context1.commit();
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit);
+
+            // Reads contain updates from both transactions
+            int bytesRead = beginsWith1.stream().mapToInt(kv -> kv.getKey().length + kv.getValue().length).sum()
+                    + beginsWith2.stream().mapToInt(kv -> kv.getKey().length + kv.getValue().length).sum();
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+
+            // Writes only include the transaction that successfully committed
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            int bytesWritten = key1.length + value.length;
+            assertEquals(bytesWritten, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+        }
+
     }
 
     @Test

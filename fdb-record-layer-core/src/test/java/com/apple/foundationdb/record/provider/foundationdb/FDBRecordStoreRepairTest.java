@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -273,12 +274,13 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
             openUnsplitRecordStore(context, hook);
             assertNull(recordStore.repairRecordKeys(null, ScanProperties.FORWARD_SCAN, isDryRun).get(),
                     "Did not expect a continuation!");
+            context.commit();
 
-            assertEquals(repairedKeys, context.getTimer().getCount(FDBStoreTimer.Counts.REPAIR_RECORD_KEY));
-            assertEquals(invalidKeyLengths, context.getTimer().getCount(FDBStoreTimer.Counts.INVALID_KEY_LENGTH));
-            assertEquals(invalidSplitSuffixes, context.getTimer().getCount(FDBStoreTimer.Counts.INVALID_SPLIT_SUFFIX));
-
-            commit(context);
+            final FDBStoreTimer timer = Objects.requireNonNull(context.getTimer());
+            assertEquals(repairedKeys, timer.getCount(FDBStoreTimer.Counts.REPAIR_RECORD_KEY));
+            assertEquals(invalidKeyLengths, timer.getCount(FDBStoreTimer.Counts.INVALID_KEY_LENGTH));
+            assertEquals(invalidSplitSuffixes, timer.getCount(FDBStoreTimer.Counts.INVALID_SPLIT_SUFFIX));
+            timer.reset();
         }
     }
 
