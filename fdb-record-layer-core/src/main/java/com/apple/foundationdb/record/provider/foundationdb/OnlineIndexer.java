@@ -814,15 +814,44 @@ public class OnlineIndexer implements AutoCloseable {
         return getIndexer().markIndexReadable(true);
     }
 
-    enum IndexingStampOperation {
-        QUERY, BLOCK, UNBLOCK,
+    /**
+     * Query the current indexing session.
+     * Note that this query cannot tell if another process is actively indexing now, but whether or not an index is in
+     * the process of being built (and how).
+     * @return a map of target indexes and their "indexing stamps".
+     */
+    @API(API.Status.EXPERIMENTAL)
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionQuery() {
+        return indexingStamp(IndexingBase.IndexingStampOperation.QUERY, null, null);
     }
 
+    /**
+     * Block partly built indexes, preventing continuation.
+     * Active indexing sessions will check for this block according to {@link IndexingPolicy.Builder#checkIndexingStampFrequencyMilliseconds(long)}.}
+     * @param id if non null, will be added to the "indexing stamp" as an id/hint for the blocking reason.
+     * @param ttlSeconds if non null, the block will automatically expire after this value (in seconds).
+     * @return a map of target indexes and their "indexing stamps" before the change.
+     */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingStampOperation op, @Nullable String id, @Nullable  Integer timeoutSeconds) {
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionBlock(@Nullable String id, @Nullable Long ttlSeconds)  {
+        return indexingStamp(IndexingBase.IndexingStampOperation.BLOCK, id, ttlSeconds);
+    }
+
+    /**
+     * Unblock partly built indexes, allowing continuation.
+     * @param id if non-null nor empty, unblock the indexes only if this matches the id in the "indexing stamp", as was
+     * set by {@link #indexingSessionBlock(String, Long)}.
+     * @return  a map of target indexes and their "indexing stamps" before the change.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionUnblock(@Nullable String id) {
+        return indexingStamp(IndexingBase.IndexingStampOperation.UNBLOCK, id, null);
+    }
+
+    private AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingBase.IndexingStampOperation op, @Nullable String id, @Nullable Long ttlSeconds) {
         ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
         // any indexer will do
-        asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OP, getIndexer().indexingStamp(oldStamps, op, id, timeoutSeconds));
+        asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION, getIndexer().indexingStamp(oldStamps, op, id, ttlSeconds));
         return oldStamps;
     }
 

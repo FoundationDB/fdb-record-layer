@@ -42,6 +42,7 @@ import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -805,12 +806,21 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // 2. Block indexing
         FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
         openSimpleMetaData(localHook);
-        String luka = "my name is Luka";
+        String luka = "Blocked by Luka";
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.BLOCK, luka, 10);
+            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.indexingSessionBlock(luka, 10L);
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
+                assertFalse(stamp.getBlock());
+            }
         }
 
         // 3. query, ensure blocked
@@ -820,8 +830,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.QUERY, null, 0);
-            System.out.println(stampMap);
+                    indexer.indexingSessionQuery();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -830,8 +839,8 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
                 assertEquals(luka, stamp.getBlockID());
-                assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
-                assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
             }
         }
 
@@ -889,12 +898,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // 2. Block indexing
         FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
         openSimpleMetaData(localHook);
-        String luka = "my name is Luka";
+        String luka = "Blocked by Luka";
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.BLOCK, luka, 2);
+            indexer.indexingSessionBlock(luka, 2L);
         }
 
         // 3. fail continue without unblock

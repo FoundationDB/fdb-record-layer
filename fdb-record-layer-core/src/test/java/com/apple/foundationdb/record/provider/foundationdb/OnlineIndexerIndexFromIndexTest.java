@@ -1121,55 +1121,58 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         final int chunkSize  = 12;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
-        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
-        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
-
         openSimpleMetaData();
         populateData(numRecords);
 
-        openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", sourceIndex));
+        buildSrcIndex(sourceIndex);
 
         // Partly build index
+        Index targetIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, targetIndex);
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
+        buildIndexAndCrashHalfway(targetIndex, chunkSize, 1, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
 
         openSimpleMetaData(hook);
-        String luka = "my name is Luka";
+        String luka = "Blocked by Luka: Feb 2023";
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setIndex(tgtIndex)
+                .setIndex(targetIndex)
                 .build()) {
-            indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.BLOCK, luka, 10);
+            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.indexingSessionBlock(luka, 10L);
+            String indexName = targetIndex.getName();
+            final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
+            assertFalse(stamp.getBlock());
         }
 
         // query, ensure blocked
         openSimpleMetaData(hook);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setIndex(tgtIndex)
+                .setIndex(targetIndex)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingStamp(OnlineIndexer.IndexingStampOperation.QUERY, null, 0);
-            System.out.println(stampMap);
-            String indexName = tgtIndex.getName();
+                    indexer.indexingSessionQuery();
+            String indexName = targetIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertTrue(stamp.getBlock());
             assertEquals(luka, stamp.getBlockID());
-            assertTrue(stamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000));
-            assertTrue(stamp.getBlockExpireEpochSeconds() < 20 + (System.currentTimeMillis() / 1000));
+            assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+            assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
         }
 
         // ensure blocked
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+                .addTargetIndex(targetIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -1180,11 +1183,15 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
         }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexWriteOnly(targetIndex));
+            context.commit();
+        }
 
         // Successfully build
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+                .addTargetIndex(targetIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -1201,5 +1208,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(targetIndex));
+            context.commit();
+        }
     }
 }

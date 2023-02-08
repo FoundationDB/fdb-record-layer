@@ -398,7 +398,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait for an {@link IndexOperation} to complete. */
         WAIT_INDEX_OPERATION("wait for index operation"),
         /** Wait for indexing type stamp operation. */
-        WAIT_INDEX_TYPESTAMP_OP("wait for indexing type stamp operation"),
+        WAIT_INDEX_TYPESTAMP_OPERATION("wait for indexing type stamp operation"),
         /** Wait for adding an index. */
         WAIT_ADD_INDEX("wait for adding an index"),
         /** Wait for dropping an index. */

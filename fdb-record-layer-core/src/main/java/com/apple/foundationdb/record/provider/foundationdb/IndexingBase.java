@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -62,6 +61,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -584,16 +584,10 @@ public abstract class IndexingBase {
                                                 IndexBuildProto.IndexBuildIndexingStamp savedStamp,
                                                 IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
                                                 Index index) {
-        return new PartlyBuiltException(savedStamp, expectedStamp, index.getName(),
+        return new PartlyBuiltException(savedStamp, expectedStamp, index, common.getUuid(),
                 savedStamp.hasBlock() && savedStamp.getBlock() ?
                 "This index was partly built, and blocked" :
-                "This index was partly built by another method",
-                LogMessageKeys.INDEX_NAME, index,
-                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                LogMessageKeys.INDEXER_ID, common.getUuid(),
-                LogMessageKeys.CONTINUED_BUILD, continuedBuild,
-                LogMessageKeys.EXPECTED, expectedStamp,
-                LogMessageKeys.ACTUAL, savedStamp);
+                "This index was partly built by another method");
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
@@ -826,7 +820,6 @@ public abstract class IndexingBase {
                         .thenAccept(typeStamp -> validateTypeStamp(typeStamp, expectedTypeStamp, index)));
     }
 
-
     private void validateTypeStamp(final IndexBuildProto.IndexBuildIndexingStamp typeStamp,
                                    final IndexBuildProto.IndexBuildIndexingStamp expectedTypeStamp,
                                    Index index) {
@@ -836,20 +829,15 @@ public abstract class IndexingBase {
         }
         if (typeStamp == null || typeStamp.getMethod() != expectedTypeStamp.getMethod() || isTypeStampBlocked(typeStamp)) {
             throw new PartlyBuiltException(typeStamp, expectedTypeStamp,
-                    index.getName(), "Indexing stamp had changed",
-                    LogMessageKeys.INDEX_NAME, index,
-                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid(),
-                    LogMessageKeys.EXPECTED, expectedTypeStamp,
-                    LogMessageKeys.ACTUAL, typeStamp);
+                    index, common.getUuid(), "Indexing stamp had changed");
         }
     }
 
     private static boolean isTypeStampBlocked(final IndexBuildProto.IndexBuildIndexingStamp typeStamp) {
         return typeStamp.hasBlock() && typeStamp.getBlock() &&
-               (!typeStamp.hasBlockExpireEpochSeconds() ||
-                typeStamp.getBlockExpireEpochSeconds() == 0 ||
-                typeStamp.getBlockExpireEpochSeconds() > (System.currentTimeMillis() / 1000L));
+               (!typeStamp.hasBlockExpireEpochMilliSeconds() ||
+                typeStamp.getBlockExpireEpochMilliSeconds() == 0 ||
+                typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
@@ -952,13 +940,17 @@ public abstract class IndexingBase {
         }
     }
 
+    enum IndexingStampOperation {
+        QUERY, BLOCK, UNBLOCK,
+    }
+
     CompletableFuture<Void> indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
-                                          @Nullable OnlineIndexer.IndexingStampOperation op,
+                                          @Nullable IndexingStampOperation op,
                                           @Nullable String id,
-                                          @Nullable  Integer timeoutSeconds) {
+                                          @Nullable Long ttlSeconds) {
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> store.loadIndexingTypeStampAsync(index)
-                    .thenApply(stamp -> indexingStamp(oldStamps, store, index, stamp, op, id, timeoutSeconds)))
+                    .thenApply(stamp -> indexingStamp(oldStamps, store, index, stamp, op, id, ttlSeconds)))
         ));
     }
 
@@ -966,35 +958,27 @@ public abstract class IndexingBase {
                           @Nonnull FDBRecordStore store,
                           @Nonnull Index index,
                           @Nullable IndexBuildProto.IndexBuildIndexingStamp stamp,
-                          @Nullable OnlineIndexer.IndexingStampOperation op,
+                          @Nullable IndexingStampOperation op,
                           @Nullable String id,
-                          @Nullable  Integer timeoutSeconds
-    ) {
+                          @Nullable  Long ttlSeconds) {
         oldStamps.put(index.getName(), stamp != null ? stamp :
                                        IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                                               .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.INVALID)
+                                               .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
                                                .build());
-        if (op == null || stamp == null || op.equals(OnlineIndexer.IndexingStampOperation.QUERY)) {
+        if (op == null || stamp == null || op.equals(IndexingStampOperation.QUERY)) {
             return false;
         }
 
-        IndexBuildProto.IndexBuildIndexingStamp.Builder builder;
-        try {
-            builder = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(stamp.toByteArray()).toBuilder();
-        } catch (InvalidProtocolBufferException e) {
-            return false;
-        }
+        IndexBuildProto.IndexBuildIndexingStamp.Builder builder = stamp.toBuilder();
 
-        if (op == OnlineIndexer.IndexingStampOperation.BLOCK) {
+        if (op == IndexingStampOperation.BLOCK) {
             builder.setBlock(true);
-            if (id != null) {
-                builder.setBlockID(id);
-            }
-            if (timeoutSeconds != null && timeoutSeconds > 0) {
-                builder.setBlockExpireEpochSeconds((int)(System.currentTimeMillis() / 1000) + timeoutSeconds);
+            builder.setBlockID(id == null ? "" : id);
+            if (ttlSeconds != null && ttlSeconds > 0) {
+                builder.setBlockExpireEpochMilliSeconds(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ttlSeconds));
             }
         }
-        if (op == OnlineIndexer.IndexingStampOperation.UNBLOCK &&
+        if (op == IndexingStampOperation.UNBLOCK &&
                 (id == null || id.isEmpty() || id.equals(stamp.getBlockID()))) {
             builder.setBlock(false);
         }
@@ -1055,17 +1039,34 @@ public abstract class IndexingBase {
 
         public PartlyBuiltException(IndexBuildProto.IndexBuildIndexingStamp savedStamp,
                                     IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
-                                    String indexName,
-                                    @Nonnull String msg,
-                                    @Nullable Object ... keyValues) {
-            super(msg, keyValues);
+                                    Index index,
+                                    UUID uuid,
+                                    @Nonnull String msg) {
+            super(msg,
+                    LogMessageKeys.INDEX_NAME, index,
+                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                    LogMessageKeys.EXPECTED, expectedStamp,
+                    LogMessageKeys.ACTUAL, savedStamp,
+                    LogMessageKeys.INDEXER_ID, uuid);
             this.savedStamp = savedStamp;
             this.expectedStamp = expectedStamp;
-            this.indexName = indexName;
+            this.indexName = index.getName();
+        }
+
+        public boolean wasBlocked() {
+            return savedStamp.getBlock();
         }
 
         public IndexBuildProto.IndexBuildIndexingStamp getSavedStamp() {
             return savedStamp;
+        }
+
+        public IndexBuildProto.IndexBuildIndexingStamp getExpectedStamp() {
+            return expectedStamp;
+        }
+
+        public String getIndexName() {
+            return indexName;
         }
     }
 

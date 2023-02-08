@@ -34,6 +34,7 @@ message IndexBuildIndexingStamp {
     SCRUB_REPAIR = 3;  // while readable, verify index validity. Repair if needed.
     MULTI_TARGET_BY_RECORDS = 4; // scan records, build multiple target indexes
     MUTUAL_BY_RECORDS = 5; // scan records, build multiple target indexes, while allowing multiple indexer processes
+    NONE = 6; // return this stamp in query when null - never to be written in the DB
   };
   optional Method method = 1;
   optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method
@@ -41,7 +42,7 @@ message IndexBuildIndexingStamp {
   repeated string targetIndex = 4; // (Only with MULTI_TARGET & MUTUAL) list of target indexes sorted alphabetically
                                    // the first item is used as the primary index
   optional bool block = 5; // if true and unexpired, indexing may not be continued
-  optional uint32 blockExpireEpochSeconds = 6; // if non zero, the block expiration time in seconds since epoch
+  optional uint64 blockExpireEpochMilliSeconds = 6; // if non zero, the block expiration time in milliseconds since epoch
   optional string blockID = 7; // optional, a short string that describes the reason for the block.
  }
 
