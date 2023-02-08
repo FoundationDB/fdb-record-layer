@@ -215,7 +215,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (result.isEmpty()) {
             // if any of the candidate predicates has a restriction (range defined) return empty set.
             if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> p instanceof ValueWithRanges.Placeholder
-                                                                                             && ((ValueWithRanges.Placeholder)p).getComparisons() != null)) {
+                                                                                             && !((ValueWithRanges.Placeholder)p).getRanges().isEmpty())) {
                 return Set.of();
             }
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);

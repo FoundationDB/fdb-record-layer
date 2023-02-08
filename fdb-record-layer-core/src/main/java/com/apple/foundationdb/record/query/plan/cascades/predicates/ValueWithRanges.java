@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -44,7 +45,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -110,12 +110,37 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         return PlanHashable.planHash(hashKind, value);
     }
 
+    @Nonnull
+    public abstract Set<CompileTimeEvaluableRange> getRanges();
+
+    public boolean impliedBy(@NonNull final AliasMap aliasMap,
+                             @Nonnull final ValueWithRanges other) {
+        if (!value.semanticEquals(other.value, aliasMap)) {
+            return false;
+        }
+        final var leftDisjunction = getRanges();
+        final var rightDisjunction = other.getRanges();
+        for (final var left : leftDisjunction) {
+            if (!left.isCompileTimeEvaluable() || !left.isEmpty().equals(FALSE) || rightDisjunction.stream().noneMatch(right -> right.implies(left).equals(TRUE))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Nonnull
     public static Placeholder placeholder(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, parameterAlias);
     }
 
+    @Nonnull
     public static Sargable sargable(@Nonnull Value value, @Nonnull final CompileTimeEvaluableRange range) {
         return new Sargable(value, range);
+    }
+
+    @Nonnull
+    public static ValueConstraint constraint(@Nonnull final Value value, @Nonnull final Set<CompileTimeEvaluableRange> ranges) {
+        return new ValueConstraint(value, ranges);
     }
 
     /**
@@ -130,17 +155,17 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         @Nonnull
         private final CorrelationIdentifier alias;
 
-        @Nullable
-        private final Collection<CompileTimeEvaluableRange> compileTimeEvaluableRanges;
+        @Nonnull
+        private final Set<CompileTimeEvaluableRange> compileTimeEvaluableRanges;
 
         public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias) {
-            this(value, alias, null);
+            this(value, alias, Set.of());
         }
 
-        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier alias, @Nullable Collection<CompileTimeEvaluableRange> compileTimeEvaluableRange) {
+        public Placeholder(@Nonnull final Value value, @Nonnull final CorrelationIdentifier alias, @Nonnull final Set<CompileTimeEvaluableRange> compileTimeEvaluableRange) {
             super(value);
             this.alias = alias;
-            this.compileTimeEvaluableRanges = compileTimeEvaluableRange == null ? null : ImmutableList.copyOf(compileTimeEvaluableRange);
+            this.compileTimeEvaluableRanges = ImmutableSet.copyOf(compileTimeEvaluableRange);
         }
 
         @Nonnull
@@ -150,13 +175,8 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         }
 
         @Nonnull
-        public Placeholder withCompileTimeRanges(@Nonnull final Collection<CompileTimeEvaluableRange> ranges) {
+        public Placeholder withCompileTimeRanges(@Nonnull final Set<CompileTimeEvaluableRange> ranges) {
             return new Placeholder(getValue(), alias, ranges);
-        }
-
-        @Nonnull
-        public Placeholder withCompileTimeRange(@Nonnull final CompileTimeEvaluableRange range) {
-            return new Placeholder(getValue(), alias, List.of(range));
         }
 
         @Nonnull
@@ -164,8 +184,9 @@ public abstract class ValueWithRanges implements PredicateWithValue {
             return alias;
         }
 
-        @Nullable
-        public Collection<CompileTimeEvaluableRange> getComparisons() {
+        @Nonnull
+        @Override
+        public Set<CompileTimeEvaluableRange> getRanges() {
             return compileTimeEvaluableRanges;
         }
 
@@ -244,8 +265,8 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         }
 
         @Nonnull
-        public CompileTimeEvaluableRange getRange() {
-            return range;
+        public Set<CompileTimeEvaluableRange> getRanges() {
+            return Set.of(range);
         }
 
         @Nonnull
@@ -307,67 +328,48 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         @Override
         public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
                                                                     @Nonnull final QueryPredicate candidatePredicate) {
-            if (candidatePredicate instanceof Placeholder) {
-                final Placeholder candidatePlaceholder = (Placeholder)candidatePredicate;
+            if (candidatePredicate instanceof ValueWithRanges) {
+                final ValueWithRanges candidatePlaceholder = (ValueWithRanges)candidatePredicate;
 
                 // the value on which the placeholder is defined must be the same as the sargable's.
                 if (!getValue().semanticEquals(candidatePlaceholder.getValue(), aliasMap)) {
                     return Optional.empty();
                 }
 
-                // if the placeholder has a compile-time range (filtered index) check to see whether it implies
+                // if the candidate predicate has a compile-time range (filtered index) check to see whether it implies
                 // (some) of the predicate comparisons.
-                if (candidatePlaceholder.compileTimeEvaluableRanges != null) {
-                    if (range.isCompileTimeEvaluable() && range.isEmpty().equals(FALSE) && candidatePlaceholder.compileTimeEvaluableRanges.stream().anyMatch(placeHolderRange -> placeHolderRange.implies(range).equals(TRUE))) {
-                        return Optional.of(new PredicateMapping(this,
-                                candidatePredicate,
-                                ((partialMatch, boundParameterPrefixMap) -> {
-                                    if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
-                                        return Optional.empty();
-                                    }
-                                    return injectCompensationFunctionMaybe();
-                                }),
-                                candidatePlaceholder.getAlias()));
+                if (candidatePlaceholder.getRanges().isEmpty() || impliedBy(aliasMap, candidatePlaceholder)) {
+                    // create a compensation function
+                    PredicateMultiMap.CompensatePredicateFunction compensation;
+                    Optional<CorrelationIdentifier> parameterAlias = Optional.empty();
+                    if (candidatePredicate instanceof Placeholder) {
+                        final var placeholder = (Placeholder)candidatePredicate;
+                        compensation = (ignore, boundParameterPrefixMap) -> {
+                            if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
+                                return Optional.empty();
+                            }
+                            return injectCompensationFunctionMaybe();
+                        };
+                        parameterAlias = Optional.of(placeholder.alias);
                     } else {
-                        return Optional.empty();
+                        Verify.verify(candidatePredicate instanceof ValueConstraint);
+                        final var constraint = (ValueConstraint)candidatePredicate;
+                        compensation = (ignore, alsoIgnore) -> {
+                            // no need for compensation if range boundaries match between candidate constraint and query sargable
+                            if (constraint.ranges.stream().anyMatch(constraintRange -> range.implies(constraintRange).equals(TRUE))) {
+                                return Optional.empty();
+                            }
+                            return injectCompensationFunctionMaybe();
+                        };
                     }
-                } else {
                     // we found a compatible association between a comparison range in the query and a
                     // parameter placeholder in the candidate
-                    return Optional.of(new PredicateMapping(this,
-                            candidatePredicate,
-                            ((partialMatch, boundParameterPrefixMap) -> {
-                                if (boundParameterPrefixMap.containsKey(candidatePlaceholder.getAlias())) {
-                                    return Optional.empty();
-                                }
-                                return injectCompensationFunctionMaybe();
-                            }),
-                            candidatePlaceholder.getAlias()));
-                }
-            } else if (candidatePredicate instanceof ValueConstraint) {
-                final var valueConstraint = (ValueConstraint)candidatePredicate;
-                // the value on which the placeholder is defined must be the same as the sargable's.
-                if (!getValue().semanticEquals(valueConstraint.getValue(), aliasMap)) {
-                    return Optional.empty();
-                }
-                final var constraintRanges = valueConstraint.getRanges();
-                if (range.isCompileTimeEvaluable() && range.isEmpty().equals(FALSE) && constraintRanges.stream().anyMatch(placeHolderRange -> placeHolderRange.implies(range).equals(TRUE))) {
-                    return Optional.of(new PredicateMapping(this,
-                            candidatePredicate,
-                            ((partialMatch, boundParameterPrefixMap) -> {
-                                // no need for compensation if range boundaries match between candidate placeholder and query sargable
-                                if (constraintRanges.stream().anyMatch(placeHolderRange -> range.implies(placeHolderRange).equals(TRUE))) {
-                                    return Optional.empty();
-                                }
-                                return injectCompensationFunctionMaybe();
-                            })));
+                    return Optional.of(new PredicateMapping(this, candidatePredicate, compensation, parameterAlias));
                 } else {
                     return Optional.empty();
                 }
             } else if (candidatePredicate.isTautology()) {
-                return Optional.of(new PredicateMapping(this,
-                        candidatePredicate,
-                        ((partialMatch, boundParameterPrefixMap) -> injectCompensationFunctionMaybe())));
+                return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
             }
 
             //
@@ -378,9 +380,7 @@ public abstract class ValueWithRanges implements PredicateWithValue {
             if (semanticEquals(candidatePredicate, aliasMap)) {
                 // Note that we never have to reapply the predicate as both sides are always semantically
                 // equivalent.
-                return Optional.of(new PredicateMapping(this,
-                        candidatePredicate,
-                        ((matchInfo, boundParameterPrefixMap) -> Optional.empty())));
+                return Optional.of(new PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.EMPTY));
             }
 
             return Optional.empty();
@@ -432,21 +432,21 @@ public abstract class ValueWithRanges implements PredicateWithValue {
          * Collection (disjunction) of ranges.
          */
         @Nonnull
-        private final Collection<CompileTimeEvaluableRange> ranges;
+        private final Set<CompileTimeEvaluableRange> ranges;
 
         /**
          * Constructs a new instance of {@link ValueConstraint}.
          *
          * @param value The value on which the predicated ranges are defined.
-         * @param ranges The predicates ranges.
+         * @param ranges Disjunction of ranges.
          */
-        public ValueConstraint(@Nonnull final Value value, @Nonnull final Collection<CompileTimeEvaluableRange> ranges) {
+        public ValueConstraint(@Nonnull final Value value, @Nonnull final Set<CompileTimeEvaluableRange> ranges) {
             super(value);
-            this.ranges = ranges;
+            this.ranges = ImmutableSet.copyOf(ranges);
         }
 
         @Nonnull
-        public Collection<CompileTimeEvaluableRange> getRanges() {
+        public Set<CompileTimeEvaluableRange> getRanges() {
             return ranges;
         }
 

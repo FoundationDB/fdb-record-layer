@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -35,8 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +47,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -107,6 +112,72 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new OrPredicate(ImmutableList.copyOf(newChildren));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
+        if (!(candidatePredicate instanceof OrPredicate)) {
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        }
+
+        final var candidateOr = (OrPredicate)candidatePredicate;
+
+        // if both sides are semantically equal, return a match.
+        if (this.semanticEquals(candidateOr, aliasMap)) {
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.EMPTY));
+        }
+
+        // if the child is not in DNF form, bail out.
+        final var candidateChildren = candidateOr.getChildren();
+        if (!candidateChildren.stream().allMatch(candidateChild -> candidateChild instanceof ValueWithRanges)) {
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        }
+
+        // ... and same for side
+        if (!getChildren().stream().allMatch(child -> child instanceof ValueWithRanges)) {
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        }
+
+        // each leg of this must match a companion from the candidate.
+        // also check if we can get an exact match, because if so, we do not need to generate a compnesation.
+        var requiresCompensation = false;
+        for (final var child : getChildren()) {
+            final var leftPredicate = (ValueWithRanges)child;
+            for (final var candidateChild : candidateChildren) {
+                final var leftRange = Iterables.getOnlyElement(leftPredicate.getRanges()); // sargable
+                final var rightRanges = ((ValueWithRanges)candidateChild).getRanges();
+                boolean foundMatch = false;
+                boolean termRequiresCompensation = true;
+                for (final var rightRange : rightRanges) {
+                    if (rightRange.implies(leftRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                        foundMatch = true;
+                        if (leftRange.implies(rightRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                            termRequiresCompensation = false;
+                            break;
+                        }
+                    }
+                }
+                if (!foundMatch) {
+                    return Optional.empty();
+                }
+                requiresCompensation = requiresCompensation || termRequiresCompensation;
+            }
+
+        }
+        // need a compensation, because at least one leg did not find an exactly-matching companion, in this case,
+        // add this predicate as a residual on top.
+        if (requiresCompensation) {
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this,
+                    candidatePredicate,
+                    ((partialMatch, boundParameterPrefixMap) ->
+                             Objects.requireNonNull(foldNullable(Function.identity(),
+                                     (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                                             boundParameterPrefixMap,
+                                             ImmutableList.copyOf(childFunctions)))))));
+        } else {
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.EMPTY));
+        }
     }
 
     @Nonnull

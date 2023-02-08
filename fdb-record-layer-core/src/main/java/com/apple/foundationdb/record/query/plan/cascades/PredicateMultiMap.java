@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Sargable;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -61,6 +62,9 @@ public class PredicateMultiMap {
                 (partialMatch, boundPrefixMap) -> {
                     throw new RecordCoreException("should not be called");
                 };
+
+        CompensatePredicateFunction EMPTY =
+                (partialMatch, boundPrefixMap) -> Optional.empty();
         
         @Nonnull
         Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull PartialMatch partialMatch,
@@ -124,6 +128,13 @@ public class PredicateMultiMap {
             this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.of(parameterAlias));
         }
 
+        public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
+                                @Nonnull final QueryPredicate candidatePredicate,
+                                @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
+                                @Nonnull final Optional<CorrelationIdentifier> parameterAlias) {
+            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias);
+        }
+
         private PredicateMapping(@Nonnull final Kind mappingKind,
                                  @Nonnull final QueryPredicate queryPredicate,
                                  @Nonnull final Optional<QueryPredicate> candidatePredicateOptional,
@@ -174,7 +185,7 @@ public class PredicateMultiMap {
 
             final Sargable predicateConjunctionPredicate = (Sargable)this.queryPredicate;
 
-            return Optional.of(predicateConjunctionPredicate.getRange().asComparisonRange());
+            return Optional.of(Iterables.getOnlyElement(predicateConjunctionPredicate.getRanges()).asComparisonRange());
         }
 
         @Nonnull

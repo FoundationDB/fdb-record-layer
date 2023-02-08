@@ -290,6 +290,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         return Objects.hash(range, nonCompileTimeComparisons);
     }
 
+    @Nonnull
     public EvalResult isEmpty() {
         if (nonCompileTimeComparisons.isEmpty()) {
             if (Objects.requireNonNull(range).isEmpty()) {
@@ -301,6 +302,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         return EvalResult.UNKNOWN;
     }
 
+    @Nonnull
     public EvalResult isEquality() {
         if (nonCompileTimeComparisons.isEmpty()) {
             if (Objects.requireNonNull(range).hasLowerBound() && range.hasUpperBound() && range.lowerEndpoint().equals(range.upperEndpoint())) {
@@ -312,12 +314,28 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         return EvalResult.UNKNOWN;
     }
 
+    @Nonnull
+    public EvalResult implies(@Nonnull final CompileTimeEvaluableRange other) {
+        if (!isCompileTimeEvaluable() || !other.isCompileTimeEvaluable()) {
+            return EvalResult.UNKNOWN;
+        } else if (range == null) { // full range implies everything
+            return EvalResult.TRUE;
+        } else if (other.range == null) { // other is full range, we are not -> false
+            return EvalResult.FALSE;
+        } else if (range.encloses(other.range)) {
+            return EvalResult.TRUE;
+        } else {
+            return EvalResult.FALSE;
+        }
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, range);
     }
 
     @Override
+    @Nonnull
     public String toString() {
         final var result = new StringBuilder();
         if (range == null) {
@@ -330,6 +348,23 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
                     .collect(Collectors.joining(" && " )));
         }
         return result.toString();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final CompileTimeEvaluableRange that = (CompileTimeEvaluableRange)o;
+        return Objects.equals(range, that.range) && nonCompileTimeComparisons.equals(that.nonCompileTimeComparisons);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(range, nonCompileTimeComparisons);
     }
 
     static class Boundary implements Comparable<Boundary> {
@@ -598,24 +633,8 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         return new Builder();
     }
 
-
     @Nonnull
     public static CompileTimeEvaluableRange empty() {
         return Builder.emptyRange;
-    }
-
-    @Nonnull
-    public EvalResult implies(@Nonnull final CompileTimeEvaluableRange other) {
-        if (!isCompileTimeEvaluable() || !other.isCompileTimeEvaluable()) {
-            return EvalResult.UNKNOWN;
-        } else if (range == null) { // full range implies everything
-            return EvalResult.TRUE;
-        } else if (other.range == null) { // other is full range, we are not -> false
-            return EvalResult.FALSE;
-        } else if (range.encloses(other.range)) {
-            return EvalResult.TRUE;
-        } else {
-            return EvalResult.FALSE;
-        }
     }
 }

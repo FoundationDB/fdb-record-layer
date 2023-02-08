@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
@@ -50,7 +51,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
@@ -117,39 +120,25 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var keyValueExpansion =
                 pop(rootExpression.expand(push(initialState)));
 
+        allExpansionsBuilder.add(keyValueExpansion);
+
         if (index.hasPredicate()) {
-            final var predicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
-            // predicate must be in DNF.
-            // TODO check
-            // OR ( AND(ValuePredicate(col1, <100), ValuePredicate(col1, >0)), AND(ValuePredicate(col2, =10), AND(ValuePredicate(col1, >40))) )
-            final var predicatedGraphExpansion = GraphExpansion.builder();
-            predicatedGraphExpansion.addAllPredicates(keyValueExpansion.getPredicates());
-            predicatedGraphExpansion.addAllQuantifiers(keyValueExpansion.getQuantifiers());
-            predicatedGraphExpansion.addAllResultColumns(keyValueExpansion.getResultColumns());
-            final var mutablePlaceholders = new ArrayList<>(keyValueExpansion.getPlaceholders());
-            final var valueRanges = dfnPredicateToRanges(predicate);
-            // rewrite sargables as placeholder compile-time ranges.
+            final var filteredIndexPredicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+            final var valueRanges = dnfPredicateToRanges(filteredIndexPredicate);
+            final var predicateExpansionBuilder = GraphExpansion.builder();
             for (final var value : valueRanges.keySet()) {
-                boolean found = false;
-                for (int i = 0; i < mutablePlaceholders.size(); ++i) {
-                    final var placeholder = mutablePlaceholders.get(i);
-                    if (placeholder.getValue().semanticEquals(value, AliasMap.identitiesFor(placeholder.getCorrelatedTo()))) {
-                        found = true;
-                        mutablePlaceholders.remove(i);
-                        mutablePlaceholders.add(placeholder.withCompileTimeRanges(valueRanges.get(value)));
-                        break;
-                    }
-                    // if the placeholder is not found, we must represent the predicate as a _new_ thing on the candidate
-                    // that is used only for matching, but NOT as a placeholder. For now we just throw.
-                }
-                if (!found) {
-                    predicatedGraphExpansion.addPredicate(new ValueWithRanges.ValueConstraint(value, valueRanges.get(value)));
+                // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                final var maybePlaceholder = keyValueExpansion.getPlaceholders()
+                        .stream()
+                        .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                        .findFirst();
+                if (maybePlaceholder.isEmpty()) {
+                    predicateExpansionBuilder.addPredicate(new ValueWithRanges.ValueConstraint.ValueConstraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                } else {
+                    predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withCompileTimeRanges(ImmutableSet.copyOf(valueRanges.get(value))));
                 }
             }
-            predicatedGraphExpansion.addAllPlaceholders(mutablePlaceholders);
-            allExpansionsBuilder.add(predicatedGraphExpansion.build());
-        } else {
-            allExpansionsBuilder.add(keyValueExpansion);
+            allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
         final var keySize = keyValues.size();
@@ -178,8 +167,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final var parameters = completeExpansion.getPlaceholderAliases();
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
+        final var sealedExpansion = completeExpansion.seal();
+        final var parameters = sealedExpansion.getPlaceholders().stream().map(ValueWithRanges.Placeholder::getAlias).collect(Collectors.toList());
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
@@ -192,10 +182,20 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 primaryKey);
     }
 
+    /**
+     * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups its int a mapping from a {@link Value}
+     * and list of corresponding {@link CompileTimeEvaluableRange}.
+     * For example: {@code OR(AND(v1, <3), AND(v2 >4), AND(v1<4))} will be transformed to the following:
+     * {@code v1 -> [(-∞,3), (-∞, 4)], v2 -> [(4, +∞)]}.
+     *
+     * @param predicate The predicate to transform.
+     * @return A mapping from a {@link Value} and list of corresponding {@link CompileTimeEvaluableRange}.
+     */
     @Nonnull
-    private static Multimap<Value, CompileTimeEvaluableRange> dfnPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+    private static Multimap<Value, CompileTimeEvaluableRange> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
         ImmutableMultimap.Builder<Value, CompileTimeEvaluableRange> result = ImmutableMultimap.builder();
 
+        // simple case: x > 3 is DNF
         if (!(predicate instanceof OrPredicate)) {
             conjunctionToRange(predicate, result, predicate);
         } else {
@@ -211,7 +211,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         if (group instanceof AndPredicate) {
             final var terms = ((AndPredicate)group).getChildren();
             Optional<Value> key = Optional.empty();
-            var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
+            final var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
             for (final var term : terms) {
                 if (!(term instanceof ValuePredicate)) {
                     throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));

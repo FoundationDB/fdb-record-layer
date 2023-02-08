@@ -57,6 +57,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
@@ -548,7 +549,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // unmapped other set now. The reasoning is that this predicate is not filtering, so it does not cause
                     // records to be filtered that are not filtered on the query side.
                     remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof Placeholder && ((Placeholder)queryPredicate).getComparisons() == null));
+                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof Placeholder && ((Placeholder)queryPredicate).getRanges().isEmpty()));
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
@@ -666,7 +667,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
             } else if (predicate instanceof Sargable) {
-                final var predicateRange = ((Sargable)predicate).getRange();
+                final var predicateRange = Iterables.getOnlyElement(((Sargable)predicate).getRanges());
                 rangeBuilder.add(predicateRange);
             } else {
                 result.add(predicate);

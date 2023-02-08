@@ -36,10 +36,12 @@ import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Class to abstract behavior when query expansion is applied to query components or key expressions. An object of this
@@ -189,13 +191,27 @@ public class GraphExpansion {
                         .collect(ImmutableList.toImmutableList());
 
         if (!placeholders.isEmpty()) {
+
+            // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them.
+            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> {
+                final var leftComparisons = left.getRanges();
+                if (leftComparisons.isEmpty()) {
+                    return right;
+                }
+                final var rightComparisons = right.getRanges();
+                if (rightComparisons.isEmpty()) {
+                    return left;
+                }
+                return left.withCompileTimeRanges(Stream.concat(leftComparisons.stream(), rightComparisons.stream()).collect(Collectors.toSet()));
+            })).values());
+
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
             final var localPredicates = ImmutableSet.copyOf(getPredicates());
-            final var resultPlaceHolders = Lists.newArrayList(placeholders);
+            final var resultPlaceHolders = Lists.newArrayList(deDupPlaceholders);
             final var localPlaceHolderPairs =
-                    IntStream.range(0, placeholders.size())
-                            .mapToObj(i -> Pair.of(placeholders.get(i), i))
+                    IntStream.range(0, deDupPlaceholders.size())
+                            .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
                             .filter(p -> localPredicates.contains(p.getKey()))
                             .collect(Collectors.toList());
 
