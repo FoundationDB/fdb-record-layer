@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -77,7 +79,7 @@ public class Index {
     private int lastModifiedVersion;
 
     @Nullable
-    private RecordMetaDataProto.Predicate predicate;
+    private IndexPredicate.IndexPredicateProvider predicate;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -110,7 +112,7 @@ public class Index {
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options) {
-        this(name, rootExpression, type, options, null);
+        this(name, rootExpression, type, options, (IndexPredicate)null);
     }
 
     /**
@@ -126,7 +128,24 @@ public class Index {
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options,
-                 @Nullable RecordMetaDataProto.Predicate predicate) {
+                 @Nullable IndexPredicate predicate) {
+        this(name, rootExpression, type, options, predicate == null ? null : IndexPredicate.IndexPredicateProvider.getInstance(predicate));
+    }
+
+    /**
+     * Construct new index meta-data.
+     * @param name the name of the index, which is unique for the whole meta-data
+     * @param rootExpression the key expression for the index, such as what field(s) to index
+     * @param type the type of index
+     * @param options additional options, which may be type-specific
+     * @param predicate index predicate, for sparse indexes, can be null.
+     * @see IndexTypes
+     */
+    public Index(@Nonnull String name,
+                 @Nonnull KeyExpression rootExpression,
+                 @Nonnull String type,
+                 @Nonnull Map<String, String> options,
+                 @Nullable IndexPredicate.IndexPredicateProvider predicate) {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
@@ -181,7 +200,7 @@ public class Index {
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
         if (orig.predicate != null) {
-            this.predicate = RecordMetaDataProto.Predicate.newBuilder(orig.predicate).build();
+            this.predicate = orig.predicate; // IndexPredicate is immutable
         }
     }
 
@@ -230,7 +249,7 @@ public class Index {
             lastModifiedVersion = proto.getLastModifiedVersion();
         }
         if (proto.hasPredicate()) {
-            this.predicate = proto.getPredicate();
+            this.predicate = IndexPredicate.IndexPredicateProvider.getInstance(proto.getPredicate());
         } else {
             this.predicate = null;
         }
@@ -621,8 +640,11 @@ public class Index {
      * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
      */
     @Nullable
-    public RecordMetaDataProto.Predicate getPredicate() {
-        return predicate;
+    public IndexPredicate getPredicate(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+        if (predicate == null) {
+            return null;
+        }
+        return predicate.getIndexPredicate(alias, inputType);
     }
 
     /**
@@ -663,7 +685,7 @@ public class Index {
             builder.setLastModifiedVersion(lastModifiedVersion);
         }
         if (predicate != null) {
-            builder.setPredicate(predicate);
+            builder.setPredicate(predicate.toProto());
         }
         return builder.build();
     }

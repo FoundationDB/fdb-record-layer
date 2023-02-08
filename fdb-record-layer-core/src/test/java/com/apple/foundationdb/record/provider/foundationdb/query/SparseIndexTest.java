@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -127,13 +128,13 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
      * @param predicate The predicate of the filtered index.
      */
     private static void setupIndex(@Nonnull final RecordMetaDataBuilder metaData, @Nonnull final QueryPredicate predicate) {
-        final QueryPredicate.Serializable normalized = (QueryPredicate.Serializable)BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(predicate).orElse(predicate);
+        final var normalized = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(predicate).orElse(predicate);
         final var protoIndexBuilder = RecordMetaDataProto.Index.newBuilder()
                 .setName("SparseIndex")
                 .addRecordType("MySimpleRecord")
                 .setType(IndexTypes.VALUE)
                 .setRootExpression(field("num_value_2").toKeyExpression())
-                .setPredicate(normalized.toProto())
+                .setPredicate(IndexPredicate.fromQueryPredicate(normalized).toProto())
                 .build();
         final var index = new Index(protoIndexBuilder);
         metaData.addIndex("MySimpleRecord", index);

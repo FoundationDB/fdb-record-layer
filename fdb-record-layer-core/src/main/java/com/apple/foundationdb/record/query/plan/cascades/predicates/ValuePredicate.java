@@ -24,18 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.KeyExpressionUtils;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -48,7 +42,7 @@ import java.util.Set;
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePredicate implements PredicateWithValue, QueryPredicate.Serializable {
+public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
@@ -143,32 +137,5 @@ public class ValuePredicate implements PredicateWithValue, QueryPredicate.Serial
     @Override
     public String toString() {
         return value + " " + comparison;
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Predicate toProto() {
-        return RecordMetaDataProto.Predicate.newBuilder()
-                .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder()
-                        .setValue(KeyExpressionUtils.toKeyExpression(value).toKeyExpression())
-                        .setComparison(((Comparison.Serializable)comparison).toProto())
-                        .build())
-                .build();
-    }
-
-    @Override
-    public boolean isSerializable() {
-        return comparison.isSerializable() && KeyExpressionUtils.convertibleToKeyExpression(value);
-    }
-
-    @Nonnull
-    public static ValuePredicate deserialize(@Nonnull final RecordMetaDataProto.ValuePredicate proto,
-                                             @Nonnull final CorrelationIdentifier alias,
-                                             @Nonnull final Type inputType) {
-        Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", ValuePredicate.class));
-        Verify.verify(proto.hasComparison(), String.format("attempt to deserialize %s without comparison", ValuePredicate.class));
-        final var value = new ScalarTranslationVisitor(KeyExpression.fromProto(proto.getValue())).toResultValue(alias, inputType);
-        final var comparison = Comparison.deserialize(proto.getComparison());
-        return new ValuePredicate(value, comparison);
     }
 }

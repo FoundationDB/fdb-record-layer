@@ -38,6 +38,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -192,7 +193,8 @@ public class GraphExpansion {
 
         if (!placeholders.isEmpty()) {
 
-            // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them.
+            // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
+            // order of parameters determines their sargability.
             final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> {
                 final var leftComparisons = left.getRanges();
                 if (leftComparisons.isEmpty()) {
@@ -203,7 +205,7 @@ public class GraphExpansion {
                     return left;
                 }
                 return left.withCompileTimeRanges(Stream.concat(leftComparisons.stream(), rightComparisons.stream()).collect(Collectors.toSet()));
-            })).values());
+            }, LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.

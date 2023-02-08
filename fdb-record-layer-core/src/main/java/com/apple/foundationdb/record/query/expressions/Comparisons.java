@@ -29,12 +29,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
@@ -736,42 +734,6 @@ public class Comparisons {
         default int semanticHashCode() {
             return hashCode();
         }
-
-        /**
-         * Tag interface marking a {@link Comparison} as serializable for Protobuf.
-         */
-        interface Serializable extends Comparison {
-
-            /**
-             * Returns a serialized protobuf version of the {@link Comparison}.
-             * @return a serialized protobuf version of the {@link Comparison}.
-             */
-            @Nonnull
-            RecordMetaDataProto.Comparison toProto();
-        }
-
-        /**
-         * Determines whether the {@link Comparison} is serializable or not.
-         * @return {@code true} of the {@link Comparison} is serializable, otherwise {@code false}.
-         */
-        default boolean isSerializable() {
-            return this instanceof Comparison.Serializable;
-        }
-
-        /**
-         * Deserializes a given protobuf {@link Comparison} message into an equivalent {@link Comparison} object.
-         * @param comparison The {@link Comparison} serialized protobuf message.
-         * @return An equivalent {@link Comparison} object.
-         */
-        @Nonnull
-        static Comparison deserialize(@Nonnull final RecordMetaDataProto.Comparison comparison) {
-            if (comparison.hasSimpleComparison()) {
-                return SimpleComparison.deserialize(comparison.getSimpleComparison());
-            } else if (comparison.hasNullComparison()) {
-                return NullComparison.deserialize(comparison.getNullComparison());
-            }
-            throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", comparison));
-        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -787,7 +749,7 @@ public class Comparisons {
     /**
      * A comparison with a constant value.
      */
-    public static class SimpleComparison implements Comparison, Comparison.Serializable {
+    public static class SimpleComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
 
         @Nonnull
@@ -926,89 +888,6 @@ public class Comparisons {
         @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
-        }
-
-        @Nonnull
-        @Override
-        public RecordMetaDataProto.Comparison toProto() {
-            RecordMetaDataProto.ComparisonType comparisonType;
-            switch (type) {
-                case EQUALS:
-                    comparisonType = RecordMetaDataProto.ComparisonType.EQUALS;
-                    break;
-                case NOT_EQUALS:
-                    comparisonType = RecordMetaDataProto.ComparisonType.NOT_EQUALS;
-                    break;
-                case LESS_THAN:
-                    comparisonType = RecordMetaDataProto.ComparisonType.LESS_THAN;
-                    break;
-                case LESS_THAN_OR_EQUALS:
-                    comparisonType = RecordMetaDataProto.ComparisonType.LESS_THAN_OR_EQUALS;
-                    break;
-                case GREATER_THAN:
-                    comparisonType = RecordMetaDataProto.ComparisonType.GREATER_THAN;
-                    break;
-                case GREATER_THAN_OR_EQUALS:
-                    comparisonType = RecordMetaDataProto.ComparisonType.GREATER_THAN_OR_EQUALS;
-                    break;
-                case NOT_NULL:
-                    comparisonType = RecordMetaDataProto.ComparisonType.NOT_NULL;
-                    break;
-                case IS_NULL:
-                    comparisonType = RecordMetaDataProto.ComparisonType.IS_NULL;
-                    break;
-                case IN: // fallthrough
-                case TEXT_CONTAINS_ALL: // fallthrough
-                case TEXT_CONTAINS_ALL_WITHIN: // fallthrough
-                case TEXT_CONTAINS_ANY: // fallthrough
-                case TEXT_CONTAINS_PHRASE: // fallthrough
-                case TEXT_CONTAINS_PREFIX: // fallthrough
-                case TEXT_CONTAINS_ALL_PREFIXES: // fallthrough
-                case TEXT_CONTAINS_ANY_PREFIX: // fallthrough
-                case SORT: // fallthrough
-                default:
-                    throw new RecordCoreException(String.format("serialising comparison type '%s' is not supported", type));
-            }
-            return RecordMetaDataProto.Comparison.newBuilder().setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
-                            .setType(comparisonType)
-                            .setOperand(LiteralKeyExpression.toProtoValue(comparand))
-                            .build())
-                    .build();
-        }
-
-        @Nonnull
-        public static SimpleComparison deserialize(@Nonnull final RecordMetaDataProto.SimpleComparison proto) {
-            final var comparand = Objects.requireNonNull(LiteralKeyExpression.fromProtoValue(proto.getOperand()));
-            Type comparisonType;
-            switch (proto.getType()) {
-                case EQUALS:
-                    comparisonType = Type.EQUALS;
-                    break;
-                case NOT_EQUALS:
-                    comparisonType = Type.NOT_EQUALS;
-                    break;
-                case LESS_THAN:
-                    comparisonType = Type.LESS_THAN;
-                    break;
-                case LESS_THAN_OR_EQUALS:
-                    comparisonType = Type.LESS_THAN_OR_EQUALS;
-                    break;
-                case GREATER_THAN:
-                    comparisonType = Type.GREATER_THAN;
-                    break;
-                case GREATER_THAN_OR_EQUALS:
-                    comparisonType = Type.GREATER_THAN_OR_EQUALS;
-                    break;
-                case NOT_NULL:
-                    comparisonType = Type.NOT_NULL;
-                    break;
-                case IS_NULL:
-                    comparisonType = Type.IS_NULL;
-                    break;
-                default:
-                    throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison type '%s'", proto.getType()));
-            }
-            return new SimpleComparison(comparisonType, comparand);
         }
     }
 
@@ -1614,7 +1493,7 @@ public class Comparisons {
     /**
      * A unary predicate for special nullity checks, such as {@code NULL} and {@code NOT NULL}.
      */
-    public static class NullComparison implements Comparison, Comparison.Serializable {
+    public static class NullComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Comparison");
 
         @Nonnull
@@ -1704,18 +1583,6 @@ public class Comparisons {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
-        }
-
-        @Nonnull
-        @Override
-        public RecordMetaDataProto.Comparison toProto() {
-            return RecordMetaDataProto.Comparison.newBuilder()
-                    .setNullComparison(RecordMetaDataProto.NullComparison.newBuilder().setIsNull(type.equals(Type.IS_NULL)).build()).build();
-        }
-
-        @Nonnull
-        public static NullComparison deserialize(@Nonnull final RecordMetaDataProto.NullComparison proto) {
-            return new NullComparison(proto.getIsNull() ? Type.IS_NULL : Type.NOT_NULL);
         }
     }
 

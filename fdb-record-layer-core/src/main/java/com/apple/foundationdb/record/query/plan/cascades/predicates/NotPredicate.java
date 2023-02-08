@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -33,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -52,7 +50,7 @@ import java.util.Optional;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotPredicate implements QueryPredicateWithChild, QueryPredicate.Serializable {
+public class NotPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
     @Nonnull
@@ -144,29 +142,6 @@ public class NotPredicate implements QueryPredicateWithChild, QueryPredicate.Ser
                     childGraphExpansion.getQuantifiers(),
                     ImmutableList.of());
         });
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Predicate toProto() {
-        return RecordMetaDataProto.Predicate.newBuilder()
-                .setNotPredicate(RecordMetaDataProto.NotPredicate.newBuilder()
-                        .setChild(((QueryPredicate.Serializable)child).toProto())
-                        .build())
-                .build();
-    }
-
-    @Nonnull
-    public static NotPredicate deserialize(@Nonnull final RecordMetaDataProto.NotPredicate proto,
-                                           @Nonnull final CorrelationIdentifier alias,
-                                           @Nonnull final Type inputType) {
-        final var child = QueryPredicate.deserialize(proto.getChild(), alias, inputType);
-        return new NotPredicate(child);
-    }
-
-    @Override
-    public boolean isSerializable() {
-        return getChild().isSerializable();
     }
 
     @Nonnull

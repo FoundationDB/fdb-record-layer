@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -537,7 +538,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         }
 
         public boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
-            return comparison instanceof Comparisons.Comparison.Serializable && allowedComparisonTypes.contains(comparison.getType());
+            return IndexComparison.isSupported(comparison) && allowedComparisonTypes.contains(comparison.getType());
         }
 
         private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {

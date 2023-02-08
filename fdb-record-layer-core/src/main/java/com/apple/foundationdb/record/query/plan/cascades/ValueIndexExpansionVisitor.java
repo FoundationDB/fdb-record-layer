@@ -51,7 +51,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -123,7 +122,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         allExpansionsBuilder.add(keyValueExpansion);
 
         if (index.hasPredicate()) {
-            final var filteredIndexPredicate = QueryPredicate.deserialize(Objects.requireNonNull(index.getPredicate()), baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())).toPredicate();
             final var valueRanges = dnfPredicateToRanges(filteredIndexPredicate);
             final var predicateExpansionBuilder = GraphExpansion.builder();
             for (final var value : valueRanges.keySet()) {

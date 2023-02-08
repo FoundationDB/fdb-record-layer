@@ -23,15 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -156,26 +153,5 @@ public class AndPredicate extends AndOrPredicate {
         }
 
         return ImmutableList.of(queryPredicate);
-    }
-
-    @Nonnull
-    @Override
-    public RecordMetaDataProto.Predicate toProto() {
-        // TODO (hatyo) memoize
-        Verify.verify(getChildren().stream().allMatch(child -> child instanceof QueryPredicate.Serializable),
-                String.format("attempt to serialize non-serializable %s", AndPredicate.class));
-        final var andPredicateProto = RecordMetaDataProto.AndPredicate.newBuilder();
-        for (final var child : getChildren()) {
-            andPredicateProto.addChildren(((QueryPredicate.Serializable)child).toProto());
-        }
-        return RecordMetaDataProto.Predicate.newBuilder().setAndPredicate(andPredicateProto.build()).build();
-    }
-
-    @Nonnull
-    public static AndPredicate deserialize(@Nonnull final RecordMetaDataProto.AndPredicate proto,
-                                           @Nonnull final CorrelationIdentifier alias,
-                                           @Nonnull final Type inputType) {
-        final var children = proto.getChildrenList().stream().map(child -> QueryPredicate.deserialize(child, alias, inputType)).collect(Collectors.toList());
-        return new AndPredicate(children);
     }
 }
