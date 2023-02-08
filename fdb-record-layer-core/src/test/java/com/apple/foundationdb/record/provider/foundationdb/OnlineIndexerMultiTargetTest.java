@@ -289,7 +289,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
-        final int chunkSize  = 17;
+        final int chunkSize  = 13;
 
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
