@@ -929,6 +929,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue()
                         .setMutualIndexingBoundaries(boundaries))
                 .setLimit(1)
                 .setConfigLoader(old -> {
