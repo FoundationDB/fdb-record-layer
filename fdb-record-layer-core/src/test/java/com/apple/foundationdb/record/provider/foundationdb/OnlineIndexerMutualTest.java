@@ -1015,7 +1015,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                         .setTargetIndexes(indexes)
                         .build()) {
-                    indexer.indexingSessionBlock(null, 0L);
+                    indexer.blockIndexBuilds(null, 0L);
                 }
             } else {
                 oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 1);
@@ -1036,7 +1036,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -1067,7 +1067,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionUnblock(null);
+                    indexer.unblockIndexBuilds(null);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -1095,7 +1095,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -1141,7 +1141,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            indexer.indexingSessionBlock(luka, 10L);
+            indexer.blockIndexBuilds(luka, 10L);
         }
 
         // Test query, ensure blocked
@@ -1151,7 +1151,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -1231,7 +1231,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes.subList(1, 3))
                 .build()) {
-            indexer.indexingSessionBlock(luka, 10L);
+            indexer.blockIndexBuilds(luka, 10L);
         }
 
         // Test query, ensure blocked
@@ -1241,7 +1241,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             IntStream.range(0, indexNames.size()).forEach(i -> {
@@ -1329,7 +1329,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                             .setTargetIndexes(indexes)
                             .build()) {
-                        indexer.indexingSessionBlock(null, 0L);
+                        indexer.blockIndexBuilds(null, 0L);
                     }
                     context.commit();
                 }
@@ -1373,7 +1373,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -1404,7 +1404,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionUnblock(null);
+                    indexer.unblockIndexBuilds(null);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {

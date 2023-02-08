@@ -55,8 +55,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -460,16 +464,16 @@ public abstract class IndexingBase {
     }
 
     private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        return
-            areSimilar(newStamp, savedStamp)
-            ?
-            (!isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockID()))
-            :
-            policy.shouldAllowTakeoverContinue() &&
-               (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) ||
-               (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
+        if (areSimilar(newStamp, savedStamp)) {
+            return !isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockID());
+        }
+        if (policy.shouldAllowTakeoverContinue()) {
+            return (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
+                     savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) ||
+                    (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
+                     savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
+        }
+        return false;
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
@@ -585,7 +589,7 @@ public abstract class IndexingBase {
                                                 IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
                                                 Index index) {
         return new PartlyBuiltException(savedStamp, expectedStamp, index, common.getUuid(),
-                savedStamp.hasBlock() && savedStamp.getBlock() ?
+                savedStamp.getBlock() ?
                 "This index was partly built, and blocked" :
                 "This index was partly built by another method");
     }
@@ -834,9 +838,8 @@ public abstract class IndexingBase {
     }
 
     private static boolean isTypeStampBlocked(final IndexBuildProto.IndexBuildIndexingStamp typeStamp) {
-        return typeStamp.hasBlock() && typeStamp.getBlock() &&
-               (!typeStamp.hasBlockExpireEpochMilliSeconds() ||
-                typeStamp.getBlockExpireEpochMilliSeconds() == 0 ||
+        return typeStamp.getBlock() &&
+               (typeStamp.getBlockExpireEpochMilliSeconds() == 0 ||
                 typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
@@ -944,14 +947,14 @@ public abstract class IndexingBase {
         QUERY, BLOCK, UNBLOCK,
     }
 
-    CompletableFuture<Void> indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
-                                          @Nullable IndexingStampOperation op,
-                                          @Nullable String id,
-                                          @Nullable Long ttlSeconds) {
+    CompletableFuture<AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp>> indexingStamp(@Nullable IndexingStampOperation op,
+                                                                                                  @Nullable String id,
+                                                                                                  @Nullable Long ttlSeconds) {
+        ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> store.loadIndexingTypeStampAsync(index)
                     .thenApply(stamp -> indexingStamp(oldStamps, store, index, stamp, op, id, ttlSeconds)))
-        ));
+        )).thenApply(ignore -> oldStamps);
     }
 
     boolean indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
@@ -1045,8 +1048,8 @@ public abstract class IndexingBase {
             super(msg,
                     LogMessageKeys.INDEX_NAME, index,
                     LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                    LogMessageKeys.EXPECTED, expectedStamp,
-                    LogMessageKeys.ACTUAL, savedStamp,
+                    LogMessageKeys.EXPECTED, stampToString(expectedStamp),
+                    LogMessageKeys.ACTUAL, stampToString(savedStamp),
                     LogMessageKeys.INDEXER_ID, uuid);
             this.savedStamp = savedStamp;
             this.expectedStamp = expectedStamp;
@@ -1061,8 +1064,37 @@ public abstract class IndexingBase {
             return savedStamp;
         }
 
+        public String getSavedStampString() {
+            return stampToString(getSavedStamp());
+        }
+
         public IndexBuildProto.IndexBuildIndexingStamp getExpectedStamp() {
             return expectedStamp;
+        }
+
+        public String getExpectedStampString() {
+            return stampToString(getExpectedStamp());
+        }
+
+        public static String stampToString(IndexBuildProto.IndexBuildIndexingStamp stamp) {
+            final StringBuilder str = new StringBuilder("IndexingStamp(")
+                    .append(stamp.getMethod())
+                    .append(", target:")
+                    .append(stamp.getTargetIndexList());
+            if (stamp.getBlock()) {
+                str.append(", blocked");
+                String id = stamp.getBlockID();
+                if (id != null && !id.isEmpty()) {
+                    str.append(", blockId{").append(id).append("} ");
+                }
+                long expirationMillis = stamp.getBlockExpireEpochMilliSeconds();
+                if (expirationMillis > 0) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-mm-dd_HH:mm:ss");
+                    Date expirationDate = new Date(expirationMillis);
+                    str.append(", blockExpires{").append(sdf.format(expirationDate)).append("}");
+                }
+            }
+            return str.append(")").toString();
         }
 
         public String getIndexName() {

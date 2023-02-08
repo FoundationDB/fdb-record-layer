@@ -1145,7 +1145,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndex(targetIndex)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionBlock(luka, 10L);
+                    indexer.blockIndexBuilds(luka, 10L);
             String indexName = targetIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
@@ -1159,7 +1159,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndex(targetIndex)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             String indexName = targetIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());

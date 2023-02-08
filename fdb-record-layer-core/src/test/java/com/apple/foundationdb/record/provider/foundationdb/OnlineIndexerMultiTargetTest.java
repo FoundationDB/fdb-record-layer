@@ -812,7 +812,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionBlock(luka, 10L);
+                    indexer.blockIndexBuilds(luka, 10L);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -830,7 +830,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTargetIndexes(indexes)
                 .build()) {
             final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
-                    indexer.indexingSessionQuery();
+                    indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
@@ -903,7 +903,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            indexer.indexingSessionBlock(luka, 2L);
+            indexer.blockIndexBuilds(luka, 2L);
         }
 
         // 3. fail continue without unblock

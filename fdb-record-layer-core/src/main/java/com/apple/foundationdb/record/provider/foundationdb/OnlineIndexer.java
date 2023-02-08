@@ -59,7 +59,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -225,8 +224,8 @@ public class OnlineIndexer implements AutoCloseable {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
                                 LogMessageKeys.CURR_ATTEMPT, attemptCount,
                                 LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction,
-                                LogMessageKeys.ACTUAL, conflictingIndexingTypeStamp,
-                                LogMessageKeys.EXPECTED, partlyBuiltException.expectedStamp)
+                                LogMessageKeys.ACTUAL, partlyBuiltException.getSavedStampString(),
+                                LogMessageKeys.EXPECTED, partlyBuiltException.getExpectedStampString())
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
@@ -821,7 +820,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps".
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionQuery() {
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> queryIndexingStamps() {
         return indexingStamp(IndexingBase.IndexingStampOperation.QUERY, null, null);
     }
 
@@ -833,26 +832,25 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionBlock(@Nullable String id, @Nullable Long ttlSeconds)  {
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
         return indexingStamp(IndexingBase.IndexingStampOperation.BLOCK, id, ttlSeconds);
     }
 
     /**
      * Unblock partly built indexes, allowing continuation.
      * @param id if non-null nor empty, unblock the indexes only if this matches the id in the "indexing stamp", as was
-     * set by {@link #indexingSessionBlock(String, Long)}.
+     * set by {@link #blockIndexBuilds(String, Long)}.
      * @return  a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingSessionUnblock(@Nullable String id) {
+    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {
         return indexingStamp(IndexingBase.IndexingStampOperation.UNBLOCK, id, null);
     }
 
     private AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingBase.IndexingStampOperation op, @Nullable String id, @Nullable Long ttlSeconds) {
-        ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
         // any indexer will do
-        asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION, getIndexer().indexingStamp(oldStamps, op, id, ttlSeconds));
-        return oldStamps;
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
+                getIndexer().indexingStamp(op, id, ttlSeconds));
     }
 
     /**
