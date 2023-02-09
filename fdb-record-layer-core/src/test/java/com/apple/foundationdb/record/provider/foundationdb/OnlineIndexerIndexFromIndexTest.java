@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
-import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1144,7 +1144,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setIndex(targetIndex)
                 .build()) {
-            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.blockIndexBuilds(luka, 10L);
             String indexName = targetIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
@@ -1158,7 +1158,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setIndex(targetIndex)
                 .build()) {
-            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             String indexName = targetIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);

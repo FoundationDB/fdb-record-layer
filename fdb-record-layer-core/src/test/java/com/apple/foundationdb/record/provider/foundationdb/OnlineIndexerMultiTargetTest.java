@@ -32,10 +32,10 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -811,7 +811,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.blockIndexBuilds(luka, 10L);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
@@ -829,7 +829,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
                 .setTargetIndexes(indexes)
                 .build()) {
-            final AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));

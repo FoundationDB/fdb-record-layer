@@ -51,7 +51,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -820,7 +819,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps".
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> queryIndexingStamps() {
+    Map<String, IndexBuildProto.IndexBuildIndexingStamp> queryIndexingStamps() {
         return indexingStamp(IndexingBase.IndexingStampOperation.QUERY, null, null);
     }
 
@@ -832,7 +831,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
+    Map<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
         return indexingStamp(IndexingBase.IndexingStampOperation.BLOCK, id, ttlSeconds);
     }
 
@@ -843,14 +842,14 @@ public class OnlineIndexer implements AutoCloseable {
      * @return  a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {
+    Map<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {
         return indexingStamp(IndexingBase.IndexingStampOperation.UNBLOCK, id, null);
     }
 
-    private AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingBase.IndexingStampOperation op, @Nullable String id, @Nullable Long ttlSeconds) {
+    private Map<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingBase.IndexingStampOperation op, @Nullable String id, @Nullable Long ttlSeconds) {
         // any indexer will do
         return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
-                getIndexer().indexingStamp(op, id, ttlSeconds));
+                getIndexer().performIndexingStampOperation(op, id, ttlSeconds));
     }
 
     /**

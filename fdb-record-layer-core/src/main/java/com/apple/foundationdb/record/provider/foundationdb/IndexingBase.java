@@ -56,14 +56,13 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.SimpleDateFormat;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -477,12 +476,16 @@ public abstract class IndexingBase {
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        return savedStamp.getMethod() == newStamp.getMethod()
-               && savedStamp.getTargetIndexList().size() == newStamp.getTargetIndexList().size()
-               && new HashSet<>(savedStamp.getTargetIndexList()).containsAll(newStamp.getTargetIndexList())
-               && (savedStamp.getMethod() != IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX
-                   || (savedStamp.getSourceIndexSubspaceKey().equals(newStamp.getSourceIndexSubspaceKey())
-                       && savedStamp.getSourceIndexLastModifiedVersion() == newStamp.getSourceIndexLastModifiedVersion()));
+        return newStamp.equals(savedStamp) // The common case, or so we hope
+               || blocklessStampOf(newStamp).equals(blocklessStampOf(savedStamp));
+    }
+
+    private static IndexBuildProto.IndexBuildIndexingStamp blocklessStampOf(IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        return stamp.toBuilder()
+                .setBlock(false)
+                .setBlockID("")
+                .setBlockExpireEpochMilliSeconds(0)
+                .build();
     }
 
     @Nonnull
@@ -947,23 +950,23 @@ public abstract class IndexingBase {
         QUERY, BLOCK, UNBLOCK,
     }
 
-    CompletableFuture<AbstractMap<String, IndexBuildProto.IndexBuildIndexingStamp>> indexingStamp(@Nullable IndexingStampOperation op,
-                                                                                                  @Nullable String id,
-                                                                                                  @Nullable Long ttlSeconds) {
+    CompletableFuture<Map<String, IndexBuildProto.IndexBuildIndexingStamp>> performIndexingStampOperation(@Nullable IndexingStampOperation op,
+                                                                                                          @Nullable String id,
+                                                                                                          @Nullable Long ttlSeconds) {
         ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> store.loadIndexingTypeStampAsync(index)
-                    .thenApply(stamp -> indexingStamp(oldStamps, store, index, stamp, op, id, ttlSeconds)))
+                    .thenApply(stamp -> performIndexingStampOperation(oldStamps, store, index, stamp, op, id, ttlSeconds)))
         )).thenApply(ignore -> oldStamps);
     }
 
-    boolean indexingStamp(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
-                          @Nonnull FDBRecordStore store,
-                          @Nonnull Index index,
-                          @Nullable IndexBuildProto.IndexBuildIndexingStamp stamp,
-                          @Nullable IndexingStampOperation op,
-                          @Nullable String id,
-                          @Nullable  Long ttlSeconds) {
+    boolean performIndexingStampOperation(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
+                                          @Nonnull FDBRecordStore store,
+                                          @Nonnull Index index,
+                                          @Nullable IndexBuildProto.IndexBuildIndexingStamp stamp,
+                                          @Nullable IndexingStampOperation op,
+                                          @Nullable String id,
+                                          @Nullable  Long ttlSeconds) {
         oldStamps.put(index.getName(), stamp != null ? stamp :
                                        IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                                                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
