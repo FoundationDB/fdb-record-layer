@@ -23,13 +23,9 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.KeyExpressionUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -49,17 +46,17 @@ import java.util.stream.StreamSupport;
 public abstract class IndexPredicate {
 
     @Nonnull
-    public static IndexPredicate fromProto(@Nonnull final RecordMetaDataProto.Predicate proto, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    public static IndexPredicate fromProto(@Nonnull final RecordMetaDataProto.Predicate proto) {
         if (proto.hasAndPredicate()) {
-            return new AndPredicate(proto.getAndPredicate(), alias, inputType);
+            return new AndPredicate(proto.getAndPredicate());
         } else if (proto.hasOrPredicate()) {
-            return new OrPredicate(proto.getOrPredicate(), alias, inputType);
+            return new OrPredicate(proto.getOrPredicate());
         } else if (proto.hasConstantPredicate()) {
             return new ConstantPredicate(proto.getConstantPredicate());
         } else if (proto.hasNotPredicate()) {
-            return new NotPredicate(proto.getNotPredicate(), alias, inputType);
+            return new NotPredicate(proto.getNotPredicate());
         } else if (proto.hasValuePredicate()) {
-            return new ValuePredicate(proto.getValuePredicate(), alias, inputType);
+            return new ValuePredicate(proto.getValuePredicate());
         } else {
             throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto));
         }
@@ -93,7 +90,10 @@ public abstract class IndexPredicate {
         } else if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate) {
             return StreamSupport.stream(predicate.getChildren().spliterator(), false).allMatch(IndexPredicate::isSupported);
         } else if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
-            return IndexComparison.isSupported(((com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)predicate).getComparison());
+            final var valuePredicate = (com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)predicate;
+            return IndexComparison.isSupported(valuePredicate.getComparison()) &&
+                   valuePredicate.getValue() instanceof FieldValue &&
+                   ((FieldValue)valuePredicate.getValue()).getFieldPathNamesMaybe().stream().allMatch(Optional::isPresent);
         } else {
             return false;
         }
@@ -103,7 +103,7 @@ public abstract class IndexPredicate {
     public abstract RecordMetaDataProto.Predicate toProto();
 
     @Nonnull
-    public abstract QueryPredicate toPredicate();
+    public abstract QueryPredicate toPredicate(@Nonnull final Value value);
 
     static class AndPredicate extends IndexPredicate {
         @Nonnull
@@ -113,8 +113,8 @@ public abstract class IndexPredicate {
             this.children = ImmutableList.copyOf(children);
         }
 
-        public AndPredicate(@Nonnull final RecordMetaDataProto.AndPredicate proto, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
-            this.children = proto.getChildrenList().stream().map(c -> IndexPredicate.fromProto(c, alias, inputType)).collect(Collectors.toList());
+        public AndPredicate(@Nonnull final RecordMetaDataProto.AndPredicate proto) {
+            this.children = proto.getChildrenList().stream().map(IndexPredicate::fromProto).collect(Collectors.toList());
         }
 
         @VisibleForTesting
@@ -138,8 +138,8 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate() {
-            return new com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate(children.stream().map(c -> c.toPredicate()).collect(Collectors.toList()));
+        public QueryPredicate toPredicate(final @Nonnull Value value) {
+            return new com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
     }
 
@@ -151,8 +151,8 @@ public abstract class IndexPredicate {
             this.children = ImmutableList.copyOf(children);
         }
 
-        public OrPredicate(@Nonnull final RecordMetaDataProto.OrPredicate proto, final CorrelationIdentifier alias, final Type inputType) {
-            this.children = proto.getChildrenList().stream().map(c -> IndexPredicate.fromProto(c, alias, inputType)).collect(Collectors.toList());
+        public OrPredicate(@Nonnull final RecordMetaDataProto.OrPredicate proto) {
+            this.children = proto.getChildrenList().stream().map(IndexPredicate::fromProto).collect(Collectors.toList());
         }
 
         @VisibleForTesting
@@ -176,8 +176,8 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate() {
-            return new com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate(children.stream().map(c -> c.toPredicate()).collect(Collectors.toList()));
+        public QueryPredicate toPredicate(final @Nonnull Value value) {
+            return new com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
     }
 
@@ -254,8 +254,8 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate() {
-            switch (value) {
+        public QueryPredicate toPredicate(final @Nonnull Value value) {
+            switch (this.value) {
                 case TRUE:
                     return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
                 case FALSE:
@@ -263,7 +263,7 @@ public abstract class IndexPredicate {
                 case NULL:
                     return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.NULL;
                 default:
-                    throw new RecordCoreException(String.format("attempt to serialize unsupported value '%s'", value));
+                    throw new RecordCoreException(String.format("attempt to serialize unsupported value '%s'", this.value));
             }
         }
     }
@@ -276,8 +276,8 @@ public abstract class IndexPredicate {
             this.value = value;
         }
 
-        NotPredicate(@Nonnull final RecordMetaDataProto.NotPredicate notPredicate, final CorrelationIdentifier alias, final Type inputType) {
-            this.value = IndexPredicate.fromProto(notPredicate.getChild(), alias, inputType);
+        NotPredicate(@Nonnull final RecordMetaDataProto.NotPredicate notPredicate) {
+            this.value = IndexPredicate.fromProto(notPredicate.getChild());
         }
 
         @VisibleForTesting
@@ -302,40 +302,40 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate() {
-            return new com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate(value.toPredicate());
+        public QueryPredicate toPredicate(final @Nonnull Value value) {
+            return new com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate(this.value.toPredicate(value));
         }
     }
 
     static class ValuePredicate extends IndexPredicate {
         @Nonnull
-        private final Value value;
+        private final List<String> fieldPath;
 
         @Nonnull
         private final IndexComparison comparison;
 
-        ValuePredicate(@Nonnull final Value value, @Nonnull final IndexComparison comparison) {
-            this.value = value;
+        ValuePredicate(@Nonnull final List<String> fieldPath, @Nonnull final IndexComparison comparison) {
+            this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.comparison = comparison;
         }
 
         @VisibleForTesting
         ValuePredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
-            this.value = predicate.getValue();
+            Verify.verify(predicate.getValue() instanceof FieldValue);
+            this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathNames());
             this.comparison = IndexComparison.fromComparison(predicate.getComparison());
         }
 
-        ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
-            Verify.verify(proto.hasValue(), String.format("attempt to deserialize %s without value", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
+        ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
+            Verify.verify(proto.getValueCount() > 0, String.format("attempt to deserialize %s without value", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
             Verify.verify(proto.hasComparison(), String.format("attempt to deserialize %s without comparison", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
-            final var keyExpression = KeyExpression.fromProto(proto.getValue());
-            this.value = new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType);
+            this.fieldPath = ImmutableList.copyOf(proto.getValueList());
             this.comparison = IndexComparison.fromProto(proto.getComparison());
         }
 
         @Nonnull
-        public Value getValue() {
-            return value;
+        public List<String> getFieldPath() {
+            return fieldPath;
         }
 
         @Nonnull
@@ -348,7 +348,7 @@ public abstract class IndexPredicate {
         public RecordMetaDataProto.Predicate toProto() {
             return RecordMetaDataProto.Predicate.newBuilder()
                     .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder()
-                            .setValue(KeyExpressionUtils.toKeyExpression(value).toKeyExpression())
+                            .addAllValue(fieldPath)
                             .setComparison(comparison.toProto())
                             .build())
                     .build();
@@ -356,8 +356,8 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate() {
-            return new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(value, comparison.toComparison());
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
+            return new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(FieldValue.ofFieldNames(value, fieldPath), comparison.toComparison());
         }
     }
 
@@ -383,11 +383,11 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        IndexPredicate getIndexPredicate(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+        IndexPredicate getIndexPredicate() {
             if (indexPredicateReference.get() != null) {
                 return indexPredicateReference.get();
             }
-            indexPredicateReference.compareAndSet(null, IndexPredicate.fromProto(Objects.requireNonNull(proto.get()), alias, inputType));
+            indexPredicateReference.compareAndSet(null, IndexPredicate.fromProto(Objects.requireNonNull(proto.get())));
             return indexPredicateReference.get();
         }
 
@@ -409,6 +409,5 @@ public abstract class IndexPredicate {
         public static IndexPredicateProvider getInstance(@Nonnull final IndexPredicate predicate) {
             return new IndexPredicateProvider(predicate);
         }
-
     }
 }

@@ -640,11 +640,11 @@ public class Index {
      * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
      */
     @Nullable
-    public IndexPredicate getPredicate(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    public IndexPredicate getPredicate() {
         if (predicate == null) {
             return null;
         }
-        return predicate.getIndexPredicate(alias, inputType);
+        return predicate.getIndexPredicate();
     }
 
     /**

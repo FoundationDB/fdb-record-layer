@@ -122,7 +122,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         allExpansionsBuilder.add(keyValueExpansion);
 
         if (index.hasPredicate()) {
-            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())).toPredicate();
+            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
             final var valueRanges = dnfPredicateToRanges(filteredIndexPredicate);
             final var predicateExpansionBuilder = GraphExpansion.builder();
             for (final var value : valueRanges.keySet()) {

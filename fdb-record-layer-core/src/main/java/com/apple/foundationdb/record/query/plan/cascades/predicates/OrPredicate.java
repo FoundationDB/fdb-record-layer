@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -48,6 +49,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
@@ -112,55 +114,96 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
+    private static Optional<ValueWithRanges> toValueWithRangesMaybe(@Nonnull final QueryPredicate predicate) {
+        if (predicate instanceof ValueWithRanges) {
+            return Optional.of((ValueWithRanges)predicate);
+        }
+        if (!predicate.getChildren().iterator().hasNext()) {
+            return Optional.empty();
+        }
+
+        // expression hierarchy must be of a single level, all children must be simple predicates.
+        if (!StreamSupport.stream(predicate.getChildren().spliterator(), false).allMatch(child -> child instanceof PredicateWithValue)) {
+            return Optional.empty();
+        }
+        // all children must reference the same value
+        if (StreamSupport.stream(predicate.getChildren().spliterator(), false).map(c -> ((PredicateWithValue)c).getValue()).distinct().count() > 1) {
+            return Optional.empty();
+        }
+
+        final var value = ((PredicateWithValue)StreamSupport.stream(predicate.getChildren().spliterator(), false).findFirst().orElseThrow()).getValue();
+        final ImmutableSet.Builder<CompileTimeEvaluableRange> rangesSet = ImmutableSet.builder();
+
+        for (final var child : predicate.getChildren()) {
+            final var rangesBuilder = CompileTimeEvaluableRange.newBuilder();
+            if (child instanceof ValuePredicate) {
+                final var valuePredicate = (ValuePredicate)child;
+                if (!rangesBuilder.addMaybe(valuePredicate.getComparison())) {
+                    return Optional.empty();
+                }
+            } else if (child instanceof ValueWithRanges) {
+                rangesSet.addAll(((ValueWithRanges)child).getRanges());
+            } else {
+                // unknown child type.
+                return Optional.empty();
+            }
+
+            final var range = rangesBuilder.build();
+            if (range.isEmpty()) {
+                return Optional.empty();
+            }
+            rangesSet.add(range.get());
+        }
+
+        return Optional.of(ValueWithRanges.constraint(value, rangesSet.build()));
+    }
+
+    /**
+     * Checks for implication with a match candidate predicate by attempting to construct disjunction
+     * @param aliasMap the current alias map
+     * @param candidatePredicate another predicate (usually in a match candidate)
+     * @return
+     */
+    @Nonnull
     @Override
     public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
-        if (!(candidatePredicate instanceof OrPredicate)) {
+        final var valueWithRangesMaybe = toValueWithRangesMaybe(this);
+        if (valueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
         }
+        final var leftValueWithRanges = valueWithRangesMaybe.get();
 
-        final var candidateOr = (OrPredicate)candidatePredicate;
-
-        // if both sides are semantically equal, return a match.
-        if (this.semanticEquals(candidateOr, aliasMap)) {
-            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.EMPTY));
-        }
-
-        // if the child is not in DNF form, bail out.
-        final var candidateChildren = candidateOr.getChildren();
-        if (!candidateChildren.stream().allMatch(candidateChild -> candidateChild instanceof ValueWithRanges)) {
+        final var candidateValueWithRangesMaybe = toValueWithRangesMaybe(candidatePredicate);
+        if (candidateValueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
         }
+        final var rightValueWithRanges = candidateValueWithRangesMaybe.get();
 
-        // ... and same for side
-        if (!getChildren().stream().allMatch(child -> child instanceof ValueWithRanges)) {
-            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        if (!leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), aliasMap)) {
+            return Optional.empty();
         }
 
         // each leg of this must match a companion from the candidate.
         // also check if we can get an exact match, because if so, we do not need to generate a compnesation.
         var requiresCompensation = false;
-        for (final var child : getChildren()) {
-            final var leftPredicate = (ValueWithRanges)child;
-            for (final var candidateChild : candidateChildren) {
-                final var leftRange = Iterables.getOnlyElement(leftPredicate.getRanges()); // sargable
-                final var rightRanges = ((ValueWithRanges)candidateChild).getRanges();
-                boolean foundMatch = false;
-                boolean termRequiresCompensation = true;
-                for (final var rightRange : rightRanges) {
-                    if (rightRange.implies(leftRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
-                        foundMatch = true;
-                        if (leftRange.implies(rightRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
-                            termRequiresCompensation = false;
-                            break;
-                        }
+        for (final var leftRange : leftValueWithRanges.getRanges()) {
+            boolean termRequiresCompensation = true;
+            boolean foundMatch = false;
+            for (final var rightRange : rightValueWithRanges.getRanges()) {
+                if (rightRange.implies(leftRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                    foundMatch = true;
+                    if (leftRange.implies(rightRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                        termRequiresCompensation = false;
+                        break;
                     }
                 }
-                if (!foundMatch) {
-                    return Optional.empty();
-                }
-                requiresCompensation = requiresCompensation || termRequiresCompensation;
             }
+            if (!foundMatch) {
+                return Optional.empty();
+            }
+            requiresCompensation = requiresCompensation || termRequiresCompensation;
         }
+
         // need a compensation, because at least one leg did not find an exactly-matching companion, in this case,
         // add this predicate as a residual on top.
         if (requiresCompensation) {

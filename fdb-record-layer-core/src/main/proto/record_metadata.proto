@@ -257,7 +257,7 @@ message NotPredicate {
 }
 
 message ValuePredicate {
-  optional KeyExpression value = 1; // the key expression must be mappable to Value
+  repeated string value = 1;
   optional Comparison comparison = 2;
 }
 
