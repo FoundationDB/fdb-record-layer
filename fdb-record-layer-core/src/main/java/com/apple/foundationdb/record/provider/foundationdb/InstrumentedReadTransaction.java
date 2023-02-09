@@ -69,6 +69,18 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     protected final boolean enableAssertions;
 
+    /**
+     * Create a new transaction wrapping an existing {@link ReadTransaction}. This will then use the
+     * given timers to instrument the transaction's operations. Note that the main {@code timer} may be
+     * shared between multiple transactions, but the {@code delayedTimer} should be solely used by this
+     * transaction.
+     *
+     * @param timer the main timer to use for most events
+     * @param delayedTimer the timer to use for events that are marked as {@linkplain StoreTimer.Event#isDelayedUntilCommit() delayed until commit}
+     * @param underlying the underlying {@link ReadTransaction} to wrap
+     * @param enableAssertions whether operations should validate their inputs and throw {@link com.apple.foundationdb.record.RecordCoreException}s
+     *     if constaints like maximum key or value size are exceeded
+     */
     public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull T underlying, boolean enableAssertions) {
         this.timer = timer;
         this.delayedTimer = delayedTimer;

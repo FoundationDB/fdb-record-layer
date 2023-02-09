@@ -403,7 +403,7 @@ public class FDBStoreTimerTest {
             assertEquals(0, timer.getCount(FDBStoreTimer.Counts.WRITES));
             assertEquals(0, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
 
-            // Only commit the event transactions (note: i += 2, not i++)
+            // Only commit half the transactions (note: i += 2, not i++)
             for (int i = 0; i < contextCount; i += 2) {
                 contexts.get(i).commit();
             }
