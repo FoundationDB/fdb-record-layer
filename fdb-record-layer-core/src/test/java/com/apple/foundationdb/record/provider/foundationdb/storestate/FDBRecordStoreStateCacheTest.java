@@ -554,9 +554,6 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
             // Load the record store state into the cache.
             try (FDBRecordContext context1 = testContext.getCachedContext(fdb, storeBuilder); FDBRecordContext context2 = testContext.getCachedContext(fdb, storeBuilder)) {
-                context1.setTimer(new FDBStoreTimer());
-                context2.setTimer(new FDBStoreTimer());
-
                 FDBRecordStore recordStore1 = storeBuilder.copyBuilder()
                         .setContext(context1)
                         .setMetaDataProvider(metaData1)

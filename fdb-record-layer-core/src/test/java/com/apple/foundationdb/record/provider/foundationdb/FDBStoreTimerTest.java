@@ -77,10 +77,9 @@ public class FDBStoreTimerTest {
     @BeforeEach
     public void setup() throws Exception {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-        context = fdb.openContext();
-        setupBaseData();
         FDBStoreTimer timer = new FDBStoreTimer();
-        context.setTimer(timer);
+        context = fdb.openContext(null, timer);
+        setupBaseData();
     }
 
     @AfterEach

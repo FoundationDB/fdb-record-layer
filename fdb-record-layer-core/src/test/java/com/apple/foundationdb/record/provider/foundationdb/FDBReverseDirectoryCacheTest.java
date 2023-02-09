@@ -99,9 +99,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     }
 
     private FDBRecordContext openContext() {
-        FDBRecordContext context = fdb.openContext();
-        context.setTimer(timer);
-        return context;
+        return fdb.openContext(null, timer);
     }
 
     private void commit(FDBRecordContext context) {
@@ -412,8 +410,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         runParallelCodeOnEmptyDB(parallelism,
                 () -> {
                     if (preInitReverseDirectoryCache) {
-                        try (final FDBRecordContext context = fdb.openContext()) {
-                            context.setTimer(timer);
+                        try (final FDBRecordContext context = fdb.openContext(null, timer)) {
                             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE,
                                     globalScope.resolve(context.getTimer(), "something totally different"));
                         }
@@ -422,8 +419,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
                 lock -> {
                     final String name = "chi_" + Math.abs(new Random().nextLong());
                     FDBDatabase fdb = getFdb.get();
-                    try (final FDBRecordContext context = fdb.openContext()) {
-                        context.setTimer(timer);
+                    try (final FDBRecordContext context = fdb.openContext(null, timer)) {
                         lock.acquire();
                         context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE,
                                 CompletableFuture.allOf(

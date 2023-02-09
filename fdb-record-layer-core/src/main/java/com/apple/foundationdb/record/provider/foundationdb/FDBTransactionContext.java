@@ -122,20 +122,16 @@ public class FDBTransactionContext {
         return event.isDelayedUntilCommit() ? delayedTimer : timer;
     }
 
-    public FDBStoreTimer getTimerForEvents(@Nonnull Set<StoreTimer.Event> events) {
-        if (events.isEmpty()) {
-            return null;
-        }
-        if (timer == null && delayedTimer == null) {
-            return null;
-        }
-        if (events.stream().allMatch(StoreTimer.Event::isDelayedUntilCommit)) {
-            return delayedTimer;
-        } else {
-            return timer;
-        }
-    }
-
+    /**
+     * Set the timer used to instrument this transaction context. This method is now deprecated in favor
+     * of setting the timer during {@link FDBDatabase#openContext(FDBRecordContextConfig) openContext()}.
+     * This ensures that lower-level metrics use the same timer as this object.
+     *
+     * @param timer the timer this transaction should use to record metrics
+     * @deprecated in favor of setting the timer in {@link FDBDatabase#openContext(FDBRecordContextConfig)}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public void setTimer(@Nullable FDBStoreTimer timer) {
         this.timer = timer;
     }
@@ -148,12 +144,28 @@ public class FDBTransactionContext {
         return future;
     }
 
-    public <T> CompletableFuture<T> instrument(Set<StoreTimer.Event> event, CompletableFuture<T> future) {
-        FDBStoreTimer eventTimer = getTimerForEvents(event);
-        if (eventTimer != null) {
-            future = eventTimer.instrument(event, future, getExecutor());
+    public <T> CompletableFuture<T> instrument(Set<StoreTimer.Event> events, CompletableFuture<T> future) {
+        if (events.isEmpty() || (timer == null && delayedTimer == null)) {
+            // No instrumentation needs to be done, so return immediately.
+            // In practice, either both timer and delayedTimer should be null, or neither of them should
+            // be, so checking their nullity is usually sufficient to know whether the actual events' timers
+            // are expected to be null or not.
+            return future;
         }
-        return future;
+        if (events.size() == 1) {
+            StoreTimer.Event event = events.iterator().next();
+            return instrument(event, future);
+        }
+        long startTime = System.nanoTime();
+        return future.whenComplete((vignore, errIgnore) -> {
+            long timeDifferenceNanos = System.nanoTime() - startTime;
+            for (StoreTimer.Event event : events) {
+                final FDBStoreTimer eventTimer = getTimerForEvent(event);
+                if (eventTimer != null) {
+                    eventTimer.record(event, timeDifferenceNanos);
+                }
+            }
+        });
     }
 
     public <T> CompletableFuture<T> instrument(StoreTimer.Event event, CompletableFuture<T> future, long startTime) {
