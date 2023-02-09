@@ -165,6 +165,17 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent delayed during index builds. This is injected by the indexing process to avoid overwhelming the database server. */
         INDEXER_DELAY("indexer delay"),
 
+        /** The amount of time spent inserting ranges into a {@link com.apple.foundationdb.async.RangeSet}. */
+        RANGE_SET_INSERT("insert into range set"),
+        /** The amount of time listing missing ranges from a {@link com.google.common.collect.RangeSet}. */
+        RANGE_SET_LIST_MISSING("list missing ranges from range set"),
+        /** The amount of time finding the first missing range from a {@link com.google.common.collect.RangeSet}. */
+        RANGE_SET_FIND_FIRST_MISSING("find first missing range from range set"),
+        /** The amount of time checking if a {@link com.google.common.collect.RangeSet} contains a specific key. */
+        RANGE_SET_CONTAINS("range set contains key"),
+        /** The amount of time checking if a {@link com.google.common.collect.RangeSet} is empty. */
+        RANGE_SET_IS_EMPTY("range set is empty"),
+
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
         /** The amount of time spent counting records for the deprecated record count key. */
@@ -535,6 +546,8 @@ public class FDBStoreTimer extends StoreTimer {
         REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT("number of persistent cache misses", false),
         /** The number of reverse directory cache hits.  */
         REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT("number of persistent cache hits", false),
+        /** The number of times an {@link com.apple.foundationdb.async.RangeSet} is cleared. */
+        RANGE_SET_CLEAR("range set clears", false),
         /** The number of query plans that use a covering index. */
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */

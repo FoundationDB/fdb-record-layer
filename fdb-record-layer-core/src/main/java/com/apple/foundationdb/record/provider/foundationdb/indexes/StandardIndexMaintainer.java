@@ -28,7 +28,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -67,6 +66,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKey
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -739,8 +739,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Override
     @Nonnull
     public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
-        RangeSet rangeSet = new RangeSet(state.store.indexRangeSubspace(state.index));
-        return rangeSet.contains(state.transaction, primaryKey.pack());
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(state.store, state.index);
+        return rangeSet.containsAsync(primaryKey.pack());
     }
 
     protected static boolean canDeleteWhere(@Nonnull IndexMaintainerState state, @Nonnull QueryToKeyMatcher.Match match, @Nonnull Key.Evaluated evaluated) {
