@@ -440,8 +440,9 @@ public class FDBDatabase {
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
         openFDB();
+        final FDBStoreTimer delayedTimer = contextConfig.getTimer() == null ? null : new FDBStoreTimer();
         final Executor executor = newContextExecutor(contextConfig.getMdcContext());
-        final Transaction transaction = createTransaction(contextConfig, executor);
+        final Transaction transaction = createTransaction(contextConfig, delayedTimer, executor);
 
         // TODO: Compatibility with STABLE API.
         if (transactionIsTracedSupplier.get()) {
@@ -452,7 +453,7 @@ public class FDBDatabase {
                     .build();
         }
 
-        FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig);
+        FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig, delayedTimer);
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
@@ -746,7 +747,7 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     @SuppressWarnings("PMD.CloseResource")
-    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
+    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nullable FDBStoreTimer delayedTimer, @Nonnull Executor executor) {
         final TransactionListener listener = config.getTransactionListener() == null
                                              ? factory.getTransactionListener()
                                              : config.getTransactionListener();
@@ -759,7 +760,7 @@ public class FDBDatabase {
         //noinspection ConstantConditions
         Transaction transaction = database.createTransaction(executor, new EventKeeperTranslator(timer));
         if (timer != null || enableAssertions) {
-            transaction = new InstrumentedTransaction(timer, this, listener, transaction, enableAssertions);
+            transaction = new InstrumentedTransaction(timer, delayedTimer, this, listener, transaction, enableAssertions);
         }
 
         return transaction;

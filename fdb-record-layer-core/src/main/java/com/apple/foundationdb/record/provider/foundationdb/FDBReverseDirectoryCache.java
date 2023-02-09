@@ -179,8 +179,7 @@ public class FDBReverseDirectoryCache {
     @Nonnull
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
     public CompletableFuture<Optional<String>> getInReverseDirectoryCacheSubspace(@Nullable FDBStoreTimer timer, @Nonnull ScopedValue<Long> scopedReverseDirectoryKey) {
-        FDBRecordContext context = fdb.openContext();
-        context.setTimer(timer);
+        FDBRecordContext context = fdb.openContext(null, timer);
         return getReverseCacheSubspace(scopedReverseDirectoryKey.getScope())
                 .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey))
                 .whenComplete((result, exception) -> context.close());

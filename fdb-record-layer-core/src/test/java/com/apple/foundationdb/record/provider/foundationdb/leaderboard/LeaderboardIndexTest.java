@@ -127,9 +127,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
     }
 
     protected FDBRecordContext openContext() {
-        FDBRecordContext context = fdb.openContext();
-        context.setTimer(metrics);
-        return context;
+        return fdb.openContext(null, metrics);
     }
 
     public static final int TEN_UNITS = 2;

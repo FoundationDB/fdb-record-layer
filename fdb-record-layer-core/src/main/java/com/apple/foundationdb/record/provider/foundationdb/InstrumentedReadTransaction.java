@@ -62,16 +62,36 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     @Nullable
     protected StoreTimer timer;
+    @Nullable
+    protected StoreTimer delayedTimer;
 
     @Nonnull
     protected T underlying;
 
     protected final boolean enableAssertions;
 
-    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nonnull T underlying, boolean enableAssertions) {
+    /**
+     * Create a new transaction wrapping an existing {@link ReadTransaction}. This will then use the
+     * given timers to instrument the transaction's operations. Note that the main {@code timer} may be
+     * shared between multiple transactions, but the {@code delayedTimer} should be solely used by this
+     * transaction.
+     *
+     * @param timer the main timer to use for most events
+     * @param delayedTimer the timer to use for events that are marked as {@linkplain StoreTimer.Event#isDelayedUntilCommit() delayed until commit}
+     * @param underlying the underlying {@link ReadTransaction} to wrap
+     * @param enableAssertions whether operations should validate their inputs and throw {@link com.apple.foundationdb.record.RecordCoreException}s
+     *     if constaints like maximum key or value size are exceeded
+     */
+    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull T underlying, boolean enableAssertions) {
         this.timer = timer;
+        this.delayedTimer = delayedTimer;
         this.underlying = underlying;
         this.enableAssertions = enableAssertions;
+    }
+
+    @Nullable
+    protected StoreTimer getTimerForEvent(StoreTimer.Event event) {
+        return event.isDelayedUntilCommit() ? delayedTimer : timer;
     }
 
     @Override
@@ -227,20 +247,23 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     protected void increment(StoreTimer.Count count) {
-        if (timer != null) {
-            timer.increment(count);
+        StoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count);
         }
     }
 
     protected void increment(StoreTimer.Count count, int amount) {
-        if (timer != null) {
-            timer.increment(count, amount);
+        StoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count, amount);
         }
     }
 
     protected void recordSinceNanoTime(StoreTimer.Event event, long nanoTime) {
-        if (timer != null) {
-            timer.recordSinceNanoTime(event, nanoTime);
+        StoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            eventTimer.recordSinceNanoTime(event, nanoTime);
         }
     }
 

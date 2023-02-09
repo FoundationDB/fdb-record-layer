@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
@@ -46,12 +46,18 @@ public class FDBTransactionContext {
     protected Transaction transaction;
     @Nullable
     protected FDBStoreTimer timer;
+    @Nullable
+    protected FDBStoreTimer delayedTimer;
 
-    protected FDBTransactionContext(@Nonnull FDBDatabase database, @Nonnull Transaction transaction, @Nullable FDBStoreTimer timer) {
+    protected FDBTransactionContext(@Nonnull FDBDatabase database,
+                                    @Nonnull Transaction transaction,
+                                    @Nullable FDBStoreTimer timer,
+                                    @Nullable FDBStoreTimer delayedTimer) {
         this.database = database;
         this.transaction = transaction;
         this.executor = transaction.getExecutor();
         this.timer = timer;
+        this.delayedTimer = delayedTimer;
 
         if (timer != null) {
             timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);
@@ -111,34 +117,69 @@ public class FDBTransactionContext {
         return timer;
     }
 
+    @Nullable
+    public FDBStoreTimer getTimerForEvent(@Nonnull StoreTimer.Event event) {
+        return event.isDelayedUntilCommit() ? delayedTimer : timer;
+    }
+
+    /**
+     * Set the timer used to instrument this transaction context. This method is now deprecated in favor
+     * of setting the timer during {@link FDBDatabase#openContext(FDBRecordContextConfig) openContext()}.
+     * This ensures that lower-level metrics use the same timer as this object.
+     *
+     * @param timer the timer this transaction should use to record metrics
+     * @deprecated in favor of setting the timer in {@link FDBDatabase#openContext(FDBRecordContextConfig)}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public void setTimer(@Nullable FDBStoreTimer timer) {
         this.timer = timer;
     }
 
     public <T> CompletableFuture<T> instrument(StoreTimer.Event event, CompletableFuture<T> future) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor());
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            future = eventTimer.instrument(event, future, getExecutor());
         }
         return future;
     }
 
-    public <T> CompletableFuture<T> instrument(Set<StoreTimer.Event> event, CompletableFuture<T> future) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor());
+    public <T> CompletableFuture<T> instrument(Set<StoreTimer.Event> events, CompletableFuture<T> future) {
+        if (events.isEmpty() || (timer == null && delayedTimer == null)) {
+            // No instrumentation needs to be done, so return immediately.
+            // In practice, either both timer and delayedTimer should be null, or neither of them should
+            // be, so checking their nullity is usually sufficient to know whether the actual events' timers
+            // are expected to be null or not.
+            return future;
         }
-        return future;
+        if (events.size() == 1) {
+            StoreTimer.Event event = events.iterator().next();
+            return instrument(event, future);
+        }
+        long startTime = System.nanoTime();
+        return future.whenComplete((vignore, errIgnore) -> {
+            long timeDifferenceNanos = System.nanoTime() - startTime;
+            for (StoreTimer.Event event : events) {
+                final FDBStoreTimer eventTimer = getTimerForEvent(event);
+                if (eventTimer != null) {
+                    eventTimer.record(event, timeDifferenceNanos);
+                }
+            }
+        });
     }
 
     public <T> CompletableFuture<T> instrument(StoreTimer.Event event, CompletableFuture<T> future, long startTime) {
-        if (timer != null) {
-            future = timer.instrument(event, future, getExecutor(), startTime);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            future = eventTimer.instrument(event, future, getExecutor(), startTime);
         }
         return future;
     }
 
     public <T> RecordCursor<T> instrument(StoreTimer.Event event, RecordCursor<T> inner) {
-        if (timer != null) {
-            inner = timer.instrument(event, inner);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            inner = eventTimer.instrument(event, inner);
         }
         return inner;
     }
@@ -151,8 +192,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#record(StoreTimer.Event, long) StoreTimer.record()
      */
     public void record(@Nonnull StoreTimer.Event event, long timeDelta) {
-        if (timer != null) {
-            timer.record(event, timeDelta);
+        FDBStoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            eventTimer.record(event, timeDelta);
         }
     }
 
@@ -163,8 +205,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#increment(StoreTimer.Count) StoreTimer.increment()
      */
     public void increment(@Nonnull StoreTimer.Count count) {
-        if (timer != null) {
-            timer.increment(count);
+        FDBStoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count);
         }
     }
 
@@ -176,8 +219,9 @@ public class FDBTransactionContext {
      * @see StoreTimer#increment(StoreTimer.Count, int) StoreTimer.increment()
      */
     public void increment(@Nonnull StoreTimer.Count count, int amount) {
-        if (timer != null) {
-            timer.increment(count, amount);
+        FDBStoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count, amount);
         }
     }
 }

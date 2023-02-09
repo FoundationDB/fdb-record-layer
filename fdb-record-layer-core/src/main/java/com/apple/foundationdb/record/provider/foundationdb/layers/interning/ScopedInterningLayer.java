@@ -136,8 +136,7 @@ public class ScopedInterningLayer extends LocatableResolver {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     protected CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value) {
-        FDBRecordContext context = database.openContext();
-        context.setTimer(timer);
+        FDBRecordContext context = database.openContext(null, timer);
         return readReverse(context, value)
                 .whenComplete((ignored, th) -> context.close());
     }

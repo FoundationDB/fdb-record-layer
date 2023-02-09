@@ -216,16 +216,14 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         fdb.close(); // Make sure cache is fresh.
         String key = "world";
         Long value;
-        try (FDBRecordContext context = fdb.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
             value = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key));
         }
         int initialReads = timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ);
         assertThat(initialReads, is(greaterThanOrEqualTo(1)));
 
         for (int i = 0; i < 10; i++) {
-            try (FDBRecordContext context = fdb.openContext()) {
-                context.setTimer(timer);
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
                 assertThat("we continue to resolve the same value",
                         context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key)),
                         is(value));
@@ -390,16 +388,14 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         FDBDatabase fdb = factory.getDatabase();
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
-        try (FDBRecordContext context = fdb.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key));
         }
         // initial resolve may commit twice, once for the key and once to initialize the reverse directory cache
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), is(greaterThanOrEqualTo(1)));
 
         timer.reset();
-        try (FDBRecordContext context = fdb.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), "a-new-key"));
         }
         assertEquals(1, timer.getCount(FDBStoreTimer.Events.COMMIT));
@@ -407,8 +403,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         timer.reset();
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
-        try (FDBRecordContext context = fdb.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
@@ -681,8 +676,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     @Test
     void testWriteLockCaching() {
         FDBStoreTimer timer = new FDBStoreTimer();
-        try (FDBRecordContext context = database.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = database.openContext(null, timer)) {
             globalScope.resolve(context.getTimer(), "something").join();
             int initialCount = timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ);
             assertThat("first read must check the lock in the database", initialCount, greaterThanOrEqualTo(1));
@@ -711,8 +705,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         FDBDatabaseFactory.instance().clear();
         FDBDatabase newDatabase = FDBDatabaseFactory.instance().getDatabase();
         FDBStoreTimer timer2 = new FDBStoreTimer();
-        try (FDBRecordContext context = newDatabase.openContext()) {
-            context.setTimer(timer2);
+        try (FDBRecordContext context = newDatabase.openContext(null, timer2)) {
             globalScope.resolve(context.getTimer(), "something").join();
             assertThat("state is loaded from the new database",
                     timer2.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(1));
@@ -728,29 +721,26 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         LocatableResolver resolver1;
         LocatableResolver resolver2;
 
-        FDBStoreTimer timer = new FDBStoreTimer();
-        try (FDBRecordContext context = database.openContext()) {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = database.openContext(null, timer)) {
             resolver1 = resolverFactory.create(keySpace.path("resolver1").toResolvedPath(context));
             resolver2 = resolverFactory.create(keySpace.path("resolver2").toResolvedPath(context));
 
-            context.setTimer(timer);
             for (int i = 0; i < 10; i++) {
                 resolver1.getVersion(context.getTimer()).join();
             }
             assertThat("We only read the value once", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(1));
 
-            timer = new FDBStoreTimer();
+            timer.reset();
             assertThat("count is reset", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
 
-            context.setTimer(timer);
             resolver2.getVersion(context.getTimer()).join();
             assertThat("We have to read the value for the new resolver", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(1));
 
             LocatableResolver newResolver1 = resolverFactory.create(keySpace.path("resolver1").toResolvedPath(context));
-            timer = new FDBStoreTimer();
+            timer.reset();
             assertThat("count is reset", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
 
-            context.setTimer(timer);
             for (int i = 0; i < 10; i++) {
                 newResolver1.getVersion(context.getTimer()).join();
             }
@@ -929,22 +919,20 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     void testVersionIncrementInvalidatesCache() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(10);
-        FDBStoreTimer timer = new FDBStoreTimer();
+        final FDBStoreTimer timer = new FDBStoreTimer();
         FDBDatabase fdb = factory.getDatabase();
         fdb.close(); // Make sure cache is fresh, and resets version
         fdb.setResolverStateRefreshTimeMillis(100);
         String key = "some-key";
         Long value;
-        try (FDBRecordContext context = fdb.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
             value = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key));
         }
         assertThat(timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), is(greaterThanOrEqualTo(1)));
 
         timer.reset();
         consistently("we hit the cached value", () -> {
-            try (FDBRecordContext context = fdb.openContext()) {
-                context.setTimer(timer);
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
                 assertThat("the resolved value is still the same", globalScope.resolve(context.getTimer(), key).join(), is(value));
             }
             return timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ);
@@ -952,16 +940,14 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         globalScope.incrementVersion().join();
         timer.reset();
         eventually("we see the version change and invalidate the cache", () -> {
-            try (FDBRecordContext context = fdb.openContext()) {
-                context.setTimer(timer);
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
                 assertThat("the resolved value is still the same", globalScope.resolve(context.getTimer(), key).join(), is(value));
             }
             return timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ);
         }, is(1), 120, 10);
         timer.reset();
         consistently("the value is cached while the version is not changed", () -> {
-            try (FDBRecordContext context = fdb.openContext()) {
-                context.setTimer(timer);
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
                 assertThat("the resolved value is still the same", globalScope.resolve(context.getTimer(), key).join(), is(value));
             }
             return timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ);

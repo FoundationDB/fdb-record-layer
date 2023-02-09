@@ -22,7 +22,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** The `EMPTY_SCANS` metric no longer double counts empty scans that call `hasNext` multiple times [(Issue #2002)](https://github.com/FoundationDB/fdb-record-layer/issues/2002)
 * **Performance** Additional instrumentaiton of the `RangeSet` is added to account for time spent during index builds  [(Issue #1995)](https://github.com/FoundationDB/fdb-record-layer/issues/1995)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Metrics that are dependent on transaction commit will only be recorded after its associated transaction is successfully committed [(Issue #1998)](https://github.com/FoundationDB/fdb-record-layer/issues/1998)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

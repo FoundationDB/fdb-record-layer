@@ -163,8 +163,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
-                               @Nonnull FDBRecordContextConfig config) {
-        super(fdb, transaction, config.getTimer());
+                               @Nonnull FDBRecordContextConfig config,
+                               @Nullable FDBStoreTimer delayedTimer) {
+        super(fdb, transaction, config.getTimer(), delayedTimer);
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);

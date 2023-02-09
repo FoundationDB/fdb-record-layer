@@ -54,11 +54,12 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     private boolean endTimeRecorded = false;
 
     public InstrumentedTransaction(@Nullable StoreTimer timer,
+                                   @Nullable StoreTimer delayedTimer,
                                    @Nonnull FDBDatabase database,
                                    @Nullable TransactionListener listener,
                                    @Nonnull Transaction underlying,
                                    boolean enableAssertions) {
-        super(timer, underlying, enableAssertions);
+        super(timer, delayedTimer, underlying, enableAssertions);
         this.startNanos = System.nanoTime();
         this.database = database;
         this.listener = listener;
@@ -140,6 +141,12 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
             trackCommitFailures(ex);
 
             recordEndTime();
+            if (ex == null && timer != null && delayedTimer != null) {
+                // On successful commits (ex == null), add the results of the
+                // delayedTimer to the main timer
+                timer.add(delayedTimer);
+                delayedTimer.reset();
+            }
             if (listener != null) {
                 listener.commit(database, this, timer, ex);
             }
@@ -236,7 +243,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public ReadTransaction snapshot() {
         if (snapshot == null) {
-            snapshot = new Snapshot(timer, underlying.snapshot(), enableAssertions);
+            snapshot = new Snapshot(timer, delayedTimer, underlying.snapshot(), enableAssertions);
         }
         return snapshot;
     }
@@ -252,15 +259,16 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     }
 
     private synchronized void recordEndTime() {
-        if (timer != null && !endTimeRecorded) {
+        StoreTimer eventTimer = getTimerForEvent(FDBStoreTimer.Events.TRANSACTION_TIME);
+        if (eventTimer != null && !endTimeRecorded) {
             endTimeRecorded = true;
-            timer.record(FDBStoreTimer.Events.TRANSACTION_TIME, System.nanoTime() - startNanos);
+            eventTimer.record(FDBStoreTimer.Events.TRANSACTION_TIME, System.nanoTime() - startNanos);
         }
     }
 
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {
-        public Snapshot(@Nullable StoreTimer timer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
-            super(timer, underlying, enableAssertions);
+        public Snapshot(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
+            super(timer, delayedTimer, underlying, enableAssertions);
         }
 
         @Override

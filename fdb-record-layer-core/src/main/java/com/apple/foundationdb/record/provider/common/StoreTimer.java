@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -215,6 +216,20 @@ public class StoreTimer {
          * @return the user-visible title
          */
         String title();
+
+        /**
+         * Whether a metric should not be recorded until its associated transaction
+         * has committed. This is useful for certain metrics, such as the amount of
+         * data written, which should only be recorded on committed transactions.
+         * If a transaction is not committed or the commit fails, then associated
+         * metrics should not be recorded.
+         *
+         * @return whether this event should delay being published until its associated
+         *     transaction commits
+         */
+        default boolean isDelayedUntilCommit() {
+            return false;
+        }
 
         /**
          * Get the key of this event for logging. This should be used with
@@ -661,6 +676,17 @@ public class StoreTimer {
      */
     public Collection<Event> getTimeoutEvents() {
         return timeoutCounters.keySet();
+    }
+
+    public void add(StoreTimer other) {
+        for (Map.Entry<StoreTimer.Event, Counter> entry : other.counters.entrySet()) {
+            Counter thisCounter = Objects.requireNonNull(getCounter(entry.getKey(), true));
+            thisCounter.add(entry.getValue());
+        }
+        for (Map.Entry<StoreTimer.Event, Counter> entry : other.timeoutCounters.entrySet()) {
+            Counter thisCounter = Objects.requireNonNull(getTimeoutCounter(entry.getKey(), true));
+            thisCounter.add(entry.getValue());
+        }
     }
 
     /**

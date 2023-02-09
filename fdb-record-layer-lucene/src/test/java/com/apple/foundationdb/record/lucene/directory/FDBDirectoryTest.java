@@ -145,6 +145,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertNotNull(directory.readBlock("testReference2",
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
+        directory.getContext().commit();
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_SIZE, LuceneSerializer.encode(data, true, false).length);
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_CALL, 1);
     }
