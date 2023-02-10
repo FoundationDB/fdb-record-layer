@@ -62,6 +62,11 @@ public class ConstantPredicate implements LeafQueryPredicate {
         return value != null && value;
     }
 
+    @Override
+    public boolean isContradiction() {
+        return value != null && !value;
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {

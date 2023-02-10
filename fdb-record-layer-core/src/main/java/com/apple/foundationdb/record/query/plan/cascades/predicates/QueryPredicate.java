@@ -232,6 +232,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return false;
     }
 
+    default boolean isContradiction() {
+        return false;
+    }
+
     @Nullable
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 

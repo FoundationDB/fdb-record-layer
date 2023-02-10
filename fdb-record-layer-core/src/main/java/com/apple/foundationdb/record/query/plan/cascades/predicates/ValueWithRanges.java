@@ -128,6 +128,10 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         return true;
     }
 
+    public boolean isCompileTimeEvaluable() {
+        return getRanges().stream().allMatch(CompileTimeEvaluableRange::isCompileTimeEvaluable);
+    }
+
     @Nonnull
     public static Placeholder placeholder(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, parameterAlias);
@@ -328,17 +332,25 @@ public abstract class ValueWithRanges implements PredicateWithValue {
         @Override
         public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
                                                                     @Nonnull final QueryPredicate candidatePredicate) {
-            if (candidatePredicate instanceof ValueWithRanges) {
-                final ValueWithRanges candidatePlaceholder = (ValueWithRanges)candidatePredicate;
+            if (candidatePredicate.isContradiction()) {
+                return Optional.empty();
+            }
 
-                // the value on which the placeholder is defined must be the same as the sargable's.
-                if (!getValue().semanticEquals(candidatePlaceholder.getValue(), aliasMap)) {
+            if (candidatePredicate.isTautology()) {
+                return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
+            }
+
+            if (candidatePredicate instanceof ValueWithRanges) {
+                final var can = (ValueWithRanges)candidatePredicate;
+
+                // the value on which the candidate is defined must be the same as the _this_'s value.
+                if (!getValue().semanticEquals(can.getValue(), aliasMap)) {
                     return Optional.empty();
                 }
 
                 // if the candidate predicate has a compile-time range (filtered index) check to see whether it implies
                 // (some) of the predicate comparisons.
-                if (candidatePlaceholder.getRanges().isEmpty() || impliedBy(aliasMap, candidatePlaceholder)) {
+                if (can.getRanges().isEmpty() || (!(can.isCompileTimeEvaluable() && isCompileTimeEvaluable())) || impliedBy(aliasMap, can)) {
                     // create a compensation function
                     PredicateMultiMap.CompensatePredicateFunction compensation;
                     Optional<CorrelationIdentifier> parameterAlias = Optional.empty();
@@ -352,11 +364,12 @@ public abstract class ValueWithRanges implements PredicateWithValue {
                         };
                         parameterAlias = Optional.of(placeholder.alias);
                     } else {
-                        Verify.verify(candidatePredicate instanceof ValueConstraint);
-                        final var constraint = (ValueConstraint)candidatePredicate;
                         compensation = (ignore, alsoIgnore) -> {
                             // no need for compensation if range boundaries match between candidate constraint and query sargable
-                            if (constraint.ranges.stream().anyMatch(constraintRange -> range.implies(constraintRange).equals(TRUE))) {
+                            if (isCompileTimeEvaluable() && can.isCompileTimeEvaluable() && can.getRanges().stream().anyMatch(constraintRange -> range.implies(constraintRange).equals(TRUE))) {
+                                return Optional.empty();
+                            }
+                            if (getRanges().stream().allMatch(left -> can.getRanges().stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
                                 return Optional.empty();
                             }
                             return injectCompensationFunctionMaybe();

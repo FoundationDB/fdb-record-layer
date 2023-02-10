@@ -65,16 +65,16 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
     private final Range<Boundary> range; // null = entire range.
 
     @Nonnull
-    private final List<Comparisons.Comparison> nonCompileTimeComparisons;
+    private final Set<Comparisons.Comparison> nonCompileTimeComparisons;
 
     CompileTimeEvaluableRange(@Nullable final Range<Boundary> range,
-                              @Nonnull final List<Comparisons.Comparison> nonCompileTimeComparisons) {
+                              @Nonnull final Set<Comparisons.Comparison> nonCompileTimeComparisons) {
         this.range = range;
         this.nonCompileTimeComparisons = nonCompileTimeComparisons;
     }
 
     CompileTimeEvaluableRange(@Nonnull final Range<Boundary> range) {
-        this(range, List.of());
+        this(range, Set.of());
     }
 
     public boolean isCompileTimeEvaluable() {
@@ -97,6 +97,11 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             }
         }
         return result.build();
+    }
+
+    @Nonnull
+    public Set<Comparisons.Comparison> getNonCompileTimeComparisons() {
+        return nonCompileTimeComparisons;
     }
 
     /**
@@ -139,7 +144,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             if (nonCompileTimeComparisons.isEmpty()) {
                 return this;
             } else {
-                var newNonCompileTimeComparisons = nonCompileTimeComparisons.stream().map(c -> c.rebase(translationMap)).collect(Collectors.toList());
+                var newNonCompileTimeComparisons = nonCompileTimeComparisons.stream().map(c -> c.rebase(translationMap)).collect(Collectors.toSet());
                 return new CompileTimeEvaluableRange(null, newNonCompileTimeComparisons);
             }
         } else {
@@ -191,7 +196,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             if (nonCompileTimeComparisons.isEmpty()) {
                 return this;
             } else {
-                var newNonCompileTimeComparisons = nonCompileTimeComparisons.stream().map(c -> c.translateCorrelations(translationMap)).collect(Collectors.toList());
+                var newNonCompileTimeComparisons = nonCompileTimeComparisons.stream().map(c -> c.translateCorrelations(translationMap)).collect(Collectors.toSet());
                 return new CompileTimeEvaluableRange(null, newNonCompileTimeComparisons);
             }
         } else {
@@ -255,7 +260,15 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             return false;
         }
 
-        if (!this.nonCompileTimeComparisons.equals(((CompileTimeEvaluableRange)other).nonCompileTimeComparisons)) {
+        if (nonCompileTimeComparisons.size() != that.nonCompileTimeComparisons.size()) {
+            return false;
+        }
+
+        if (!nonCompileTimeComparisons.stream().allMatch(left -> that.nonCompileTimeComparisons.stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
+            return false;
+        }
+
+        if (!that.nonCompileTimeComparisons.stream().allMatch(left -> nonCompileTimeComparisons.stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
             return false;
         }
 
@@ -486,7 +499,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         private Range<Boundary> range;
 
         @Nonnull
-        private ImmutableList.Builder<Comparisons.Comparison> nonCompilableComparisons;
+        private ImmutableSet.Builder<Comparisons.Comparison> nonCompilableComparisons;
 
         @Nonnull
         private static final Set<Comparisons.Type> allowedComparisonTypes = new LinkedHashSet<>();
@@ -525,16 +538,17 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
         }
 
         @Nonnull
-        private static List<Comparisons.Comparison> intersect(@Nonnull final List<Comparisons.Comparison> left, @Nonnull final List<Comparisons.Comparison> right) {
+        private static Set<Comparisons.Comparison> intersect(@Nonnull final Set<Comparisons.Comparison> left,
+                                                             @Nonnull final Set<Comparisons.Comparison> right) {
             ImmutableSet.Builder<Comparisons.Comparison> newNonCompileTimeComparisons = ImmutableSet.builder();
             newNonCompileTimeComparisons.addAll(left);
             newNonCompileTimeComparisons.addAll(right);
-            return List.of(newNonCompileTimeComparisons.build().toArray(new Comparisons.Comparison[0]));
+            return newNonCompileTimeComparisons.build();
         }
 
         private Builder() {
             this.range = null;
-            this.nonCompilableComparisons = ImmutableList.builder();
+            this.nonCompilableComparisons = ImmutableSet.builder();
         }
 
         public boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
@@ -595,7 +609,7 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
         public void add(@Nonnull final CompileTimeEvaluableRange compileTimeEvaluableRange) {
             this.range = intersect(range, compileTimeEvaluableRange.range);
-            this.nonCompilableComparisons = ImmutableList.<Comparisons.Comparison>builder().addAll(intersect(nonCompilableComparisons.build(), compileTimeEvaluableRange.nonCompileTimeComparisons));
+            this.nonCompilableComparisons = ImmutableSet.<Comparisons.Comparison>builder().addAll(intersect(nonCompilableComparisons.build(), compileTimeEvaluableRange.nonCompileTimeComparisons));
         }
 
         @Nonnull
