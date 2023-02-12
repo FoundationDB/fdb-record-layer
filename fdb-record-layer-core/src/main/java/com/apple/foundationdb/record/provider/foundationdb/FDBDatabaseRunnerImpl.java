@@ -222,6 +222,9 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                         LOGGER.warn(message.toString(), e);
                     }
                     CompletableFuture<Void> future = delay.delay();
+                    if (getTimer() != null) {
+                        future = getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY, future, executor);
+                    }
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
                         currAttempt++;

@@ -73,6 +73,14 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
         database = FDBDatabaseFactory.instance().getDatabase();
     }
 
+    private static FDBException nonRetriableError() {
+        return new FDBException(FDBError.IO_ERROR.name(), FDBError.IO_ERROR.code());
+    }
+
+    private static FDBException retriableError() {
+        return new FDBException(FDBError.NOT_COMMITTED.name(), FDBError.NOT_COMMITTED.code());
+    }
+
     @Test
     public void runNonFDBException() {
         try (FDBDatabaseRunner runner = database.newRunner()) {
@@ -87,17 +95,18 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
     @Test
     public void runNonRetriableException() {
+        final FDBException error = nonRetriableError();
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.run(context -> {
-                throw new RecordCoreException("Encountered an I/O error", new FDBException("io_error", 1510));
+                throw new RecordCoreException("Encountered an I/O error", error);
             });
             fail("Did not error on second non-retriable exception");
         } catch (RecordCoreException e) {
             assertEquals("Encountered an I/O error", e.getMessage());
             assertNotNull(e.getCause());
             assertTrue(e.getCause() instanceof FDBException);
-            assertEquals("io_error", e.getCause().getMessage());
-            assertEquals(FDBError.IO_ERROR.code(), ((FDBException)e.getCause()).getCode());
+            assertEquals(error.getMessage(), e.getCause().getMessage());
+            assertEquals(error.getCode(), ((FDBException)e.getCause()).getCode());
         }
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
@@ -117,7 +126,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             AtomicInteger count = new AtomicInteger(0);
             String value = runner.run(context -> {
                 if (count.getAndIncrement() == 0) {
-                    throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
+                    throw new RecordCoreRetriableTransactionException("Have to try again!", retriableError());
                 } else {
                     return "Success!";
                 }
@@ -128,7 +137,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             count.set(0);
             value = runner.run(context -> {
                 if (count.getAndIncrement() == 0) {
-                    throw new FDBException("not_committed", 1020);
+                    throw retriableError();
                 } else {
                     return "Success!";
                 }
@@ -187,19 +196,20 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             runner.setInitialDelayMillis(5);
 
             AtomicInteger iteration = new AtomicInteger(0);
+            final FDBException error = retriableError();
             try {
                 runner.run(context -> {
                     assertTrue(iteration.get() < runner.getMaxAttempts());
                     iteration.incrementAndGet();
-                    throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
+                    throw new RecordCoreRetriableTransactionException("Have to try again!", error);
                 });
                 fail("Did not catch retriable error that hit maximum retry limit");
             } catch (RecordCoreException e) {
                 assertEquals("Have to try again!", e.getMessage());
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
-                assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
+                assertEquals(error.getMessage(), e.getCause().getMessage());
+                assertEquals(error.getCode(), ((FDBException)e.getCause()).getCode());
             }
             assertEquals(runner.getMaxAttempts(), iteration.get());
         }
@@ -221,17 +231,18 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
     @Test
     public void runAsyncNonRetriableException() {
+        final FDBException error = nonRetriableError();
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
-                throw new RecordCoreException("Encountered an I/O error", new FDBException("io_error", 1510));
+                throw new RecordCoreException("Encountered an I/O error", error);
             }).handle((ignore, e) -> {
                 assertNotNull(e);
                 assertTrue(e instanceof RecordCoreException);
                 assertEquals("Encountered an I/O error", e.getMessage());
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
-                assertEquals("io_error", e.getCause().getMessage());
-                assertEquals(FDBError.IO_ERROR.code(), ((FDBException)e.getCause()).getCode());
+                assertEquals(error.getMessage(), e.getCause().getMessage());
+                assertEquals(error.getCode(), ((FDBException)e.getCause()).getCode());
                 return null;
             }).join();
         }
@@ -255,7 +266,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             AtomicInteger count = new AtomicInteger(0);
             String value = runner.runAsync(context -> {
                 if (count.getAndIncrement() == 0) {
-                    throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
+                    throw new RecordCoreRetriableTransactionException("Have to try again!", retriableError());
                 } else {
                     return CompletableFuture.completedFuture("Success!");
                 }
@@ -266,7 +277,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             count.set(0);
             value = runner.runAsync(context -> {
                 if (count.getAndIncrement() == 0) {
-                    throw new FDBException("not_committed", 1020);
+                    throw retriableError();
                 } else {
                     return CompletableFuture.completedFuture("Success!");
                 }
@@ -323,17 +334,18 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             runner.setInitialDelayMillis(5);
 
             AtomicInteger iteration = new AtomicInteger(0);
+            final FDBException error = retriableError();
             runner.runAsync(context -> {
                 assertTrue(iteration.get() < runner.getMaxAttempts());
                 iteration.incrementAndGet();
-                throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
+                throw new RecordCoreRetriableTransactionException("Have to try again!", error);
             }).handle((ignore, e) -> {
                 assertNotNull(e);
                 assertEquals("Have to try again!", e.getMessage());
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
-                assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
+                assertEquals(error.getMessage(), e.getCause().getMessage());
+                assertEquals(error.getCode(), ((FDBException)e.getCause()).getCode());
                 return null;
             }).join();
             assertEquals(runner.getMaxAttempts(), iteration.get());
@@ -431,7 +443,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
             future = runner.runAsync(context -> {
                 iteration.incrementAndGet();
-                throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
+                throw new RecordCoreRetriableTransactionException("Have to try again!", retriableError());
             });
         }
         int currentIteration = iteration.get();
@@ -478,7 +490,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                     saveThreadContext.accept(supplyAsyncName);
                     if (attempts.getAndIncrement() == 0) {
                         throw new RecordCoreRetriableTransactionException("Retriable and lessener",
-                                new FDBException("not_committed", 1020));
+                                retriableError());
                     } else {
                         return null;
                     }

@@ -23,7 +23,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,18 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.332.0
+
+* **Bug fix** The `EMPTY_SCANS` metric no longer double counts empty scans that call `hasNext` multiple times [(Issue #2002)](https://github.com/FoundationDB/fdb-record-layer/issues/2002)
+* **Performance** Additional instrumentaiton of the `RangeSet` is added to account for time spent during index builds  [(Issue #1995)](https://github.com/FoundationDB/fdb-record-layer/issues/1995)
+* **Performance** Metrics that are dependent on transaction commit will only be recorded after its associated transaction is successfully committed [(Issue #1998)](https://github.com/FoundationDB/fdb-record-layer/issues/1998)
+
+### 3.3.331.0
+
+* **Performance** Non-unique indexes no longer read or clear the uniqueness violation space during maintenance [(Issue #1973)](https://github.com/FoundationDB/fdb-record-layer/issues/1973)
+* **Performance** Adds store timer metrics to the indexer progress metrics message [(Issue #1984)](https://github.com/FoundationDB/fdb-record-layer/issues/1984)
+* **Performance** Instrumentation is added for delays inserted during retries and index builds [(Issue #1993)](https://github.com/FoundationDB/fdb-record-layer/issues/1993)
 
 ### 3.3.330.0
 

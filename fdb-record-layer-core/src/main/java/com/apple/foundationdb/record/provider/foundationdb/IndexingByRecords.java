@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
@@ -39,6 +37,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -55,6 +54,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -136,21 +136,21 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
                                                         @Nullable AtomicLong recordsScanned) {
-        final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getIndex());
         if (TupleRange.ALL.equals(recordsRange)) {
             return buildEndpoints(store, rangeSet, recordsScanned);
         }
         // If records do not occupy whole range, first mark outside as built.
         final Range asRange = recordsRange.toRange();
         return CompletableFuture.allOf(
-                rangeSet.insertRange(store.ensureContextActive(), null, asRange.begin),
-                rangeSet.insertRange(store.ensureContextActive(), asRange.end, null))
+                rangeSet.insertRangeAsync(null, asRange.begin),
+                rangeSet.insertRangeAsync(asRange.end, null))
                 .thenCompose(vignore -> buildEndpoints(store, rangeSet, recordsScanned));
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull RangeSet rangeSet,
+    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull IndexingRangeSet rangeSet,
                                                          @Nullable AtomicLong recordsScanned) {
         boolean isIdempotent = store.getIndexMaintainer(common.getIndex()).isIdempotent();
         final IsolationLevel isolationLevel =
@@ -174,7 +174,7 @@ public class IndexingByRecords extends IndexingBase {
                 return buildRange(store, null, firstTuple, recordsScanned).thenApply(vignore -> firstTuple);
             } else {
                 // Empty range -- add the whole thing.
-                return rangeSet.insertRange(store.ensureContextActive(), null, null).thenApply(bignore -> null);
+                return rangeSet.insertRangeAsync(null, null).thenApply(bignore -> null);
             }
         });
 
@@ -219,25 +219,24 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Tuple start, @Nullable Tuple end,
                                                @Nullable AtomicLong recordsScanned) {
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), packOrNull(start), packOrNull(end)).iterator();
-        return ranges.onHasNext().thenCompose(hasAny -> {
-            if (hasAny) {
-                return AsyncUtil.whileTrue(() -> {
-                    Range range = ranges.next();
-                    Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
-                    Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
-                    return CompletableFuture.allOf(
-                            // All of the requested range without limit.
-                            // In practice, this method works because it is only called for the endpoint ranges, which are empty and
-                            // one long, respectively.
-                            buildRangeOnly(store, rangeStart, rangeEnd, false, recordsScanned),
-                            rangeSet.insertRange(store.ensureContextActive(), range, true)
-                    ).thenCompose(vignore -> ranges.onHasNext());
-                }, store.getExecutor());
-            } else {
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getIndex());
+        return rangeSet.listMissingRangesAsync(packOrNull(start), packOrNull(end)).thenCompose(rangeList -> {
+            if (rangeList.isEmpty()) {
                 return AsyncUtil.DONE;
             }
+            final Iterator<Range> rangeIterator = rangeList.iterator();
+            return AsyncUtil.whileTrue(() -> {
+                Range range = rangeIterator.next();
+                Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
+                Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
+                return CompletableFuture.allOf(
+                        // All of the requested range without limit.
+                        // In practice, this method works because it is only called for the endpoint ranges, which are empty and
+                        // one long, respectively.
+                        buildRangeOnly(store, rangeStart, rangeEnd, false, recordsScanned),
+                        rangeSet.insertRangeAsync(range.begin, range.end, true)
+                ).thenApply(vignore -> rangeIterator.hasNext());
+            }, store.getExecutor());
         });
     }
 
@@ -261,31 +260,30 @@ public class IndexingByRecords extends IndexingBase {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getIndex());
         byte[] startBytes = packOrNull(convertOrNull(start));
         byte[] endBytes = packOrNull(convertOrNull(end));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
-        return ranges.onHasNext().thenCompose(hasNext -> {
-            if (hasNext) {
-                return AsyncUtil.whileTrue(() -> {
-                    Range toBuild = ranges.next();
-                    Tuple startTuple = Tuple.fromBytes(toBuild.begin);
-                    Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
-                    AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
-                    return AsyncUtil.whileTrue(() ->
-                            // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
-                            buildUnbuiltRange(store, currStart.get(), endTuple, null).thenApply(realEnd -> {
-                                if (realEnd != null && !realEnd.equals(endTuple)) {
-                                    currStart.set(realEnd);
-                                    return true;
-                                } else {
-                                    return false;
-                                }
-                            }), store.getExecutor()).thenCompose(vignore -> ranges.onHasNext());
-                }, store.getExecutor());
-            } else {
+        return rangeSet.listMissingRangesAsync(startBytes, endBytes).thenCompose(rangeList -> {
+            if (rangeList.isEmpty()) {
                 return AsyncUtil.DONE;
             }
+            Iterator<Range> rangeIterator = rangeList.iterator();
+            return AsyncUtil.whileTrue(() -> {
+                Range toBuild = rangeIterator.next();
+                Tuple startTuple = Tuple.fromBytes(toBuild.begin);
+                Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
+                AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
+                return AsyncUtil.whileTrue(() ->
+                        // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
+                        buildUnbuiltRange(store, currStart.get(), endTuple, null).thenApply(realEnd -> {
+                            if (realEnd != null && !realEnd.equals(endTuple)) {
+                                currStart.set(realEnd);
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        }), store.getExecutor()).thenApply(vignore -> rangeIterator.hasNext());
+            }, store.getExecutor());
         });
     }
 
@@ -309,28 +307,19 @@ public class IndexingByRecords extends IndexingBase {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return buildRange(common.getRecordStoreBuilder().getSubspaceProvider(), start, end);
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         return getRunner().runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
-                subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
-                    RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, common.getIndex().getSubspaceKey())));
+                openRecordStore(context).thenCompose(recordStore -> {
+                    IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(recordStore, common.getIndex());
                     byte[] startBytes = packOrNull(convertOrNull(start));
                     byte[] endBytes = packOrNull(convertOrNull(end));
-                    Queue<Range> rangeDeque = new ArrayDeque<>();
-                    ReadTransactionContext rtc = context.ensureActive();
-                    return rangeSet.missingRanges(rtc, startBytes, endBytes)
-                            .thenAccept(rangeDeque::addAll)
-                            .thenCompose(vignore2 -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
+                    return rangeSet.listMissingRangesAsync(startBytes, endBytes)
+                            .thenCompose(rangeList -> buildRanges(recordStore.getSubspaceProvider(), recordStore.getSubspace(), new ArrayDeque<>(rangeList)));
                 })
         ));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                                RangeSet rangeSet, Queue<Range> rangeDeque) {
+    private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, Queue<Range> rangeDeque) {
         return AsyncUtil.whileTrue(() -> {
             if (rangeDeque.isEmpty()) {
                 return CompletableFuture.completedFuture(false); // We're done.
@@ -341,14 +330,14 @@ public class IndexingByRecords extends IndexingBase {
             Tuple startTuple = Tuple.fromBytes(toBuild.begin);
             Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
             return buildUnbuiltRange(startTuple, endTuple)
-                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
+                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
         }, getRunner().getExecutor());
     }
 
     @Nonnull
     private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                                        RangeSet rangeSet, Queue<Range> rangeDeque,
+                                                        Queue<Range> rangeDeque,
                                                         Tuple startTuple, Tuple endTuple, Tuple realEnd,
                                                         Throwable ex) {
         final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
@@ -369,15 +358,19 @@ public class IndexingByRecords extends IndexingBase {
             Throwable cause = unwrappedEx;
             while (cause != null) {
                 if (cause instanceof OnlineIndexer.RecordBuiltRangeException) {
-                    return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
-                            .thenCompose(list -> {
-                                rangeDeque.addAll(list);
-                                return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
-                                        LogMessageKeys.REASON, "RecordBuiltRangeException",
-                                        LogMessageKeys.START_TUPLE, startTuple,
-                                        LogMessageKeys.END_TUPLE, endTuple,
-                                        LogMessageKeys.REAL_END, realEnd));
-                            });
+                    return getRunner().runAsync(context -> context.getReadVersionAsync().thenCompose(ignore ->
+                            openRecordStore(context).thenCompose(recordStore -> {
+                                IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(recordStore, common.getIndex());
+                                return rangeSet.listMissingRangesAsync(startTuple.pack(), endTuple.pack());
+                            })
+                    )).thenCompose(list -> {
+                        rangeDeque.addAll(list);
+                        return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+                                LogMessageKeys.REASON, "RecordBuiltRangeException",
+                                LogMessageKeys.START_TUPLE, startTuple,
+                                LogMessageKeys.END_TUPLE, endTuple,
+                                LogMessageKeys.REAL_END, realEnd));
+                    });
                 } else {
                     cause = cause.getCause();
                 }
@@ -398,13 +391,13 @@ public class IndexingByRecords extends IndexingBase {
                                                        @Nullable Tuple end, @Nullable AtomicLong recordsScanned) {
         CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, true, recordsScanned);
 
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         byte[] startBytes = packOrNull(start);
 
         AtomicReference<Tuple> toReturn = new AtomicReference<>();
         return buildFuture.thenCompose(realEnd -> {
             toReturn.set(realEnd);
-            return rangeSet.insertRange(store.ensureContextActive(), startBytes, packOrNull(realEnd), true);
+            IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getIndex());
+            return rangeSet.insertRangeAsync(startBytes, packOrNull(realEnd), true);
         }).thenApply(changed -> {
             if (changed) {
                 return toReturn.get();

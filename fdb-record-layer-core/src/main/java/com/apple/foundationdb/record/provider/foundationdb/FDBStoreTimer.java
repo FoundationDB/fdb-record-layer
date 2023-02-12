@@ -162,6 +162,19 @@ public class FDBStoreTimer extends StoreTimer {
         REBUILD_INDEX_EXPLICIT("rebuild index by an explicit request"),
         /** The amount of time spent rebuilding an index during a test. */
         REBUILD_INDEX_TEST("rebuild index during test"),
+        /** The amount of time spent delayed during index builds. This is injected by the indexing process to avoid overwhelming the database server. */
+        INDEXER_DELAY("indexer delay"),
+
+        /** The amount of time spent inserting ranges into a {@link com.apple.foundationdb.async.RangeSet}. */
+        RANGE_SET_INSERT("insert into range set"),
+        /** The amount of time listing missing ranges from a {@link com.google.common.collect.RangeSet}. */
+        RANGE_SET_LIST_MISSING("list missing ranges from range set"),
+        /** The amount of time finding the first missing range from a {@link com.google.common.collect.RangeSet}. */
+        RANGE_SET_FIND_FIRST_MISSING("find first missing range from range set"),
+        /** The amount of time checking if a {@link com.google.common.collect.RangeSet} contains a specific key. */
+        RANGE_SET_CONTAINS("range set contains key"),
+        /** The amount of time checking if a {@link com.google.common.collect.RangeSet} is empty. */
+        RANGE_SET_IS_EMPTY("range set is empty"),
 
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
@@ -224,6 +237,8 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory"),
+        /** The amount of time spent during backoff delay on retryable errors in {@link FDBDatabase#run}. */
+        RETRY_DELAY("retry delay"),
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
         TIMEOUTS("timeouts"),
         /** Total number and duration of commits. */
@@ -415,7 +430,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOCATABLE_RESOLVER_COMPUTE_DIGEST("wait for computing directory layer digest"),
         /** Wait for {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverMappingReplicator} to copy a directory layer. */
         WAIT_LOCATABLE_RESOLVER_MAPPING_COPY("wait for copying contents of directory layer"),
-        /** Wait for a backoff delay on retryable error in {@link FDBDatabase#run}. */
+        /** Wait for a backoff delay on retryable errors in {@link FDBDatabase#run}. */
         WAIT_RETRY_DELAY("wait for retry delay"),
         /** Wait for statistics to be collected. */
         WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index"),
@@ -478,11 +493,11 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of times the store state cache was unable to return a cached result. */
         STORE_STATE_CACHE_MISS("store info cache miss", false),
         /** The number of record key-value pairs saved. */
-        SAVE_RECORD_KEY("number of record keys saved", false),
+        SAVE_RECORD_KEY("number of record keys saved", false, null, true),
         /** The size of keys for record key-value pairs saved. */
-        SAVE_RECORD_KEY_BYTES("number of record key bytes saved", true),
+        SAVE_RECORD_KEY_BYTES("number of record key bytes saved", true, null, true),
         /** The size of values for record key-value pairs saved. */
-        SAVE_RECORD_VALUE_BYTES("number of record value bytes saved", true),
+        SAVE_RECORD_VALUE_BYTES("number of record value bytes saved", true, null, true),
         /** The number of entries (e.g., key-value pairs or text index entries) loaded by a scan. */
         LOAD_SCAN_ENTRY("number of entries loaded by some scan", false),
         /** The number of key-value pairs loaded by a range scan. */
@@ -496,11 +511,11 @@ public class FDBStoreTimer extends StoreTimer {
         /** The size of values for record key-value pairs loaded. */
         LOAD_RECORD_VALUE_BYTES("number of record value bytes loaded", true),
         /** The number of index key-value pairs saved. */
-        SAVE_INDEX_KEY("number of index keys saved", false),
+        SAVE_INDEX_KEY("number of index keys saved", false, null, true),
         /** The size of keys for index key-value pairs saved. */
-        SAVE_INDEX_KEY_BYTES("number of index key bytes saved", true),
+        SAVE_INDEX_KEY_BYTES("number of index key bytes saved", true, null, true),
         /** The size of values for index key-value pairs saved. */
-        SAVE_INDEX_VALUE_BYTES("number of index value bytes saved", true),
+        SAVE_INDEX_VALUE_BYTES("number of index value bytes saved", true, null, true),
         /** The number of index key-value pairs loaded. */
         LOAD_INDEX_KEY("number of index keys loaded", false),
         /** The size of keys for index key-value pairs loaded. */
@@ -514,23 +529,25 @@ public class FDBStoreTimer extends StoreTimer {
         /** The size of values for index state key-value pairs loaded. */
         LOAD_STORE_STATE_VALUE_BYTES("number of store state value bytes loaded", true),
         /** The number of record key-value pairs deleted. */
-        DELETE_RECORD_KEY("number of record keys deleted", false),
+        DELETE_RECORD_KEY("number of record keys deleted", false, null, true),
         /** The size of keys for record key-value pairs deleted. */
-        DELETE_RECORD_KEY_BYTES("number of record key bytes deleted", true),
+        DELETE_RECORD_KEY_BYTES("number of record key bytes deleted", true, null, true),
         /** The size of values for record key-value pairs deleted. */
-        DELETE_RECORD_VALUE_BYTES("number of record value bytes deleted", true),
+        DELETE_RECORD_VALUE_BYTES("number of record value bytes deleted", true, null, true),
         /** The number of index key-value pairs deleted. */
-        DELETE_INDEX_KEY("number of index keys deleted", false),
+        DELETE_INDEX_KEY("number of index keys deleted", false, null, true),
         /** The size of keys for index key-value pairs deleted. */
-        DELETE_INDEX_KEY_BYTES("number of index key bytes deleted", true),
+        DELETE_INDEX_KEY_BYTES("number of index key bytes deleted", true, null, true),
         /** The size of values for index key-value pairs deleted. */
-        DELETE_INDEX_VALUE_BYTES("number of index value bytes deleted", true),
+        DELETE_INDEX_VALUE_BYTES("number of index value bytes deleted", true, null, true),
         /** The previous size of values for record key-value pairs that are updated. */
-        REPLACE_RECORD_VALUE_BYTES("number of record value bytes replaced", true),
+        REPLACE_RECORD_VALUE_BYTES("number of record value bytes replaced", true, null, true),
         /** The number of reverse directory cache misses.  */
         REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT("number of persistent cache misses", false),
         /** The number of reverse directory cache hits.  */
         REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT("number of persistent cache hits", false),
+        /** The number of times an {@link com.apple.foundationdb.async.RangeSet} is cleared. */
+        RANGE_SET_CLEAR("range set clears", false),
         /** The number of query plans that use a covering index. */
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */
@@ -644,7 +661,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of times that an index entry does not point to a valid record. */
         BAD_INDEX_ENTRY("number of occurrences of bad index entries", false),
         /** The number of record keys repaired by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
-        REPAIR_RECORD_KEY("repair record key", false),
+        REPAIR_RECORD_KEY("repair record key", false, null, true),
         /** The number of record keys with an invalid split suffix found by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
         INVALID_SPLIT_SUFFIX("invalid split suffix", false),
         /** The number of record keys with an incorrect length found by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
@@ -654,7 +671,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of bytes read. */
         BYTES_READ("bytes read", true),
         /** The number of bytes written, not including deletes. */
-        BYTES_WRITTEN("bytes written", true),
+        BYTES_WRITTEN("bytes written", true, null, true),
         /** Total number of read (get) operations. */
         READS("reads", false),
         /** Total number of range read (get) operations. */
@@ -662,13 +679,13 @@ public class FDBStoreTimer extends StoreTimer {
         /** Total number of remote fetch (get) operations. */
         REMOTE_FETCH("remote fetch reads", false),
         /** Total number of write operations. */
-        WRITES("writes", false),
+        WRITES("writes", false, null, true),
         /** Total number of delete (clear) operations. */
-        DELETES("deletes", false),
+        DELETES("deletes", false, null, true),
         /** Total number of range delete (clear) operations. */
-        RANGE_DELETES("range deletes", false),
+        RANGE_DELETES("range deletes", false, null, true),
         /** Total number of mutation operations. */
-        MUTATIONS("mutations", false),
+        MUTATIONS("mutations", false, null, true),
         /** JNI Calls.*/
         JNI_CALLS("jni calls", false),
         /**Bytes read.*/
@@ -694,20 +711,27 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final boolean isSize;
         private final String logKey;
+        private final boolean delayedUntilCommit;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(String title, boolean isSize, String logKey, boolean delayedUntilCommit) {
             this.title = title;
             this.isSize = isSize;
             this.logKey = (logKey != null) ? logKey : Count.super.logKey();
+            this.delayedUntilCommit = delayedUntilCommit;
         }
 
         Counts(String title, boolean isSize) {
-            this(title, isSize, null);
+            this(title, isSize, null, false);
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
         }
 
         @Override

@@ -33,7 +33,6 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.CursorStreamingMode;
@@ -79,6 +78,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -1406,6 +1406,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        if (!index.isUnique()) {
+            return RecordCursor.empty(getExecutor());
+        }
         RecordCursor<IndexEntry> tupleCursor = getIndexMaintainer(index).scanUniquenessViolations(range, continuation, scanProperties);
         return tupleCursor.map(entry -> {
             int indexColumns = index.getColumnSize();
@@ -2831,22 +2834,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             Transaction tr = context.ensureActive();
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
                 if (previous == null) {
-                    RangeSet indexRangeSet = new RangeSet(indexRangeSubspace(getRecordMetaData().getIndex(indexName)));
-                    return indexRangeSet.isEmpty(tr)
-                            .thenCompose(isEmpty -> {
-                                if (isEmpty) {
-                                    // For readable indexes, we have an optimization where the range set is cleared out
-                                    // after the index is build to avoid carrying extra meta-data about the index range
-                                    // set. However, when we mark an index as write-only, we want to preserve the record
-                                    // that the index was completely built (if the range set was empty, i.e., cleared)
-                                    return indexRangeSet.insertRange(tr, null, null);
-                                } else {
-                                    return AsyncUtil.READY_FALSE;
-                                }
-                            }).thenApply(ignore -> {
-                                updateIndexState(indexName, indexKey, indexState);
-                                return true;
-                            });
+                    IndexingRangeSet indexRangeSet = IndexingRangeSet.forIndexBuild(this, getRecordMetaData().getIndex(indexName));
+                    return indexRangeSet.isEmptyAsync().thenCompose(empty -> {
+                        if (empty) {
+                            // For readable indexes, we have an optimization where the range set is cleared out
+                            // after the index is build to avoid carrying extra meta-data about the index range
+                            // set. However, when we mark an index as write-only, we want to preserve the record
+                            // that the index was completely built (if the range set was empty, i.e., cleared)
+                            return indexRangeSet.insertRangeAsync(null, null);
+                        } else {
+                            return AsyncUtil.READY_FALSE;
+                        }
+                    }).thenApply(ignore -> {
+                        updateIndexState(indexName, indexKey, indexState);
+                        return true;
+                    });
                 } else if (!Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
                     updateIndexState(indexName, indexKey, indexState);
                     return AsyncUtil.READY_TRUE;
@@ -2946,16 +2948,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (!getRecordMetaData().hasIndex(index.getName())) {
             throw new MetaDataException("Index " + index.getName() + " does not exist in meta-data.");
         }
-        Transaction tr = ensureContextActive();
-        RangeSet rangeSet = new RangeSet(indexRangeSubspace(index));
-        AsyncIterator<Range> missingRangeIterator = rangeSet.missingRanges(tr, null, null, 1).iterator();
-        return missingRangeIterator.onHasNext().thenApply(hasFirst -> {
-            if (hasFirst) {
-                return Optional.of(missingRangeIterator.next());
-            } else {
-                return Optional.empty();
-            }
-        });
+        IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(this, index);
+        return rangeSet.firstMissingRangeAsync().thenApply(Optional::ofNullable);
     }
 
     /**
@@ -3073,8 +3067,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<Boolean> checkAndUpdateBuiltIndexState(Index index, byte[] indexKey, boolean allowUniquePending) {
         // An extension function to reduce markIndexReadable's complexity
         CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-        CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
-                .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
+        CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture;
+        if (index.isUnique()) {
+            uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
+                    .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
+        } else {
+            uniquenessFuture = CompletableFuture.completedFuture(Optional.empty());
+        }
         return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
             Optional<Range> firstUnbuilt = context.join(builtFuture);
             Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
@@ -3104,7 +3103,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw wrapped;
             } else {
                 updateIndexState(index.getName(), indexKey, IndexState.READABLE);
-                clearReadableIndexBuildData(ensureContextActive(), index);
+                clearReadableIndexBuildData(index);
                 return true;
             }
         });
@@ -4266,8 +4265,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
         tr.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         tr.clear(indexSecondarySubspace(index).range());
-        tr.clear(indexRangeSubspace(index).range());
-        tr.clear(indexUniquenessViolationsSubspace(index).range());
+        IndexingRangeSet.forIndexBuild(this, index).clear();
+        if (index.isUnique()) {
+            tr.clear(indexUniquenessViolationsSubspace(index).range());
+        }
         // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
         // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
         // run online index jobs which may invoke this method. We should clear:
@@ -4301,17 +4302,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private void clearReadableIndexBuildData(Transaction tr, Index index) {
-        tr.clear(indexRangeSubspace(index).range());
+    private void clearReadableIndexBuildData(Index index) {
+        IndexingRangeSet.forIndexBuild(this, index).clear();
     }
 
     @SuppressWarnings("PMD.CloseResource")
     public void vacuumReadableIndexesBuildData() {
-        Transaction tr = ensureContextActive();
         Map<Index, IndexState> indexStates = getAllIndexStates(); // also adds state to read conflicts
         for (Map.Entry<Index, IndexState> entry : indexStates.entrySet()) {
             if (entry.getValue().equals(IndexState.READABLE)) {
-                clearReadableIndexBuildData(tr, entry.getKey());
+                clearReadableIndexBuildData(entry.getKey());
             }
         }
     }

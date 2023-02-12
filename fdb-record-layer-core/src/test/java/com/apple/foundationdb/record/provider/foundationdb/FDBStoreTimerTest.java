@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -74,22 +75,21 @@ public class FDBStoreTimerTest {
     ExecuteProperties ep;
 
     @BeforeEach
-    public void setup() throws Exception {
+    void setup() throws Exception {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-        context = fdb.openContext();
-        setupBaseData();
         FDBStoreTimer timer = new FDBStoreTimer();
-        context.setTimer(timer);
+        context = fdb.openContext(null, timer);
+        setupBaseData();
     }
 
     @AfterEach
-    public void teardown() throws Exception {
+    void teardown() {
         context.close();
         fdb.close();
     }
 
     @Test
-    public void counterDifferenceTest() {
+    void counterDifferenceTest() {
         RecordCursor<KeyValue> kvc = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setScanProperties(ScanProperties.FORWARD_SCAN).setRange(TupleRange.ALL).build();
 
         // see the timer counts from some onNext calls
@@ -131,7 +131,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void timeoutCounterDifferenceTest() {
+    void timeoutCounterDifferenceTest() {
         RecordCursor<KeyValue> kvc = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setScanProperties(ScanProperties.FORWARD_SCAN).setRange(TupleRange.ALL).build();
 
         FDBStoreTimer latestTimer = context.getTimer();
@@ -174,9 +174,8 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void timerConstraintChecks() {
-
-        // invalid to substract a snapshot timer from a timer that has been reset after the snapshot was taken
+    void timerConstraintChecks() {
+        // invalid to subtract a snapshot timer from a timer that has been reset after the snapshot was taken
         FDBStoreTimer latestTimer = context.getTimer();
         final StoreTimerSnapshot savedTimer;
         savedTimer = StoreTimerSnapshot.from(latestTimer);
@@ -189,7 +188,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void unchangedMetricsExcludedFromSnapshotDifference() {
+    void unchangedMetricsExcludedFromSnapshotDifference() {
         StoreTimer timer = new FDBStoreTimer();
 
         timer.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
@@ -212,7 +211,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void newMetricsAddedToSnapshotDifference() {
+    void newMetricsAddedToSnapshotDifference() {
         StoreTimer timer = new FDBStoreTimer();
 
         timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
@@ -254,7 +253,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void logKeyTest() {
+    void logKeyTest() {
         // If log key has not been specified, 'logKey()' should return then '.name()' of the enum.
         assertEquals(TestEvent.EVENT_WITH_SHORT_NAME.logKey(), "event_with_short_name");
 
@@ -263,7 +262,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void testAggregateMetrics() {
+    void testAggregateMetrics() {
         FDBStoreTimer storeTimer = new FDBStoreTimer();
 
         // I don't want this test to fail if new aggregates are added, but do want to verify that the
@@ -287,7 +286,7 @@ public class FDBStoreTimerTest {
     }
 
     @Test
-    public void testLowLevelIoMetrics() {
+    void testLowLevelIoMetrics() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
             Transaction tr = context.ensureActive();
@@ -341,8 +340,8 @@ public class FDBStoreTimerTest {
                 try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     Transaction tr = context.ensureActive();
                     tr.set(subspace.pack(Tuple.from(1L)), Tuple.from(1L).pack());
-                    tr.get(subspace.pack(Tuple.from(1L)));
-                    tr.get(subspace.pack(Tuple.from(1L)));
+                    tr.get(subspace.pack(Tuple.from(1L))).join();
+                    tr.get(subspace.pack(Tuple.from(1L))).join();
 
                     // Make sure we get metrics even if there is no commit
                     if (i != 1) {
@@ -351,13 +350,115 @@ public class FDBStoreTimerTest {
                 }
             }
             assertThat(listener.transactions, equalTo(3));
-            assertThat(listener.reads, equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
-            assertThat(listener.writes, equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+            assertThat(listener.reads, equalTo(6));
+            assertThat(listener.writes, equalTo(2));
             assertThat(listener.commits, equalTo(2));
             assertThat(listener.closes, equalTo(3));
         } finally {
             FDBDatabaseFactory.instance().setTransactionListener(null);
         }
+    }
+
+    @Test
+    void testDelayedForCommit() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.RANGE_DELETES));
+            context.commit();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.RANGE_DELETES));
+        }
+    }
+
+    @Test
+    void testMultipleTransactionsShareTimerSomeCommit() {
+        final int contextCount = 20;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final List<FDBRecordContext> contexts = new ArrayList<>(contextCount);
+        try {
+            for (int i = 0; i < contextCount; i++) {
+                FDBRecordContext context = fdb.openContext(null, timer);
+                context.getReadVersion();
+                contexts.add(context);
+            }
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+
+            int bytesRead = 0;
+            int bytesWritten = 0;
+            for (int i = 0; i < contextCount; i++) {
+                FDBRecordContext context = contexts.get(i);
+                byte[] key = subspace.pack(Tuple.from(i / 5, i % 5));
+                byte[] value = context.ensureActive().get(key).join();
+                context.ensureActive().set(key, value);
+
+                bytesRead += value.length;
+                if (i % 2 == 0) {
+                    bytesWritten += key.length + value.length;
+                }
+            }
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+
+            // Only commit half the transactions (note: i += 2, not i++)
+            for (int i = 0; i < contextCount; i += 2) {
+                contexts.get(i).commit();
+            }
+
+            assertEquals(contextCount, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+            assertEquals(contextCount / 2, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            assertEquals(bytesWritten, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+        } finally {
+            contexts.forEach(FDBRecordContext::close);
+        }
+    }
+
+    @Test
+    void doNotAddDelayedMetricsOnFailedCommit() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context1 = fdb.openContext(null, timer);
+                FDBRecordContext context2 = fdb.openContext(null, timer)) {
+            context1.getReadVersion();
+            context2.getReadVersion();
+
+            // Use context1 to read all keys beginning with 1
+            final List<KeyValue> beginsWith1 = context1.ensureActive()
+                    .getRange(subspace.range(Tuple.from(1)))
+                    .asList()
+                    .join();
+
+            // Use context2 to read all keys beginning with 2
+            final List<KeyValue> beginsWith2 = context2.ensureActive()
+                    .getRange(subspace.range(Tuple.from(2)))
+                    .asList()
+                    .join();
+
+            byte[] value = Tuple.from("blah").pack();
+            // Update a key beginning with 2 using context 1
+            byte[] key1 = subspace.pack(Tuple.from(2, 3));
+            context1.ensureActive().set(key1, value);
+
+            // Update a key beginning with 1 using context 2
+            byte[] key2 = subspace.pack(Tuple.from(1, 4));
+            context2.ensureActive().set(key2, value);
+
+            context1.commit();
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit);
+
+            // Reads contain updates from both transactions
+            int bytesRead = beginsWith1.stream().mapToInt(kv -> kv.getKey().length + kv.getValue().length).sum()
+                    + beginsWith2.stream().mapToInt(kv -> kv.getKey().length + kv.getValue().length).sum();
+            assertEquals(bytesRead, timer.getCount(FDBStoreTimer.Counts.BYTES_READ));
+
+            // Writes only include the transaction that successfully committed
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.WRITES));
+            int bytesWritten = key1.length + value.length;
+            assertEquals(bytesWritten, timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN));
+        }
+
     }
 
     @Test
@@ -377,23 +478,64 @@ public class FDBStoreTimerTest {
             assertFalse(iterable.iterator().onHasNext().get());
             assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
 
+            final AsyncIterator<KeyValue> itr1 = iterable.iterator();
+            assertFalse(itr1.hasNext()); // Should increment EMPTY_SCANS
+            assertFalse(itr1.hasNext()); // Should not double-count the same empty scan
+            assertEquals(4L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+
             // Set a key in the range. From now on, the counter shouldn't get incremented
             tr.set(subspace.pack(Tuple.from(1L, "foo")), Tuple.from("bar").pack());
             final AsyncIterable<KeyValue> iterable2 = tr.getRange(subspace.pack(1L), subspace.pack(2L));
             assertThat(iterable2.asList().get(), hasSize(1));
-            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            assertEquals(4L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
 
             final AsyncIterator<KeyValue> itr2a = iterable2.iterator();
             assertTrue(itr2a.hasNext());
             assertEquals(Tuple.from("bar"), Tuple.fromBytes(itr2a.next().getValue()));
             assertFalse(itr2a.hasNext());
-            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            assertEquals(4L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
 
             final AsyncIterator<KeyValue> itr2b = iterable2.iterator();
             assertTrue(itr2b.onHasNext().get());
             assertEquals(Tuple.from("bar"), Tuple.fromBytes(itr2b.next().getValue()));
             assertFalse(itr2b.onHasNext().get());
-            assertEquals(3L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+            assertEquals(4L, timer.getCount(FDBStoreTimer.Counts.EMPTY_SCANS));
+        }
+    }
+
+    @Test
+    void testReadsDoNotCountUntilStarted() throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            final AsyncIterable<KeyValue> iterable = tr.getRange(subspace.range());
+
+            // Calling getRange does not start a read yet, so the timers shouldn't have started
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.RANGE_READS));
+
+            // Run the read and validate metrics are updated
+            iterable.asList().get();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.RANGE_READS));
+
+            // Creating an iterator does start the read, so make sure the reads metrics are updated
+            final AsyncIterator<KeyValue> iterator = iterable.iterator();
+            assertEquals(2, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(2, timer.getCount(FDBStoreTimer.Counts.RANGE_READS));
+
+            // Moving an iterator forward does not count as another read
+            iterator.next();
+            assertEquals(2, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(2, timer.getCount(FDBStoreTimer.Counts.RANGE_READS));
+
+            // Creating a new iterator starts a new read
+            final AsyncIterator<KeyValue> iterator2 = iterable.iterator();
+            assertEquals(3, timer.getCount(FDBStoreTimer.Counts.READS));
+            assertEquals(3, timer.getCount(FDBStoreTimer.Counts.RANGE_READS));
+
+            iterator.cancel();
+            iterator2.cancel();
         }
     }
 
@@ -444,6 +586,4 @@ public class FDBStoreTimerTest {
             return null;
         });
     }
-
-
 }

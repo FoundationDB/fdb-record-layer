@@ -125,9 +125,7 @@ public class SyntheticRecordPlannerTest {
     private FDBRecordStore.Builder recordStoreBuilder;
 
     private FDBRecordContext openContext() {
-        FDBRecordContext context = fdb.openContext();
-        context.setTimer(timer);
-        return context;
+        return fdb.openContext(null, timer);
     }
 
     private QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {

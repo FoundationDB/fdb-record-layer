@@ -21,10 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 
-import com.apple.foundationdb.Range;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -44,6 +41,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -148,23 +146,19 @@ public class IndexingScrubDangling extends IndexingBase {
         validateOrThrowEx(IndexTypes.VALUE.equals(index.getType()) || scrubbingPolicy.ignoreIndexTypeCheck(), "scrubbed index is not a VALUE index");
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
 
-        RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
-
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
                 .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
-        return ranges.onHasNext().thenCompose(hasNext -> {
-            if (Boolean.FALSE.equals(hasNext)) {
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
+        return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
+            if (range == null) {
                 // Here: no more missing ranges - all done
                 // To avoid stale metadata, we'll keep the scrubbed-ranges indicator empty until the next scrub call.
-                Transaction tr = store.getContext().ensureActive();
-                tr.clear(indexScrubIndexRangeSubspace(store, index).range());
+                rangeSet.clear();
                 return AsyncUtil.READY_FALSE;
             }
-            final Range range = ranges.next();
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
             final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
@@ -182,7 +176,7 @@ public class IndexingScrubDangling extends IndexingBase {
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                    .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
                             .thenApply(ignore -> {
                                 if ( scanLimit > 0 ) {
                                     scanCounter += recordsScanned.get();

@@ -169,13 +169,13 @@ public class LuceneEvents {
         /** Total number of bytes that were attempted to be written (not necessarily committed) for file references in the FDBDirectory. */
         LUCENE_WRITE_FILE_REFERENCE_SIZE("lucene write file reference size", true),
         /** Count of writeData calls in FDBDirectory. */
-        LUCENE_WRITE_CALL("lucene index writes", false),
-        /** Total number of bytes that were attempted to be written (not necessarily committed) to the FDBDirectory.*/
-        LUCENE_WRITE_SIZE("lucene index size", true),
+        LUCENE_WRITE_CALL("lucene index writes", false, null, true),
+        /** Total number of bytes that were written to the FDBDirectory.*/
+        LUCENE_WRITE_SIZE("lucene index size", true, null, true),
         /** The number of block reads that occur against the FDBDirectory.*/
         LUCENE_BLOCK_READS("lucene block reads", false),
-        /** Time to write a file references in Lucene's FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" , false),
+        /** Number of file references written in Lucene's FDBDirectory.*/
+        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" , false, null, true),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/
@@ -193,15 +193,17 @@ public class LuceneEvents {
         private final String title;
         private final boolean isSize;
         private final String logKey;
+        private final boolean delayedUntilCommit;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(String title, boolean isSize, String logKey, boolean delayedUntilCommit) {
             this.title = title;
             this.isSize = isSize;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
+            this.delayedUntilCommit = delayedUntilCommit;
         }
 
         Counts(String title, boolean isSize) {
-            this(title, isSize, null);
+            this(title, isSize, null, false);
         }
 
         @Override
@@ -213,6 +215,11 @@ public class LuceneEvents {
         @Nonnull
         public String logKey() {
             return this.logKey;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
         }
 
         @Override

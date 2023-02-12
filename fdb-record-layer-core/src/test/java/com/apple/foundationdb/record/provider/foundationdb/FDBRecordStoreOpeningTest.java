@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -42,6 +41,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -521,8 +521,8 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                     .stream()
                     .findAny()
                     .orElseGet(() -> fail("no indexes defined in meta-data"));
-            new RangeSet(store.indexRangeSubspace(foundIndex))
-                    .insertRange(context.ensureActive(), null, null)
+            IndexingRangeSet.forIndexBuild(store, foundIndex)
+                    .insertRangeAsync(null, null)
                     .get();
 
             // re-delete the header

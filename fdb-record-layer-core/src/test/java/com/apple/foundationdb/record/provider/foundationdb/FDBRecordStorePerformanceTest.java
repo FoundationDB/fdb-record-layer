@@ -239,8 +239,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         if (parameters.parallelCount == 0) {
             final Function<FDBRecordStore, CompletableFuture<?>> singleTest = test.apply(parameters.startValue);
             for (int j = 0; j < parameters.repeatCount; j++) {
-                try (FDBRecordContext context = fdb.openContext()) {
-                    context.setTimer(timer);
+                try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     if (databaseParameters.disableReadYourWrites) {
                         context.ensureActive().options().setReadYourWritesDisable();
                     }

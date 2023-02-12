@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -61,16 +62,36 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     @Nullable
     protected StoreTimer timer;
+    @Nullable
+    protected StoreTimer delayedTimer;
 
     @Nonnull
     protected T underlying;
 
     protected final boolean enableAssertions;
 
-    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nonnull T underlying, boolean enableAssertions) {
+    /**
+     * Create a new transaction wrapping an existing {@link ReadTransaction}. This will then use the
+     * given timers to instrument the transaction's operations. Note that the main {@code timer} may be
+     * shared between multiple transactions, but the {@code delayedTimer} should be solely used by this
+     * transaction.
+     *
+     * @param timer the main timer to use for most events
+     * @param delayedTimer the timer to use for events that are marked as {@linkplain StoreTimer.Event#isDelayedUntilCommit() delayed until commit}
+     * @param underlying the underlying {@link ReadTransaction} to wrap
+     * @param enableAssertions whether operations should validate their inputs and throw {@link com.apple.foundationdb.record.RecordCoreException}s
+     *     if constaints like maximum key or value size are exceeded
+     */
+    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull T underlying, boolean enableAssertions) {
         this.timer = timer;
+        this.delayedTimer = delayedTimer;
         this.underlying = underlying;
         this.enableAssertions = enableAssertions;
+    }
+
+    @Nullable
+    protected StoreTimer getTimerForEvent(StoreTimer.Event event) {
+        return event.isDelayedUntilCommit() ? delayedTimer : timer;
     }
 
     @Override
@@ -112,86 +133,61 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end) {
-        /* Should this could as one read? */
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse, StreamingMode streamingMode) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse, StreamingMode streamingMode) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse, StreamingMode streamingMode) {
-        increment(FDBStoreTimer.Counts.READS);
-        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable<>(underlying.getRange(checkKey(range), limit, reverse, streamingMode));
     }
 
@@ -228,12 +224,12 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public <T> T read(Function<? super ReadTransaction, T> function) {
+    public <V> V read(Function<? super ReadTransaction, V> function) {
         return function.apply(this);
     }
 
     @Override
-    public <T> CompletableFuture<T> readAsync(Function<? super ReadTransaction, ? extends CompletableFuture<T>> function) {
+    public <V> CompletableFuture<V> readAsync(Function<? super ReadTransaction, ? extends CompletableFuture<V>> function) {
         return AsyncUtil.applySafely(function, this);
     }
 
@@ -251,20 +247,23 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     protected void increment(StoreTimer.Count count) {
-        if (timer != null) {
-            timer.increment(count);
+        StoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count);
         }
     }
 
     protected void increment(StoreTimer.Count count, int amount) {
-        if (timer != null) {
-            timer.increment(count, amount);
+        StoreTimer eventTimer = getTimerForEvent(count);
+        if (eventTimer != null) {
+            eventTimer.increment(count, amount);
         }
     }
 
     protected void recordSinceNanoTime(StoreTimer.Event event, long nanoTime) {
-        if (timer != null) {
-            timer.recordSinceNanoTime(event, nanoTime);
+        StoreTimer eventTimer = getTimerForEvent(event);
+        if (eventTimer != null) {
+            eventTimer.recordSinceNanoTime(event, nanoTime);
         }
     }
 
@@ -305,7 +304,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Nonnull
     protected String loggable(@Nonnull byte[] value) {
         if (value.length <= MAX_LOGGED_BYTES + 20) {
-            return ByteArrayUtil2.loggable(value);
+            return Objects.requireNonNull(ByteArrayUtil2.loggable(value));
         }
 
         byte[] portion = Arrays.copyOfRange(value, 0, MAX_LOGGED_BYTES);
@@ -340,11 +339,15 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         @Override
         @NonNull
         public AsyncIterator<K> iterator() {
+            increment(FDBStoreTimer.Counts.READS);
+            increment(FDBStoreTimer.Counts.RANGE_READS);
             return new ByteCountingAsyncIterator<>(underlying.iterator(), counterOp);
         }
 
         @Override
         public CompletableFuture<List<K>> asList() {
+            increment(FDBStoreTimer.Counts.READS);
+            increment(FDBStoreTimer.Counts.RANGE_READS);
             return underlying.asList().thenApply(keyValues -> {
                 if (keyValues.isEmpty()) {
                     increment(FDBStoreTimer.Counts.EMPTY_SCANS);
@@ -364,7 +367,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         private final AsyncIterator<K> underlying;
         private final Function<K, Integer> counterOp;
 
-        private volatile boolean hasAny;
+        private volatile boolean hasAnyOrRecordedEmpty;
 
         public ByteCountingAsyncIterator(AsyncIterator<K> iterator, Function<K, Integer> counterOp) {
             this.underlying = iterator;
@@ -389,9 +392,14 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
         private void handleHasNext(boolean doesHaveNext) {
             if (doesHaveNext) {
-                hasAny = true;
-            } else if (!hasAny) {
-                increment(FDBStoreTimer.Counts.EMPTY_SCANS);
+                hasAnyOrRecordedEmpty = true;
+            } else if (!hasAnyOrRecordedEmpty) {
+                synchronized (this) {
+                    if (!hasAnyOrRecordedEmpty) {
+                        increment(FDBStoreTimer.Counts.EMPTY_SCANS);
+                        hasAnyOrRecordedEmpty = true;
+                    }
+                }
             }
         }
 

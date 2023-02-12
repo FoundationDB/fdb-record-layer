@@ -309,8 +309,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     @Test
     public void testSetMappingDoesNotScanDirectoryKeySpace() {
         FDBStoreTimer timer = new FDBStoreTimer();
-        try (FDBRecordContext context = database.openContext()) {
-            context.setTimer(timer);
+        try (FDBRecordContext context = database.openContext(null, timer)) {
             for (long i = 0; i < 10; i++) {
                 globalScope.setMapping(context, "some-key-" + i, i).join();
             }
