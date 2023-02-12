@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -42,7 +41,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 /**
  * Class to abstract behavior when query expansion is applied to query components or key expressions. An object of this
@@ -81,12 +79,12 @@ public class GraphExpansion {
      * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
      */
     @Nonnull
-    private final ImmutableList<Placeholder> placeholders;
+    private final ImmutableList<ValueWithRanges> placeholders;
 
     private GraphExpansion(@Nonnull final List<Column<? extends Value>> resultColumns,
                            @Nonnull final List<QueryPredicate> predicates,
                            @Nonnull final List<Quantifier> quantifiers,
-                           @Nonnull final List<Placeholder> placeholders) {
+                           @Nonnull final List<ValueWithRanges> placeholders) {
         this.resultColumns = ImmutableList.copyOf(resultColumns);
         this.predicates = ImmutableList.copyOf(predicates);
         this.quantifiers = ImmutableList.copyOf(quantifiers);
@@ -109,7 +107,7 @@ public class GraphExpansion {
     }
 
     @Nonnull
-    public List<Placeholder> getPlaceholders() {
+    public List<ValueWithRanges> getPlaceholders() {
         return placeholders;
     }
 
@@ -117,7 +115,7 @@ public class GraphExpansion {
     public List<CorrelationIdentifier> getPlaceholderAliases() {
         return placeholders
                 .stream()
-                .map(ValueWithRanges.Placeholder::getAlias)
+                .map(ValueWithRanges::getAlias)
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -196,15 +194,7 @@ public class GraphExpansion {
             // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
             // order of parameters determines their sargability.
             final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> {
-                final var leftComparisons = left.getRanges();
-                if (leftComparisons.isEmpty()) {
-                    return right;
-                }
-                final var rightComparisons = right.getRanges();
-                if (rightComparisons.isEmpty()) {
-                    return left;
-                }
-                return left.withCompileTimeRanges(Stream.concat(leftComparisons.stream(), rightComparisons.stream()).collect(Collectors.toSet()));
+                return left.withExtraRanges(right.getRanges());
             }, LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
@@ -214,20 +204,20 @@ public class GraphExpansion {
             final var localPlaceHolderPairs =
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
-                            .filter(p -> localPredicates.contains(p.getKey()))
+                            .filter(p -> localPredicates.stream().anyMatch(predicate -> predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).getValue().equals(p.getKey().getValue())))
                             .collect(Collectors.toList());
 
             final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
             for (final QueryPredicate queryPredicate : getPredicates()) {
-                if (queryPredicate instanceof Placeholder) {
-                    final var localPlaceHolder = (Placeholder)queryPredicate;
+                if (queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).hasAlias()) {
+                    final var localPlaceHolder = (ValueWithRanges)queryPredicate;
                     final var identities = AliasMap.identitiesFor(localPlaceHolder.getCorrelatedTo());
                     final var iterator = localPlaceHolderPairs.iterator();
                     int foundAtOrdinal = -1;
                     while (iterator.hasNext()) {
                         final var currentPlaceholderPair = iterator.next();
                         final var currentPlaceHolder = currentPlaceholderPair.getKey();
-                        if (localPlaceHolder.semanticEqualsWithoutParameterAlias(currentPlaceHolder, identities)) {
+                        if (localPlaceHolder.getValue().semanticEquals(currentPlaceHolder.getValue(), identities)) {
                             if (foundAtOrdinal < 0) {
                                 foundAtOrdinal = currentPlaceholderPair.getRight();
                                 resultPredicates.add(currentPlaceHolder);
@@ -286,7 +276,7 @@ public class GraphExpansion {
 
     @Nonnull
     public static GraphExpansion ofResultColumnAndPlaceholder(@Nonnull final Column<? extends Value> resultColumn,
-                                                              @Nonnull final Placeholder placeholder) {
+                                                              @Nonnull final ValueWithRanges placeholder) {
         return builder().addResultColumn(resultColumn).addPredicate(placeholder).addPlaceholder(placeholder).build();
     }
 
@@ -297,7 +287,7 @@ public class GraphExpansion {
     }
 
     @Nonnull
-    public static GraphExpansion ofPlaceholderAndQuantifier(@Nonnull final Placeholder placeholder, @Nonnull final Quantifier quantifier) {
+    public static GraphExpansion ofPlaceholderAndQuantifier(@Nonnull final ValueWithRanges placeholder, @Nonnull final Quantifier quantifier) {
         return of(ImmutableList.of(), ImmutableList.of(placeholder), ImmutableList.of(quantifier), ImmutableList.of(placeholder));
     }
 
@@ -305,7 +295,7 @@ public class GraphExpansion {
     public static GraphExpansion of(@Nonnull final List<Column<? extends Value>> resultColumns,
                                     @Nonnull final List<QueryPredicate> predicates,
                                     @Nonnull final List<Quantifier> quantifiers,
-                                    @Nonnull final List<Placeholder> placeholders) {
+                                    @Nonnull final List<ValueWithRanges> placeholders) {
         return new GraphExpansion(resultColumns, predicates, quantifiers, placeholders);
     }
 
@@ -322,7 +312,7 @@ public class GraphExpansion {
         final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
         final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
         final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
-        final var placeholdersBuilder = ImmutableList.<Placeholder>builder();
+        final var placeholdersBuilder = ImmutableList.<ValueWithRanges>builder();
         for (final GraphExpansion expandedPredicate : graphExpansions) {
             resultColumnsBuilder.addAll(expandedPredicate.getResultColumns());
             predicatesBuilder.addAll(expandedPredicate.getPredicates());
@@ -381,7 +371,7 @@ public class GraphExpansion {
         }
 
         @Nonnull
-        public List<Placeholder> getPlaceholders() {
+        public List<ValueWithRanges> getPlaceholders() {
             return placeholders;
         }
 
@@ -423,7 +413,7 @@ public class GraphExpansion {
          * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
          */
         @Nonnull
-        private final ImmutableList.Builder<Placeholder> placeholders;
+        private final ImmutableList.Builder<ValueWithRanges> placeholders;
 
         private Builder() {
             resultColumns = new ImmutableList.Builder<>();
@@ -500,13 +490,13 @@ public class GraphExpansion {
         }
 
         @Nonnull
-        public Builder addPlaceholder(@Nonnull final Placeholder placeholder) {
+        public Builder addPlaceholder(@Nonnull final ValueWithRanges placeholder) {
             placeholders.add(placeholder);
             return this;
         }
 
         @Nonnull
-        public Builder addAllPlaceholders(@Nonnull final Iterable<? extends Placeholder> addPlaceholders) {
+        public Builder addAllPlaceholders(@Nonnull final Iterable<? extends ValueWithRanges> addPlaceholders) {
             placeholders.addAll(addPlaceholders);
             return this;
         }

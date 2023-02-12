@@ -287,6 +287,11 @@ public class AliasMap {
         return map.inverse().get(target);
     }
 
+    @Nonnull
+    public AliasMap inverse() {
+        return AliasMap.copyOf(map.inverse());
+    }
+
     /**
      * Get the source for a target passed in or a default in case there is no mapping for the target alias.
      * @param target the target to return the source for

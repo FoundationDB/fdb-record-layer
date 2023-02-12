@@ -100,7 +100,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
      * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueWithRanges.Sargable}) on the query side.
+     * ({@link ValueWithRanges}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -212,8 +212,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
             // if any of the candidate predicates has a restriction (range defined) return empty set.
-            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> p instanceof ValueWithRanges.Placeholder
-                                                                                             && !((ValueWithRanges.Placeholder)p).getRanges().isEmpty())) {
+            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> p instanceof ValueWithRanges && !((ValueWithRanges)p).getRanges().isEmpty() && ((ValueWithRanges)p).hasAlias())) {
                 return Set.of();
             }
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);

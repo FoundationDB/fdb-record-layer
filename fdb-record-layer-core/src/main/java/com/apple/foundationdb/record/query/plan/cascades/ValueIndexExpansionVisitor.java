@@ -78,7 +78,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueWithRanges.Placeholder.class, old -> 0);
+        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -132,9 +132,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
                         .findFirst();
                 if (maybePlaceholder.isEmpty()) {
-                    predicateExpansionBuilder.addPredicate(new ValueWithRanges.ValueConstraint.ValueConstraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                    predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
                 } else {
-                    predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withCompileTimeRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                    predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
                 }
             }
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
@@ -167,7 +167,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
-        final var parameters = sealedExpansion.getPlaceholders().stream().map(ValueWithRanges.Placeholder::getAlias).collect(Collectors.toList());
+        final var parameters = sealedExpansion.getPlaceholders().stream().map(ValueWithRanges::getAlias).collect(Collectors.toList());
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,

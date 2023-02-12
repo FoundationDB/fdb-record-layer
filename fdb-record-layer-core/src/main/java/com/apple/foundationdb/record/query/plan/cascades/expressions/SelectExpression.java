@@ -46,8 +46,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Sargable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -331,7 +329,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (getPredicates().isEmpty()) {
             final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
-                    .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
+                    .allMatch(queryPredicate -> queryPredicate instanceof ValueWithRanges || queryPredicate.isTautology());
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
@@ -549,7 +547,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // unmapped other set now. The reasoning is that this predicate is not filtering, so it does not cause
                     // records to be filtered that are not filtered on the query side.
                     remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof Placeholder && ((Placeholder)queryPredicate).getRanges().isEmpty()));
+                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).getRanges().isEmpty()));
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
@@ -666,8 +664,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 if (!rangeBuilder.addMaybe(predicateRange)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
-            } else if (predicate instanceof Sargable) {
-                final var predicateRange = Iterables.getOnlyElement(((Sargable)predicate).getRanges());
+            } else if (predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).isSargable()) {
+                final var predicateRange = Iterables.getOnlyElement(((ValueWithRanges)predicate).getRanges());
                 rangeBuilder.add(predicateRange);
             } else {
                 result.add(predicate);

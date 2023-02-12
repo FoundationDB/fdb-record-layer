@@ -252,14 +252,6 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
 
         final var that = (CompileTimeEvaluableRange)other;
 
-        if (this.isEmpty().equals(that.isEmpty())) {
-            return true;
-        }
-
-        if (!this.isEmpty().equals(that.isEmpty())) {
-            return false;
-        }
-
         if (nonCompileTimeComparisons.size() != that.nonCompileTimeComparisons.size()) {
             return false;
         }
@@ -268,7 +260,9 @@ public class CompileTimeEvaluableRange implements PlanHashable, Correlated<Compi
             return false;
         }
 
-        if (!that.nonCompileTimeComparisons.stream().allMatch(left -> nonCompileTimeComparisons.stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
+        final var inverseAliasMap = aliasMap.inverse();
+
+        if (!that.nonCompileTimeComparisons.stream().allMatch(left -> nonCompileTimeComparisons.stream().anyMatch(right -> left.semanticEquals(right, inverseAliasMap)))) {
             return false;
         }
 

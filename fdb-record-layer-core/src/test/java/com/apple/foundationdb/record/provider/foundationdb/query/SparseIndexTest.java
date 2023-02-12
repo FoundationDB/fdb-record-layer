@@ -98,7 +98,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
         compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, new ValueWithRanges.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
@@ -114,7 +114,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
         compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, new ValueWithRanges.Sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);

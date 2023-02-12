@@ -184,11 +184,11 @@ public class PartialMatch {
         for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
             final var predicateMapping = entry.getValue();
             final var candidatePredicate = predicateMapping.getCandidatePredicate();
-            if (!(candidatePredicate instanceof ValueWithRanges.Placeholder)) {
+            if (!(candidatePredicate instanceof ValueWithRanges && ((ValueWithRanges)candidatePredicate).hasAlias())) {
                 continue;
             }
 
-            final var placeholder = (ValueWithRanges.Placeholder)candidatePredicate;
+            final var placeholder = (ValueWithRanges)candidatePredicate;
             if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
                 bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
             }

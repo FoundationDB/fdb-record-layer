@@ -58,7 +58,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                                             @Nullable final KeyExpression primaryKey,
                                             final boolean isReverse) {
         Objects.requireNonNull(primaryKey);
-        Debugger.updateIndex(ValueWithRanges.Placeholder.class, old -> 0);
+        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
 

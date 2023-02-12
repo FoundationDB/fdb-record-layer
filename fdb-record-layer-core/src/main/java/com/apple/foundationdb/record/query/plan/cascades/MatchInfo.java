@@ -182,11 +182,11 @@ public class MatchInfo {
             return Optional.empty();
         }
 
-        if (!(candidatePredicate instanceof ValueWithRanges.Placeholder)) {
+        if (!(candidatePredicate instanceof ValueWithRanges)) {
             return Optional.empty();
         }
 
-        return Optional.of(((ValueWithRanges.Placeholder)candidatePredicate).getAlias());
+        return ((ValueWithRanges)candidatePredicate).getAliasMaybe();
     }
 
     /**

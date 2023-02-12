@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -121,7 +121,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 .add(fieldName)
                 .build();
         final Value value;
-        final Placeholder predicate;
+        final ValueWithRanges predicate;
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
@@ -162,7 +162,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final VisitorState state = getCurrentState();
         final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier().getAlias(), state.getFieldNamePrefix()));
         if (state.isKey()) {
-            final Placeholder predicate =
+            final ValueWithRanges predicate =
                     value.asPlaceholder(newParameterAlias());
             return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
         }
@@ -250,7 +250,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *         a unique alias based on an increasing number that is human-readable otherwise.
      */
     protected static CorrelationIdentifier newParameterAlias() {
-        return CorrelationIdentifier.uniqueID(Placeholder.class);
+        return CorrelationIdentifier.uniqueID(ValueWithRanges.class);
     }
 
     /**
