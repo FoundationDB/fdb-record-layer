@@ -75,7 +75,7 @@ public abstract class IndexComparison {
     public static class SimpleComparison extends IndexComparison {
 
         /**
-         * The type of the comparison, this is a subset of {@link com.apple.foundationdb.record.query.expressions.Comparisons.Type}
+         * The type of the comparison, this is a subset of {@link com.apple.foundationdb.record.query.expressions.Comparisons.Type}.
          */
         enum ComparisonType {
             EQUALS,
@@ -179,6 +179,7 @@ public abstract class IndexComparison {
         }
 
         @Nonnull
+        @Override
         public RecordMetaDataProto.Comparison toProto() {
             RecordMetaDataProto.ComparisonType protoComparison;
             switch (comparisonType) {
@@ -217,6 +218,7 @@ public abstract class IndexComparison {
         }
 
         @Nonnull
+        @Override
         public Comparisons.Comparison toComparison() {
             Comparisons.Type type;
             switch (comparisonType) {
@@ -275,12 +277,14 @@ public abstract class IndexComparison {
         }
 
         @Nonnull
+        @Override
         public RecordMetaDataProto.Comparison toProto() {
             return RecordMetaDataProto.Comparison.newBuilder()
                     .setNullComparison(RecordMetaDataProto.NullComparison.newBuilder().setIsNull(isNull).build()).build();
         }
 
         @Nonnull
+        @Override
         public Comparisons.Comparison toComparison() {
             return new Comparisons.NullComparison(isNull ? Comparisons.Type.IS_NULL : Comparisons.Type.NOT_NULL);
         }

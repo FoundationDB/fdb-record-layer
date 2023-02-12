@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -129,7 +127,7 @@ public class Index {
                  @Nonnull String type,
                  @Nonnull Map<String, String> options,
                  @Nullable IndexPredicate predicate) {
-        this(name, rootExpression, type, options, predicate == null ? null : IndexPredicate.IndexPredicateProvider.getInstance(predicate));
+        this(name, rootExpression, type, options, predicate == null ? null : IndexPredicate.IndexPredicateProvider.newInstance(predicate));
     }
 
     /**
@@ -249,7 +247,7 @@ public class Index {
             lastModifiedVersion = proto.getLastModifiedVersion();
         }
         if (proto.hasPredicate()) {
-            this.predicate = IndexPredicate.IndexPredicateProvider.getInstance(proto.getPredicate());
+            this.predicate = IndexPredicate.IndexPredicateProvider.newInstance(proto.getPredicate());
         } else {
             this.predicate = null;
         }

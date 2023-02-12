@@ -103,7 +103,7 @@ public abstract class IndexPredicate {
     public abstract RecordMetaDataProto.Predicate toProto();
 
     @Nonnull
-    public abstract QueryPredicate toPredicate(@Nonnull final Value value);
+    public abstract QueryPredicate toPredicate(@Nonnull Value value);
 
     static class AndPredicate extends IndexPredicate {
         @Nonnull
@@ -196,6 +196,7 @@ public abstract class IndexPredicate {
         }
 
         @VisibleForTesting
+        @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
         public ConstantPredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate predicate) {
             if (predicate == com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE) {
                 this.value = ConstantValue.TRUE;
@@ -401,12 +402,12 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        public static IndexPredicateProvider getInstance(@Nonnull final RecordMetaDataProto.Predicate proto) {
+        public static IndexPredicateProvider newInstance(@Nonnull final RecordMetaDataProto.Predicate proto) {
             return new IndexPredicateProvider(proto);
         }
 
         @Nonnull
-        public static IndexPredicateProvider getInstance(@Nonnull final IndexPredicate predicate) {
+        public static IndexPredicateProvider newInstance(@Nonnull final IndexPredicate predicate) {
             return new IndexPredicateProvider(predicate);
         }
     }

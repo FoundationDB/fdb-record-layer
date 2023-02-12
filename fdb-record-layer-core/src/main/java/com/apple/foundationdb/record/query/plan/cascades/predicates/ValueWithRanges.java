@@ -107,10 +107,9 @@ public class ValueWithRanges implements PredicateWithValue {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        final var result =  Streams.concat(value.getCorrelatedTo().stream(),
+        return Streams.concat(value.getCorrelatedTo().stream(),
                 ranges.stream().flatMap(r -> r.getCorrelatedTo().stream()))
                 .collect(Collectors.toSet());
-        return result;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -177,11 +176,7 @@ public class ValueWithRanges implements PredicateWithValue {
         return new ValueWithRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(Collectors.toSet()), alias);
     }
 
-    public boolean impliedBy(@NonNull final AliasMap aliasMap,
-                             @Nonnull final ValueWithRanges other) {
-        if (!value.semanticEquals(other.value, aliasMap)) {
-            return false;
-        }
+    private boolean impliedBy(@Nonnull final ValueWithRanges other) {
         final var leftDisjunction = getRanges();
         final var rightDisjunction = other.getRanges();
         for (final var left : leftDisjunction) {
@@ -190,10 +185,6 @@ public class ValueWithRanges implements PredicateWithValue {
             }
         }
         return true;
-    }
-
-    public boolean isCompileTimeEvaluable() {
-        return getRanges().stream().allMatch(CompileTimeEvaluableRange::isCompileTimeEvaluable);
     }
 
     @Nonnull
@@ -246,7 +237,7 @@ public class ValueWithRanges implements PredicateWithValue {
             }
 
             // if this and candidate and compile-time evaluable.
-            if (impliedBy(aliasMap, candidate)) {
+            if (impliedBy(candidate)) {
                 if (candidate.hasAlias()) {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
                         if (boundParameterPrefixMap.containsKey(candidate.getAlias())) {
@@ -257,7 +248,7 @@ public class ValueWithRanges implements PredicateWithValue {
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
-                        if (candidate.impliedBy(aliasMap, this)) {
+                        if (candidate.impliedBy(this)) {
                             return Optional.empty();
                         }
                         // check if ranges are semantically equal.
