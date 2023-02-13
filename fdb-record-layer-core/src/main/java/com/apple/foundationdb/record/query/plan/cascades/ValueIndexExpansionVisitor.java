@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -183,16 +183,16 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
     /**
      * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups its int a mapping from a {@link Value}
-     * and list of corresponding {@link CompileTimeEvaluableRange}.
+     * and list of corresponding {@link RangeConstraints}.
      * For example: {@code OR(AND(v1, <3), AND(v2 >4), AND(v1<4))} will be transformed to the following:
      * {@code v1 -> [(-∞,3), (-∞, 4)], v2 -> [(4, +∞)]}.
      *
      * @param predicate The predicate to transform.
-     * @return A mapping from a {@link Value} and list of corresponding {@link CompileTimeEvaluableRange}.
+     * @return A mapping from a {@link Value} and list of corresponding {@link RangeConstraints}.
      */
     @Nonnull
-    private static Multimap<Value, CompileTimeEvaluableRange> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
-        ImmutableMultimap.Builder<Value, CompileTimeEvaluableRange> result = ImmutableMultimap.builder();
+    private static Multimap<Value, RangeConstraints> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+        ImmutableMultimap.Builder<Value, RangeConstraints> result = ImmutableMultimap.builder();
 
         // simple case: x > 3 is DNF
         if (!(predicate instanceof OrPredicate)) {
@@ -206,11 +206,11 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         return result.build();
     }
 
-    private static void conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, CompileTimeEvaluableRange> result, final QueryPredicate group) {
+    private static void conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
         if (group instanceof AndPredicate) {
             final var terms = ((AndPredicate)group).getChildren();
             Optional<Value> key = Optional.empty();
-            final var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
+            final var rangeBuilder = RangeConstraints.newBuilder();
             for (final var term : terms) {
                 if (!(term instanceof ValuePredicate)) {
                     throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
@@ -223,7 +223,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         throw new RecordCoreException(String.format("found two different values ('%s', '%s') in the same conjunction group", key.get(), valuePredicate.getValue()));
                     }
                 }
-                if (!rangeBuilder.addMaybe(valuePredicate.getComparison())) {
+                if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
                 }
             }
@@ -238,8 +238,8 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             }
             final var valuePredicate = (ValuePredicate)group;
             final var key = valuePredicate.getValue();
-            var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
-            if (!rangeBuilder.addMaybe(valuePredicate.getComparison())) {
+            var rangeBuilder = RangeConstraints.newBuilder();
+            if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                 throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
             }
             final var range = rangeBuilder.build();

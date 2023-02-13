@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -95,8 +95,8 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {
-        final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
-        compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
+        final var compileTimeRange = RangeConstraints.newBuilder();
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
@@ -111,8 +111,8 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsNotUsedWhenItsPredicateIsNotImplied() throws Exception {
-        final var compileTimeRange = CompileTimeEvaluableRange.newBuilder();
-        compileTimeRange.addMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
+        final var compileTimeRange = RangeConstraints.newBuilder();
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));

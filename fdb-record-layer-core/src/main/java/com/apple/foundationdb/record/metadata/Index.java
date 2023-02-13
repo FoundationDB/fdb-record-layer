@@ -75,9 +75,8 @@ public class Index {
     private boolean useExplicitSubspaceKey = false;
     private int addedVersion;
     private int lastModifiedVersion;
-
     @Nullable
-    private IndexPredicate.IndexPredicateProvider predicate;
+    private final IndexPredicate predicate;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -110,7 +109,7 @@ public class Index {
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options) {
-        this(name, rootExpression, type, options, (IndexPredicate)null);
+        this(name, rootExpression, type, options, null);
     }
 
     /**
@@ -127,23 +126,6 @@ public class Index {
                  @Nonnull String type,
                  @Nonnull Map<String, String> options,
                  @Nullable IndexPredicate predicate) {
-        this(name, rootExpression, type, options, predicate == null ? null : IndexPredicate.IndexPredicateProvider.newInstance(predicate));
-    }
-
-    /**
-     * Construct new index meta-data.
-     * @param name the name of the index, which is unique for the whole meta-data
-     * @param rootExpression the key expression for the index, such as what field(s) to index
-     * @param type the type of index
-     * @param options additional options, which may be type-specific
-     * @param predicate index predicate, for sparse indexes, can be null.
-     * @see IndexTypes
-     */
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression,
-                 @Nonnull String type,
-                 @Nonnull Map<String, String> options,
-                 @Nullable IndexPredicate.IndexPredicateProvider predicate) {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
@@ -187,7 +169,7 @@ public class Index {
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
-        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options));
+        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options), orig.predicate);
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
         } else {
@@ -197,9 +179,6 @@ public class Index {
         this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
-        if (orig.predicate != null) {
-            this.predicate = orig.predicate; // IndexPredicate is immutable
-        }
     }
 
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
@@ -247,7 +226,7 @@ public class Index {
             lastModifiedVersion = proto.getLastModifiedVersion();
         }
         if (proto.hasPredicate()) {
-            this.predicate = IndexPredicate.IndexPredicateProvider.newInstance(proto.getPredicate());
+            this.predicate = IndexPredicate.fromProto(proto.getPredicate());
         } else {
             this.predicate = null;
         }
@@ -639,10 +618,7 @@ public class Index {
      */
     @Nullable
     public IndexPredicate getPredicate() {
-        if (predicate == null) {
-            return null;
-        }
-        return predicate.getIndexPredicate();
+        return predicate;
     }
 
     /**
@@ -700,7 +676,7 @@ public class Index {
             str.append("#").append(lastModifiedVersion);
         }
         if (predicate != null) {
-            str.append("Predicate ").append(predicate);
+            str.append("where ").append(predicate);
         }
         return str.toString();
     }

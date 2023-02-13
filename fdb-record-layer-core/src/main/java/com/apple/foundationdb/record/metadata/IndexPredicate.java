@@ -33,18 +33,24 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * This is a simple PoJo hierarchy representing SerDe operations on a predicate on an {@link Index}.
+ * This is a Plain old Java object (POJO) hierarchy representing SerDe operations on a predicate on an {@link Index}.
+ * It resembles very closely a subset of {@link QueryPredicate} type hierarchy, and offers a way of conversion to
+ * {@link IndexPredicate} (see {@link IndexPredicate#toPredicate(Value)}).
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class IndexPredicate {
 
+    /**
+     * Parses a proto message into a corresponding predicate.
+     * @param proto The serialized protobuf representation of the {@link IndexPredicate}.
+     * @return a deserialized {@link IndexPredicate}.
+     * @throws RecordCoreException if the provided message is not supported.
+     */
     @Nonnull
     public static IndexPredicate fromProto(@Nonnull final RecordMetaDataProto.Predicate proto) {
         if (proto.hasAndPredicate()) {
@@ -62,6 +68,12 @@ public abstract class IndexPredicate {
         }
     }
 
+    /**
+     * Parses a {@link QueryPredicate} into an equivalent {@link IndexPredicate}.
+     * @param queryPredicate The query predicate to convert.
+     * @return an equivalent {@link IndexPredicate}.
+     * @throws RecordCoreException if the provided query predicate is not supported.
+     */
     @VisibleForTesting
     @Nonnull
     public static IndexPredicate fromQueryPredicate(@Nonnull final QueryPredicate queryPredicate) {
@@ -80,6 +92,12 @@ public abstract class IndexPredicate {
         }
     }
 
+    /**
+     * Checks whether a {@link QueryPredicate} is supported for SerDe operations using this POJO hierarchy.
+     *
+     * @param predicate The predicate to check.
+     * @return {@code true} if the predicate is supported, otherwise {@code false}.
+     */
     public static boolean isSupported(@Nonnull final QueryPredicate predicate) {
         if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate) {
             return true;
@@ -99,12 +117,26 @@ public abstract class IndexPredicate {
         }
     }
 
+    /**
+     * Serializes a POJO into the corresponding protobuf message.
+     *
+     * @return an equivalent protobuf message.
+     */
     @Nonnull
     public abstract RecordMetaDataProto.Predicate toProto();
 
+    /**
+     * Converts a POJO into an equivalent {@link QueryPredicate}.
+     *
+     * @param value The base value needed for parsing a {@link ValuePredicate} into a {@link FieldValue}.
+     * @return an equivalent {@link QueryPredicate}.
+     */
     @Nonnull
     public abstract QueryPredicate toPredicate(@Nonnull Value value);
 
+    /**
+     * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate}.
+     */
     static class AndPredicate extends IndexPredicate {
         @Nonnull
         private final List<IndexPredicate> children;
@@ -138,11 +170,14 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate(final @Nonnull Value value) {
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
     }
 
+    /**
+     * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate}.
+     */
     static class OrPredicate extends IndexPredicate {
         @Nonnull
         private final List<IndexPredicate> children;
@@ -168,7 +203,6 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
-            // TODO (yhatem) memoize
             final var orPredicateProto = RecordMetaDataProto.OrPredicate.newBuilder();
             children.forEach(child -> orPredicateProto.addChildren(child.toProto()));
             return RecordMetaDataProto.Predicate.newBuilder().setOrPredicate(orPredicateProto.build()).build();
@@ -176,11 +210,14 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate(final @Nonnull Value value) {
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
     }
 
+    /**
+     * a POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate}.
+     */
     static class ConstantPredicate extends IndexPredicate {
         enum ConstantValue {
             TRUE,
@@ -255,7 +292,7 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate(final @Nonnull Value value) {
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
             switch (this.value) {
                 case TRUE:
                     return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
@@ -269,6 +306,9 @@ public abstract class IndexPredicate {
         }
     }
 
+    /**
+     * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate}.
+     */
     static class NotPredicate extends IndexPredicate {
         @Nonnull
         private final IndexPredicate value;
@@ -303,11 +343,14 @@ public abstract class IndexPredicate {
 
         @Nonnull
         @Override
-        public QueryPredicate toPredicate(final @Nonnull Value value) {
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate(this.value.toPredicate(value));
         }
     }
 
+    /**
+     * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}.
+     */
     static class ValuePredicate extends IndexPredicate {
         @Nonnull
         private final List<String> fieldPath;
@@ -359,56 +402,6 @@ public abstract class IndexPredicate {
         @Override
         public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(FieldValue.ofFieldNames(value, fieldPath), comparison.toComparison());
-        }
-    }
-
-    /**
-     * Provides a (cached) instance of {@link IndexPredicate}.
-     */
-    public static class IndexPredicateProvider {
-
-        @Nonnull
-        private final AtomicReference<RecordMetaDataProto.Predicate> proto;
-
-        @Nonnull
-        private final AtomicReference<IndexPredicate> indexPredicateReference;
-
-        private IndexPredicateProvider(@Nonnull final IndexPredicate predicate) {
-            this.proto = new AtomicReference<>();
-            this.indexPredicateReference = new AtomicReference<>(predicate);
-        }
-
-        private IndexPredicateProvider(@Nonnull final RecordMetaDataProto.Predicate proto) {
-            this.proto = new AtomicReference<>(proto);
-            this.indexPredicateReference = new AtomicReference<>(null);
-        }
-
-        @Nonnull
-        IndexPredicate getIndexPredicate() {
-            if (indexPredicateReference.get() != null) {
-                return indexPredicateReference.get();
-            }
-            indexPredicateReference.compareAndSet(null, IndexPredicate.fromProto(Objects.requireNonNull(proto.get())));
-            return indexPredicateReference.get();
-        }
-
-        @Nonnull
-        RecordMetaDataProto.Predicate toProto() {
-            if (proto.get() != null) {
-                return proto.get();
-            }
-            proto.compareAndSet(null, indexPredicateReference.get().toProto());
-            return proto.get();
-        }
-
-        @Nonnull
-        public static IndexPredicateProvider newInstance(@Nonnull final RecordMetaDataProto.Predicate proto) {
-            return new IndexPredicateProvider(proto);
-        }
-
-        @Nonnull
-        public static IndexPredicateProvider newInstance(@Nonnull final IndexPredicate predicate) {
-            return new IndexPredicateProvider(predicate);
         }
     }
 }

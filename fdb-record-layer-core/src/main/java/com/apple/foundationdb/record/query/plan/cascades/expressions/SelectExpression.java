@@ -41,7 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -656,12 +656,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value, @Nonnull final Collection<PredicateWithValue> predicates) {
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
-        final var rangeBuilder = CompileTimeEvaluableRange.newBuilder();
+        final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
             if (predicate instanceof ValuePredicate) {
                 final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.addMaybe(predicateRange)) {
+                if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
             } else if (predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).isSargable()) {

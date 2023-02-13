@@ -132,13 +132,13 @@ public class OrPredicate extends AndOrPredicate {
         }
 
         final var value = ((PredicateWithValue)StreamSupport.stream(predicate.getChildren().spliterator(), false).findFirst().orElseThrow()).getValue();
-        final ImmutableSet.Builder<CompileTimeEvaluableRange> rangesSet = ImmutableSet.builder();
+        final ImmutableSet.Builder<RangeConstraints> rangesSet = ImmutableSet.builder();
 
         for (final var child : predicate.getChildren()) {
-            final var rangesBuilder = CompileTimeEvaluableRange.newBuilder();
+            final var rangesBuilder = RangeConstraints.newBuilder();
             if (child instanceof ValuePredicate) {
                 final var valuePredicate = (ValuePredicate)child;
-                if (!rangesBuilder.addMaybe(valuePredicate.getComparison())) {
+                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     return Optional.empty();
                 }
             } else if (child instanceof ValueWithRanges) {
@@ -218,9 +218,9 @@ public class OrPredicate extends AndOrPredicate {
             boolean termRequiresCompensation = true;
             boolean foundMatch = false;
             for (final var rightRange : rightValueWithRanges.getRanges()) {
-                if (rightRange.implies(leftRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                if (rightRange.implies(leftRange).equals(RangeConstraints.EvalResult.TRUE)) {
                     foundMatch = true;
-                    if (leftRange.implies(rightRange).equals(CompileTimeEvaluableRange.EvalResult.TRUE)) {
+                    if (leftRange.implies(rightRange).equals(RangeConstraints.EvalResult.TRUE)) {
                         termRequiresCompensation = false;
                         break;
                     }

@@ -53,8 +53,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.FALSE;
-import static com.apple.foundationdb.record.query.plan.cascades.predicates.CompileTimeEvaluableRange.EvalResult.TRUE;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints.EvalResult.FALSE;
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints.EvalResult.TRUE;
 
 /**
  * A special predicate used to represent a parameterized tuple range.
@@ -69,9 +69,9 @@ public class ValueWithRanges implements PredicateWithValue {
     private final Optional<CorrelationIdentifier> alias;
 
     @Nonnull
-    private final Set<CompileTimeEvaluableRange> ranges;
+    private final Set<RangeConstraints> ranges;
 
-    private ValueWithRanges(@Nonnull final Value value, @Nonnull final Set<CompileTimeEvaluableRange> ranges, @Nonnull final Optional<CorrelationIdentifier> alias) {
+    private ValueWithRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull final Optional<CorrelationIdentifier> alias) {
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
         this.alias = alias;
@@ -94,7 +94,7 @@ public class ValueWithRanges implements PredicateWithValue {
     }
 
     @Nonnull
-    public ValueWithRanges withExtraRanges(@Nonnull final Set<CompileTimeEvaluableRange> ranges) {
+    public ValueWithRanges withExtraRanges(@Nonnull final Set<RangeConstraints> ranges) {
         return new ValueWithRanges(value, Stream.concat(ranges.stream(), this.ranges.stream()).collect(Collectors.toSet()), alias);
     }
 
@@ -147,7 +147,7 @@ public class ValueWithRanges implements PredicateWithValue {
     }
 
     @Nonnull
-    public Set<CompileTimeEvaluableRange> getRanges() {
+    public Set<RangeConstraints> getRanges() {
         return ranges;
     }
 
@@ -193,12 +193,12 @@ public class ValueWithRanges implements PredicateWithValue {
     }
 
     @Nonnull
-    public static ValueWithRanges sargable(@Nonnull Value value, @Nonnull final CompileTimeEvaluableRange range) {
+    public static ValueWithRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
         return new ValueWithRanges(value, Set.of(range), Optional.empty());
     }
 
     @Nonnull
-    public static ValueWithRanges constraint(@Nonnull final Value value, @Nonnull final Set<CompileTimeEvaluableRange> ranges) {
+    public static ValueWithRanges constraint(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
         return new ValueWithRanges(value, ranges, Optional.empty());
     }
 
@@ -313,7 +313,7 @@ public class ValueWithRanges implements PredicateWithValue {
     @Override
     public String toString() {
         final var stringBuilder = new StringBuilder();
-        stringBuilder.append("(").append(getValue()).append(ranges.stream().map(CompileTimeEvaluableRange::toString).collect(Collectors.joining("||"))).append(")");
+        stringBuilder.append("(").append(getValue()).append(ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||"))).append(")");
         if (hasAlias()) {
             stringBuilder.append(" -> ").append(getAlias());
         }

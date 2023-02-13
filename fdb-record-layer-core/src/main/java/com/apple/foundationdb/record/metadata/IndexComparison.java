@@ -32,10 +32,20 @@ import java.util.Objects;
 
 /**
  * This is a simple PoJo hierarchy representing SerDe operations on a predicate comparison of a sparse {@link Index}.
+ * It resembles very closely a subset of {@link Comparisons.Comparison} type hierarchy, and offers a way of conversion to
+ * {@link Comparisons.Comparison} (see {@link IndexComparison#toComparison()}).
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class IndexComparison {
 
+    /**
+     * Parses a {@link com.apple.foundationdb.record.RecordMetaDataProto.Comparison} message into a corresponding
+     * {@link IndexComparison} object.
+     *
+     * @param proto the protobuf message.
+     * @return an equivalent {@link IndexComparison} object.
+     * @throws RecordCoreException if the provided message is not supported.
+     */
     @Nonnull
     public static IndexComparison fromProto(@Nonnull final RecordMetaDataProto.Comparison proto) {
         if (proto.hasSimpleComparison()) {
@@ -46,6 +56,13 @@ public abstract class IndexComparison {
         throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", proto));
     }
 
+    /**
+     * Returns an equivalent {@link IndexComparison} object from a {@link Comparisons.Comparison}.
+     *
+     * @param comparison the comparison.
+     * @return an equivalent {@link IndexComparison} object.
+     * @throws RecordCoreException if the provided {@link Comparisons.Comparison} is not supported.
+     */
     @VisibleForTesting
     @Nonnull
     public static IndexComparison fromComparison(@Nonnull final Comparisons.Comparison comparison) {
@@ -58,19 +75,32 @@ public abstract class IndexComparison {
         }
     }
 
+    /**
+     * Checks whether a {@link Comparisons.Comparison} can be represented by this POJO hierarchy.
+     *
+     * @param comparison The comparison to check.
+     * @return {@code true} if the comparison is supported, otherwise {@code false}.
+     */
     public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
         return comparison instanceof Comparisons.SimpleComparison || comparison instanceof Comparisons.NullComparison;
     }
 
+    /**
+     * Converts this {@link IndexComparison} into a corresponding protobuf message.
+     * @return an equivalent protobuf message.
+     */
     @Nonnull
     public abstract RecordMetaDataProto.Comparison toProto();
 
+    /**
+     * Converts this {@link IndexComparison} into an equivalent {@link Comparisons.Comparison}.
+     * @return An equivalent {@link Comparisons.Comparison}.
+     */
     @Nonnull
     public abstract Comparisons.Comparison toComparison();
 
-
     /**
-     * Represents a simple comparison that can be transformed into an index scan prefix.
+     * A POJO equivalent for {@link com.apple.foundationdb.record.query.expressions.Comparisons.SimpleComparison}.
      */
     public static class SimpleComparison extends IndexComparison {
 
@@ -254,7 +284,7 @@ public abstract class IndexComparison {
     }
 
     /**
-     * Represents a comparison with {@code null}.
+     * A POJO equivalent for {@link com.apple.foundationdb.record.query.expressions.Comparisons.NullComparison}.
      */
     public static class NullComparison extends IndexComparison {
         private final boolean isNull;
