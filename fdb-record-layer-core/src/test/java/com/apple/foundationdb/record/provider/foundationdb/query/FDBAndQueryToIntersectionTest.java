@@ -149,9 +149,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("MySimpleRecord$num_value_3_indexed"))
                                             .and(scanComparisons(range("[[3],[3]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(-1547387927, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1401129171, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-389814460, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2055737489, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(642575779, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1653890490, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
@@ -222,9 +222,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .and(scanComparisons(range("[[3],[3]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"))))));
 
-            assertEquals(-1547387927, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1401129171, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-389814460, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2055737489, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(642575779, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1653890490, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -338,9 +338,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("MySimpleRecord$num_value_2"))
                                             .and(scanComparisons(range("[[1],[1]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(1230194535, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(990570673, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(208442535, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(721844973, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1260691673, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-2042819811, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
@@ -414,9 +414,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("multi_index"))
                                             .and(scanComparisons(range("{[e],[e]}"))))))
                                     .where(predicates(only(valuePredicate(fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3)))))));
-            assertEquals(-493906972, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1641038751, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1690757399, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-983360671, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1571116794, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1620835442, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, allOf(
                     hasNoDescendant(intersection(anything(), anything())),
@@ -496,9 +496,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"))))))
                             .where(predicates(only(valuePredicate(fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "e"))))));
 
-            assertEquals(-1181081384, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(694813977, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1481376200, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(27804381, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1342393314, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-833796863, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), intersection(
                     indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]")))),
@@ -574,9 +574,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                     .where(RecordQueryPlanMatchers.indexName("MySimpleRecord$num_value_3_indexed"))
                                     .and(scanComparisons(range("[[3],[3]]"))))
                             .where(predicates(only(valuePredicate(fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even"))))));
-            assertEquals(1920189869, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(998833172, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(884845927, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-657542100, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1578898797, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1692886042, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -637,9 +637,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("MySimpleRecord$num_value_3_indexed"))
                                             .and(scanComparisons(range("[[0],[0]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(-1568498191, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1907035765, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-389814460, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2076847753, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-344226581, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1653890490, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
@@ -711,9 +711,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("str_value_3_index"))
                                             .and(scanComparisons(range("[[even, 3],[even, 3]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_unique"))))));
-            assertEquals(1221261311, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1216373085, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-136609535, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1205472902, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1286293182, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-206529632, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(
                     indexScan(allOf(indexName("str_value_2_index"), bounds(hasTupleString("[[even, 1],[even, 1]]")))),
@@ -791,9 +791,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                             .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")),
                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_unique"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)))));
 
-            assertEquals(981217238, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-330694402, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1521325010, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1324689370, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-114256600, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-875748838, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
@@ -837,9 +837,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("shape"))
                                             .and(scanComparisons(range("[[200],[200]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"), fieldValueWithFieldNames("rec_name"))))));
-            assertEquals(-1458971095, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-352288925, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(638310756, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1903041065, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-802546845, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(188052836, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(
                     indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10],[10]]")))),
@@ -914,9 +914,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                                             .where(RecordQueryPlanMatchers.indexName("shape"))
                                             .and(scanComparisons(range("[[200, 2],[200, 11]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no"), fieldValueWithFieldNames("rec_name"))))));
-            assertEquals(-1689530007, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1981196899, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1795085636, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1672482153, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1530938979, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1344827716, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, intersection(
                     indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]")))),

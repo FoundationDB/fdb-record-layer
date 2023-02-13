@@ -201,12 +201,12 @@ class TypeRepositoryTest {
 
     @Test
     void attemptToCreateArrayConstructorValueWithDifferentChildrenTypesFails() {
-        Assertions.assertThrows(SemanticException.class, () -> new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_1, STRING_1 /*invalid*/)));
+        Assertions.assertThrows(SemanticException.class, () -> new AbstractArrayConstructorValue.ArrayFn().encapsulate(List.of(INT_1, STRING_1 /*invalid*/)));
     }
 
     @Test
     void createLightArrayConstructorValueWorks() {
-        final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(null, List.of(INT_NOT_NULLABLE_1, INT_NOT_NULLABLE_2));
+        final Typed value = new AbstractArrayConstructorValue.ArrayFn().encapsulate(List.of(INT_NOT_NULLABLE_1, INT_NOT_NULLABLE_2));
         Assertions.assertTrue(value instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
         final AbstractArrayConstructorValue.LightArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
@@ -221,7 +221,7 @@ class TypeRepositoryTest {
 
     @Test
     void createRecordTypeConstructorWorks() {
-        final Typed value = new RecordConstructorValue.RecordFn().encapsulate(null, List.of(STRING_1, INT_2, FLOAT_1));
+        final Typed value = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_1, INT_2, FLOAT_1));
         Assertions.assertTrue(value instanceof RecordConstructorValue);
         final RecordConstructorValue recordConstructorValue = (RecordConstructorValue)value;
         final Type resultType = recordConstructorValue.getResultType();

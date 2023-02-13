@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,7 +51,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * A {@link Value} that checks if the left child is in the list of values.
@@ -63,21 +63,16 @@ public class InOpValue implements BooleanValue {
     private final Value probeValue;
     @Nonnull
     private final Value inArrayValue;
-    @Nonnull
-    private final Function<Value, Object> compileTimeEvalFn;
 
     /**
      * Creates a new instance of {@link InOpValue}.
      * @param probeValue The left child in `IN` operator
      * @param inArrayValue The right child in `IN` operator
-     * @param compileTimeEvalFn The compile-time function used to evaluate the expression.
      */
     private InOpValue(@Nonnull final Value probeValue,
-                      @Nonnull final Value inArrayValue,
-                      @Nonnull final Function<Value, Object> compileTimeEvalFn) {
+                      @Nonnull final Value inArrayValue) {
         this.probeValue = probeValue;
         this.inArrayValue = inArrayValue;
-        this.compileTimeEvalFn = compileTimeEvalFn;
     }
 
     @Nonnull
@@ -93,7 +88,7 @@ public class InOpValue implements BooleanValue {
     @Override
     public InOpValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
-        return new InOpValue(Iterables.get(newChildren, 0), Iterables.get(newChildren, 1), compileTimeEvalFn);
+        return new InOpValue(Iterables.get(newChildren, 0), Iterables.get(newChildren, 1));
     }
 
     @Nullable
@@ -113,25 +108,26 @@ public class InOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
+        // we fail if the right side is not evaluable as we cannot create the comparison
+        
+        typeRepository = Verify.verifyNotNull(typeRepository);
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
+        if (leftChildCorrelatedTo.isEmpty()) {
+            return compileTimeEvalMaybe(typeRepository);
+        }
 
-        Verify.verify(inArrayValue instanceof AbstractArrayConstructorValue.LightArrayConstructorValue);
-        final var arrayConstructorList = (AbstractArrayConstructorValue.LightArrayConstructorValue) inArrayValue;
-        final var isLiteralList = arrayConstructorList.getChildren().stream()
-                .allMatch(value -> value.getCorrelatedTo()
-                        .isEmpty());
+        final var isLiteralList = inArrayValue.getCorrelatedTo().isEmpty();
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
-        if (leftChildCorrelatedTo.isEmpty()) {
-            return compileTimeEvalMaybe();
-        }
-        final var literalValue = compileTimeEvalFn.apply(inArrayValue);
-        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>) literalValue)));
+        final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)));
+        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
     }
 
-    private Optional<QueryPredicate> compileTimeEvalMaybe() {
-        Object constantValue = compileTimeEvalFn.apply(this);
+    @Nonnull
+    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
+    private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull TypeRepository typeRepository) {
+        Object constantValue = this.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean) constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);
@@ -185,11 +181,11 @@ public class InOpValue implements BooleanValue {
     public static class InFn extends BuiltInFunction<Value> {
         public InFn() {
             super("in",
-                    List.of(new Type.Any(), new Type.Array()), (ctx, builtInFunc, args) -> encapsulateInternal(ctx, args));
+                    List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(args));
         }
 
         @Nonnull
-        private static Value encapsulateInternal(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
             SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
@@ -198,22 +194,20 @@ public class InOpValue implements BooleanValue {
             final Type res1 = arg1.getResultType();
             SemanticException.check(res1.getTypeCode() == Type.TypeCode.ARRAY, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
-            final var arrayElementType = ((Type.Array) res1).getElementType();
+            final var arrayElementType = Objects.requireNonNull(((Type.Array) res1).getElementType());
             if (res0.getTypeCode() != arrayElementType.getTypeCode()) {
                 final var maximumType = Type.maximumType(arg0.getResultType(), arrayElementType);
-
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
                 // Promote arg0 if the resultant type is different
                 if (!arg0.getResultType().equals(maximumType)) {
-                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value) arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+                    return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value)arg1);
+                } else {
+                    return new InOpValue((Value)arg0, PromoteValue.inject((Value)arg1, new Type.Array(maximumType)));
                 }
-
-                // Do not currently promote the elements of the array
-                SemanticException.check(maximumType.equals(arrayElementType), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
-            return new InOpValue((Value)arg0, (Value)arg1, value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build())));
+            return new InOpValue((Value)arg0, (Value)arg1);
         }
     }
 }

@@ -376,11 +376,11 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
     public static class RecordFn extends BuiltInFunction<Value> {
         public RecordFn() {
             super("record",
-                    ImmutableList.of(), new Type.Any(), (parserContext, builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
         @Nonnull
-        private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             final ImmutableList<Column<? extends Value>> namedArguments =
                     arguments.stream()
                             .map(typed -> (Value)typed)

@@ -184,14 +184,13 @@ public class CountValue implements Value, AggregateValue, StreamableAggregateVal
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountFn extends BuiltInFunction<AggregateValue> {
         public CountFn() {
-            super("count",
+            super("COUNT",
                     ImmutableList.of(new Type.Any()), CountFn::encapsulate);
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             return new CountValue((Value)arg0);
         }

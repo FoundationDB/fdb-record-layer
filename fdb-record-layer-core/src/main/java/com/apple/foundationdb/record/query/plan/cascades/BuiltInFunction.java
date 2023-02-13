@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -170,8 +169,8 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public Typed encapsulate(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final List<Typed> arguments) {
-        return encapsulationFunction.encapsulate(typeRepositoryBuilder, this, arguments);
+    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
+        return encapsulationFunction.encapsulate(this, arguments);
     }
 
     @Nonnull

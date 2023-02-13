@@ -244,15 +244,18 @@ public class FieldValue implements ValueWithChild {
         return new FieldValue(childValue, resolved);
     }
 
+    @Nonnull
     public static FieldValue ofFieldNames(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
         final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
         return new FieldValue(childValue, resolved);
     }
 
+    @Nonnull
     public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final FieldPath fieldPath) {
         return new FieldValue(childValue, fieldPath);
     }
 
+    @Nonnull
     public static FieldValue ofFieldsAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final FieldPath fields) {
         if (childValue instanceof FieldValue) {
             final var childFieldValue = (FieldValue)childValue;
@@ -265,6 +268,12 @@ public class FieldValue implements ValueWithChild {
     public static FieldValue ofOrdinalNumber(@Nonnull Value childValue, final int ordinalNumber) {
         final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
         return new FieldValue(childValue, resolved);
+    }
+
+    @Nonnull
+    public static FieldValue ofOrdinalNumberAndFuseIfPossible(@Nonnull Value childValue, final int ordinalNumber) {
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
+        return ofFieldsAndFuseIfPossible(childValue, resolved);
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -565,13 +574,12 @@ public class FieldValue implements ValueWithChild {
                 return false;
             }
             final ResolvedAccessor that = (ResolvedAccessor)o;
-            return getOrdinal() == that.getOrdinal() &&
-                   getType().equals(that.getType());
+            return getOrdinal() == that.getOrdinal();
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getOrdinal(), getType());
+            return Objects.hash(getOrdinal());
         }
 
         @Nonnull

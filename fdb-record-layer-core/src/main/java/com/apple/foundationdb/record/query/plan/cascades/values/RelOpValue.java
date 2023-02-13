@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -76,8 +77,6 @@ public class RelOpValue implements BooleanValue {
     @Nonnull
     private final Iterable<? extends Value> children;
     @Nonnull
-    private final Function<Value, Object> compileTimeEvalFn;
-    @Nonnull
     private final Function<Iterable<Object>, Object> physicalEvalFn;
 
     @Nonnull
@@ -93,18 +92,15 @@ public class RelOpValue implements BooleanValue {
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
-     * @param compileTimeEvalFn The compile-time function used to evaluate the expression.
      * @param physicalEvalFn The physical comparison function.
      */
     private RelOpValue(@Nonnull final String functionName,
                        @Nonnull final Comparisons.Type comparisonType,
                        @Nonnull final Iterable<? extends Value> children,
-                       @Nonnull final Function<Value, Object> compileTimeEvalFn,
                        @Nonnull final Function<Iterable<Object>, Object> physicalEvalFn) {
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.children = children;
-        this.compileTimeEvalFn = compileTimeEvalFn;
         this.physicalEvalFn = physicalEvalFn;
     }
 
@@ -121,7 +117,6 @@ public class RelOpValue implements BooleanValue {
         return new RelOpValue(this.functionName,
                 this.comparisonType,
                 newChildren,
-                compileTimeEvalFn,
                 physicalEvalFn);
     }
 
@@ -136,7 +131,8 @@ public class RelOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
         if (childrenCount == 1) {
@@ -145,9 +141,9 @@ public class RelOpValue implements BooleanValue {
             if (childCorrelatedTo.contains(innermostAlias)) {
                 // AFAIU [NOT] NULL are the only unary predicates
                 return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
-            } else {
+            } else if (typeRepository != null) {
                 // it seems this is a constant expression, try to evaluate it.
-                return tryBoxSelfAsConstantPredicate();
+                return tryBoxSelfAsConstantPredicate(typeRepository);
             }
         } else if (childrenCount == 2) {
             // only binary comparison functions are commutative.
@@ -158,35 +154,52 @@ public class RelOpValue implements BooleanValue {
             final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
 
-            if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty()) {
-                return tryBoxSelfAsConstantPredicate();
+            if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && typeRepository != null) {
+                return tryBoxSelfAsConstantPredicate(typeRepository);
             }
             if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
-                if (leftChildCorrelatedTo.isEmpty()) {
-                    final Object comparand = compileTimeEvalFn.apply(leftChild);
-                    return comparand == null
-                           ? Optional.empty()
-                           : Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swapBinaryComparisonOperator(comparisonType), comparand)));
-                } else {
-                    return Optional.of(new ValuePredicate(rightChild, new Comparisons.ValueComparison(swapBinaryComparisonOperator(comparisonType), leftChild)));
-                }
+                // the operands are swapped inside this if branch
+                return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? typeRepository : null,
+                        rightChild,
+                        leftChild,
+                        swapBinaryComparisonOperator(comparisonType));
             } else {
-                if (rightChildCorrelatedTo.isEmpty()) {
-                    final Object comparand = compileTimeEvalFn.apply(rightChild);
-                    // TODO comparand can be just NULL and that's a proper result
-                    return comparand == null
-                           ? Optional.empty()
-                           : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
-                } else {
-                    return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
-                }
+                return promoteOperandsAndCreatePredicate(rightChildCorrelatedTo.isEmpty() ? typeRepository : null,
+                        leftChild,
+                        rightChild,
+                        comparisonType);
             }
-        } // TODO support predicates with more arguments.
+        }
         return Optional.empty();
     }
 
-    Optional<QueryPredicate> tryBoxSelfAsConstantPredicate() {
-        Object constantValue = compileTimeEvalFn.apply(this);
+    @Nonnull
+    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
+    private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final TypeRepository typeRepository,
+                                                                              @Nonnull Value leftChild,
+                                                                              @Nonnull Value rightChild,
+                                                                              @Nonnull final Comparisons.Type comparisonType) {
+        // maximumType may return null, but only for non-primitive types which is not possible here
+        final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
+
+        // inject is idempotent AND does not modify the Value if its result is already max type
+        leftChild = PromoteValue.inject(leftChild, maxtype);
+        rightChild = PromoteValue.inject(rightChild, maxtype);
+
+        if (typeRepository != null) {
+            final Object comparand = rightChild.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+            return comparand == null
+                   ? Optional.of(new ConstantPredicate(false))
+                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+        } else {
+            return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
+        }
+    }
+
+    @Nonnull
+    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
+    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {
+        final Object constantValue = compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean)constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);
@@ -251,7 +264,10 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
-    private static Value encapsulate(@Nonnull TypeRepository typeRepository, @Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
+    @Nonnull
+    private static Value encapsulate(@Nonnull final String functionName,
+                                     @Nonnull final Comparisons.Type comparisonType,
+                                     @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
@@ -265,7 +281,6 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 1);
                         return physicalOperator.eval(objects.iterator().next());
@@ -283,7 +298,6 @@ public class RelOpValue implements BooleanValue {
             return new RelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    value -> value.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)),
                     objects -> {
                         Verify.verify(Iterables.size(objects) == 2);
                         Iterator<Object> it = objects.iterator();
@@ -292,6 +306,7 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    @Nonnull
     private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> computeUnaryOperatorMap() {
         final ImmutableMap.Builder<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final UnaryPhysicalOperator operator : UnaryPhysicalOperator.values()) {
@@ -328,8 +343,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
 
@@ -343,8 +358,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
 
@@ -358,8 +373,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
 
@@ -373,8 +388,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -388,8 +403,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
 
@@ -403,8 +418,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -418,8 +433,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any()), IsNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
         }
     }
 
@@ -433,8 +448,8 @@ public class RelOpValue implements BooleanValue {
                     List.of(new Type.Any()), NotNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull TypeRepository.Builder typeRepositoryBuilder, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
-            return RelOpValue.encapsulate(typeRepositoryBuilder.build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
         }
     }
 
