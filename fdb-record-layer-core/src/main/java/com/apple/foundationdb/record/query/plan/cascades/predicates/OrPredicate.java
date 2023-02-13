@@ -212,7 +212,7 @@ public class OrPredicate extends AndOrPredicate {
         }
 
         // each leg of this must match a companion from the candidate.
-        // also check if we can get an exact match, because if so, we do not need to generate a compnesation.
+        // also check if we can get an exact match, because if so, we do not need to generate a compensation.
         var requiresCompensation = false;
         for (final var leftRange : leftValueWithRanges.getRanges()) {
             boolean termRequiresCompensation = true;

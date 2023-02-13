@@ -287,6 +287,10 @@ public class AliasMap {
         return map.inverse().get(target);
     }
 
+    /**
+     * Returns the inverse of this {@link AliasMap}.
+     * @return The inverse of this {@link AliasMap}.
+     */
     @Nonnull
     public AliasMap inverse() {
         return AliasMap.copyOf(map.inverse());

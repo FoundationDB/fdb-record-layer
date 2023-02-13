@@ -182,8 +182,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     }
 
     /**
-     * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups its int a mapping from a {@link Value}
+     * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups it into a mapping from a {@link Value}
      * and list of corresponding {@link RangeConstraints}.
+     * <br>
      * For example: {@code OR(AND(v1, <3), AND(v2 >4), AND(v1<4))} will be transformed to the following:
      * {@code v1 -> [(-∞,3), (-∞, 4)], v2 -> [(4, +∞)]}.
      *
@@ -196,6 +197,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         // simple case: x > 3 is DNF
         if (!(predicate instanceof OrPredicate)) {
+            if (!(predicate instanceof ValuePredicate)) {
+                throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+            }
             conjunctionToRange(predicate, result, predicate);
         } else {
             final var groups = predicate.getChildren();
