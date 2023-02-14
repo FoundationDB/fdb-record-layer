@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1107,6 +1109,108 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.isIndexReadable(tgtIndex));
+            context.commit();
+        }
+    }
+
+    @Test
+    public void testIndexFromIndexBlock() {
+        // start indexing by Index, verify continuation
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 49;
+        final int chunkSize  = 12;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", sourceIndex));
+        buildSrcIndex(sourceIndex);
+
+        // Partly build index
+        Index targetIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, targetIndex);
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(targetIndex, chunkSize, 1, timer,
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+
+        openSimpleMetaData(hook);
+        String luka = "Blocked by Luka: Feb 2023";
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setIndex(targetIndex)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.blockIndexBuilds(luka, 10L);
+            String indexName = targetIndex.getName();
+            final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
+            assertFalse(stamp.getBlock());
+        }
+
+        // query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setIndex(targetIndex)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            String indexName = targetIndex.getName();
+            final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+            assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
+            assertTrue(stamp.getBlock());
+            assertEquals(luka, stamp.getBlockID());
+            assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+            assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
+        }
+
+        // ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(targetIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexWriteOnly(targetIndex));
+            context.commit();
+        }
+
+        // Successfully build
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .addTargetIndex(targetIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .setAllowUnblock(true)
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .build()) {
+            // now continue building from the last successful range
+            indexBuilder.buildIndex();
+        }
+
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable(targetIndex));
             context.commit();
         }
     }
