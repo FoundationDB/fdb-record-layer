@@ -64,6 +64,11 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    public boolean wasNull() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     public String getString(int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getString();

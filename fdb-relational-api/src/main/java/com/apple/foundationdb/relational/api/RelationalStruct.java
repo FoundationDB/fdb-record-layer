@@ -71,6 +71,8 @@ public interface RelationalStruct extends Struct, Wrapper {
 
     RelationalArray getArray(String fieldName) throws SQLException;
 
+    boolean wasNull() throws SQLException;
+
     @Override
     default String getSQLTypeName() throws SQLException {
         return "STRUCT";

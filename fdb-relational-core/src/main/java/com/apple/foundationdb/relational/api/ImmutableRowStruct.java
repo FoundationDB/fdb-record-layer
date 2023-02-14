@@ -32,6 +32,8 @@ import java.util.Objects;
 public class ImmutableRowStruct extends RowStruct {
     private final Row theRow;
 
+    private boolean wasNull = false;
+
     public ImmutableRowStruct(@Nonnull Row theRow, @Nonnull StructMetaData metaData) {
         super(metaData);
         this.theRow = theRow;
@@ -39,12 +41,21 @@ public class ImmutableRowStruct extends RowStruct {
 
     @Override
     protected Object getObjectInternal(int zeroBasedPos) throws SQLException {
+        wasNull = false;
         Objects.requireNonNull(theRow);
         try {
-            return theRow.getObject(zeroBasedPos);
+            Object o = theRow.getObject(zeroBasedPos);
+            if (o == null) {
+                wasNull = true;
+            }
+            return o;
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
+    @Override
+    public boolean wasNull() {
+        return wasNull;
+    }
 }

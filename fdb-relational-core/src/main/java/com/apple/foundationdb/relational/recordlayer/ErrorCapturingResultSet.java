@@ -58,6 +58,11 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    public boolean wasNull() throws SQLException {
+        return delegate.wasNull();
+    }
+
+    @Override
     public String getString(int columnIndex) throws SQLException {
         try {
             return delegate.getString(columnIndex);

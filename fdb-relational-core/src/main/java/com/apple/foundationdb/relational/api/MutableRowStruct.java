@@ -29,6 +29,8 @@ public class MutableRowStruct extends RowStruct {
 
     private Row row;
 
+    private boolean wasNull = false;
+
     public MutableRowStruct(StructMetaData metaData) {
         super(metaData);
     }
@@ -43,12 +45,21 @@ public class MutableRowStruct extends RowStruct {
 
     @Override
     protected Object getObjectInternal(int zeroBasedPos) throws SQLException {
+        wasNull = false;
         Objects.requireNonNull(row);
         try {
-            return row.getObject(zeroBasedPos);
+            Object o = row.getObject(zeroBasedPos);
+            if (o == null) {
+                wasNull = true;
+            }
+            return o;
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
     }
 
+    @Override
+    public boolean wasNull() {
+        return wasNull;
+    }
 }

@@ -58,6 +58,11 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
+    public boolean wasNull() {
+        return currentRow.wasNull();
+    }
+
+    @Override
     public boolean getBoolean(int oneBasedPosition) throws SQLException {
         if (!currentRow.hasRow()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());

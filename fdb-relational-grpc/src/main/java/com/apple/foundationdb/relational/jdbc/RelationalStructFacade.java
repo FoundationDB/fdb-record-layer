@@ -222,6 +222,11 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    public boolean wasNull() throws SQLException {
+        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     public String getSQLTypeName() throws SQLException {
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -478,6 +483,11 @@ class RelationalStructFacade implements RelationalStruct {
         @Override
         public RelationalArray getArray(String fieldName) throws SQLException {
             return getArray(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
+        }
+
+        @Override
+        public boolean wasNull() throws SQLException {
+            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
 
         @Override
