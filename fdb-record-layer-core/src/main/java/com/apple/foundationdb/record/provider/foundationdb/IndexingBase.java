@@ -593,7 +593,7 @@ public abstract class IndexingBase {
                     LogMessageKeys.LIMIT, limit,
                     LogMessageKeys.DELAY, toWait,
                     LogMessageKeys.RECORDS_PER_SECOND, recordsPerSecond)
-                    .addKeysAndValues(additionalLogMessageKeyValues)
+                    .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
