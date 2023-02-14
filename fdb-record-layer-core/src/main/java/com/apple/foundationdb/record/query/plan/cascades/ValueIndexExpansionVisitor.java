@@ -123,18 +123,23 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
-            final var valueRanges = dnfPredicateToRanges(filteredIndexPredicate);
+            final var valueRangesMaybe = dnfPredicateToRanges(filteredIndexPredicate);
             final var predicateExpansionBuilder = GraphExpansion.builder();
-            for (final var value : valueRanges.keySet()) {
-                // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
-                final var maybePlaceholder = keyValueExpansion.getPlaceholders()
-                        .stream()
-                        .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
-                        .findFirst();
-                if (maybePlaceholder.isEmpty()) {
-                    predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
-                } else {
-                    predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+            } else {
+                final var valueRanges = valueRangesMaybe.get();
+                for (final var value : valueRanges.keySet()) {
+                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                    final var maybePlaceholder = keyValueExpansion.getPlaceholders()
+                            .stream()
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .findFirst();
+                    if (maybePlaceholder.isEmpty()) {
+                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                    } else {
+                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                    }
                 }
             }
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
@@ -192,59 +197,63 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
      * @return A mapping from a {@link Value} and list of corresponding {@link RangeConstraints}.
      */
     @Nonnull
-    private static Multimap<Value, RangeConstraints> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+    public static Optional<Multimap<Value, RangeConstraints>> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
         ImmutableMultimap.Builder<Value, RangeConstraints> result = ImmutableMultimap.builder();
 
         // simple case: x > 3 is DNF
         if (!(predicate instanceof OrPredicate)) {
             if (!(predicate instanceof ValuePredicate)) {
-                throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+                return Optional.empty();
             }
-            conjunctionToRange(predicate, result, predicate);
+            if (!conjunctionToRange(predicate, result, predicate)) {
+                return Optional.empty();
+            }
         } else {
             final var groups = predicate.getChildren();
             for (final var group : groups) {
-                conjunctionToRange(predicate, result, group);
+                if (!conjunctionToRange(predicate, result, group)) {
+                    return Optional.empty();
+                }
             }
         }
-        return result.build();
+        return Optional.of(result.build());
     }
 
-    private static void conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
+    private static boolean conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
         if (group instanceof AndPredicate) {
             final var terms = ((AndPredicate)group).getChildren();
             Optional<Value> key = Optional.empty();
             final var rangeBuilder = RangeConstraints.newBuilder();
             for (final var term : terms) {
                 if (!(term instanceof ValuePredicate)) {
-                    throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+                    return false;
                 }
                 final var valuePredicate = (ValuePredicate)term;
                 if (key.isEmpty()) {
                     key = Optional.of(valuePredicate.getValue());
                 } else {
                     if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.identitiesFor(key.get().getCorrelatedTo()))) {
-                        throw new RecordCoreException(String.format("found two different values ('%s', '%s') in the same conjunction group", key.get(), valuePredicate.getValue()));
+                        return false;
                     }
                 }
                 if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
-                    throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
+                    return false;
                 }
             }
             final var range = rangeBuilder.build();
             if (key.isEmpty() || range.isEmpty()) {
-                throw new RecordCoreException(String.format("invalid predicate '%s'", predicate));
+                return false;
             }
             result.put(key.get(), range.get());
         } else {
             if (!(group instanceof ValuePredicate)) {
-                throw new RecordCoreException(String.format("predicate is not in DNF form. '%s'", predicate));
+                return false;
             }
             final var valuePredicate = (ValuePredicate)group;
             final var key = valuePredicate.getValue();
             var rangeBuilder = RangeConstraints.newBuilder();
             if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
-                throw new RecordCoreException(String.format("attempt to add non-compile-time-evaluable range boundary '%s'", valuePredicate.getComparison()));
+                return false;
             }
             final var range = rangeBuilder.build();
             if (range.isEmpty()) {
@@ -252,6 +261,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
             }
             result.put(key, range.get());
         }
+        return true;
     }
 
 

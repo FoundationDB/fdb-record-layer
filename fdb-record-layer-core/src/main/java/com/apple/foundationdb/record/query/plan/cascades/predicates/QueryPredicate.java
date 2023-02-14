@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -164,7 +165,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                                              boundParameterPrefixMap,
                                              ImmutableList.copyOf(childFunctions)))))));
         }
-        
+
+        if (this.semanticEquals(candidatePredicate, aliasMap)) {
+            return Optional.of(new PredicateMapping(this,
+                    candidatePredicate,
+                    PredicateMultiMap.CompensatePredicateFunction.EMPTY));
+        }
         return Optional.empty();
     }
 
