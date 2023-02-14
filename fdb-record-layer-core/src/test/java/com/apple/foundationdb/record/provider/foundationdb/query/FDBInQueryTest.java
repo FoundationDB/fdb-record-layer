@@ -154,9 +154,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     predicatesFilterPlan(descendantPlans(scanPlan().where(scanComparisons(unbounded()))))
                             .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))));
 
-            assertEquals(808012104, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1746295915, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1958823538, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(738091077, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1676374888, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1888902511, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), anyOf(is(0), is(2))),
@@ -323,9 +323,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexName("multi_index"))
                                             .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyValueComparison()))))))
                             ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
-            assertEquals(-2101694800, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(47999409, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(47999409, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1195482255, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-94542054, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-94542054, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 
@@ -464,9 +464,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(selfOrDescendantPlans(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(unbounded()))))
                             .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(1, 4, 2))))));
-            assertEquals(-490326402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1160723334, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-949123076, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-560248359, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1230645291, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1019045033, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
@@ -1243,9 +1243,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                             .and(scanComparisons(equalities(exactly(anyValueComparison())))))))
                                             .where(inValuesList(equalsObject(Arrays.asList(901, 903, 905)))))
                                     .where(comparisonKeyValues(exactly(ValueMatchers.fieldValueWithFieldNames("num_value_unique"), ValueMatchers.fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(-1956086026, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(112840658, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-343553259, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1341091029, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-29700805, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-486094722, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         assertEquals(53, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
@@ -1299,9 +1299,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                             .and(scanComparisons(equalities(exactly(anyValueComparison())))))))
                                             .where(inValuesList(equalsObject(Arrays.asList(904, 905, 906)))))
                                     .where(comparisonKeyValues(exactly(ValueMatchers.fieldValueWithFieldNames("num_value_unique"), ValueMatchers.fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(-1382982820, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1634953389, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(102887025, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1914194235, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1777494852, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-39654438, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         Set<Long> dupes = new HashSet<>();
         assertEquals(5, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
@@ -1345,9 +1345,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
                                     .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
                             .where(comparisonKeyValues(exactly(ValueMatchers.fieldValueWithFieldNames("num_value_unique"), ValueMatchers.fieldValueWithFieldNames("rec_no")))));
-            assertEquals(-73528550, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(71460586, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(687275691, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-285991040, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1454288912, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(2070104017, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> {
@@ -1404,9 +1404,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     anyValueComparison())))))))
                                             .where(inValuesList(equalsObject(Arrays.asList(1, 3)))))
                                     .where(comparisonKeyValues(exactly(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), ValueMatchers.fieldValueWithFieldNames("rec_no"))))));
-            assertEquals(236611021, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1018588871, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1794910803, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-761192240, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(876045548, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1652367480, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         assertEquals(3 + 4 + 4, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 record -> {
@@ -1459,9 +1459,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                                             .and(scanComparisons(equalities(exactly(anyValueComparison())))))))
                                             .where(comparisonKeyValues(exactly(ValueMatchers.fieldValueWithFieldNames("rec_no"))))
                                             .and(inUnionValuesSources(exactly(inUnionInValues(equalsObject(ImmutableList.of(1, 3)))))))));
-            assertEquals(707312323, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(471445567, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1341626392, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-309386801, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-670831789, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(199349036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         Set<Long> dupes = new HashSet<>();
         assertEquals(50 + 10 + 10, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
@@ -1561,9 +1561,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(selfOrDescendantPlans(scanPlan().and(scanComparisons(unbounded()))))
                             .where(predicates(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of())))));
-            assertEquals(807938487, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1746193438, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1958750883, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(738017460, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1676272411, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1888829856, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, (rec) -> {

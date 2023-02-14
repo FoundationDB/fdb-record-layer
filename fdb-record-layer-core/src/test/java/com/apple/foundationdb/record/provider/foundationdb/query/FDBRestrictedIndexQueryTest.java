@@ -193,7 +193,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(1148834070, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
-                assertEquals(1720698057, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-857033912, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
 
             List<Long> keys = recordStore.executeQuery(plan)
@@ -532,7 +532,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(1073689842, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504042127, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -604,7 +604,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1366919407, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(1237615771, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1167696604, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()
@@ -654,7 +654,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(1073689842, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504042127, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()

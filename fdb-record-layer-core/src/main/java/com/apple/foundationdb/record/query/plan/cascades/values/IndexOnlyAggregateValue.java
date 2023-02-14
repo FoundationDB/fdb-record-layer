@@ -136,15 +136,15 @@ public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, 
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    static class MinEverLong extends IndexOnlyAggregateValue {
+    static class MinEverLongValue extends IndexOnlyAggregateValue {
 
         /**
-         * Creates a new instance of {@link MinEverLong}.
+         * Creates a new instance of {@link MinEverLongValue}.
          *
          * @param operator the aggregation function.
          * @param child the child {@link Value}.
          */
-        MinEverLong(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+        MinEverLongValue(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
 
@@ -155,32 +155,30 @@ public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, 
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull final List<? extends Typed> arguments) {
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
             SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MIN_EVER_LONG));
-            return new MinEverLong(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
+            return new MinEverLongValue(PhysicalOperator.MIN_EVER_LONG, (Value)arg0);
         }
 
         @Nonnull
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
-            return new MinEverLong(operator, rebasedChild);
+            return new MinEverLongValue(operator, rebasedChild);
         }
     }
 
-    static class MaxEverLong extends IndexOnlyAggregateValue {
+    static class MaxEverLongValue extends IndexOnlyAggregateValue {
 
         /**
-         * Creates a new instance of {@link MaxEverLong}.
+         * Creates a new instance of {@link MaxEverLongValue}.
          *
          * @param operator the aggregation function.
          * @param child the child {@link Value}.
          */
-        MaxEverLong(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+        MaxEverLongValue(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
 
@@ -191,20 +189,18 @@ public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, 
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull final List<? extends Typed> arguments) {
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
             SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MAX_EVER_LONG));
-            return new MaxEverLong(PhysicalOperator.valueOf(builtInFunction.getFunctionName()), (Value)arg0);
+            return new MaxEverLongValue(PhysicalOperator.MAX_EVER_LONG, (Value)arg0);
         }
 
         @Nonnull
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
-            return new MaxEverLong(operator, rebasedChild);
+            return new MaxEverLongValue(operator, rebasedChild);
         }
     }
 
@@ -214,7 +210,7 @@ public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, 
     @AutoService(BuiltInFunction.class)
     public static class MinEverLongFn extends BuiltInFunction<AggregateValue> {
         public MinEverLongFn() {
-            super(PhysicalOperator.MIN_EVER_LONG.name(), ImmutableList.of(new Type.Any()), MinEverLong::encapsulate);
+            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MinEverLongValue.encapsulate(arguments));
         }
     }
 
@@ -224,7 +220,7 @@ public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, 
     @AutoService(BuiltInFunction.class)
     public static class MaxEverLongFn extends BuiltInFunction<AggregateValue> {
         public MaxEverLongFn() {
-            super(PhysicalOperator.MAX_EVER_LONG.name(), ImmutableList.of(new Type.Any()), MaxEverLong::encapsulate);
+            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MaxEverLongValue.encapsulate(arguments));
         }
     }
 }

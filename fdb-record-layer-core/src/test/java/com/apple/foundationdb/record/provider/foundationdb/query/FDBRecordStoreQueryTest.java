@@ -347,7 +347,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertMatchesExactly(plan,
                         predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
                                 .where(predicates(only(valuePredicate(fieldValueWithFieldNames(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0))))));
-                assertEquals(-1434217392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-1504138419, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
             continuation = null;
             retrieved = new ArrayList<>(50);

@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -191,7 +190,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 return FieldValue.ofFields(selectWhereQun.getFlowedObjectValue(), baseQuantifierReference.getFieldPath().withSuffix(((FieldValue)value).getFieldPath()));
             }
         }).orElse(RecordConstructorValue.ofColumns(ImmutableList.of()));
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(TypeRepository.newBuilder(), ImmutableList.of(arguments));
+        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
 
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
@@ -211,7 +210,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 ? null
                 : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
-        final var aggregateValueReference = FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
+        final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
 
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);

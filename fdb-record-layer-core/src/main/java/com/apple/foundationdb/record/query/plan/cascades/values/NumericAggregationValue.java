@@ -103,9 +103,8 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
         }
 
@@ -127,9 +126,8 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
         }
 
@@ -151,9 +149,8 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
         }
 
@@ -175,9 +172,8 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull TypeRepository.Builder ignored,
-                                                  @Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<Typed> arguments) {
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
         }
 
@@ -252,7 +248,7 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
 
     @Nonnull
     private static AggregateValue encapsulate(@Nonnull final String functionName,
-                                              @Nonnull final List<Typed> arguments,
+                                              @Nonnull final List<? extends Typed> arguments,
                                               @Nonnull final BiFunction<PhysicalOperator, Value, NumericAggregationValue> valueSupplier) {
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
@@ -285,7 +281,7 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
     @AutoService(BuiltInFunction.class)
     public static class SumFn extends BuiltInFunction<AggregateValue> {
         public SumFn() {
-            super("sum",
+            super("SUM",
                     ImmutableList.of(new Type.Any()), Sum::encapsulate);
         }
     }
@@ -296,7 +292,7 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
     @AutoService(BuiltInFunction.class)
     public static class AvgFn extends BuiltInFunction<AggregateValue> {
         public AvgFn() {
-            super("avg",
+            super("AVG",
                     ImmutableList.of(new Type.Any()), Avg::encapsulate);
         }
     }
@@ -307,7 +303,7 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
     @AutoService(BuiltInFunction.class)
     public static class MinFn extends BuiltInFunction<AggregateValue> {
         public MinFn() {
-            super("min",
+            super("MIN",
                     ImmutableList.of(new Type.Any()), Min::encapsulate);
         }
     }
@@ -318,7 +314,7 @@ public abstract class NumericAggregationValue implements ValueWithChild, Aggrega
     @AutoService(BuiltInFunction.class)
     public static class MaxFn extends BuiltInFunction<AggregateValue> {
         public MaxFn() {
-            super("max",
+            super("MAX",
                     ImmutableList.of(new Type.Any()), Max::encapsulate);
         }
     }
