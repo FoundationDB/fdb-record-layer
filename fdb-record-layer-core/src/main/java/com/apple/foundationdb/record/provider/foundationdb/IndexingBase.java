@@ -55,13 +55,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -463,16 +462,13 @@ public abstract class IndexingBase {
     }
 
     private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
+            return false;
+        }
         if (areSimilar(newStamp, savedStamp)) {
-            return !isTypeStampBlocked(savedStamp) || policy.shouldAllowUnblock(savedStamp.getBlockID());
+            return true;
         }
-        if (policy.shouldAllowTakeoverContinue()) {
-            return (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                     savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) ||
-                    (newStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                     savedStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS);
-        }
-        return false;
+        return policy.shouldAllowTakeoverContinue(newStamp.getMethod(), savedStamp.getMethod());
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
@@ -1095,9 +1091,11 @@ public abstract class IndexingBase {
                 }
                 long expirationMillis = stamp.getBlockExpireEpochMilliSeconds();
                 if (expirationMillis > 0) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-mm-dd_HH:mm:ss", Locale.US);
-                    Date expirationDate = new Date(expirationMillis);
-                    str.append(", blockExpires{").append(sdf.format(expirationDate)).append("}");
+                    try {
+                        str.append(", blockExpires{").append(Instant.ofEpochMilli(expirationMillis)).append("}");
+                    } catch (DateTimeException ignore) {
+                        str.append(", blockExpires{value=").append(expirationMillis).append("}");
+                    }
                 }
             }
             return str.append(")").toString();

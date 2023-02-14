@@ -312,7 +312,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                             .thenApply(ignore -> null);
                 }, false, null);
 
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
                 LogMessageKeys.RANGE_START, rangeStart,
                 LogMessageKeys.RANGE_END, rangeEnd);
 

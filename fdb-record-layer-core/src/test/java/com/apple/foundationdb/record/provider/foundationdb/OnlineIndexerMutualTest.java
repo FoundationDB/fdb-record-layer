@@ -1180,6 +1180,27 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
         }
 
+        // Attempt to unblock with the wrong id, ensure correct stamp is returned.
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexBuilder.unblockIndexBuilds("Blocked by Raffaello");
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+                assertEquals(luka, stamp.getBlockID());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
+            }
+        }
+
+
         // Continue with unblock, correct id
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()

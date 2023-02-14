@@ -2242,8 +2242,13 @@ public class OnlineIndexer implements AutoCloseable {
          * (See {@link Builder#allowTakeoverContinue(boolean)}).
          * @return true if allowed
          */
-        public boolean shouldAllowTakeoverContinue() {
-            return allowTakeoverContinue;
+        public boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,
+                                                   IndexBuildProto.IndexBuildIndexingStamp.Method oldMethod) {
+            return allowTakeoverContinue &&
+                   // Takeover is allowed only in certain cases
+                   (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
+                    (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS ||
+                     oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS));
         }
 
 
