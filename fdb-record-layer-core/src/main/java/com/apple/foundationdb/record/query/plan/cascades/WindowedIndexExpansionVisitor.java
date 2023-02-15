@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -207,7 +208,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     private GraphExpansion duplicateSimpleGroupingPlaceholders(final CorrelationIdentifier baseAlias,
                                                                final CorrelationIdentifier innerBaseAlias,
                                                                final GroupingKeyExpression groupingKeyExpression,
-                                                               final List<ValueWithRanges> groupingsAndArgumentsPlaceholders,
+                                                               final List<Placeholder> groupingsAndArgumentsPlaceholders,
                                                                final SelectExpression rankSelectExpression) {
         final var expansions = Lists.<GraphExpansion>newArrayList();
 
@@ -224,7 +225,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                         .collect(ImmutableSet.toImmutableSet());
 
         for (final var predicate : rankSelectExpression.getPredicates()) {
-            if (!(predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).hasAlias())) {
+            if (!(predicate instanceof Placeholder)) {
                 continue;
             }
 
@@ -246,7 +247,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 continue;
             }
 
-            final var rebasedPlaceholder = (ValueWithRanges)placeholder.rebase(AliasMap.of(innerBaseAlias, baseAlias));
+            final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.of(innerBaseAlias, baseAlias));
             expansions.add(GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(rebasedPlaceholder.getValue()), rebasedPlaceholder));
         }
 

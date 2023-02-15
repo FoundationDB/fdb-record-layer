@@ -218,7 +218,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
             // if any of the candidate predicates has a restriction (range defined) return empty set.
-            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> p instanceof ValueWithRanges && !((ValueWithRanges)p).getRanges().isEmpty() && ((ValueWithRanges)p).hasAlias())) {
+            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> !isPlaceholderWithEmptyRange(p))) {
                 return Set.of();
             }
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
@@ -227,6 +227,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }
         return result;
+    }
+
+    private static boolean isPlaceholderWithEmptyRange(@Nonnull final QueryPredicate value) {
+        return (value instanceof Placeholder) && ((Placeholder)value).getRanges().isEmpty();
     }
 
     /**

@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisito
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
@@ -180,8 +181,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      * @return a new {@link ValueWithRanges} that has {@code parameterAlias} alias.
      */
     @Nonnull
-    default ValueWithRanges asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
-        return ValueWithRanges.placeholder(this, parameterAlias);
+    default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
+        return Placeholder.newInstance(this, parameterAlias);
     }
 
     /**

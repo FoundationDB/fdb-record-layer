@@ -121,7 +121,6 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 .add(fieldName)
                 .build();
         final Value value;
-        final ValueWithRanges predicate;
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
@@ -129,8 +128,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 value = state.registerValue(childBase.getFlowedObjectValue());
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
-                    predicate = value.asPlaceholder(newParameterAlias());
-                    childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
+                    childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
                 } else {
                     childExpansion = GraphExpansion.ofResultColumn(Column.unnamedOf(value));
                 }
@@ -146,8 +144,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case None:
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isKey()) {
-                    predicate = value.asPlaceholder(newParameterAlias());
-                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
+                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
                 }
                 return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
             case Concatenate: // TODO collect/concatenate function
@@ -162,9 +159,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final VisitorState state = getCurrentState();
         final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier().getAlias(), state.getFieldNamePrefix()));
         if (state.isKey()) {
-            final ValueWithRanges predicate =
-                    value.asPlaceholder(newParameterAlias());
-            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), predicate);
+            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
         }
         return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
     }

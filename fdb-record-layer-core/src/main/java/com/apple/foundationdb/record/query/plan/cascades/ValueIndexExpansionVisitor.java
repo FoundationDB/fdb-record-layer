@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -172,7 +173,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
-        final var parameters = sealedExpansion.getPlaceholders().stream().map(ValueWithRanges::getAlias).collect(Collectors.toList());
+        final var parameters = sealedExpansion.getPlaceholders().stream().map(Placeholder::getAlias).collect(Collectors.toList());
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,

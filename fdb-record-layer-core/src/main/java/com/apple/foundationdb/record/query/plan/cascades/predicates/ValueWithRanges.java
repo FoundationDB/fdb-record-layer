@@ -51,7 +51,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints.EvalResult.FALSE;
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints.EvalResult.TRUE;
@@ -66,15 +65,11 @@ public class ValueWithRanges implements PredicateWithValue {
     private final Value value;
 
     @Nonnull
-    private final Optional<CorrelationIdentifier> alias;
-
-    @Nonnull
     private final Set<RangeConstraints> ranges;
 
-    private ValueWithRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull final Optional<CorrelationIdentifier> alias) {
+    protected ValueWithRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
-        this.alias = alias;
     }
 
     @Override
@@ -83,19 +78,10 @@ public class ValueWithRanges implements PredicateWithValue {
         return value;
     }
 
-    public boolean semanticEqualsWithoutParameterAlias(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        return semanticEquals(other, aliasMap);
-    }
-
     @Nonnull
     @Override
     public ValueWithRanges withValue(@Nonnull final Value value) {
-        return new ValueWithRanges(value, ranges, alias);
-    }
-
-    @Nonnull
-    public ValueWithRanges withExtraRanges(@Nonnull final Set<RangeConstraints> ranges) {
-        return new ValueWithRanges(value, Stream.concat(ranges.stream(), this.ranges.stream()).collect(Collectors.toSet()), alias);
+        return new ValueWithRanges(value, ranges);
     }
 
     @Nullable
@@ -151,29 +137,14 @@ public class ValueWithRanges implements PredicateWithValue {
         return ranges;
     }
 
-    @Nonnull
-    public Optional<CorrelationIdentifier> getAliasMaybe() {
-        return alias;
-    }
-
     public boolean isSargable() {
-        return ranges.size() == 1 && !hasAlias();
-    }
-
-    public boolean hasAlias() {
-        return alias.isPresent();
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getAlias() {
-        Verify.verify(alias.isPresent(), "attempt to retrieve non-existing alias");
-        return alias.get();
+        return ranges.size() == 1;
     }
 
     @Nonnull
     @Override
     public ValueWithRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new ValueWithRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(Collectors.toSet()), alias);
+        return new ValueWithRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(Collectors.toSet()));
     }
 
     private boolean impliedBy(@Nonnull final ValueWithRanges other) {
@@ -188,18 +159,13 @@ public class ValueWithRanges implements PredicateWithValue {
     }
 
     @Nonnull
-    public static ValueWithRanges placeholder(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
-        return new ValueWithRanges(value, Set.of(), Optional.of(parameterAlias));
-    }
-
-    @Nonnull
     public static ValueWithRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
-        return new ValueWithRanges(value, Set.of(range), Optional.empty());
+        return new ValueWithRanges(value, Set.of(range));
     }
 
     @Nonnull
     public static ValueWithRanges constraint(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
-        return new ValueWithRanges(value, ranges, Optional.empty());
+        return new ValueWithRanges(value, ranges);
     }
 
     @Nonnull
@@ -224,27 +190,29 @@ public class ValueWithRanges implements PredicateWithValue {
 
             // candidate has no ranges (i.e. it is not filtered).
             if (candidate.getRanges().isEmpty()) {
-                if (candidate.hasAlias()) {
+                if (candidate instanceof WithAlias) {
+                    final var alias = ((WithAlias)candidate).getAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
-                        if (boundParameterPrefixMap.containsKey(candidate.getAlias())) {
+                        if (boundParameterPrefixMap.containsKey(alias)) {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, candidate.getAlias()));
+                    }, alias));
                 } else {
-                    return Optional.empty(); // we should probably throw.
+                    return Optional.empty();
                 }
             }
 
-            // if this and candidate and compile-time evaluable.
+            // if this and candidate are compile-time evaluable.
             if (impliedBy(candidate)) {
-                if (candidate.hasAlias()) {
+                if (candidate instanceof WithAlias) {
+                    final var alias = ((WithAlias)candidate).getAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
-                        if (boundParameterPrefixMap.containsKey(candidate.getAlias())) {
+                        if (boundParameterPrefixMap.containsKey(alias)) {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, candidate.getAliasMaybe()));
+                    }, alias));
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
@@ -256,7 +224,7 @@ public class ValueWithRanges implements PredicateWithValue {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, candidate.getAliasMaybe()));
+                    }));
                 }
             }
         }
@@ -312,11 +280,6 @@ public class ValueWithRanges implements PredicateWithValue {
 
     @Override
     public String toString() {
-        final var stringBuilder = new StringBuilder();
-        stringBuilder.append("(").append(getValue()).append(ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||"))).append(")");
-        if (hasAlias()) {
-            stringBuilder.append(" -> ").append(getAlias());
-        }
-        return stringBuilder.toString();
+        return "(" + getValue() + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
     }
 }
