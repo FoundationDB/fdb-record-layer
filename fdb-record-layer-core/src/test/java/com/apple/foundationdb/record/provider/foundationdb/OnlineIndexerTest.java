@@ -274,4 +274,14 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
     protected void assertReadable(Index index) {
         assertReadable(List.of(index));
     }
+
+    protected void buildIndexClean(Index index) {
+        try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
+            indexer.buildIndex(true);
+        }
+        try (FDBRecordContext context = openContext()) {
+            recordStore.vacuumReadableIndexesBuildData();
+            context.commit();
+        }
+    }
 }

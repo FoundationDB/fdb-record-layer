@@ -73,16 +73,6 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         return allIndexesHook(List.of(srcIndex, tgtIndex));
     }
 
-    private void buildSrcIndex(Index srcIndex) {
-        try (OnlineIndexer indexer = newIndexerBuilder(srcIndex).build()) {
-            indexer.buildIndex(true);
-        }
-        try (FDBRecordContext context = openContext()) {
-            recordStore.vacuumReadableIndexesBuildData();
-            context.commit();
-        }
-    }
-
     private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.IndexingPolicy policy) {
         final AtomicLong counter = new AtomicLong(0);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -115,7 +105,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -145,7 +135,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
@@ -178,7 +168,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -207,7 +197,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -240,7 +230,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -271,7 +261,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -298,7 +288,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
@@ -341,7 +331,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
@@ -378,7 +368,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         openContext();
@@ -417,7 +407,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
@@ -459,7 +449,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
@@ -515,7 +505,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
@@ -564,7 +554,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
@@ -615,7 +605,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
@@ -668,7 +658,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
@@ -705,7 +695,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer, null);
@@ -797,7 +787,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         // partly build by-index
         openSimpleMetaData(hook);
@@ -873,10 +863,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex2);
+        buildIndexClean(srcIndex2);
 
         // partly build by-index src_index
         openSimpleMetaData(hook);
@@ -938,10 +928,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex2);
+        buildIndexClean(srcIndex2);
 
         // partly build by-index src_index
         openSimpleMetaData(hook);
@@ -993,7 +983,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildSrcIndex(srcIndex);
+        buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
@@ -1026,7 +1016,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", sourceIndex));
-        buildSrcIndex(sourceIndex);
+        buildIndexClean(sourceIndex);
 
         // Partly build index
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);

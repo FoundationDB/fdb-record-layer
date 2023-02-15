@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -38,8 +37,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -52,21 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
     private FDBRecordStoreTestBase.RecordMetaDataHook myHook(Index index) {
-        return metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
-    }
-
-    private void buildIndex(Index srcIndex) {
-        try (OnlineIndexer indexer = newIndexerBuilder(srcIndex).build()) {
-            indexer.buildIndex(true);
-        }
-        vaccumReadableIndexesBuildData(); // clear intermediate build data
-    }
-
-    private void vaccumReadableIndexesBuildData() {
-        try (FDBRecordContext context = openContext()) {
-            recordStore.vacuumReadableIndexesBuildData();
-            context.commit();
-        }
+        return allIndexesHook(List.of(index));
     }
 
     @Test
@@ -81,7 +64,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildIndex(tgtIndex);
+        buildIndexClean(tgtIndex);
 
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
@@ -152,7 +135,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildIndex(tgtIndex);
+        buildIndexClean(tgtIndex);
 
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
@@ -243,7 +226,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildIndex(tgtIndex);
+        buildIndexClean(tgtIndex);
 
         // Scrub both dangling & missing. Scan counts in this test should be doubles.
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
@@ -308,7 +291,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildIndex(tgtIndex);
+        buildIndexClean(tgtIndex);
 
         // refuse to scrub a non-readable index
         openSimpleMetaData(hook);
@@ -326,7 +309,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook2 = myHook(nonValueIndex);
 
         openSimpleMetaData(hook2);
-        buildIndex(nonValueIndex);
+        buildIndexClean(nonValueIndex);
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(nonValueIndex).build()) {
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
             assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
@@ -344,7 +327,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         populateData(numRecords);
 
         openSimpleMetaData(hook);
-        buildIndex(tgtIndex);
+        buildIndexClean(tgtIndex);
 
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
