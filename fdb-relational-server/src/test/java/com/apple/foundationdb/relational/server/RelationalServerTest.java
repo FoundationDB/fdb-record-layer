@@ -96,7 +96,7 @@ public class RelationalServerTest {
             update(stub, sysdb, schema, "Drop database \"" + testdb + "\"");
             update(stub, sysdb, schema,
                     "CREATE SCHEMA TEMPLATE test_template " +
-                            "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no))");
+                            "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
             update(stub, sysdb, schema, "create database \"" + testdb + "\"");
             update(stub, sysdb, schema, "create schema \"" + testdb + "/test_schema\" with template test_template");
             ResultSet resultSet = execute(stub, sysdb, schema, "select * from databases;");

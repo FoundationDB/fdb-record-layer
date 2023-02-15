@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
+import com.google.common.collect.HashMultiset;
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
 
@@ -373,7 +373,7 @@ public class Matchers {
         }
     }
 
-    public static ResultSetMatchResult matchResultSet(final Object expected, final RelationalResultSet actual) throws SQLException {
+    public static ResultSetMatchResult matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
 
         if (expected instanceof YamlRunner.Ignore) {
@@ -407,20 +407,51 @@ public class Matchers {
                 printRemaining(actual, resultSetPrettyPrinter);
                 return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
             }
-            final var expectedArray = arrayList(expected);
-            for (final var expectedRow : expectedArray) {
-                if (!actual.next()) {
-                    return ResultSetMatchResult.fail("actual result set is empty", resultSetPrettyPrinter);
+            final var expectedAsList = arrayList(expected);
+            if (isExpectedOrdered) {
+                for (final var expectedRow : expectedAsList) {
+                    if (!actual.next()) {
+                        return ResultSetMatchResult.fail("actual result set is empty", resultSetPrettyPrinter);
+                    }
+                    resultSetPrettyPrinter.newRow();
+                    if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
+                        printRemaining(actual, resultSetPrettyPrinter);
+                        return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
+                    }
+                    final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
+                    if (!matchResult.equals(ResultSetMatchResult.success())) {
+                        printRemaining(actual, resultSetPrettyPrinter);
+                        return matchResult; // fail.
+                    }
                 }
-                resultSetPrettyPrinter.newRow();
-                if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
-                    printRemaining(actual, resultSetPrettyPrinter);
-                    return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
+            } else {
+                // O(n^2) -- we all got M1s
+                final var expectedAsMultiSet = HashMultiset.create(expectedAsList);
+
+                while (actual.next()) {
+                    boolean found = false;
+                    for (final var expectedRow : expectedAsMultiSet) {
+                        resultSetPrettyPrinter.newRow();
+                        if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
+                            printRemaining(actual, resultSetPrettyPrinter);
+                            return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
+                        }
+                        final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
+                        if (matchResult.equals(ResultSetMatchResult.success())) {
+                            found = true;
+                            expectedAsMultiSet.remove(expectedRow);
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        printRemaining(actual, resultSetPrettyPrinter);
+                        return ResultSetMatchResult.fail("result row does not match any expected records", resultSetPrettyPrinter);
+                    }
                 }
-                final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
-                if (!matchResult.equals(ResultSetMatchResult.success())) {
-                    printRemaining(actual, resultSetPrettyPrinter);
-                    return matchResult; // fail.
+
+                if (!expectedAsMultiSet.isEmpty()) {
+                    return ResultSetMatchResult.fail("result does not contain all expected rows", resultSetPrettyPrinter);
                 }
             }
         }

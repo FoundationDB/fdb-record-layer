@@ -58,7 +58,7 @@ public class CaseSensitivityTest {
 
     @Test
     void selectFromCaseInsensitiveTable() throws Exception {
-        final String schema = "CREATE TABLE tbl1 (id int64, value int64, PRIMARY KEY(id))";
+        final String schema = "CREATE TABLE tbl1 (id bigint, value bigint, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("CaseSensitivity").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 for (String tableName : List.of("tbl1", "TBL1", "TbL1", "\"TBL1\"")) {
@@ -139,7 +139,7 @@ public class CaseSensitivityTest {
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE DATABASE /various_schemas");
-                    statement.executeUpdate("CREATE SCHEMA TEMPLATE temp_various_schemas CREATE TABLE foo(a int64, PRIMARY KEY(a))");
+                    statement.executeUpdate("CREATE SCHEMA TEMPLATE temp_various_schemas CREATE TABLE foo(a bigint, PRIMARY KEY(a))");
                 }
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String schema : schemas) {
@@ -173,7 +173,7 @@ public class CaseSensitivityTest {
                     for (String struct : structs) {
                         Assertions.assertDoesNotThrow(() ->
                                 statement.executeUpdate(String.format(
-                                        "CREATE SCHEMA TEMPLATE temp_various_struct_%s CREATE TYPE AS STRUCT %s (a int64) CREATE TABLE foo(a %s, PRIMARY KEY(a))",
+                                        "CREATE SCHEMA TEMPLATE temp_various_struct_%s CREATE TYPE AS STRUCT %s (a bigint) CREATE TABLE foo(a %s, PRIMARY KEY(a))",
                                         struct, quote(struct, quoted), quoted ? quote(struct, true) : struct.toLowerCase(Locale.ROOT))));
                     }
                 }
@@ -198,7 +198,7 @@ public class CaseSensitivityTest {
                     statement.executeUpdate("CREATE DATABASE /various_tables_db");
                     for (String table : tables) {
                         statement.executeUpdate(String.format(
-                                "CREATE SCHEMA TEMPLATE temp_various_table_%s CREATE TABLE %s (a int64, PRIMARY KEY(a))",
+                                "CREATE SCHEMA TEMPLATE temp_various_table_%s CREATE TABLE %s (a bigint, PRIMARY KEY(a))",
                                 table, quoted ? quote(table, true) : table.toLowerCase(Locale.ROOT)));
                         statement.executeUpdate(String.format(
                                 "CREATE SCHEMA /various_tables_db/various_table_%s with template temp_various_table_%s",
@@ -238,7 +238,7 @@ public class CaseSensitivityTest {
                     statement.executeUpdate("CREATE DATABASE /various_columns_db");
                     for (String column : columns) {
                         statement.executeUpdate(String.format(
-                                "CREATE SCHEMA TEMPLATE temp_various_column_%s CREATE TABLE tbl_various_columns (%s int64, PRIMARY KEY(%s))",
+                                "CREATE SCHEMA TEMPLATE temp_various_column_%s CREATE TABLE tbl_various_columns (%s bigint, PRIMARY KEY(%s))",
                                 column,
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT),
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT)));
@@ -285,7 +285,7 @@ public class CaseSensitivityTest {
                             template.append("CREATE SCHEMA TEMPLATE \"").append(schema).append("_template\" ");
                             for (String table : tables) {
                                 template.append("CREATE TABLE \"").append(table).append("\" (");
-                                template.append(columns.stream().map(c -> "\"" + c + "\" int64").collect(Collectors.joining(",")));
+                                template.append(columns.stream().map(c -> "\"" + c + "\" bigint").collect(Collectors.joining(",")));
                                 template.append(", ").append("PRIMARY KEY (\"").append(columns.get(0)).append("\")");
                                 template.append(") ");
                             }

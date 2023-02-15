@@ -39,7 +39,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * <pre>
      * Examples:
      *
-     * CREATE TABLE FOO(a int64, b int64, c int64, primary key(a, b))
+     * CREATE TABLE FOO(a bigint, b bigint, c bigint, primary key(a, b))
      * INSERT INTO FOO VALUES [
      *     {"A": 1, "B": 1, "C": 2},
      *     {"A": 1, "B": 2, "C": 3},
@@ -273,7 +273,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * <pre>
      * Examples:
      *
-     * CREATE TABLE FOO(a int64, b int64, c int64, primary key(a, b))
+     * CREATE TABLE FOO(a bigint, b bigint, c bigint, primary key(a, b))
      * INSERT INTO FOO VALUES [
      *     {"A": 1, "B": 1, "C": 2},
      *     {"A": 1, "B": 2, "C": 3},

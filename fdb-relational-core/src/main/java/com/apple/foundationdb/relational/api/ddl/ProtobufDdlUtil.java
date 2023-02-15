@@ -71,10 +71,14 @@ public final class ProtobufDdlUtil {
         String type = "";
         switch (descriptor.getType()) {
             case TYPE_INT32:
+                type += "INTEGER";
+                break;
             case TYPE_INT64:
-                type += "INT64";
+                type += "BIGINT";
                 break;
             case TYPE_FLOAT:
+                type += "FLOAT";
+                break;
             case TYPE_DOUBLE:
                 type += "DOUBLE";
                 break;
@@ -106,10 +110,14 @@ public final class ProtobufDdlUtil {
         String type = "";
         switch (descriptor.getJavaType()) {
             case INT:
+                type += "INTEGER";
+                break;
             case LONG:
-                type += "INT64";
+                type += "BIGINT";
                 break;
             case FLOAT:
+                type += "FLOAT";
+                break;
             case DOUBLE:
                 type += "DOUBLE";
                 break;
@@ -144,9 +152,11 @@ public final class ProtobufDdlUtil {
         }
         switch (field.getJavaType()) {
             case INT:
+                return Types.INTEGER;
             case LONG:
                 return Types.BIGINT;
             case FLOAT:
+                return Types.FLOAT;
             case DOUBLE:
                 return Types.DOUBLE;
             case BOOLEAN:

@@ -91,7 +91,7 @@ public class TableTest {
 
     @Test
     void wrongSizeOfPrimaryKeyInGetLongerKey() throws Exception {
-        try (var ddl = Ddl.builder().database("TableTest2").relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A int64, B int64, C int64, PRIMARY KEY(C, A))").build()) {
+        try (var ddl = Ddl.builder().database("TableTest2").relationalExtension(relationalExtension).schemaTemplate("CREATE TABLE FOO(A bigint, B bigint, C bigint, PRIMARY KEY(C, A))").build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
                         () -> statement.executeGet("FOO", new KeySet().setKeyColumn("C", 5), Options.NONE))
@@ -314,7 +314,7 @@ public class TableTest {
     @Test
     void testIndexCreatedUsingLastColumn() throws Exception {
         final String schema =
-                " CREATE TABLE tbl1 (id int64, a string, b string, c string, PRIMARY KEY(id))" +
+                " CREATE TABLE tbl1 (id bigint, a string, b string, c string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c from tbl1";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -347,7 +347,7 @@ public class TableTest {
     @Test
     void testIndexCreatedUsingMultipleColumns() throws Exception {
         final String schema =
-                " CREATE TABLE tbl1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id))" +
+                " CREATE TABLE tbl1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id))" +
                         " CREATE INDEX c_name_idx as select c, d from tbl1 order by c, d";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

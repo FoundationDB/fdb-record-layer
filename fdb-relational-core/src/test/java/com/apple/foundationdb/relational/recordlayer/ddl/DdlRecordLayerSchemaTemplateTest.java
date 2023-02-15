@@ -89,7 +89,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void canDropSchemaTemplates() throws Exception {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE drop_template " +
-                "CREATE TYPE AS STRUCT FOO_TYPE (a int64)" +
+                "CREATE TYPE AS STRUCT FOO_TYPE (a bigint)" +
                 " CREATE TABLE FOO_TBL (b double, PRIMARY KEY(b))";
 
         run(statement -> {
@@ -145,7 +145,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     void listSchemaTemplatesWorks(DdlPermutationGenerator.NamedPermutation table) throws Exception {
         String columnStatement = "CREATE SCHEMA TEMPLATE <TEST_TEMPLATE> " +
                 "CREATE TYPE AS STRUCT " + table.getTypeDefinition("FOO") +
-                " CREATE TABLE the_table(col0 int64, col1 foo, PRIMARY KEY(col0))";
+                " CREATE TABLE the_table(col0 bigint, col1 foo, PRIMARY KEY(col0))";
 
         run(statement -> {
             //do a scan of template names first, to see if there are any in there. This is mostly a protection
@@ -182,7 +182,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void createSchemaTemplateWithNoTable() throws SQLException, RelationalException {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
-                "CREATE TYPE AS STRUCT not_a_table(a int64);";
+                "CREATE TYPE AS STRUCT not_a_table(a bigint);";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE));
@@ -193,7 +193,7 @@ public class DdlRecordLayerSchemaTemplateTest {
         String template = "CREATE SCHEMA TEMPLATE cyclic " +
                 "CREATE TYPE AS STRUCT s1 (a s2) " +
                 "CREATE TYPE AS STRUCT s2 (a s1) " +
-                "CREATE TABLE t1 (id int64, a s1, b s2, PRIMARY KEY(id))";
+                "CREATE TABLE t1 (id bigint, a s1, b s2, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
@@ -204,9 +204,9 @@ public class DdlRecordLayerSchemaTemplateTest {
     void manyStructsThatDoNotDependOnEachOther() throws RelationalException, SQLException {
         StringBuilder template = new StringBuilder("CREATE SCHEMA TEMPLATE many_structs ");
         for (int i = 0; i < 100; i++) {
-            template.append("CREATE TYPE AS STRUCT s").append(i).append("(a int64) ");
+            template.append("CREATE TYPE AS STRUCT s").append(i).append("(a bigint) ");
         }
-        template.append("CREATE TABLE t1 (id int64,");
+        template.append("CREATE TABLE t1 (id bigint,");
         for (int i = 0; i < 100; i++) {
             template.append("c").append(i).append(" s").append(i).append(",");
         }
@@ -226,7 +226,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void missingTypeTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE missing_type " +
-                "CREATE TABLE t1 (id int64, val unknown_type, PRIMARY KEY(id))";
+                "CREATE TABLE t1 (id bigint, val unknown_type, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INTERNAL_ERROR) // todo: this seems like it should be INVALID_SCHEMA_TEMPLATE
@@ -237,7 +237,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     void basicEnumTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE basic_enum_template " +
                 "CREATE TYPE AS ENUM basic_enum ('FOO', 'BAR', 'BAZ') " +
-                "CREATE TABLE t1 (id int64, val basic_enum, PRIMARY KEY(id))";
+                "CREATE TABLE t1 (id bigint, val basic_enum, PRIMARY KEY(id))";
 
         run(statement -> {
             statement.executeUpdate(template);
@@ -252,8 +252,8 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void twoTypesSameNameTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name " +
-                "CREATE TABLE t1 (id int64, foo string, PRIMARY KEY(id)) " +
-                "CREATE TABLE t1 (id int64, bar string, PRIMARY KEY(id))";
+                "CREATE TABLE t1 (id bigint, foo string, PRIMARY KEY(id)) " +
+                "CREATE TABLE t1 (id bigint, bar string, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
@@ -263,8 +263,8 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void twoTypesSameNameMixedCase() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name_mixed_case " +
-                "CREATE TABLE aTypeName (id int64, foo string, PRIMARY KEY(id)) " +
-                "CREATE TABLE AtYPEnAME (id int64, bar string, PRIMARY KEY(id))";
+                "CREATE TABLE aTypeName (id bigint, foo string, PRIMARY KEY(id)) " +
+                "CREATE TABLE AtYPEnAME (id bigint, bar string, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
@@ -274,7 +274,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void typeAndEnumSameNameTest() throws RelationalException, SQLException {
         String template = "CREATE SCHEMA TEMPLATE same_name " +
-                "CREATE TABLE foo (id int64, foo string, PRIMARY KEY(id)) " +
+                "CREATE TABLE foo (id bigint, foo string, PRIMARY KEY(id)) " +
                 "CREATE TYPE AS ENUM foo ('A', 'B', 'C')";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))

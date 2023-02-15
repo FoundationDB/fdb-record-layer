@@ -37,7 +37,7 @@ public class NullsInResultSetTest {
 
     private static final String schemaTemplate =
             " CREATE TYPE AS STRUCT S (S1 string, S2 string)" +
-                    " CREATE TABLE T(PK int64, T1 int64, T2 string, T3 double, T4 bytes, T5 S, T6 string array, PRIMARY KEY(PK))";
+                    " CREATE TABLE T(PK bigint, T1 bigint, T2 string, T3 double, T4 bytes, T5 S, T6 string array, PRIMARY KEY(PK))";
 
     @RegisterExtension
     @Order(0)

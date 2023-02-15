@@ -45,7 +45,7 @@ import java.util.List;
  * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
  */
 public class DeleteRangeNoMetadataKeyTest {
-    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id int64, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
+    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
 
     @RegisterExtension
     @Order(0)

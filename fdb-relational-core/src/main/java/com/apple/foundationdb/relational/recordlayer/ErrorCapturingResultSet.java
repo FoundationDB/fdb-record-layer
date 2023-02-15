@@ -81,6 +81,15 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    public int getInt(int columnIndex) throws SQLException {
+        try {
+            return delegate.getInt(columnIndex);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
     public long getLong(int columnIndex) throws SQLException {
         try {
             return delegate.getLong(columnIndex);
@@ -129,6 +138,15 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     public boolean getBoolean(String columnLabel) throws SQLException {
         try {
             return delegate.getBoolean(columnLabel);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public int getInt(String columnLabel) throws SQLException {
+        try {
+            return delegate.getInt(columnLabel);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }

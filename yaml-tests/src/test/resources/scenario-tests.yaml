@@ -26,14 +26,14 @@
 ---
 - query: CREATE SCHEMA TEMPLATE messenger_template 
     CREATE TABLE messages(
-    id int64,
+           id bigint,
            text string,
-           timestamp int64,
-           other_party_id int64,
+           timestamp bigint,
+           other_party_id bigint,
            sent boolean,
            primary key(id))
        CREATE TABLE customer(
-           id int64,
+           id bigint,
            name string,
            phone_number string,
            address string,
@@ -48,11 +48,11 @@
        )
        CREATE TYPE AS STRUCT "MESSAGE"(
            text string,
-           timestamp int64,
+           timestamp bigint,
            sent boolean
        )
        CREATE TABLE conversations(
-           id int64,
+           id bigint,
            other_party CONTACT_DETAIL,
            messages "MESSAGE" ARRAY,
            primary key(id))

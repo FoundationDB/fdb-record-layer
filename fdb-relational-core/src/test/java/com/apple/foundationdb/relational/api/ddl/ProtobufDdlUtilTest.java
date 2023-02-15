@@ -82,13 +82,17 @@ class ProtobufDdlUtilTest {
             Assertions.assertThat(typeName).doesNotContainIgnoringCase("array");
         }
         switch (fieldProto.getType()) {
-            case TYPE_DOUBLE:
             case TYPE_FLOAT:
+                Assertions.assertThat(typeName).containsIgnoringCase("float");
+                break;
+            case TYPE_DOUBLE:
                 Assertions.assertThat(typeName).containsIgnoringCase("double");
                 break;
-            case TYPE_INT64:
             case TYPE_INT32:
-                Assertions.assertThat(typeName).containsIgnoringCase("int64");
+                Assertions.assertThat(typeName).containsIgnoringCase("integer");
+                break;
+            case TYPE_INT64:
+                Assertions.assertThat(typeName).containsIgnoringCase("bigint");
                 break;
             case TYPE_BOOL:
                 Assertions.assertThat(typeName).containsIgnoringCase("boolean");
@@ -118,13 +122,17 @@ class ProtobufDdlUtilTest {
             Assertions.assertThat(typeName).doesNotContainIgnoringCase("array");
         }
         switch (field.getJavaType()) {
-            case DOUBLE:
             case FLOAT:
+                Assertions.assertThat(typeName).containsIgnoringCase("float");
+                break;
+            case DOUBLE:
                 Assertions.assertThat(typeName).containsIgnoringCase("double");
                 break;
-            case LONG:
             case INT:
-                Assertions.assertThat(typeName).containsIgnoringCase("int64");
+                Assertions.assertThat(typeName).containsIgnoringCase("integer");
+                break;
+            case LONG:
+                Assertions.assertThat(typeName).containsIgnoringCase("bigint");
                 break;
             case BOOLEAN:
                 Assertions.assertThat(typeName).containsIgnoringCase("boolean");
@@ -150,12 +158,16 @@ class ProtobufDdlUtilTest {
         } else {
             Assertions.assertThat(sqlType).isNotEqualTo(Types.ARRAY);
             switch (field.getJavaType()) {
-                case DOUBLE:
                 case FLOAT:
+                    Assertions.assertThat(sqlType).isEqualTo(Types.FLOAT);
+                    break;
+                case DOUBLE:
                     Assertions.assertThat(sqlType).isEqualTo(Types.DOUBLE);
                     break;
-                case LONG:
                 case INT:
+                    Assertions.assertThat(sqlType).isEqualTo(Types.INTEGER);
+                    break;
+                case LONG:
                     Assertions.assertThat(sqlType).isEqualTo(Types.BIGINT);
                     break;
                 case BOOLEAN:

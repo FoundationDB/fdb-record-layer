@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  */
 public final class DdlPermutationGenerator {
     private static final String[] validPrimitiveDataTypes = new String[]{
-            "int64", "double", "boolean", "string", "bytes"
+            "bigint", "double", "boolean", "string", "bytes"
     };
 
     public static Stream<NamedPermutation> generateTables(String prefix, int numColumns) {

@@ -93,6 +93,24 @@ public abstract class RowStruct implements RelationalStruct {
     }
 
     @Override
+    public int getInt(int oneBasedPosition) throws SQLException {
+        Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+        if (o == null) {
+            return 0;
+        }
+        if (!(o instanceof Number)) {
+            throw new SQLException(String.format("Cannot convert %s to Integer", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return ((Number) o).intValue();
+    }
+
+    @Override
+    public int getInt(String columnLabel) throws SQLException {
+        return getInt(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
     public long getLong(int oneBasedPosition) throws SQLException {
         Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         if (o == null) {

@@ -42,12 +42,12 @@ public class PreparedStatementTests {
 
     private static final String schemaTemplate =
             "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
-                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array)" +
-                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight int64)" +
-                    " CREATE TYPE AS STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
-                    " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" bigint, \"endorsementText\" string)" +
+                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array)" +
+                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
+                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
+                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
                     " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +

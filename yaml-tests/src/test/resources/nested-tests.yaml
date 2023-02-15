@@ -23,11 +23,11 @@
 - query: drop schema template standard_tests_template
 ---
 - query: create schema template standard_tests_template
-    CREATE TYPE AS STRUCT s1(a int64, b int64)
-    CREATE TYPE AS STRUCT s2(c int64, d int64)
+    CREATE TYPE AS STRUCT s1(a bigint, b bigint)
+    CREATE TYPE AS STRUCT s2(c bigint, d bigint)
     CREATE TYPE AS STRUCT s3(e s1, f s2)
-    create table t1(id int64, g int64, h s3, primary key(id))
-    create table t2(id int64, g int64, h s3, primary key(id))
+    create table t1(id bigint, g bigint, h s3, primary key(id))
+    create table t2(id bigint, g bigint, h s3, primary key(id))
 ---
 - query: drop database /STANDARD_YAML
 ---

@@ -23,9 +23,9 @@
 - query: drop schema template inserts_updates_deletes_template
 ---
 - query: create schema template inserts_updates_deletes_template
-    create type as struct S(S1 int64, S2 int64)
-    create table A(A1 int64, A2 int64, A3 int64, primary key(A1))
-    create table B(B1 int64, B2 int64, B3 S, primary key(B1))
+    create type as struct S(S1 bigint, S2 bigint)
+    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+    create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
 - query: drop database /INSERTS_UPDATES_DELETES_YAML
@@ -41,7 +41,11 @@
            {A1: 2, A2: 10, A3: 2},
            {A1: 3, A2: 10, A3: 3}]
 ---
-- query: insert into B values (1, 20, (4, 40)), (2, 20, (5, 50)), (3, 20, (6, 60)), (4, 20, null);
+- query: insert into B
+    values (1, 20, (4, 40)),
+           (2, 20, (5, 50)),
+           (3, 20, (6, 60)),
+           (4, 20, null);
 - result: [{B1: 1, B2: 20, B3: {S1: 4, S2: 40}},
            {B1: 2, B2: 20, B3: {S1: 5, S2: 50}},
            {B1: 3, B2: 20, B3: {S1: 6, S2: 60}},

@@ -38,8 +38,8 @@ import java.util.stream.Collectors;
  */
 public class SchemaGenerator {
     private static final List<String> primitiveDataTypes = List.of(
-            //            "int64","double","boolean","string","bytes"
-            "int64", "double", "string", "bytes" //removing boolean temporarily to avoid pk violations with small tables
+            //            "bigint","double","boolean","string","bytes"
+            "bigint", "double", "string", "bytes" //removing boolean temporarily to avoid pk violations with small tables
     );
     private final RandomDataSource random;
     private final int maxTables;

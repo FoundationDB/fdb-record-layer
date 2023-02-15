@@ -67,12 +67,12 @@ public class StandardQueryTests {
 
     private static final String schemaTemplate =
             "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
-                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array)" +
-                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight int64)" +
-                    " CREATE TYPE AS STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
-                    " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" bigint, \"endorsementText\" string)" +
+                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array)" +
+                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
+                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
+                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
                     " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
@@ -80,12 +80,12 @@ public class StandardQueryTests {
 
     private static final String schemaTemplateWithNonNullableArrays =
             "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
-                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" int64, \"endorsementText\" string)" +
-                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer int64, rating int64, endorsements \"ReviewerEndorsements\" array NOT NULL)" +
-                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight int64)" +
-                    " CREATE TYPE AS STRUCT ReviewerStats (start_date int64, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantComplexRecord (rest_no int64, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
-                    " CREATE TABLE RestaurantReviewer (id int64, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" bigint, \"endorsementText\" string)" +
+                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array NOT NULL)" +
+                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
+                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
+                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
                     " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
@@ -425,7 +425,7 @@ public class StandardQueryTests {
 
     @Test
     void testSelectWithCoveringIndexHint() throws Exception {
-        final String schema = "CREATE TABLE T1(COL1 int64, COL2 int64, COL3 int64, PRIMARY KEY(COL1, COL3))" +
+        final String schema = "CREATE TABLE T1(COL1 bigint, COL2 bigint, COL3 bigint, PRIMARY KEY(COL1, COL3))" +
                 " CREATE INDEX T1_IDX as select col1, col3, col2 from t1 order by col1, col3";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -529,8 +529,8 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +
                 " CREATE TYPE AS STRUCT D ( e E )" +
-                " CREATE TYPE AS STRUCT E ( f int64 )" +
-                " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
+                " CREATE TYPE AS STRUCT E ( f bigint )" +
+                " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
@@ -581,8 +581,8 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +
                 " CREATE TYPE AS STRUCT D ( e E )" +
-                " CREATE TYPE AS STRUCT E ( f int64 array )" +
-                " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
+                " CREATE TYPE AS STRUCT E ( f bigint array )" +
+                " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
@@ -632,8 +632,8 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT B ( c C )" +
                 " CREATE TYPE AS STRUCT C ( d D )" +
                 " CREATE TYPE AS STRUCT D ( e E array )" +
-                " CREATE TYPE AS STRUCT E ( f int64 array )" +
-                " CREATE TABLE tbl1 (id int64, c C, a A, PRIMARY KEY(id))";
+                " CREATE TYPE AS STRUCT E ( f bigint array )" +
+                " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try {
@@ -727,8 +727,8 @@ public class StandardQueryTests {
     @Test
     void testSubquery() throws Exception {
         final String schema = "CREATE TYPE AS STRUCT customer_detail(name string, phone_number string, address string) " +
-                "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp int64,sent boolean) " +
-                "CREATE TABLE conversations(id int64, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
+                "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp bigint,sent boolean) " +
+                "CREATE TABLE conversations(id bigint, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("CONVERSATIONS")
@@ -826,7 +826,7 @@ public class StandardQueryTests {
 
     @Test
     void aliasingTableToResolveAmbiguityWorks() throws Exception {
-        final String schema = "CREATE TABLE FOO(FOO int64, PRIMARY KEY(FOO))";
+        final String schema = "CREATE TABLE FOO(FOO bigint, PRIMARY KEY(FOO))";
         try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("FOO").setField("FOO", 42L).build();

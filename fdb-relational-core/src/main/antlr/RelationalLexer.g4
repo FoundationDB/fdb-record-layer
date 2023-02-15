@@ -1264,10 +1264,10 @@ DECIMAL_LITERAL:                     DEC_DIGIT+;
 HEXADECIMAL_LITERAL:                 'X' '\'' (HEX_DIGIT HEX_DIGIT)+ '\''
                                      | '0X' HEX_DIGIT+;
 
-REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+
-                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART
-                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART)
-                                     | DEC_DIGIT+ EXPONENT_NUM_PART;
+REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ TYPE_MODIFIER?
+                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART TYPE_MODIFIER?
+                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) TYPE_MODIFIER?
+                                     | DEC_DIGIT+ EXPONENT_NUM_PART TYPE_MODIFIER?;
 NULL_SPEC_LITERAL:                   '\\' 'N';
 BIT_STRING:                          BIT_STRING_L;
 STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
@@ -1335,6 +1335,10 @@ fragment BQUOTA_STRING:              '`' ( '\\'. | '``' | ~('`'|'\\'))* '`';
 fragment HEX_DIGIT:                  [0-9A-F];
 fragment DEC_DIGIT:                  [0-9];
 fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
+
+fragment FLOAT_TYPE_MODIFIER:        ('F'|'f');
+fragment DOUBLE_TYPE_MODIFIER:       ('D'|'d');
+fragment TYPE_MODIFIER:              (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
 
 
 

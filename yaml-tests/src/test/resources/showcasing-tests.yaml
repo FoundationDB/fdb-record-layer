@@ -33,9 +33,9 @@
 - query: drop schema template test_template
 ---
 - query: create schema template test_template
-   create table t1(id int64, col1 int64, primary key(id))
-   create table t2(col1 int64, primary key(col1))
-   create table t3(col1 int64, col2 string, primary key(col1))
+   create table t1(id bigint, col1 bigint, primary key(id))
+   create table t2(col1 bigint, primary key(col1))
+   create table t3(col1 bigint, col2 string, primary key(col1))
 ---
 - query: drop database /YOUSSEF
 ---
@@ -81,10 +81,10 @@
 # Here is a more complex schema template with nesting to show how to deal with nested
 # data.
 - query: create schema template test_template_nested
-         CREATE TYPE AS STRUCT s1(col1 int64, col2 string)
+         CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
          CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
-         create table t1(id int64, col5 s2, primary key(id))
-         create table t2(id2 int64, col6 s2 ARRAY, primary key(id2))
+         create table t1(id bigint, col5 s2, primary key(id))
+         create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
 ---
 - query: create schema /YOUSSEF/test_nested with template test_template_nested
 ---

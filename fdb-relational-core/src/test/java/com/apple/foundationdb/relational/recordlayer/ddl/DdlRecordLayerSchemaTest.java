@@ -57,7 +57,7 @@ public class DdlRecordLayerSchemaTest {
     public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational,
             DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
             Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
-            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "int64"))));
+            Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @RegisterExtension
     @Order(2)

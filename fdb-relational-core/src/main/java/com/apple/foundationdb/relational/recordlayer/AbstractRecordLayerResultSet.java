@@ -95,6 +95,22 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
+    public int getInt(int oneBasedPosition) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
+        }
+        return currentRow.getInt(oneBasedPosition);
+    }
+
+    @Override
+    public int getInt(String columnLabel) throws SQLException {
+        if (!currentRow.hasRow()) {
+            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
+        }
+        return currentRow.getInt(columnLabel);
+    }
+
+    @Override
     public long getLong(int oneBasedPosition) throws SQLException {
         if (!currentRow.hasRow()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());

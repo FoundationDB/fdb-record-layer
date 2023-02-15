@@ -36,8 +36,12 @@ public final class SqlTypeNamesSupport {
 
     public static String getSqlTypeName(int sqlTypeCode) {
         switch (sqlTypeCode) {
+            case Types.INTEGER:
+                return "INTEGER";
             case Types.BIGINT:
-                return "LONG";
+                return "BIGINT";
+            case Types.FLOAT:
+                return "FLOAT";
             case Types.DOUBLE:
                 return "DOUBLE";
             case Types.VARCHAR:

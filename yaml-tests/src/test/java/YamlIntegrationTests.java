@@ -132,4 +132,9 @@ public class YamlIntegrationTests {
     public void inPredicate() throws Exception {
         doRun("in-predicate.yaml");
     }
+
+    @Test
+    void booleanTypes() throws Exception {
+        doRun("boolean.yaml");
+    }
 }

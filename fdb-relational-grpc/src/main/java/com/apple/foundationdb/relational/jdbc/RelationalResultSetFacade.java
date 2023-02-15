@@ -82,7 +82,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     @Override
     public int getInt(int oneBasedColumn) throws SQLException {
-        // TODO: This needs work.
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getInteger();
     }
@@ -139,6 +138,12 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public byte getByte(String columnLabel) throws SQLException {
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public int getInt(String columnLabel) throws SQLException {
         throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 

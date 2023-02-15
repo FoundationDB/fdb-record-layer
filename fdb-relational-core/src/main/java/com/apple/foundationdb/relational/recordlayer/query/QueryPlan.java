@@ -208,6 +208,11 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Nonnull
+        public LogicalQueryPlan forExplain() {
+            return new LogicalQueryPlan(relationalExpression, query.stripLeading().substring(7), true, limit, offset, continuation);
+        }
+
+        @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
                                           @Nonnull final String query,
                                           int limit,

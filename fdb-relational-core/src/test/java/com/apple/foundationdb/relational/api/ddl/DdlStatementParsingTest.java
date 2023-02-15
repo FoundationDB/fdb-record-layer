@@ -76,7 +76,7 @@ public class DdlStatementParsingTest {
     private final PlanContext fakePlanContext;
 
     private static final String[] validPrimitiveDataTypes = new String[]{
-            "int32", "int64", "double", "boolean", "string", "bytes"
+            "integer", "bigint", "double", "boolean", "string", "bytes"
     };
 
     public DdlStatementParsingTest() throws RelationalException {
@@ -146,7 +146,7 @@ public class DdlStatementParsingTest {
     @Test
     void indexFailsWithNonExistingIndexColumn() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE foo(a int64, PRIMARY KEY(a))" +
+                "CREATE TABLE foo(a bigint, PRIMARY KEY(a))" +
                 " CREATE INDEX t_idx as select non_existing from foo" ;
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);
     }
@@ -162,7 +162,7 @@ public class DdlStatementParsingTest {
     void enumFailsWithNoOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM foo () " +
-                "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
+                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))"
         ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
@@ -171,7 +171,7 @@ public class DdlStatementParsingTest {
     void enumFailsWithUnquotedOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM foo (OPTION_1, OPTION_2) " +
-                "CREATE TABLE bar (id int64, foo_field foo, PRIMARY KEY(id))"
+                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))"
         ;
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
@@ -180,7 +180,7 @@ public class DdlStatementParsingTest {
     void basicEnumParsedCorrectly() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM my_enum ('VAL_1', 'VAL_2') " +
-                "CREATE TABLE my_table (id int64, enum_field my_enum, PRIMARY KEY(id))"
+                "CREATE TABLE my_table (id bigint, enum_field my_enum, PRIMARY KEY(id))"
         ;
 
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
@@ -227,7 +227,7 @@ public class DdlStatementParsingTest {
     @Test
     void createTypeWithPrimaryKeyFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT t (a int64, b string, PRIMARY KEY(b))";
+                "CREATE TYPE AS STRUCT t (a bigint, b string, PRIMARY KEY(b))";
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -266,7 +266,7 @@ public class DdlStatementParsingTest {
     void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                " CREATE TABLE BAR (col0 int64, col1 FOO, PRIMARY KEY(col0))";
+                " CREATE TABLE BAR (col0 bigint, col1 FOO, PRIMARY KEY(col0))";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -437,7 +437,7 @@ public class DdlStatementParsingTest {
     @ValueSource(booleans =  {true, false})
     void createSchemaTemplateSplitLongRecord(Boolean enableLongRows) throws Exception {
         String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                " CREATE TABLE test_table (A INT64, PRIMARY KEY(A))";
+                " CREATE TABLE test_table (A BIGINT, PRIMARY KEY(A))";
         if (enableLongRows != null) {
             templateStatement += " WITH OPTIONS (ENABLE_LONG_ROWS = " + enableLongRows + ")";
         }

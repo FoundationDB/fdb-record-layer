@@ -23,8 +23,8 @@
 - query: drop schema template in_predicate_schema_template
 ---
 - query: create schema template in_predicate_schema_template
-    create type as struct ts(sa int64, sb int64)
-    create table ta(a int64, b int64, c double, d boolean, e string, f ts, primary key(a))
+    create type as struct ts(sa bigint, sb bigint)
+    create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
 ---
 - query: drop database /IN_PREDICATE_DB
 ---

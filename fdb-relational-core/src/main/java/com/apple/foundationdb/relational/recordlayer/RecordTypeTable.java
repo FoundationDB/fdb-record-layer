@@ -255,8 +255,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                         builder.setField(fd, struct.getFloat(i));
                         break;
                     case Types.INTEGER:
-                        // TODO: Currently passing getLong
-                        builder.setField(fd, struct.getLong(i));
+                        builder.setField(fd, struct.getInt(i));
                         break;
                     case Types.BIGINT:
                         builder.setField(fd, struct.getLong(i));

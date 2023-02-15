@@ -23,13 +23,13 @@
 - query: drop schema template groupby_tests_template
 ---
 - query: create schema template groupby_tests_template
-    create table t1(id int64, col1 int64, col2 int64, primary key(id))
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
     create index i1 as select col1 from t1
-    create type as struct st1(y int64, z int64) 
-    create type as struct st2(w int64, x int64)
+    create type as struct st1(y bigint, z bigint) 
+    create type as struct st2(w bigint, x bigint)
     create type as struct st3(u st2, v st1) 
-    create type as struct st4(s int64, t int64)
-    create table nested(id int64, q st4, r st3, primary key(q.s, r.u.w))
+    create type as struct st4(s bigint, t bigint)
+    create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
 ---
 - query: drop database /GB_YAML

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.cli.DbState;
 import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
@@ -28,7 +30,6 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -43,6 +44,8 @@ class QueryCommand extends Command {
 
     private enum QueryConfig {
         RESULT("result"),
+        RESULT_AS_SET("resultSet"),
+        EXPLAIN("explain"),
         ERROR("error");
 
         @Nonnull
@@ -140,7 +143,7 @@ class QueryCommand extends Command {
                 queryResults.getClass().getSimpleName(),
                 ErrorCapturingResultSet.class.getSimpleName()));
         final var resultSet = (ErrorCapturingResultSet) queryResults;
-        final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet);
+        final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.RESULT_AS_SET);
         if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
             Assertions.fail(String.format("‼️ result mismatch:%n" +
                     Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
@@ -162,16 +165,31 @@ class QueryCommand extends Command {
         debug(String.format("executing query '%s'", query));
         Object queryResults = null;
         SQLException sqlException = null;
+
+        final var config = queryConfigWithValue.config;
+        final var savedDebugger = Debugger.getDebugger();
+
+        if (config == QueryConfig.EXPLAIN && Debugger.getDebugger() == null) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+            Debugger.setup();
+        }
+
         try {
             queryResults = factory.getQueryCommand(query).call();
         } catch (SQLException se) {
             sqlException = se;
+        } finally {
+            Debugger.setDebugger(savedDebugger);
         }
         debug(String.format("finished executing query '%s'", query));
         var continuation = Continuation.EMPTY_SET;
-        switch (queryConfigWithValue.config) {
+        switch (config) {
             case RESULT:
+            case RESULT_AS_SET:
                 continuation = checkForResult(queryResults, sqlException, queryConfigWithValue, query);
+                break;
+            case EXPLAIN:
+                checkForResult(queryResults, sqlException, queryConfigWithValue, query);
                 break;
             case ERROR:
                 continuation = checkForError(queryResults, sqlException, Matchers.string(queryConfigWithValue.val, "expected error code"), query);
@@ -187,28 +205,38 @@ class QueryCommand extends Command {
     public void invoke(@Nonnull final List<?> region, @Nonnull final DbStateCommandFactory factory, @Nonnull final DbState dbState) throws Exception {
         final var queryString = Matchers.string(Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "query string").getValue(), "query string"), "query string");
         final var regionWithoutQuery = region.stream().skip(1).collect(Collectors.toList());
-        if (regionWithoutQuery.isEmpty()) {
-            executeNoCheckStatement(queryString, factory);
-            return;
-        }
+        boolean queryHasRun = false;
         Continuation continuation = null;
         var configIterator = regionWithoutQuery.listIterator();
-        while (configIterator.hasNext()) {
+        for (int i = 0; configIterator.hasNext(); i ++) {
             Object o = configIterator.next();
             var queryConfigWithValue = getQueryConfigWithValue(o);
-            if (queryConfigWithValue.config == QueryConfig.ERROR) {
-                Assert.that(!configIterator.hasNext(), "ERROR config should be the last config specified.");
+            if (queryConfigWithValue.config == QueryConfig.EXPLAIN) {
+                Assert.that(i == 0, "EXPLAIN config should be the first config specified.");
+                executeWithAConfig("explain " + queryString, factory, queryConfigWithValue);
+            } else {
+                if (queryConfigWithValue.config == QueryConfig.ERROR) {
+                    Assert.that(!configIterator.hasNext(), "ERROR config should be the last config specified.");
+                }
+
+                final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
+                if (continuation != null && continuation.atEnd() && queryConfigWithValue.config == QueryConfig.RESULT) {
+                    Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch%n" +
+                                              "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                              "%s%n" +
+                                              "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                                              queryConfigWithValue));
+                }
+                continuation = executeWithAConfig(currentQueryString, factory, queryConfigWithValue);
+
+                if (continuation == null || continuation.atEnd()) {
+                    queryHasRun = true;
+                }
             }
-            var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
-            if (continuation != null && continuation.atEnd() && queryConfigWithValue.config == QueryConfig.RESULT) {
-                Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "%s%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                        queryConfigWithValue)
-                );
-            }
-            continuation = executeWithAConfig(currentQueryString, factory, queryConfigWithValue);
+        }
+
+        if (!queryHasRun) {
+            executeNoCheckStatement(queryString, factory);
         }
     }
 }

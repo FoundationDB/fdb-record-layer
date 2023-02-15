@@ -23,22 +23,22 @@
 - query: drop schema template orderby_tests_schema_template
 ---
 - query: create schema template orderby_tests_schema_template_1
-    create table t1(a int64, b int64, c int64, primary key(a))
+    create table t1(a bigint, b bigint, c bigint, primary key(a))
     create index i1 as select b, c from t1 order by b
     create index i2 as select b, c from t1 order by c
     create index i3 as select b, c from t1 order by c, b
-    CREATE TYPE AS STRUCT st_1(a int64, b int64)
-    create table t2(p int64, q st_1, primary key(p))
+    CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
+    create table t2(p bigint, q st_1, primary key(p))
     create index i4 as select q.b, q.a from t2 order by q.a
     create index i5 as select q.b, q.a from t2 order by q.b, q.a
-    create table t3(a int64, b int64, c int64, d int64, p int64, primary key(p))
+    create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
     create index i6 as select d, c, b, a from t3 order by a, b, c, d
     CREATE TYPE AS STRUCT st_2(ast st_1)
     CREATE TYPE AS STRUCT st_3(bst st_2)
     CREATE TYPE AS STRUCT st_4(cst st_3)
     CREATE TYPE AS STRUCT st_5(dst st_4)
     CREATE TYPE AS STRUCT st_6(est st_5)
-    create table t4(p int64, q st_6, primary key(p))
+    create table t4(p bigint, q st_6, primary key(p))
     create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
 ---
 - query: drop database /ORDERBY_YAML

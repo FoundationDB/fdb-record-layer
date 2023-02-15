@@ -58,11 +58,11 @@ import java.util.stream.IntStream;
 public abstract class EmbeddedRelationalBenchmark {
     private static final String templateDefinition =
             "CREATE TYPE AS STRUCT \"Location\" (\"address\" string, \"latitude\" string, \"longitude\" string) " +
-                    "CREATE TYPE AS STRUCT \"RestaurantReview\" (\"reviewer\" int64, \"rating\" int64) " +
-                    "CREATE TYPE AS STRUCT \"RestaurantTag\" (\"tag\" string, \"weight\" int64) " +
-                    "CREATE TYPE AS STRUCT \"ReviewerStats\" (\"start_date\" int64, \"school_name\" string, \"hometown\" string) " +
-                    "CREATE TABLE \"RestaurantRecord\" (\"rest_no\" int64, \"name\" string, \"location\" \"Location\", \"reviews\" \"RestaurantReview\" ARRAY, \"tags\" \"RestaurantTag\" ARRAY, \"customer\" string ARRAY, PRIMARY KEY(\"rest_no\")) " +
-                    "CREATE TABLE \"RestaurantReviewer\" (\"id\" int64, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
+                    "CREATE TYPE AS STRUCT \"RestaurantReview\" (\"reviewer\" bigint, \"rating\" bigint) " +
+                    "CREATE TYPE AS STRUCT \"RestaurantTag\" (\"tag\" string, \"weight\" bigint) " +
+                    "CREATE TYPE AS STRUCT \"ReviewerStats\" (\"start_date\" bigint, \"school_name\" string, \"hometown\" string) " +
+                    "CREATE TABLE \"RestaurantRecord\" (\"rest_no\" bigint, \"name\" string, \"location\" \"Location\", \"reviews\" \"RestaurantReview\" ARRAY, \"tags\" \"RestaurantTag\" ARRAY, \"customer\" string ARRAY, PRIMARY KEY(\"rest_no\")) " +
+                    "CREATE TABLE \"RestaurantReviewer\" (\"id\" bigint, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
 
                     "CREATE INDEX \"record_name_idx\" as select \"name\" from \"RestaurantRecord\" " +
                     "CREATE INDEX \"reviewer_name_idx\" as select \"name\" from \"RestaurantReviewer\" ";

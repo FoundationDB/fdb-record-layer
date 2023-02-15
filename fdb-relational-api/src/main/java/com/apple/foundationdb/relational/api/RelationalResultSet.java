@@ -89,18 +89,6 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
 
     @ExcludeFromJacocoGeneratedReport
     @Override
-    default int getInt(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
-    default int getInt(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
     @Deprecated
     @SuppressWarnings("deprecation")
     default BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {

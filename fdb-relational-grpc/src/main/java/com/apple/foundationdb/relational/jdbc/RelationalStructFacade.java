@@ -112,6 +112,16 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    public int getInt(int oneBasedColumn) throws SQLException {
+        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getInteger();
+    }
+
+    @Override
+    public int getInt(String fieldName) throws SQLException {
+        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     public long getLong(int oneBasedColumn) throws SQLException {
         return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getLong();
     }
@@ -340,6 +350,16 @@ class RelationalStructFacade implements RelationalStruct {
                     .setName(fieldName).setJavaSqlTypesCode(Types.BIGINT).build());
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setLong(l).build());
             return this;
+        }
+
+        @Override
+        public int getInt(int oneBasedPosition) throws SQLException {
+            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getInteger();
+        }
+
+        @Override
+        public int getInt(String fieldName) throws SQLException {
+            return getInt(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
         }
 
         @Override

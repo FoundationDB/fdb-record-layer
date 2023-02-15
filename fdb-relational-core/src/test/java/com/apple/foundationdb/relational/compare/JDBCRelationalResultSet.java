@@ -58,11 +58,6 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
-    public int getInt(int columnIndex) throws SQLException {
-        return delegate.getInt(columnIndex);
-    }
-
-    @Override
     @Deprecated(since = "1.2")
     public BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
         return delegate.getBigDecimal(columnIndex, scale);
@@ -112,11 +107,6 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public short getShort(String columnLabel) throws SQLException {
         return delegate.getShort(columnLabel);
-    }
-
-    @Override
-    public int getInt(String columnLabel) throws SQLException {
-        return delegate.getInt(columnLabel);
     }
 
     @Override
@@ -987,6 +977,11 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     }
 
     @Override
+    public int getInt(int columnIndex) throws SQLException {
+        return delegate.getInt(columnIndex);
+    }
+
+    @Override
     public long getLong(int columnIndex) throws SQLException {
         return delegate.getLong(columnIndex);
     }
@@ -1009,6 +1004,11 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public boolean getBoolean(String columnLabel) throws SQLException {
         return delegate.getBoolean(columnLabel);
+    }
+
+    @Override
+    public int getInt(String columnLabel) throws SQLException {
+        return delegate.getInt(columnLabel);
     }
 
     @Override

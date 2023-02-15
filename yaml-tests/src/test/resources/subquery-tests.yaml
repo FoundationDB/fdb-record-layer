@@ -23,11 +23,11 @@
 - query: drop schema template subquery_tests_template
 ---
 - query: create schema template subquery_tests_template
-    create table a(ida int64, x int64, primary key(ida))
-    create table x(idx int64, y int64, primary key(idx))
-    CREATE TYPE AS STRUCT s(f int64)
-    create table r(idr int64, nr s array, primary key(idr))
-    create table b(idb int64, q int64, r int64, primary key(idb))
+    create table a(ida bigint, x bigint, primary key(ida))
+    create table x(idx bigint, y bigint, primary key(idx))
+    CREATE TYPE AS STRUCT s(f bigint)
+    create table r(idr bigint, nr s array, primary key(idr))
+    create table b(idb bigint, q bigint, r bigint, primary key(idb))
     create index ib as select q from b
     create index ir as select sq.f from r, (select f from r.nr) sq;
 ---

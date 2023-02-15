@@ -39,6 +39,10 @@ public interface RelationalStruct extends Struct, Wrapper {
 
     boolean getBoolean(String fieldName) throws SQLException;
 
+    int getInt(int oneBasedPosition) throws SQLException;
+
+    int getInt(String fieldName) throws SQLException;
+
     long getLong(int oneBasedPosition) throws SQLException;
 
     long getLong(String fieldName) throws SQLException;

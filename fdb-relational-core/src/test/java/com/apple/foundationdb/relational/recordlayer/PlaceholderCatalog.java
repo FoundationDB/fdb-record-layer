@@ -128,9 +128,11 @@ public class PlaceholderCatalog {
             String type = field.isRepeated() ? "repeated " : "";
             switch (field.getJavaType()) {
                 case INT:
+                    return type + "integer";
                 case LONG:
-                    return type + "int64";
+                    return type + "bigint";
                 case FLOAT:
+                    return type + "float";
                 case DOUBLE:
                     return type + "double";
                 case BOOLEAN:

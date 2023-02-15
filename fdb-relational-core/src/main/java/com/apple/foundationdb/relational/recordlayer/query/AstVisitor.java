@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -152,13 +154,19 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitFullDescribeStatement(RelationalParser.FullDescribeStatementContext ctx) {
+        final var queryPlan = (QueryPlan.LogicalQueryPlan)visit(ctx.describeObjectClause());
+        return ctx.EXPLAIN() == null ? queryPlan : queryPlan.forExplain();
+    }
+
+    @Override
     public QueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
         Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null ||
-                ctx.explainStatement() != null ||
-                ctx.insertStatement() != null ||
-                ctx.updateStatement() != null ||
-                ctx.deleteStatement() != null, UNSUPPORTED_QUERY);
-        return (QueryPlan) visitChildren(ctx);
+                             ctx.insertStatement() != null ||
+                             ctx.updateStatement() != null ||
+                             ctx.deleteStatement() != null, UNSUPPORTED_QUERY);
+
+        return (QueryPlan)visitChildren(ctx);
     }
 
     @Override // not supported yet
@@ -198,14 +206,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             return ParserUtils.safeCastLiteral(visit(ctx.preparedStatementParameter()), byte[].class);
         }
-    }
-
-    @Override
-    public QueryPlan visitExplainStatement(RelationalParser.ExplainStatementContext ctx) {
-        Assert.notNullUnchecked(ctx.selectStatement(), UNSUPPORTED_QUERY);
-        RelationalExpression result = (RelationalExpression) ctx.selectStatement().accept(this);
-        Assert.thatUnchecked(query.stripLeading().toUpperCase(Locale.ROOT).startsWith("EXPLAIN"));
-        return QueryPlan.LogicalQueryPlan.of(result, query.stripLeading().substring(7), true, context.asDql().getLimit(), context.asDql().getOffset());
     }
 
     @Override
@@ -554,7 +554,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
-            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(aliases.stream().findFirst().get());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, aliases.stream().findFirst().get());
             Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
             scopes.getCurrentScope().setPredicate(predicateOptional.get()); // improve
         }
@@ -580,7 +580,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
-            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(aliases.stream().findFirst().get());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) predicate).toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, aliases.stream().findFirst().get());
             Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
             scopes.getCurrentScope().setPredicate(predicateOptional.get()); // improve
         }
@@ -723,9 +723,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final Value right = (Value) (visit(ctx.expression(1)));
 
         if (ctx.logicalOperator().AND() != null) {
-            return (Value) ParserUtils.encapsulate(new AndOrValue.AndFn(), List.of(left, right));
+            return (Value) ParserUtils.encapsulate(AndOrValue.AndFn.class, List.of(left, right));
         }
-        return (Value) ParserUtils.encapsulate(new AndOrValue.OrFn(), List.of(left, right));
+        return (Value) ParserUtils.encapsulate(AndOrValue.OrFn.class, List.of(left, right));
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -741,17 +741,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
         final Typed nullClause;
-        BuiltInFunction<Value> combineFunc;
+        Class<? extends BuiltInFunction<Value>> combineFunc;
         if (ctx.NOT() != null) {
             //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
             right = new LiteralValue<>(right.getResultType(), Boolean.FALSE.equals(right.getLiteralValue()));
-            nullClause = ParserUtils.encapsulate(new RelOpValue.IsNullFn(), List.of(left));
-            combineFunc = new AndOrValue.OrFn();
+            nullClause = ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
+            combineFunc = AndOrValue.OrFn.class;
         } else {
-            nullClause = ParserUtils.encapsulate(new RelOpValue.NotNullFn(), List.of(left));
-            combineFunc = new AndOrValue.AndFn();
+            nullClause = ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
+            combineFunc = AndOrValue.AndFn.class;
         }
-        final Typed equals = ParserUtils.encapsulate(new RelOpValue.EqualsFn(), List.of(left, right));
+        final Typed equals = ParserUtils.encapsulate(RelOpValue.EqualsFn.class, List.of(left, right));
         return (Value) ParserUtils.encapsulate(combineFunc, List.of(nullClause, equals));
     }
 
@@ -768,18 +768,18 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final List<Value> values = new ArrayList<>();
         ctx.expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
 
-        final Typed typedList = ParserUtils.encapsulate(new AbstractArrayConstructorValue.ArrayFn(), ParserUtils.validateInValuesList(values));
+        final Typed typedList = ParserUtils.encapsulate(AbstractArrayConstructorValue.ArrayFn.class, ParserUtils.validateInValuesList(values));
         final var left = (Value) visit(ctx.predicate());
-        return (Value) ParserUtils.encapsulate(ParserUtils.getFunction("IN"), List.of(left, typedList));
+        return (Value) ParserUtils.encapsulate(InOpValue.InFn.class, List.of(left, typedList));
     }
 
     @Override
     public Typed visitIsNullPredicate(RelationalParser.IsNullPredicateContext ctx) {
         final Value left = (Value) (visit(ctx.predicate()));
         if (ctx.NOT() != null) {
-            return ParserUtils.encapsulate(new RelOpValue.NotNullFn(), List.of(left));
+            return ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
         } else {
-            return ParserUtils.encapsulate(new RelOpValue.IsNullFn(), List.of(left));
+            return ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
         }
     }
 
@@ -787,7 +787,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitBinaryComparisonPredicate(RelationalParser.BinaryComparisonPredicateContext ctx) {
         final Value left = (Value) (visit(ctx.left));
         final Value right = (Value) (visit(ctx.right));
-        BuiltInFunction<? extends Value> comparisonFunction = ParserUtils.getFunction(ctx.comparisonOperator().getText());
+        BuiltInFunction<? extends Value> comparisonFunction = ParserUtils.getExplicitFunction(ctx.comparisonOperator().getText());
         return (Value) ParserUtils.encapsulate(comparisonFunction, List.of(left, right));
     }
 
@@ -911,7 +911,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitMathExpressionAtom(RelationalParser.MathExpressionAtomContext ctx) {
         final Value left = (Value) (visit(ctx.left));
         final Value right = (Value) (visit(ctx.right));
-        BuiltInFunction<? extends Value> mathFunction = ParserUtils.getFunction(ctx.mathOperator().getText());
+        BuiltInFunction<? extends Value> mathFunction = ParserUtils.getExplicitFunction(ctx.mathOperator().getText());
         return (Value) ParserUtils.encapsulate(mathFunction, List.of(left, right));
     }
 
@@ -1343,24 +1343,20 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             scope.increaseAggCounter();
             return aggregationReference;
         } else {
-            final var functionName = ctx.functionName.getText();
-            final var aggregationFunction = ParserUtils.getFunction(functionName);
+            final var functionName = ctx.functionName.getText().toUpperCase(Locale.ROOT);
+            final AggregateValue aggregateValue;
             if (ctx.starArg != null) {
-                final var aggregationValue = (AggregateValue) ParserUtils.encapsulate(aggregationFunction, List.of(RecordConstructorValue.ofColumns(List.of())));
-                scope.addAggregateValue(aggregationValue);
-                return aggregationValue;
+                aggregateValue = (AggregateValue) ParserUtils.resolveAndEncapsulate(functionName, List.of(RecordConstructorValue.ofColumns(List.of())));
             } else if (ctx.functionArg() != null) {
                 scope.setFlag(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
                 final var argument = ctx.functionArg().accept(this);
                 scope.unsetFlag(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
-                final var aggregationValue = (AggregateValue) ParserUtils.encapsulate(aggregationFunction, List.of((Value) argument));
-                scope.addAggregateValue(aggregationValue);
-                return aggregationValue;
+                aggregateValue = (AggregateValue) ParserUtils.resolveAndEncapsulate(functionName, List.of((Value) argument));
             } else {
-                final var aggregationValue = (AggregateValue) ParserUtils.encapsulate(aggregationFunction, List.of());
-                scope.addAggregateValue(aggregationValue);
-                return aggregationValue;
+                aggregateValue = (AggregateValue) ParserUtils.resolveAndEncapsulate(functionName, List.of());
             }
+            scope.addAggregateValue(aggregateValue);
+            return aggregateValue;
         }
     }
 
@@ -1450,10 +1446,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public RecordLayerColumn visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
-        String fieldType = Assert.notNullUnchecked((ctx.columnType().customType == null) ?
-                ctx.columnType().getText() :
-                ParserUtils.safeCastLiteral(visit(ctx.columnType().customType), String.class));
         final String columnName = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.colName), String.class));
+
         boolean isNullable = true;
         if (ctx.columnConstraint() != null) {
             isNullable = (Boolean) ctx.columnConstraint().accept(this);
@@ -1461,9 +1455,33 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 containsNonNullableArray = true;
             }
         }
+
         boolean isRepeated = ctx.ARRAY() != null;
-        final var relationalType = ParserUtils.toRelationalType(fieldType, isNullable, isRepeated, context.asDdl().getMetadataBuilder());
-        return RecordLayerColumn.newBuilder().setName(columnName).setDataType(relationalType).build();
+
+        var dataType = visitColumnType(ctx.columnType());
+        if (isRepeated) {
+            dataType = DataType.ArrayType.from(dataType, isNullable);
+        } else {
+            dataType = dataType.withNullable(isNullable);
+        }
+
+        return RecordLayerColumn.newBuilder().setName(columnName).setDataType(dataType).build();
+    }
+
+    @Override
+    public DataType visitColumnType(RelationalParser.ColumnTypeContext ctx) {
+        if (ctx.customType != null) {
+            final var typeName = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.customType), String.class));
+            return ParserUtils.toRelationalType(typeName, false, false, context.asDdl().getMetadataBuilder());
+        } else {
+            return visitPrimitiveType(ctx.primitiveType());
+        }
+    }
+
+    @Override
+    public DataType visitPrimitiveType(RelationalParser.PrimitiveTypeContext ctx) {
+        String primitiveTypeName = ctx.getText();
+        return ParserUtils.toRelationalType(primitiveTypeName, false, false, null);
     }
 
     @Override
@@ -1589,7 +1607,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             valuesBuilder.add(recordValue);
         }
 
-        final var insertValues = AbstractArrayConstructorValue.LightArrayConstructorValue.of(valuesBuilder.build());
+        final var arrayArgumentValues = valuesBuilder.build();
+        final var arrayConstructorFn = FunctionCatalog.resolve("array", arrayArgumentValues.size())
+                                                      .orElseThrow(() -> Assert.failUnchecked("unable to resolve internal function"));
+        final var insertValues = (Value)arrayConstructorFn.encapsulate(arrayArgumentValues);
         return new ExplodeExpression(insertValues);
     }
 
@@ -1643,7 +1664,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                             .map(Quantifier::getAlias)
                             .findFirst();
             Assert.thatUnchecked(innermostAliasOptional.isPresent());
-            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(innermostAliasOptional.get());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, innermostAliasOptional.get());
             Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
             updateScope.setPredicate(predicateOptional.get()); // improve
         }
@@ -1737,7 +1758,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                             .map(Quantifier::getAlias)
                             .findFirst();
             Assert.thatUnchecked(innermostAliasOptional.isPresent());
-            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(innermostAliasOptional.get());
+            final Optional<QueryPredicate> predicateOptional = ((BooleanValue) booleanValue).toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, innermostAliasOptional.get());
             Assert.thatUnchecked(predicateOptional.isPresent(), "query is not supported");
             updateScope.setPredicate(predicateOptional.get()); // improve
         }

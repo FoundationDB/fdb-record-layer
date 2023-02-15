@@ -23,7 +23,7 @@
 - query: drop schema template limit_tests_schema_template
 ---
 - query: create schema template limit_tests_schema_template
-      create table ta(a int64, b int64, primary key(a))
+      create table ta(a bigint, b bigint, primary key(a))
 ---
 - query: drop database /LIMIT_YAML
 ---

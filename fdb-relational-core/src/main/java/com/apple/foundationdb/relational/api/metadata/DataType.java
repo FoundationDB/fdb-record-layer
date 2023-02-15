@@ -517,7 +517,7 @@ public abstract class DataType {
 
             private int index;
 
-            private Field(@Nonnull final String name, @Nonnull final  DataType type, int index) {
+            private Field(@Nonnull final String name, @Nonnull final DataType type, int index) {
                 this.name = name;
                 this.type = type;
                 this.index = index;

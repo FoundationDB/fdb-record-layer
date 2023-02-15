@@ -78,7 +78,7 @@ public class JDBCSimpleStatementTest {
                 Assertions.assertEquals(0, statement.executeUpdate("Drop database \"" + TESTDB + "\""));
                 Assertions.assertEquals(0,
                         statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
-                                "CREATE TABLE test_table (rest_no int64, name string, PRIMARY KEY(rest_no))"));
+                                "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))"));
                 Assertions.assertEquals(0, statement.executeUpdate("create database \"" + TESTDB + "\""));
                 Assertions.assertEquals(0, statement.executeUpdate("create schema \"" + TESTDB +
                         "/test_schema\" with template test_template"));

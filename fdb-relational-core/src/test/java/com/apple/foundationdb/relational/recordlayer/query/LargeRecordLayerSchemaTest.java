@@ -52,7 +52,7 @@ public class LargeRecordLayerSchemaTest {
     @ValueSource(ints = {1, 10, 100, 1000})
     void canCreateColumns(int colCount) throws Exception {
         StringBuilder template = new StringBuilder("CREATE TABLE T1(");
-        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
+        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " bigint").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
         try (var ddl = Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
@@ -79,7 +79,7 @@ public class LargeRecordLayerSchemaTest {
     void tooManyColumns() {
         int colCount = 10000;
         StringBuilder template = new StringBuilder("CREATE TABLE T1(");
-        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " int64").collect(Collectors.joining(",")));
+        template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " bigint").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
         RelationalAssertions.assertThrowsSqlException(() ->
                 Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build())

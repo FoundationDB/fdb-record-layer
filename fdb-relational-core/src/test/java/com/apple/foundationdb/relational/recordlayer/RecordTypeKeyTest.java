@@ -46,8 +46,8 @@ public class RecordTypeKeyTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
             RecordTypeKeyTest.class,
-            "CREATE TABLE restaurant_review (reviewer int64, rating int64, SINGLE ROW ONLY)" +
-                    " CREATE TABLE restaurant_tag (tag string, weight int64, PRIMARY KEY(tag))" +
+            "CREATE TABLE restaurant_review (reviewer bigint, rating bigint, SINGLE ROW ONLY)" +
+                    " CREATE TABLE restaurant_tag (tag string, weight bigint, PRIMARY KEY(tag))" +
                     " CREATE INDEX record_rt_covering_idx as select reviewer from restaurant_review");
 
     @RegisterExtension

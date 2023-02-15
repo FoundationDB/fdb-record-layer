@@ -55,7 +55,7 @@ ddlStatement
     ;
 
 dmlStatement
-    : explainStatement | selectStatementWithContinuation | insertStatement | updateStatement
+    : selectStatementWithContinuation | insertStatement | updateStatement
     | deleteStatement | replaceStatement | callStatement
     | loadDataStatement | loadXmlStatement | doStatement
     | handlerStatement
@@ -146,7 +146,10 @@ columnDefinition
     ;
 
 columnType
-    : BOOLEAN | INT32 | INT64 | DOUBLE | STRING | BYTES| customType=uid;
+    : primitiveType | customType=uid;
+
+primitiveType
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -298,10 +301,6 @@ replaceStatement
           setFirst=updatedElement
           (',' setElements+=updatedElement)*
       )
-    ;
-
-explainStatement
-    : EXPLAIN selectStatement
     ;
 
 selectStatementWithContinuation
@@ -1338,7 +1337,7 @@ diagnosticsConditionInformationName
 
 describeObjectClause
     : (
-        selectStatement | deleteStatement | insertStatement
+        selectStatementWithContinuation | deleteStatement | insertStatement
         | replaceStatement | updateStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection

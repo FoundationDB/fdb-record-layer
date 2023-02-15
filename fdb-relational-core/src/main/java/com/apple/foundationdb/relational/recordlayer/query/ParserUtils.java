@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
@@ -57,7 +57,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -93,11 +92,11 @@ import static java.util.stream.Collectors.toList;
  */
 public final class ParserUtils {
 
-    private static final Map<String, BuiltInFunction<? extends Value>> functionMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private static final Map<String, Class<? extends BuiltInFunction<Value>>> functionMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
     // used only to be passed to expression lambdas in Record Layer (to be removed).
     @Nonnull
-    private static final TypeRepository.Builder emptyBuilder = TypeRepository.newBuilder();
+    public static final TypeRepository EMPTY_TYPE_REPOSITORY = TypeRepository.empty();
 
     private ParserUtils() {
     }
@@ -130,37 +129,30 @@ public final class ParserUtils {
     }
 
     static {
-        functionMap.put("=", new RelOpValue.EqualsFn());
-        functionMap.put(">", new RelOpValue.GtFn());
-        functionMap.put("<", new RelOpValue.LtFn());
-        functionMap.put("<=", new RelOpValue.LteFn());
-        functionMap.put(">=", new RelOpValue.GteFn());
-        functionMap.put("<>", new RelOpValue.NotEqualsFn());
-        functionMap.put("!=", new RelOpValue.NotEqualsFn());
-        functionMap.put("IN", new InOpValue.InFn());
+        functionMap.put("=", RelOpValue.EqualsFn.class);
+        functionMap.put(">", RelOpValue.GtFn.class);
+        functionMap.put("<", RelOpValue.LtFn.class);
+        functionMap.put("<=", RelOpValue.LteFn.class);
+        functionMap.put(">=", RelOpValue.GteFn.class);
+        functionMap.put("<>", RelOpValue.NotEqualsFn.class);
+        functionMap.put("!=", RelOpValue.NotEqualsFn.class);
+        functionMap.put("IN", InOpValue.InFn.class);
 
-        functionMap.put("*", new ArithmeticValue.MulFn());
-        functionMap.put("/", new ArithmeticValue.DivFn());
-        functionMap.put("DIV", new ArithmeticValue.DivFn()); // should be case-insensitive
-        functionMap.put("%", new ArithmeticValue.ModFn());
-        functionMap.put("MOD", new ArithmeticValue.ModFn()); // should be case-insensitive
-        functionMap.put("+", new ArithmeticValue.AddFn());
-        functionMap.put("-", new ArithmeticValue.SubFn());
-
-        functionMap.put("MAX", new NumericAggregationValue.MaxFn());
-        functionMap.put("MIN", new NumericAggregationValue.MinFn());
-        functionMap.put("AVG", new NumericAggregationValue.AvgFn());
-        functionMap.put("MAX_EVER", new IndexOnlyAggregateValue.MaxEverLongFn());
-        functionMap.put("MIN_EVER", new IndexOnlyAggregateValue.MinEverLongFn());
-        functionMap.put("SUM", new NumericAggregationValue.SumFn());
-        functionMap.put("COUNT", new CountValue.CountFn());
+        functionMap.put("*", ArithmeticValue.MulFn.class);
+        functionMap.put("/", ArithmeticValue.DivFn.class);
+        functionMap.put("DIV", ArithmeticValue.DivFn.class); // should be case-insensitive
+        functionMap.put("%", ArithmeticValue.ModFn.class);
+        functionMap.put("MOD", ArithmeticValue.ModFn.class); // should be case-insensitive
+        functionMap.put("+", ArithmeticValue.AddFn.class);
+        functionMap.put("-", ArithmeticValue.SubFn.class);
     }
 
     @Nonnull
-    public static BuiltInFunction<? extends Value> getFunction(@Nonnull final String functionName) {
-        BuiltInFunction<? extends Value> result = functionMap.get(functionName);
-        Assert.notNullUnchecked(result, String.format("unsupported function '%s'", functionName));
-        return result;
+    @SuppressWarnings("unchecked")
+    public static BuiltInFunction<? extends Value> getExplicitFunction(@Nonnull final String functionName) {
+        final var result = FunctionCatalog.getFunctionSingleton(functionMap.get(functionName));
+        Assert.thatUnchecked(result.isPresent(), String.format("unsupported function '%s'", functionName));
+        return (BuiltInFunction<? extends Value>)result.get();
     }
 
     /**
@@ -170,26 +162,32 @@ public final class ParserUtils {
      * @return The corresponding typed and literal {@link Value} object
      */
     @Nonnull
-    public static Value parseDecimal(@Nonnull final String valueAsString, boolean makeNegative) {
+    public static Value parseDecimal(@Nonnull final String valueAsString, final boolean makeNegative) {
         if (valueAsString.contains(".")) {
-            double result = Double.parseDouble(valueAsString);
-            if (makeNegative) {
-                result *= -1;
+            final var lastCharacter = valueAsString.charAt(valueAsString.length() - 1);
+            switch (lastCharacter) {
+                case 'f':
+                case 'F':
+                    float floatValue = Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), makeNegative ? -floatValue : floatValue);
+                case 'd':
+                case 'D':
+                    double doubleValue = Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), makeNegative ? -doubleValue : doubleValue);
+                default:
+                    doubleValue = Double.parseDouble(valueAsString);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), makeNegative ? -doubleValue : doubleValue);
             }
-            return new LiteralValue<>(result);
         } else {
             long result = Long.parseLong(valueAsString);
             if (makeNegative) {
                 result *= -1;
             }
-            //TODO(bfines) I'm temporarily commenting this out to address TODO , but it almost
-            //certainly isn't right to remove, so I'm leaving the commented code here so it can be easily restored
-            //when someone who knows the planner type system can resolve the issue.
-//            if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
-//                return new LiteralValue<>((int) result);
-//            } else {
-            return new LiteralValue<>(result);
-            //            }
+            if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
+                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), Math.toIntExact(result));
+            } else {
+                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), result);
+            }
         }
     }
 
@@ -464,10 +462,12 @@ public final class ParserUtils {
         switch (text.toUpperCase(Locale.ROOT)) {
             case "STRING":
                 return Type.TypeCode.STRING;
-            case "INT32":
+            case "INTEGER":
                 return Type.TypeCode.INT;
-            case "INT64":
+            case "BIGINT":
                 return Type.TypeCode.LONG;
+            case "FLOAT":
+                return Type.TypeCode.FLOAT;
             case "DOUBLE":
                 return Type.TypeCode.DOUBLE;
             case "BOOLEAN":
@@ -483,16 +483,16 @@ public final class ParserUtils {
     public static DataType toRelationalType(@Nonnull final String typeString,
                                           boolean isNullable,
                                           boolean isRepeated,
-                                          @Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
+                                          @Nullable final RecordLayerSchemaTemplate.Builder metadataBuilder) {
         DataType type = null;
         switch (typeString.toUpperCase(Locale.ROOT)) {
             case "STRING":
                 type = isNullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
                 break;
-            case "INT32":
+            case "INTEGER":
                 type = isNullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
                 break;
-            case "INT64":
+            case "BIGINT":
                 type = isNullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
                 break;
             case "DOUBLE":
@@ -504,7 +504,12 @@ public final class ParserUtils {
             case "BYTES":
                 type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
                 break;
-            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+            case "FLOAT":
+                type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+                break;
+            default:
+                Assert.notNullUnchecked(metadataBuilder);
+                // assume it is a custom type, will fail in upper layers if the type can not be resolved.
                 // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
                 final var maybeFound = metadataBuilder.findType(typeString);
                 // if we can not find the type now, mark it, we will try to resolve it later on via a second pass.
@@ -603,8 +608,24 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static <T extends Typed> Typed encapsulate(BuiltInFunction<T> function, @Nonnull final List<? extends Typed> arguments) {
-        return function.encapsulate(emptyBuilder, arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(toList()));
+    public static <T extends Typed> Typed encapsulate(@Nonnull final BuiltInFunction<T> function, @Nonnull final List<? extends Typed> arguments) {
+        return function.encapsulate(arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(toList()));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <T extends Typed> Typed encapsulate(@Nonnull final Class<? extends BuiltInFunction<T>> functionClass, @Nonnull final List<? extends Typed> arguments) {
+        final BuiltInFunction<Value> function = (BuiltInFunction<Value>) FunctionCatalog.getFunctionSingleton(functionClass).orElseThrow(Assert::failUnchecked);
+        return function.encapsulate(arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    public static <T extends Typed> Typed resolveAndEncapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
+        final var normalizedArguments = arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(ImmutableList.toImmutableList());
+        final var argumentTypes = normalizedArguments.stream().map(Typed::getResultType).collect(ImmutableList.toImmutableList());
+        return FunctionCatalog.resolveAndValidate(functionName, argumentTypes)
+                              .map(function -> function.encapsulate(normalizedArguments))
+                              .orElseThrow(() -> Assert.failUnchecked("unable to resolve function"));
     }
 
     @Nonnull

@@ -23,7 +23,7 @@
 - query: drop schema template boolean_tests_schema_template
 ---
 - query: create schema template boolean_tests_schema_template
-    create table lb(a int64, b boolean, primary key(a))
+    create table lb(a bigint, b boolean, primary key(a))
 ---
 - query: drop database /BOOLEAN_YAML
 ---

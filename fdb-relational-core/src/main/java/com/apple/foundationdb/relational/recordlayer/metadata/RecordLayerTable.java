@@ -148,8 +148,8 @@ public final class RecordLayerTable implements Table {
          *               we do this considering that we have two different ways of handling nulls in Relational
          *               Record Layer and ProtoBuf.
          *               consider the following example:
-         *                      CREATE TYPE AS STRUCT B ( x int64 )
-         *                      CREATE TABLE tbl1 (id int64, v1 B null, v2 B not null, PRIMARY KEY(id))
+         *                      CREATE TYPE AS STRUCT B ( x bigint )
+         *                      CREATE TABLE tbl1 (id bigint, v1 B null, v2 B not null, PRIMARY KEY(id))
          *               both Relational and RecordLayer will have two different types of the _same_ B since
          *               in one case, it is nullable (as per v1) and in another case it is not nullable (as per v2)
          *               If we, as we do today, serialize B into a single protobuf descriptor that is referenced
