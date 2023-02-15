@@ -39,6 +39,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.333.0
+
+* **Feature** Indexing typestamp: add query + flow control [(Issue #1980)](https://github.com/FoundationDB/fdb-record-layer/issues/1980)
+
 ### 3.3.332.0
 
 * **Bug fix** The `EMPTY_SCANS` metric no longer double counts empty scans that call `hasNext` multiple times [(Issue #2002)](https://github.com/FoundationDB/fdb-record-layer/issues/2002)

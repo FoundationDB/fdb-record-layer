@@ -34,12 +34,14 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +61,8 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     @Override
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
         return Optional.of(new ExistsPredicate(child.getAlias()));
     }
 
@@ -116,10 +119,10 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     public static class ExistsFn extends BuiltInFunction<Value> {
         public ExistsFn() {
             super("exists",
-                    ImmutableList.of(new Type.Relation()), (parserContext, builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
-        private static Value encapsulateInternal(@Nonnull final List<Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);

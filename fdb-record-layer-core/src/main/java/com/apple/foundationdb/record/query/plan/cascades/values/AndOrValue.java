@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -165,10 +166,11 @@ public class AndOrValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(leftChild instanceof BooleanValue);
         Verify.verify(rightChild instanceof BooleanValue);
-        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, innermostAlias);
         if (leftPredicateOptional.isPresent()) {
             final QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
@@ -177,7 +179,7 @@ public class AndOrValue implements BooleanValue {
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
-            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(typeRepository, innermostAlias);
             if (rightPredicateOptional.isPresent()) {
                 final QueryPredicate rightPredicate = rightPredicateOptional.get();
                 if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {
@@ -224,10 +226,10 @@ public class AndOrValue implements BooleanValue {
         public AndFn() {
             super("and",
                     List.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
+                    AndFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
             return new AndOrValue(builtInFunction.getFunctionName(), Operator.AND, (Value)arguments.get(0), (Value)arguments.get(1));
         }
@@ -242,10 +244,10 @@ public class AndOrValue implements BooleanValue {
         public OrFn() {
             super("or",
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    (parserContext, builtInFunction, arguments) -> encapsulate(builtInFunction, arguments));
+                    OrFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
             return new AndOrValue(builtInFunction.getFunctionName(), Operator.OR, (Value)arguments.get(0), (Value)arguments.get(1));
         }

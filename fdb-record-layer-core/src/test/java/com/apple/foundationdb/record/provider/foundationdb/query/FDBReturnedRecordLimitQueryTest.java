@@ -142,7 +142,7 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-1434217392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504138419, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         try (FDBRecordContext context = openContext()) {

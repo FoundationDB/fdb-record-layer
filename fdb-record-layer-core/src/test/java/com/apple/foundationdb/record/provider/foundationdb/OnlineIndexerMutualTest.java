@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -51,6 +52,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -60,6 +62,7 @@ import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -926,6 +929,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue()
                         .setMutualIndexingBoundaries(boundaries))
                 .setLimit(1)
                 .setConfigLoader(old -> {
@@ -975,5 +979,471 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             }
         });
         validateIndexes(indexes);
+    }
+
+    @Test
+    void testMutualIndexingBlocker() {
+        // build indexes, pause by indexing stamp blocker, release unblock
+        List<Index> indexes = new ArrayList<>();
+        // Here: Value indexes only
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        // Here: Add a non-value index
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+
+        openSimpleMetaData();
+        int numRecords = 333;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        // Ensure empty indexing stamps
+        assertTrue(allStampsAreEmpty(hook, indexes));
+
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        // Start indexing and crash, block indexing
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, 4);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
+            if (id == 3) {
+                while (allStampsAreEmpty(hook, indexes)) {
+                    Thread.yield();
+                }
+                FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+                openSimpleMetaData(localHook);
+                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                        .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                        .setTargetIndexes(indexes)
+                        .build()) {
+                    indexer.blockIndexBuilds(null, 0L);
+                }
+            } else {
+                oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 1);
+            }
+        });
+        openSimpleMetaData(allIndexesHook(indexes));
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                assertTrue(recordStore.isIndexWriteOnly(index));
+            }
+            context.commit();
+        }
+
+        // Test query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+            }
+        }
+
+        // Attempt continue while blocked, ensure failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .build())
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // Unblock, the return value is the old stamp - validate it
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.unblockIndexBuilds(null);
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+            }
+        }
+
+        // After unblocking, finish building
+        IntStream.rangeClosed(0, 3).parallel()
+                .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
+
+        // Validate
+        assertAllReadable(indexes);
+        validateIndexes(indexes);
+
+    }
+
+    private boolean allStampsAreEmpty(FDBRecordStoreTestBase.RecordMetaDataHook hook, List<Index> indexes) {
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                if (stampMap.get(indexName).getMethod() != IndexBuildProto.IndexBuildIndexingStamp.Method.NONE) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    @Test
+    void testMutualIndexingBlockerIndexingUnblock() {
+        // build indexes, pause by indexing stamp blocker, continue with allowUnblock + id
+        List<Index> indexes = new ArrayList<>();
+        // Here: Value indexes only
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        // Here: Add a non-value index
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+
+        openSimpleMetaData();
+        int numRecords = 333;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Start indexing, crash halfway
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, 4);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
+            oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 3);
+        });
+
+        // Block with block-id
+        FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+        openSimpleMetaData(localHook);
+        String luka = "Blocked by Luka";
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            indexer.blockIndexBuilds(luka, 10L);
+        }
+
+        // Test query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+                assertEquals(luka, stamp.getBlockID());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
+            }
+        }
+
+        // Attempt continue while blocked with the wrong id, ensure failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .setAllowUnblock(true, "Blocked by Leonardo")
+                        .build())
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // Attempt to unblock with the wrong id, ensure correct stamp is returned.
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexBuilder.unblockIndexBuilds("Blocked by Raffaello");
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+                assertEquals(luka, stamp.getBlockID());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+                assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
+            }
+        }
+
+
+        // Continue with unblock, correct id
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .setAllowUnblock(true, luka)
+                        .build())
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // Validate
+        assertAllReadable(indexes);
+        validateIndexes(indexes);
+    }
+
+    @Test
+    void testMutualIndexingBlockFewIndexingUnblock() {
+        // build indexes, pause by indexing stamp blocker on few(!), continue with allowUnblock + id
+        List<Index> indexes = new ArrayList<>();
+        // Here: Value indexes only
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        // Here: Add a non-value index
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+
+        openSimpleMetaData();
+        int numRecords = 223;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Start indexing, crash halfway
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, 4);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
+            oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 3);
+        });
+
+        // Block two with block-id
+        FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+        openSimpleMetaData(localHook);
+        String luka = "Blocked by Luka";
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes.subList(1, 3))
+                .build()) {
+            indexer.blockIndexBuilds(luka, 10L);
+        }
+
+        // Test query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            IntStream.range(0, indexNames.size()).forEach(i -> {
+                String indexName = indexNames.get(i);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                if (i == 1 || i == 2) {
+                    assertTrue(stamp.getBlock());
+                    assertEquals(luka, stamp.getBlockID());
+                    assertTrue(stamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
+                    assertTrue(stamp.getBlockExpireEpochMilliSeconds() < 20_000 + System.currentTimeMillis());
+                } else {
+                    assertFalse(stamp.getBlock());
+                }
+            });
+        }
+
+        // Attempt continue while blocked with the wrong id, ensure failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .setAllowUnblock(true, "Blocked by Leonardo")
+                        .build())
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // Continue with unblock, correct id
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .setAllowUnblock(true, luka)
+                        .build())
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // Validate
+        assertAllReadable(indexes);
+        validateIndexes(indexes);
+    }
+
+    @Test
+    void testMutualIndexingBlockerWhileActivelyIndexing() {
+        // build indexes, pause by indexing stamp blocker, release unblock
+        List<Index> indexes = new ArrayList<>();
+        // Here: Value indexes only
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        // Here: Add a non-value index
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+
+        openSimpleMetaData();
+        int numRecords = 133;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        // Ensure empty indexing stamps
+        assertTrue(allStampsAreEmpty(hook, indexes));
+
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        // Start indexing and crash, block indexing
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, 200);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
+            FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+            if (id == 0) {
+                while (allStampsAreEmpty(hook, indexes)) {
+                    Thread.yield();
+                }
+
+                openSimpleMetaData(localHook);
+                try (FDBRecordContext context = openContext()) {
+                    try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                            .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                            .setTargetIndexes(indexes)
+                            .build()) {
+                        indexer.blockIndexBuilds(null, 0L);
+                    }
+                    context.commit();
+                }
+            } else {
+                openSimpleMetaData(localHook);
+                try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                        .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                        .setLimit(2)
+                        .setTargetIndexes(indexes)
+                        .setTimer(timer)
+                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                .setMutualIndexingBoundaries(boundariesList)
+                                .checkIndexingStampFrequencyMilliseconds(0)
+                                .build())
+                        .setConfigLoader(old -> {
+                            try {
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            return old;
+                        })
+                        .build()) {
+                    IndexingBase.PartlyBuiltException e = assertThrows(IndexingBase.PartlyBuiltException.class, indexBuilder::buildIndex);
+                    assertTrue(e.wasBlocked());
+                }
+            }
+        });
+        openSimpleMetaData(allIndexesHook(indexes));
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                assertTrue(recordStore.isIndexWriteOnly(index));
+            }
+            context.commit();
+        }
+
+        // Test query, ensure blocked
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.queryIndexingStamps();
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+            }
+        }
+
+        // Attempt continue while blocked, ensure failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundariesList)
+                        .build())
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+        }
+
+        // Unblock, the return value is the old stamp - validate it
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTargetIndexes(indexes)
+                .build()) {
+            final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
+                    indexer.unblockIndexBuilds(null);
+            final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
+            assertTrue(stampMap.keySet().containsAll(indexNames));
+            for (String indexName : indexNames) {
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
+                assertTrue(stamp.getBlock());
+            }
+        }
+
+        // After unblocking, finish building
+        IntStream.rangeClosed(0, 3).parallel()
+                .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
+
+        // Validate
+        assertAllReadable(indexes);
+        validateIndexes(indexes);
+
     }
 }

@@ -117,7 +117,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
     }
 
     @Nonnull
-    private static Value encapsulateInternal(@Nonnull final List<Typed> typedArgs) {
+    private static Value encapsulateInternal(@Nonnull final List<? extends Typed> typedArgs) {
         final ImmutableList<Value> arguments = typedArgs.stream()
                 .map(typedArg -> {
                     Verify.verify(typedArg.getResultType().getTypeCode() != Type.TypeCode.RELATION && typedArg instanceof Value);
@@ -229,7 +229,7 @@ public abstract class AbstractArrayConstructorValue implements Value, CreatesDyn
     public static class ArrayFn extends BuiltInFunction<Value> {
         public ArrayFn() {
             super("array",
-                    ImmutableList.of(), new Type.Any(), (parserContext, builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
         }
     }
 }

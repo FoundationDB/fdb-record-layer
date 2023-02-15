@@ -39,6 +39,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -76,6 +77,8 @@ public class PromoteValue implements ValueWithChild {
     @Nullable
     private final MessageHelpers.CoercionTrieNode promotionTrie;
 
+    private final boolean isSimplePromotion;
+
     /**
      * Constructs a new {@link PromoteValue} instance. Note that the actual promotion that is carried out is viewed
      * as a <em>treatment</em> of an object of a type as an object of another type without loss of information. On the
@@ -89,6 +92,9 @@ public class PromoteValue implements ValueWithChild {
         this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
+        this.isSimplePromotion = promoteToType.isPrimitive() ||
+                                 (promoteToType instanceof Type.Array &&
+                                  Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
 
     @Nonnull
@@ -118,9 +124,7 @@ public class PromoteValue implements ValueWithChild {
 
         return MessageHelpers.coerceObject(promotionTrie,
                 promoteToType,
-                promoteToType.isPrimitive()
-                ? null
-                : context.getTypeRepository().getMessageDescriptor(promoteToType),
+                isSimplePromotion ? null : context.getTypeRepository().getMessageDescriptor(promoteToType),
                 inValue.getResultType(),
                 result);
     }

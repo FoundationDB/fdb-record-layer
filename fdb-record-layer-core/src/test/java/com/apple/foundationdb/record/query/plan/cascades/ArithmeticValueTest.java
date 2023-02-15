@@ -268,14 +268,14 @@ class ArithmeticValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, Object result, boolean shouldFail) {
         if (shouldFail) {
             try {
-                function.encapsulate(typeRepositoryBuilder, args);
+                function.encapsulate(args);
                 Assertions.fail("expected an exception to be thrown");
             } catch (Exception e) {
                 Assertions.assertTrue(e instanceof VerifyException);
                 Assertions.assertTrue(e.getMessage().contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
             }
         } else {
-            Typed value = function.encapsulate(typeRepositoryBuilder, args);
+            Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof ArithmeticValue);
             Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(result, actualValue);

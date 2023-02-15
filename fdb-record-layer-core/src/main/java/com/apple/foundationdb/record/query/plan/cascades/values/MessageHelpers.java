@@ -452,7 +452,7 @@ public class MessageHelpers {
         final var messageDescriptor = currentMessage.getDescriptorForType();
         final var targetFieldsFromDescriptor = targetDescriptor.getFields();
         for (final var messageFieldDescriptor : messageDescriptor.getFields()) {
-            if (currentMessage.hasField(messageFieldDescriptor)) {
+            if (hasAnySuchField(currentMessage, messageFieldDescriptor)) {
                 final var index = messageFieldDescriptor.getIndex();
                 final var targetFieldDescriptor = Verify.verifyNotNull(targetFieldsFromDescriptor.get(index));
                 final var targetFieldType = Verify.verifyNotNull(targetRecordType.getField(index)).getFieldType();
@@ -472,6 +472,14 @@ public class MessageHelpers {
             }
         }
         return resultMessageBuilder.build();
+    }
+
+    private static boolean hasAnySuchField(@Nonnull final Message message, Descriptors.FieldDescriptor fieldDescriptor) {
+        if (fieldDescriptor.isRepeated()) {
+            return message.getRepeatedFieldCount(fieldDescriptor) > 0;
+        } else {
+            return message.hasField(fieldDescriptor);
+        }
     }
 
     /**

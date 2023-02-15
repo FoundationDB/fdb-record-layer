@@ -664,7 +664,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(2040764736, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-1434217391, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504138418, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()
