@@ -48,13 +48,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for building indexes from other indexes with {@link OnlineIndexer}.
  */
-public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
-
-    private void populateData(final long numRecords) {
-        populateData(numRecords, 0);
-    }
+class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     private void populateData(final long numRecords, final long numOtherRecords) {
+        openSimpleMetaData();
         List<TestRecords1Proto.MySimpleRecord> simpleRecords = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
@@ -73,16 +70,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     private FDBRecordStoreTestBase.RecordMetaDataHook myHook(Index srcIndex, Index tgtIndex) {
-        return metaDataBuilder -> {
-            metaDataBuilder.addIndex("MySimpleRecord", srcIndex);
-            metaDataBuilder.addIndex("MySimpleRecord", tgtIndex);
-        } ;
+        return allIndexesHook(List.of(srcIndex, tgtIndex));
     }
 
     private void buildSrcIndex(Index srcIndex) {
-        try (OnlineIndexer indexer = newIndexerBuilder()
-                .addTargetIndex(srcIndex)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(srcIndex).build()) {
             indexer.buildIndex(true);
         }
         try (FDBRecordContext context = openContext()) {
@@ -111,7 +103,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexSimple() {
+    void testIndexFromIndexSimple() {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 80;
@@ -120,7 +112,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -141,7 +132,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexContinuation() {
+    void testIndexFromIndexContinuation() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
         final int chunkSize  = 17;
@@ -151,7 +142,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -175,7 +165,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testNonIdempotentIndexFromIndex() {
+    void testNonIdempotentIndexFromIndex() {
         this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 8;
@@ -185,7 +175,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
@@ -205,7 +194,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testCanBuildNonIdempotentIndexFromIndexOnNewStoreWithOldFormatVersionInIndexer() {
+    void testCanBuildNonIdempotentIndexFromIndexOnNewStoreWithOldFormatVersionInIndexer() {
         this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 8;
@@ -215,7 +204,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
@@ -238,7 +226,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testNonIdempotentIndexFromIndexOldFormatFallback() {
+    void testNonIdempotentIndexFromIndexOldFormatFallback() {
         // Attempt to build a non-idempotent index at an older format version. This should fall back to a full record scan
         this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -249,7 +237,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
@@ -269,7 +256,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
+    void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
         // Attempt to build a non-idempotent index at old format version where this is not supported. This should
         // error as falling back to a record scan is not enabled
         this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
@@ -281,7 +268,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords, otherRecords);
 
         openSimpleMetaData(hook);
@@ -300,9 +286,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexNoFallbackNonReadable() {
+    void testIndexFromIndexNoFallbackNonReadable() {
         // Let srcIndex be a non-readable index
-
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 3;
 
@@ -310,7 +295,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -345,7 +329,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @SuppressWarnings("try")
     @Test
-    public void testIndexFromIndexNoFallbackNonValueSrc() {
+    void testIndexFromIndexNoFallbackNonValueSrc() {
         // Let srcIndex be a non-VALUE index
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 3;
@@ -354,7 +338,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -383,7 +366,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @SuppressWarnings("try")
     @Test
-    public void testIndexFromIndexWithDuplicates() {
+    void testIndexFromIndexWithDuplicates() {
         this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 5;
@@ -392,7 +375,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -421,7 +403,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentContinuation() {
+    void testIndexFromIndexPersistentContinuation() {
         // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 49;
@@ -432,7 +414,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -463,7 +444,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentPreventBadContinuation() {
+    void testIndexFromIndexPersistentPreventBadContinuation() {
         // start indexing by index, verify refusal to continue by records, then continue by index
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 78;
@@ -475,7 +456,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -521,7 +501,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentContinuePreviousByIndex() {
+    void testIndexFromIndexPersistentContinuePreviousByIndex() {
         // start indexing by Index, verify refusal to continue by records, then allow continuation of the previous by index method - overriding the by records request
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 98;
@@ -532,7 +512,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -571,7 +550,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentContinuePreviousByRecords() {
+    void testIndexFromIndexPersistentContinuePreviousByRecords() {
         // start indexing by records, allow continuation of previous by records method - overriding the by-index request
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 90;
@@ -582,7 +561,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -623,7 +601,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentContinuePreviousByRecordsWithoutTypeStamp() {
+    void testIndexFromIndexPersistentContinuePreviousByRecordsWithoutTypeStamp() {
         // start indexing by records, earse the type stamp to simulate old code, verify refusal to continue, then allow continuation of previous by records method - overriding the by-index request
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 77;
@@ -634,7 +612,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -677,7 +654,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange() {
+    void testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange() {
         // start indexing by records, request a rebuild - by index - if the indexing type stamp had changed
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 79;
@@ -688,7 +665,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -715,7 +691,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexRebuildIfWriteOnlyAndForceBuildAndBuildIfDisabled() {
+    void testIndexFromIndexRebuildIfWriteOnlyAndForceBuildAndBuildIfDisabled() {
         // test various policy options to ensure coverage (note that the last section will disable and rebuild the source index)
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 87;
@@ -726,7 +702,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -807,7 +782,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexSrcVersionModifiedWithFallback() {
+    void testIndexFromIndexSrcVersionModifiedWithFallback() {
         // start indexing by index, change src index' last modified version, assert failing to continue, continue with REBUILD_IF.. option
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 81;
@@ -819,7 +794,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -878,7 +852,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexOtherSrcIndexWithFallback() {
+    void testIndexFromIndexOtherSrcIndexWithFallback() {
         // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 83;
@@ -896,7 +870,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                     metaDataBuilder.addIndex("MySimpleRecord", tgtIndex);
                 } ;
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -944,7 +917,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
+    void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
         // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 88;
@@ -962,7 +935,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                     metaDataBuilder.addIndex("MySimpleRecord", tgtIndex);
                 } ;
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -1009,7 +981,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexRebuild() {
+    void testIndexFromIndexRebuild() {
         // test the inline rebuildIndex function by-index
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 80;
@@ -1018,7 +990,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -1040,22 +1011,17 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(tgtIndex));
-            context.commit();
-        }
+        assertReadable(tgtIndex);
     }
 
     @Test
-    public void testIndexFromIndexBlock() {
+    void testIndexFromIndexBlock() {
         // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 49;
         final int chunkSize  = 12;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         Index sourceIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -1063,10 +1029,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(sourceIndex);
 
         // Partly build index
-        Index targetIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, targetIndex);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, tgtIndex);
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(targetIndex, chunkSize, 1, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -1074,10 +1040,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         String luka = "Blocked by Luka: Feb 2023";
-        try (OnlineIndexer indexer = newIndexerBuilder(targetIndex).build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(tgtIndex).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.blockIndexBuilds(luka, 10L);
-            String indexName = targetIndex.getName();
+            String indexName = tgtIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertFalse(stamp.getBlock());
@@ -1085,10 +1051,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = newIndexerBuilder(targetIndex).build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(tgtIndex).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
-            String indexName = targetIndex.getName();
+            String indexName = tgtIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertTrue(stamp.getBlock());
@@ -1099,7 +1065,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(targetIndex, timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -1110,13 +1076,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
         }
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexWriteOnly(targetIndex));
+            assertTrue(recordStore.isIndexWriteOnly(tgtIndex));
             context.commit();
         }
 
         // Successfully build
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(targetIndex, timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -1132,10 +1098,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(targetIndex));
-            context.commit();
-        }
+        assertReadable(tgtIndex);
     }
 }

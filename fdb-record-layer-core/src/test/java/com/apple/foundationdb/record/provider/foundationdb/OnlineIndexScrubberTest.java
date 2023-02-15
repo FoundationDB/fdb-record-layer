@@ -50,16 +50,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for scrubbing readable indexes with {@link OnlineIndexer}.
  */
 class OnlineIndexScrubberTest extends OnlineIndexerTest {
-    private void populateData(final long numRecords) {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
-                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).build()
-        ).collect(Collectors.toList());
-
-        try (FDBRecordContext context = openContext())  {
-            records.forEach(recordStore::saveRecord);
-            context.commit();
-        }
-    }
 
     private FDBRecordStoreTestBase.RecordMetaDataHook myHook(Index index) {
         return metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -88,7 +78,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -160,7 +149,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -252,7 +240,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -318,7 +305,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);
@@ -355,7 +341,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         final Index tgtIndex = new Index("myVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         openSimpleMetaData(hook);

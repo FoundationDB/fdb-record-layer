@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,17 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
-    private void populateData(final long numRecords) {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
-                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).build()
-        ).collect(Collectors.toList());
-
-        try (FDBRecordContext context = openContext())  {
-            records.forEach(recordStore::saveRecord);
-            context.commit();
-        }
-    }
-
     private void populateOtherData(final long numRecords) {
         List<TestRecords1Proto.MyOtherRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(val + 100000).build()
@@ -71,14 +61,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             records.forEach(recordStore::saveRecord);
             context.commit();
         }
-    }
-
-    private FDBRecordStoreTestBase.RecordMetaDataHook allIndexesHook(List<Index> indexes) {
-        return metaDataBuilder -> {
-            for (Index index: indexes) {
-                metaDataBuilder.addIndex("MySimpleRecord", index);
-            }
-        } ;
     }
 
     private void buildIndexAndCrashHalfway(int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.Builder builder) {
@@ -101,7 +83,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testMultiTargetSimple() {
+    void testMultiTargetSimple() {
         // Simply build the index
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -113,7 +95,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -124,14 +105,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
+        assertReadable(indexes);
 
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
@@ -150,14 +124,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
+        assertReadable(indexes);
 
         // Now use an arbitrary primary index
         timer.reset();
@@ -167,25 +134,17 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .build()) {
-
             indexBuilder.buildIndex(true);
-
         }
+
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetContinuation() {
+    void testMultiTargetContinuation() {
         // Build the index in small chunks
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -199,7 +158,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -208,17 +166,18 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setLimit(chunkSize)
                 .build()) {
-
             indexBuilder.buildIndex(true);
         }
+
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetMismatchStateFailure() {
+    void testMultiTargetMismatchStateFailure() {
         //Throw when one index has a different status
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -230,7 +189,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -262,11 +220,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetPartlyBuildFailure() {
+    void testMultiTargetPartlyBuildFailure() {
         // Throw when one index has a different type stamp
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -279,7 +238,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -328,7 +286,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -372,7 +329,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -394,18 +350,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetIndividualContinueAfterCrash() {
+    void testMultiTargetIndividualContinueAfterCrash() {
         // After crash, finish building each index individually
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -419,7 +369,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -443,19 +392,13 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             }
         }
 
-        // 3. Verify all readable
-        openSimpleMetaData(hook);
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
-        validateIndexes(indexes);
+        // 3. Verify all readable and valid
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetIndividualContinueByIndexAfterCrash() {
+    void testMultiTargetIndividualContinueByIndexAfterCrash() {
         // After crash, finish building each index individually
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -469,7 +412,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -522,7 +464,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testMultiTargetRebuild() {
+    void testMultiTargetRebuild() {
         // Use inline rebuildIndex
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 80;
@@ -532,7 +474,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -552,11 +493,11 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        validateIndexes(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
-    public void testMultiTargetMultiType() {
+    void testMultiTargetMultiType() {
         // Use different record types
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -565,7 +506,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         final int chunkSize  = 17;
         final int numChunks  = 1 + ((numRecords + numRecordsOther) / chunkSize);
 
-        openSimpleMetaData();
         populateData(numRecords);
         populateOtherData(numRecordsOther);
 
@@ -595,11 +535,11 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        validateIndexes(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
+        assertAllValidated(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
     }
 
     @Test
-    public void testSingleTargetContinuation() {
+    void testSingleTargetContinuation() {
         // Build a single target with the old module, crash halfway, then continue indexing as a single index in the Multi Target module
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
@@ -608,7 +548,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -644,7 +583,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testSingleTargetCompletion() {
+    void testSingleTargetCompletion() {
         // Build few single target ranges with the old module, then complete indexing as a single index with the Multi Target module
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
@@ -652,7 +591,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -683,7 +621,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
     // uncomment to compare
     // @Test
-    public void benchMarkMultiTarget() {
+    void benchMarkMultiTarget() {
         // compare single target build to multi target index building
         final FDBStoreTimer singleTimer = new FDBStoreTimer();
         final FDBStoreTimer multiTimer = new FDBStoreTimer();
@@ -695,7 +633,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -736,7 +673,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -796,12 +732,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                         .setAllowUnblock(true)
                         .build())
                 .build()) {
-
             indexBuilder.buildIndex();
         }
 
         // validate
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -817,7 +753,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -858,6 +793,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         // validate
-        validateIndexes(indexes);
+        assertAllValidated(indexes);
     }
 }

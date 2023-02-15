@@ -44,8 +44,11 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link OnlineIndexer}.
@@ -96,37 +99,6 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         }
     }
 
-    protected void disableAll(List<Index> indexes) {
-        try (FDBRecordContext context = openContext()) {
-            // disable all
-            for (Index index : indexes) {
-                recordStore.markIndexDisabled(index).join();
-            }
-            context.commit();
-        }
-    }
-
-    protected void validateIndexes(List<Index> indexes) {
-        final FDBStoreTimer timer = new FDBStoreTimer();
-        for (Index index: indexes) {
-            if (index.getType().equals(IndexTypes.VALUE)) {
-                try (OnlineIndexScrubber indexScrubber = newScrubberBuilder()
-                        .setIndex(index)
-                        .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                                .setLogWarningsLimit(Integer.MAX_VALUE)
-                                .setAllowRepair(false)
-                                .build())
-                        .setTimer(timer)
-                        .build()) {
-                    indexScrubber.scrubDanglingIndexEntries();
-                    indexScrubber.scrubMissingIndexEntries();
-                }
-                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-            }
-        }
-    }
-
     @BeforeEach
     public void setUp() {
         if (fdb == null) {
@@ -171,6 +143,28 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 
+    FDBRecordContext openContext(boolean checked) {
+        FDBRecordContext context = fdb.openContext();
+        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
+                .setMetaDataProvider(metaData)
+                .setContext(context)
+                .setFormatVersion(formatVersion)
+                .setSubspace(subspace)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
+        if (checked) {
+            recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+        } else {
+            recordStore = builder.uncheckedOpen();
+        }
+        metaData = recordStore.getRecordMetaData();
+        planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState(), recordStore.getTimer());
+        return context;
+    }
+
+    FDBRecordContext openContext() {
+        return openContext(true);
+    }
+
     OnlineIndexer.Builder newIndexerBuilder() {
         return OnlineIndexer.newBuilder()
                 .setDatabase(fdb)
@@ -213,25 +207,71 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         return newScrubberBuilder(index).setTimer(timer);
     }
 
-    FDBRecordContext openContext(boolean checked) {
-        FDBRecordContext context = fdb.openContext();
-        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData)
-                .setContext(context)
-                .setFormatVersion(formatVersion)
-                .setSubspace(subspace)
-                .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
-        if (checked) {
-            recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-        } else {
-            recordStore = builder.uncheckedOpen();
+    protected void disableAll(List<Index> indexes) {
+        try (FDBRecordContext context = openContext()) {
+            // disable all
+            for (Index index : indexes) {
+                recordStore.markIndexDisabled(index).join();
+            }
+            context.commit();
         }
-        metaData = recordStore.getRecordMetaData();
-        planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState(), recordStore.getTimer());
-        return context;
     }
 
-    FDBRecordContext openContext() {
-        return openContext(true);
+    protected void assertAllValidated(List<Index> indexes) {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        for (Index index: indexes) {
+            if (index.getType().equals(IndexTypes.VALUE)) {
+                try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(index, timer)
+                        .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                                .setLogWarningsLimit(Integer.MAX_VALUE)
+                                .setAllowRepair(false)
+                                .build())
+                        .build()) {
+                    indexScrubber.scrubDanglingIndexEntries();
+                    indexScrubber.scrubMissingIndexEntries();
+                }
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            }
+        }
+    }
+
+    protected void populateData(final long numRecords) {
+        openSimpleMetaData();
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(val)
+                        .setNumValue2((int)val * 19)
+                        .setNumValue3Indexed((int) val * 77)
+                        .setNumValueUnique((int)val * 1139)
+                        .build()
+        ).collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext())  {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+    }
+
+    protected static FDBRecordStoreTestBase.RecordMetaDataHook allIndexesHook(List<Index> indexes) {
+        return metaDataBuilder -> {
+            for (Index index: indexes) {
+                metaDataBuilder.addIndex("MySimpleRecord", index);
+            }
+        } ;
+    }
+
+    protected void assertReadable(List<Index> indexes) {
+        openSimpleMetaData(allIndexesHook(indexes));
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                assertTrue(recordStore.isIndexReadable(index));
+            }
+            context.commit();
+        }
+    }
+
+    protected void assertReadable(Index index) {
+        assertReadable(List.of(index));
     }
 }

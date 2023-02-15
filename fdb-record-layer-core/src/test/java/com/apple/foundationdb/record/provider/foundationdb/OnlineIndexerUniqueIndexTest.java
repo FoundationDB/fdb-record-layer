@@ -393,18 +393,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex(true);
         }
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(indexName));
-            context.commit();
-        }
-    }
-
-    private FDBRecordStoreTestBase.RecordMetaDataHook allIndexesHook(List<Index> indexes) {
-        return metaDataBuilder -> {
-            for (Index index: indexes) {
-                metaDataBuilder.addIndex("MySimpleRecord", index);
-            }
-        };
+        assertReadable(index);
     }
 
     @Test
@@ -594,12 +583,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // assert readable state
-        try (FDBRecordContext context = openContext()) {
-            for (Index index: indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
-            context.commit();
-        }
+        assertReadable(indexes);
     }
 
     @Test
@@ -779,9 +763,6 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // assert target index state is readable
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(tgtIndex));
-            context.commit();
-        }
+        assertReadable(tgtIndex);
     }
 }

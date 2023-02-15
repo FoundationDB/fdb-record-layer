@@ -74,23 +74,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerMutualTest.class);
 
-    private void populateData(final long numRecords) {
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
-                TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(val)
-                        .setNumValue2((int)val * 19)
-                        .setNumValue3Indexed((int) val * 77)
-                        .setNumValueUnique((int)val * 1139)
-                        .build()
-        ).collect(Collectors.toList());
-
-        try (FDBRecordContext context = openContext())  {
-            records.forEach(recordStore::saveRecord);
-            context.commit();
-        }
-    }
-
     private void populateOtherData(final long numRecords, final long start) {
+        openSimpleMetaData();
         List<TestRecords1Proto.MyOtherRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MyOtherRecord.newBuilder()
                         .setRecNo(val + start)
@@ -101,16 +86,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         try (FDBRecordContext context = openContext())  {
             records.forEach(recordStore::saveRecord);
-            context.commit();
-        }
-    }
-
-    private void assertAllReadable(List<Index> indexes) {
-        openSimpleMetaData(allIndexesHook(indexes));
-        try (FDBRecordContext context = openContext()) {
-            for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
-            }
             context.commit();
         }
     }
@@ -130,14 +105,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         return boundaries;
     }
 
-    private static FDBRecordStoreTestBase.RecordMetaDataHook allIndexesHook(List<Index> indexes) {
-        return metaDataBuilder -> {
-            for (Index index: indexes) {
-                metaDataBuilder.addIndex("MySimpleRecord", index);
-            }
-        } ;
-    }
-
     @Test
     void testMutualIndexingNoBoundaries() {
         // Let a single thread build all the indexes - boundaries will be detected automatically - which means (null, null) because the data set will be too small to have multiple shards in fdb
@@ -148,7 +115,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         long numRecords = 80;
         populateData(numRecords);
 
@@ -165,8 +131,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @ParameterizedTest
@@ -196,7 +162,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -223,8 +188,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         }
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     int oneThreadIndexing(List<Index> indexes, FDBStoreTimer callerTimer, List<Tuple> boundaries) {
@@ -284,7 +249,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         Index unusedIndex = new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE);
 
         int numRecords = 543;
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -304,8 +268,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         });
 
         // validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -319,7 +283,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
         int numRecords = 412;
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -342,8 +305,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 oneThreadIndexing(indexes, timer, boundariesList));
 
         // validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -357,7 +320,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
         int numRecords = 232;
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -384,8 +346,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 oneThreadIndexing(indexes, timer, boundariesList));
 
         // validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -397,7 +359,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
         int numRecords = 132;
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -426,8 +387,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -438,7 +399,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
         int numRecords = 100;
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -454,8 +414,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 8).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
 
         disableAll(indexes);
         // Duplicate entry, causing empty fragments
@@ -466,8 +426,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 3).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
 
         // pad with nulls, causing more empty fragments
         disableAll(indexes);
@@ -477,8 +437,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 18).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -527,8 +487,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 8).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
 
         disableAll(indexes);
         // Duplicate entry, causing empty fragments
@@ -539,8 +499,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 3).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
 
         // pad with nulls, causing more empty fragments
         disableAll(indexes);
@@ -550,8 +510,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build and validate
         IntStream.rangeClosed(0, 18).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -773,7 +733,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .build()) {
             indexBuilder.buildIndex();
         }
-        assertAllReadable(indexes);
+        assertReadable(indexes);
     }
 
     private void buildIndexAssertThrowUniquenessViolationOrValidation(OnlineIndexer indexer) {
@@ -798,7 +758,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -839,7 +798,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -879,7 +837,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
 
-        openSimpleMetaData();
         populateData(numRecords);
 
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
@@ -936,7 +893,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final int numRecordsOther = 124;
         final long start = 100;
 
-        openSimpleMetaData();
         populateData(numRecords);
         populateOtherData(numRecordsOther, start);
 
@@ -964,7 +920,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 indexBuilder.buildIndex(true);
             }
         });
-        validateIndexes(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -978,7 +934,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         int numRecords = 333;
         populateData(numRecords);
 
@@ -1059,8 +1014,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
 
         // Validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
 
     }
 
@@ -1091,7 +1046,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         int numRecords = 333;
         populateData(numRecords);
 
@@ -1174,8 +1128,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // Validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -1189,7 +1143,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         int numRecords = 223;
         populateData(numRecords);
 
@@ -1259,8 +1212,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // Validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test
@@ -1274,7 +1227,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Here: Add a non-value index
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
-        openSimpleMetaData();
         int numRecords = 133;
         populateData(numRecords);
 
@@ -1377,7 +1329,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
 
         // Validate
-        assertAllReadable(indexes);
-        validateIndexes(indexes);
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 }
