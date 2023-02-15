@@ -18,11 +18,38 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 
-public class DatatypeIntegrationTests extends YamlIntegrationTests {
+import javax.annotation.Nonnull;
+
+public class DatatypeIntegrationTests {
+
+    private static final Logger LOG = LogManager.getLogger(DatatypeIntegrationTests.class);
+
     public DatatypeIntegrationTests() {
-        super();
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
+    }
+
+    private void doRun(@Nonnull final String fileName) throws Exception {
+        try (var yamlRunner = YamlRunner.create(fileName)) {
+            try {
+                yamlRunner.run();
+            } catch (Exception e) {
+                if (LOG.isErrorEnabled()) {
+                    LOG.error(String.format("‼️ running test file '%s' was not successful", fileName));
+                }
+                e.printStackTrace();
+                throw e;
+            }
+        }
     }
 
     @Test
