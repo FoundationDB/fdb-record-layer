@@ -180,6 +180,22 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setFormatVersion(formatVersion);
     }
 
+    OnlineIndexer.Builder newIndexerBuilder(List<Index> indexes) {
+        return newIndexerBuilder().setTargetIndexes(indexes);
+    }
+
+    OnlineIndexer.Builder newIndexerBuilder(List<Index> indexes, FDBStoreTimer timer) {
+        return newIndexerBuilder(indexes).setTimer(timer);
+    }
+
+    OnlineIndexer.Builder newIndexerBuilder(Index index) {
+        return newIndexerBuilder().addTargetIndex(index);
+    }
+
+    OnlineIndexer.Builder newIndexerBuilder(Index index, FDBStoreTimer timer) {
+        return newIndexerBuilder(index).setTimer(timer);
+    }
+
     OnlineIndexScrubber.Builder newScrubberBuilder() {
         return OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb)
@@ -187,6 +203,14 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setSubspace(subspace)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                 .setFormatVersion(formatVersion);
+    }
+
+    OnlineIndexScrubber.Builder newScrubberBuilder(Index index) {
+        return newScrubberBuilder().setIndex(index);
+    }
+
+    OnlineIndexScrubber.Builder newScrubberBuilder(Index index, FDBStoreTimer timer) {
+        return newScrubberBuilder(index).setTimer(timer);
     }
 
     FDBRecordContext openContext(boolean checked) {

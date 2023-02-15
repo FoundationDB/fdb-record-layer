@@ -81,9 +81,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
 
             // Case 2: While in write-only mode.
@@ -123,9 +121,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
 
@@ -149,9 +145,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
@@ -182,9 +176,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             indexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
@@ -214,9 +206,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 for (int i = 5; i < records.size(); i++) {
@@ -249,9 +239,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             try (FDBRecordContext context = openContext()) {
                 context.getReadVersion();
                 try (FDBRecordContext context2 = fdb.openContext()) {
@@ -316,9 +304,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
 
@@ -366,8 +352,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
                 .build()) {
@@ -402,8 +387,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState())
                 .build()) {
@@ -455,8 +439,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // Force a RecordCoreException failure
         final String throwMsg = "Intentionally crash during test";
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setLimit(1)
                 .setConfigLoader(old -> {
                     throw new RecordCoreException(throwMsg);
@@ -470,8 +453,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // build normally
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(allowUniquePending))
                 .build()) {
@@ -562,8 +544,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
                 .build()) {
@@ -638,8 +619,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
                 .build()) {
@@ -688,8 +668,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // mark readable via build index's short circuit
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
                 .build()) {
@@ -728,8 +707,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // partly build the index
         final AtomicLong counter = new AtomicLong(0);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setLimit(1)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .allowUniquePendingState(true))
@@ -792,8 +770,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // build target index from source index (note - may fall back to by-records)
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(srcIndex.getName())
                         .build())

@@ -155,10 +155,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .setTimer(timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexing() // no boundaries mean self detection - which will be no boundaries
                         .build())
@@ -234,10 +231,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         final FDBStoreTimer timer = callerTimer != null ? callerTimer : new FDBStoreTimer();
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .setTimer(timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundaries)
                         .build())
@@ -260,10 +254,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final String testThrowMsg = "Intentionally crash during test";
         final AtomicLong counter = new AtomicLong(0);
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .setTimer(timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundaries)
                         .build())
@@ -382,11 +373,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Fail to build with a regular indexer
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .setTimer(timer)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer).build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
@@ -427,8 +414,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Build with a regular indexer, allow takeover
         openSimpleMetaData(hook);
         for (Index index: indexes) {
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -1012,10 +998,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 }
                 FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
                 openSimpleMetaData(localHook);
-                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                        .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                        .setTargetIndexes(indexes)
-                        .build()) {
+                try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
                     indexer.blockIndexBuilds(null, 0L);
                 }
             } else {
@@ -1032,10 +1015,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Test query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1050,9 +1030,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Attempt continue while blocked, ensure failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .build())
@@ -1063,10 +1041,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Unblock, the return value is the old stamp - validate it
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.unblockIndexBuilds(null);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1091,10 +1066,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
     private boolean allStampsAreEmpty(FDBRecordStoreTestBase.RecordMetaDataHook hook, List<Index> indexes) {
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1138,19 +1110,13 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
         openSimpleMetaData(localHook);
         String luka = "Blocked by Luka";
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             indexer.blockIndexBuilds(luka, 10L);
         }
 
         // Test query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1168,9 +1134,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Attempt continue while blocked with the wrong id, ensure failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .setAllowUnblock(true, "Blocked by Leonardo")
@@ -1181,10 +1145,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // Attempt to unblock with the wrong id, ensure correct stamp is returned.
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexBuilder.unblockIndexBuilds("Blocked by Raffaello");
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1203,9 +1164,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Continue with unblock, correct id
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .setAllowUnblock(true, luka)
@@ -1249,19 +1208,13 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
         openSimpleMetaData(localHook);
         String luka = "Blocked by Luka";
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes.subList(1, 3))
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes.subList(1, 3)).build()) {
             indexer.blockIndexBuilds(luka, 10L);
         }
 
         // Test query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1284,9 +1237,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Attempt continue while blocked with the wrong id, ensure failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .setAllowUnblock(true, "Blocked by Leonardo")
@@ -1298,9 +1249,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Continue with unblock, correct id
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .setAllowUnblock(true, luka)
@@ -1347,21 +1296,15 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
                 openSimpleMetaData(localHook);
                 try (FDBRecordContext context = openContext()) {
-                    try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                            .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                            .setTargetIndexes(indexes)
-                            .build()) {
+                    try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
                         indexer.blockIndexBuilds(null, 0L);
                     }
                     context.commit();
                 }
             } else {
                 openSimpleMetaData(localHook);
-                try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                        .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                         .setLimit(2)
-                        .setTargetIndexes(indexes)
-                        .setTimer(timer)
                         .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                                 .setMutualIndexingBoundaries(boundariesList)
                                 .checkIndexingStampFrequencyMilliseconds(0)
@@ -1390,10 +1333,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Test query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1408,9 +1348,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Attempt continue while blocked, ensure failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setMutualIndexingBoundaries(boundariesList)
                         .build())
@@ -1421,10 +1359,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Unblock, the return value is the old stamp - validate it
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setTargetIndexes(indexes)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.unblockIndexBuilds(null);
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
@@ -1444,6 +1379,5 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // Validate
         assertAllReadable(indexes);
         validateIndexes(indexes);
-
     }
 }

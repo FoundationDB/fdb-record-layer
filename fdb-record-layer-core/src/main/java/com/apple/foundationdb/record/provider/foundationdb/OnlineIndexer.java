@@ -2240,6 +2240,8 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * If true, allow - in some specific cases - to continue building an index that was partly built by a different indexing method.
          * (See {@link Builder#allowTakeoverContinue(boolean)}).
+         * @param newMethod the new (attempting to continue) indexing method
+         * @param oldMethod the old (previously used) indexing method
          * @return true if allowed
          */
         public boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,

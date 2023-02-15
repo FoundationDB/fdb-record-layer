@@ -93,11 +93,9 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.IndexingPolicy policy) {
         final AtomicLong counter = new AtomicLong(0);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(policy)
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .setConfigLoader(old -> {
                     if (counter.incrementAndGet() > count) {
                         throw new RecordCoreException("Intentionally crash during test");
@@ -129,13 +127,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             indexBuilder.buildIndex(true);
@@ -162,8 +158,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -197,12 +192,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             indexBuilder.buildIndex(true);
@@ -229,15 +222,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 // Set a format version on the store that does not allow index-from-index builds
                 // Because the store already has this format version, though it should be allowed
                 .setFormatVersion(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             indexBuilder.buildIndex(true);
@@ -265,12 +256,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             indexBuilder.buildIndex(true);
@@ -299,13 +288,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
@@ -331,8 +318,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                    .addTargetIndex(srcIndex)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(srcIndex)
                     .build()) {
                 // change srcIndex back to writeOnly
                 recordStore.markIndexWriteOnly(srcIndex).join();
@@ -343,13 +329,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
@@ -377,13 +361,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
@@ -418,13 +400,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         openContext();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
@@ -466,14 +446,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build());
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             // now continue building from the last successful range
             indexBuilder.buildIndex(true);
@@ -511,15 +489,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .build());
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                 )
-                .setTimer(timer)
                 .build()) {
 
             // now try building by records, a failure is expected
@@ -528,14 +504,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             // now continue building from the last successful range
             indexBuilder.buildIndex(true);
@@ -572,14 +546,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .build());
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE))
-                .setTimer(timer)
                 .build()) {
 
             // now try building by records, a failure is expected
@@ -588,11 +560,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
-                .setTimer(timer)
-                .build()) {
-
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer).build()) {
             // now continue building, overriding the requested method with the previous one
             indexBuilder.buildIndex(true);
         }
@@ -624,14 +592,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             // now try building by records, a failure is expected
@@ -640,9 +606,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
-                .setTimer(timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -680,14 +644,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
-                .setTimer(timer)
                 .build()) {
             // erase the previous type stamp - of the by-records
             indexBuilder.eraseIndexingTypeStampTestOnly().join();
@@ -698,9 +660,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
-                .setTimer(timer)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                        .forbidRecordScan()
@@ -739,14 +699,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             indexBuilder.buildIndex(true);
@@ -779,15 +737,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             // now continue building from the last successful range
             indexBuilder.buildIndex(true);
@@ -800,8 +756,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // now check FORCE_BUILD
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -809,7 +764,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             // now force building (but leave it write_only)
             indexBuilder.buildIndex(false);
@@ -822,12 +776,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // now check BUILD_IF_DISABLED when WRITE_ONLY (from previous test)
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
-                .setTimer(timer)
                 .build()) {
 
             // now try building if disabled, nothing should be happening
@@ -844,12 +796,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = newIndexerBuilder()
-                .addTargetIndex(srcIndex)
+        try (OnlineIndexer indexer = newIndexerBuilder(srcIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
-                .setTimer(timer)
                 .build()) {
             indexer.buildIndex(true);
         }
@@ -886,9 +836,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // update src index last modified version (and its subspace key)
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                    .addTargetIndex(srcIndex)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(srcIndex).build()) {
                 recordStore.markIndexWriteOnly(srcIndex).join();
                 srcIndex.setLastModifiedVersion(srcIndex.getLastModifiedVersion() + 1);
                 indexBuilder.rebuildIndex(recordStore);
@@ -899,13 +847,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // try index continuation, expect failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
@@ -915,15 +861,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // try index continuation, but allow rebuild
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             indexBuilder.buildIndex(true);
         }
@@ -971,14 +915,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // try index continuation with src_index2, expect failure
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .forbidRecordScan()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
-                .setTimer(timer)
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
@@ -987,13 +929,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // try indexing with src_index2, but allow continuation of previous method (src_index)
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .build()) // continue previous if policy changed
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             indexBuilder.buildIndex(true);
         }
@@ -1042,9 +982,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // make 'prev' source unreadable
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                    .addTargetIndex(srcIndex)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(srcIndex).build()) {
                 // change src_index back to writeOnly
                 recordStore.markIndexWriteOnly(srcIndex).join();
                 indexBuilder.rebuildIndex(recordStore);
@@ -1056,13 +994,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // try indexing with src_index2. Since src_index isn't usable, it should rebuild
         openSimpleMetaData(hook);
         timer.reset();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(tgtIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .build()) // rebuild after failing to continue prev
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             indexBuilder.buildIndex(true);
         }
@@ -1090,13 +1026,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                    .addTargetIndex(tgtIndex)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setSourceIndex("src_index")
                             .forbidRecordScan()
                             .build())
-                    .setTimer(timer)
                     .build()) {
                 indexBuilder.rebuildIndex(recordStore);
             }
@@ -1140,10 +1074,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         String luka = "Blocked by Luka: Feb 2023";
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setIndex(targetIndex)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(targetIndex).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.blockIndexBuilds(luka, 10L);
             String indexName = targetIndex.getName();
@@ -1154,10 +1085,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // query, ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
-                .setIndex(targetIndex)
-                .build()) {
+        try (OnlineIndexer indexer = newIndexerBuilder(targetIndex).build()) {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             String indexName = targetIndex.getName();
@@ -1171,14 +1099,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // ensure blocked
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(targetIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(targetIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
@@ -1190,15 +1116,13 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // Successfully build
         openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .addTargetIndex(targetIndex)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(targetIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setAllowUnblock(true)
                         .build())
                 .setLimit(chunkSize)
-                .setTimer(timer)
                 .build()) {
             // now continue building from the last successful range
             indexBuilder.buildIndex();
