@@ -293,7 +293,7 @@ public class AliasMap {
      */
     @Nonnull
     public AliasMap inverse() {
-        return AliasMap.copyOf(map.inverse());
+        return new AliasMap(map.inverse());
     }
 
     /**

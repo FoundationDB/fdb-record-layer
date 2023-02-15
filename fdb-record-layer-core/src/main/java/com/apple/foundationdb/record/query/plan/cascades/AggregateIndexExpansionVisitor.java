@@ -218,7 +218,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             Values.deconstructRecord(groupingValueReference).forEach(v -> {
                 final var field = (FieldValue)v;
                 final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueWithRanges.class));
-                placeholderAliases.add(placeholder.getAlias());
+                placeholderAliases.add(placeholder.getParameterAlias());
                 selectHavingGraphExpansionBuilder
                         .addResultColumn(Column.unnamedOf(field))
                         .addPlaceholder(placeholder)

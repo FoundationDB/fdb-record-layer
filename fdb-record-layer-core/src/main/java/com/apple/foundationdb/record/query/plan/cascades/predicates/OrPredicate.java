@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +51,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
@@ -65,8 +66,12 @@ import java.util.stream.StreamSupport;
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
+    @Nonnull
+    private final Supplier<Optional<ValueWithRanges>> valueWithRangesSupplier;
+
     public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
+        this.valueWithRangesSupplier = Suppliers.memoize(this::computeToValueWithRangesMaybe);
     }
 
     @Nullable
@@ -114,27 +119,26 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
-    private static Optional<ValueWithRanges> toValueWithRangesMaybe(@Nonnull final QueryPredicate predicate) {
-        if (predicate instanceof ValueWithRanges) {
-            return Optional.of((ValueWithRanges)predicate);
-        }
-        if (!predicate.getChildren().iterator().hasNext()) {
-            return Optional.empty();
-        }
+    @Override
+    public Optional<ValueWithRanges> toValueWithRangesMaybe() {
+        return valueWithRangesSupplier.get();
+    }
 
-        // expression hierarchy must be of a single level, all children must be simple predicates.
-        if (!StreamSupport.stream(predicate.getChildren().spliterator(), false).allMatch(child -> child instanceof PredicateWithValue)) {
+    @Nonnull
+    public Optional<ValueWithRanges> computeToValueWithRangesMaybe() {
+        // expression hierarchy must be of a single level, all children must be simple .
+        if (!getChildren().stream().allMatch(child -> child instanceof PredicateWithValue)) {
             return Optional.empty();
         }
         // all children must reference the same value
-        if (StreamSupport.stream(predicate.getChildren().spliterator(), false).map(c -> ((PredicateWithValue)c).getValue()).distinct().count() > 1) {
+        if (getChildren().stream().map(c -> ((PredicateWithValue)c).getValue()).distinct().count() > 1) {
             return Optional.empty();
         }
 
-        final var value = ((PredicateWithValue)StreamSupport.stream(predicate.getChildren().spliterator(), false).findFirst().orElseThrow()).getValue();
+        final var value = ((PredicateWithValue)getChildren().stream().findFirst().orElseThrow()).getValue();
         final ImmutableSet.Builder<RangeConstraints> rangesSet = ImmutableSet.builder();
 
-        for (final var child : predicate.getChildren()) {
+        for (final var child : getChildren()) {
             final var rangesBuilder = RangeConstraints.newBuilder();
             if (child instanceof ValuePredicate) {
                 final var valuePredicate = (ValuePredicate)child;
@@ -195,13 +199,13 @@ public class OrPredicate extends AndOrPredicate {
     @Nonnull
     @Override
     public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
-        final var valueWithRangesMaybe = toValueWithRangesMaybe(this);
+        final var valueWithRangesMaybe = toValueWithRangesMaybe();
         if (valueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
         }
         final var leftValueWithRanges = valueWithRangesMaybe.get();
 
-        final var candidateValueWithRangesMaybe = toValueWithRangesMaybe(candidatePredicate);
+        final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe();
         if (candidateValueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
         }
@@ -218,9 +222,9 @@ public class OrPredicate extends AndOrPredicate {
             boolean termRequiresCompensation = true;
             boolean foundMatch = false;
             for (final var rightRange : rightValueWithRanges.getRanges()) {
-                if (rightRange.implies(leftRange).equals(RangeConstraints.EvalResult.TRUE)) {
+                if (rightRange.encloses(leftRange) == Proposition.TRUE) {
                     foundMatch = true;
-                    if (leftRange.implies(rightRange).equals(RangeConstraints.EvalResult.TRUE)) {
+                    if (leftRange.encloses(rightRange) == Proposition.TRUE) {
                         termRequiresCompensation = false;
                         break;
                     }
@@ -243,7 +247,7 @@ public class OrPredicate extends AndOrPredicate {
                                              boundParameterPrefixMap,
                                              ImmutableList.copyOf(childFunctions)))))));
         } else {
-            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.EMPTY));
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
         }
     }
 

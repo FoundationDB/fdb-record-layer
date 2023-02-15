@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -35,13 +38,13 @@ import java.util.stream.Stream;
 public class Placeholder extends ValueWithRanges implements WithAlias {
 
     @Nonnull
-    private final CorrelationIdentifier alias;
+    private final CorrelationIdentifier parameterAlias;
 
     private Placeholder(@Nonnull Value value,
                        @Nonnull final Set<RangeConstraints> rangeConstraints,
                        @Nonnull final CorrelationIdentifier alias) {
         super(value, rangeConstraints);
-        this.alias = alias;
+        this.parameterAlias = alias;
     }
 
     @Override
@@ -51,28 +54,59 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
 
     @Nonnull
     public static Placeholder newInstance(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
-        return new Placeholder(value, Set.of(), parameterAlias);
+        return new Placeholder(value, ImmutableSet.of(), parameterAlias);
     }
 
     @Nonnull
     public Placeholder withExtraRanges(@Nonnull final Set<RangeConstraints> ranges) {
-        return new Placeholder(getValue(), Stream.concat(ranges.stream(), getRanges().stream()).collect(Collectors.toSet()), getAlias());
+        return new Placeholder(getValue(), Stream.concat(ranges.stream(), getRanges().stream()).collect(ImmutableSet.toImmutableSet()), getParameterAlias());
     }
 
     @Nonnull
     @Override
     public Placeholder translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new Placeholder(getValue().translateCorrelations(translationMap), getRanges().stream().map(range -> range.translateCorrelations(translationMap)).collect(Collectors.toSet()), getAlias());
+        return new Placeholder(getValue().translateCorrelations(translationMap), getRanges().stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()), getParameterAlias());
     }
 
     @Nonnull
     @Override
-    public CorrelationIdentifier getAlias() {
-        return alias;
+    public CorrelationIdentifier getParameterAlias() {
+        return parameterAlias;
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return Objects.hash(super.semanticHashCode());
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
+            return false;
+        }
+        return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        if (super.semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()))) {
+            return false;
+        }
+        if (!(other instanceof Placeholder)) {
+            return false;
+        }
+        return parameterAlias.equals(((Placeholder)other).parameterAlias);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Override
     public String toString() {
-        return super.toString() + " -> " + getAlias();
+        return super.toString() + " -> " + getParameterAlias();
     }
 }

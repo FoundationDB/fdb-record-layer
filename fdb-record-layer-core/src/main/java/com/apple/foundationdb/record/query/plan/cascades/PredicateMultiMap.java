@@ -63,12 +63,17 @@ public class PredicateMultiMap {
                     throw new RecordCoreException("should not be called");
                 };
 
-        CompensatePredicateFunction EMPTY =
+        CompensatePredicateFunction NO_COMPENSATION_NEEDED =
                 (partialMatch, boundPrefixMap) -> Optional.empty();
         
         @Nonnull
         Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull PartialMatch partialMatch,
                                                                              @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+
+        @Nonnull
+        static CompensatePredicateFunction noCompensationNeeded() {
+            return NO_COMPENSATION_NEEDED;
+        }
     }
 
     /**
@@ -179,7 +184,7 @@ public class PredicateMultiMap {
 
         @NonNull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
-            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).getRanges().size() == 1)) {
+            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).isSargable())) {
                 return Optional.empty();
             }
             final var predicateConjunctionPredicate = (ValueWithRanges)this.queryPredicate;

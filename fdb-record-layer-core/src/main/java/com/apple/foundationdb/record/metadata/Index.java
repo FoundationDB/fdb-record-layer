@@ -697,12 +697,12 @@ public class Index {
                 && this.lastModifiedVersion == that.lastModifiedVersion
                 && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
                 && this.options.equals(that.options)
-                && (Objects.equals(this.predicate, that.predicate));
+                && Objects.equals(this.predicate, that.predicate);
     }
 
     @Override
     public int hashCode() {
         // Within the context of a single RecordMetaData, this should be sufficient
-        return predicate == null ? Objects.hash(name, type) : Objects.hash(name, type, predicate); // for backward-compatibility.
+        return Objects.hash(name, type);
     }
 }

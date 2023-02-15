@@ -34,6 +34,6 @@ public interface WithAlias {
      * @return The alias.
      */
     @Nonnull
-    CorrelationIdentifier getAlias();
+    CorrelationIdentifier getParameterAlias();
 
 }

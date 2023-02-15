@@ -189,7 +189,7 @@ public class PartialMatch {
             }
 
             final var placeholder = (Placeholder)candidatePredicate;
-            if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
+            if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
                 bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
             }
         }

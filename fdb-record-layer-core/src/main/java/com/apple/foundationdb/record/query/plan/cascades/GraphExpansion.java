@@ -116,7 +116,7 @@ public class GraphExpansion {
     public List<CorrelationIdentifier> getPlaceholderAliases() {
         return placeholders
                 .stream()
-                .map(Placeholder::getAlias)
+                .map(Placeholder::getParameterAlias)
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -194,9 +194,7 @@ public class GraphExpansion {
 
             // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
             // order of parameters determines their sargability.
-            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> {
-                return left.withExtraRanges(right.getRanges());
-            }, LinkedHashMap::new)).values());
+            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
@@ -205,7 +203,10 @@ public class GraphExpansion {
             final var localPlaceHolderPairs =
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
-                            .filter(p -> localPredicates.stream().anyMatch(predicate -> predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).getValue().equals(p.getKey().getValue())))
+                            .filter(placeholderWithIndex -> localPredicates.stream()
+                                    .filter(localPredicate -> localPredicate instanceof ValueWithRanges)
+                                    .map(localPredicate -> (ValueWithRanges)localPredicate)
+                                    .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 
             final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
@@ -239,6 +240,8 @@ public class GraphExpansion {
         }
         return graphExpansion.new Sealed();
     }
+
+
 
     @Nonnull
     public SelectExpression buildSelect() {

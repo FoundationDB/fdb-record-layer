@@ -169,7 +169,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (this.semanticEquals(candidatePredicate, aliasMap)) {
             return Optional.of(new PredicateMapping(this,
                     candidatePredicate,
-                    PredicateMultiMap.CompensatePredicateFunction.EMPTY));
+                    PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
         }
         return Optional.empty();
     }
@@ -351,6 +351,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
         predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
         return predicateCorrelatedToBuilder.build();
+    }
+
+    @Nonnull
+    default Optional<ValueWithRanges> toValueWithRangesMaybe() {
+        return Optional.empty();
     }
 
     @Nonnull

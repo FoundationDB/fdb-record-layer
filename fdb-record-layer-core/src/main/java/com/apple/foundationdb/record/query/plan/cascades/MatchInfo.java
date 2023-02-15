@@ -186,7 +186,7 @@ public class MatchInfo {
             return Optional.empty();
         }
 
-        return Optional.of(((Placeholder)candidatePredicate).getAlias());
+        return Optional.of(((Placeholder)candidatePredicate).getParameterAlias());
     }
 
     /**
