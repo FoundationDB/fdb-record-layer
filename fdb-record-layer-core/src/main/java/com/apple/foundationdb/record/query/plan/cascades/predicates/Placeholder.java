@@ -74,10 +74,6 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
         return parameterAlias;
     }
 
-    @Override
-    public int semanticHashCode() {
-        return Objects.hash(super.semanticHashCode());
-    }
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
@@ -87,11 +83,10 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
         return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        if (super.semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()))) {
+        if (!super.semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()))) {
             return false;
         }
         if (!(other instanceof Placeholder)) {
