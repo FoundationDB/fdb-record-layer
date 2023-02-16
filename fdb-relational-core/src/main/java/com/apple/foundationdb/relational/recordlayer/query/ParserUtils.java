@@ -57,6 +57,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -152,7 +153,7 @@ public final class ParserUtils {
     public static BuiltInFunction<? extends Value> getExplicitFunction(@Nonnull final String functionName) {
         final var result = FunctionCatalog.getFunctionSingleton(functionMap.get(functionName));
         Assert.thatUnchecked(result.isPresent(), String.format("unsupported function '%s'", functionName));
-        return (BuiltInFunction<? extends Value>)result.get();
+        return (BuiltInFunction<? extends Value>) result.get();
     }
 
     /**
@@ -624,8 +625,8 @@ public final class ParserUtils {
         final var normalizedArguments = arguments.stream().map(ParserUtils::flattenRecordWithOneField).collect(ImmutableList.toImmutableList());
         final var argumentTypes = normalizedArguments.stream().map(Typed::getResultType).collect(ImmutableList.toImmutableList());
         return FunctionCatalog.resolveAndValidate(functionName, argumentTypes)
-                              .map(function -> function.encapsulate(normalizedArguments))
-                              .orElseThrow(() -> Assert.failUnchecked("unable to resolve function"));
+                .map(function -> function.encapsulate(normalizedArguments))
+                .orElseThrow(() -> Assert.failUnchecked("unable to resolve function"));
     }
 
     @Nonnull

@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -208,7 +209,7 @@ class QueryCommand extends Command {
         boolean queryHasRun = false;
         Continuation continuation = null;
         var configIterator = regionWithoutQuery.listIterator();
-        for (int i = 0; configIterator.hasNext(); i ++) {
+        for (int i = 0; configIterator.hasNext(); i++) {
             Object o = configIterator.next();
             var queryConfigWithValue = getQueryConfigWithValue(o);
             if (queryConfigWithValue.config == QueryConfig.EXPLAIN) {
@@ -222,10 +223,10 @@ class QueryCommand extends Command {
                 final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
                 if (continuation != null && continuation.atEnd() && queryConfigWithValue.config == QueryConfig.RESULT) {
                     Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch%n" +
-                                              "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                              "%s%n" +
-                                              "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                                              queryConfigWithValue));
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                            "%s%n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                            queryConfigWithValue));
                 }
                 continuation = executeWithAConfig(currentQueryString, factory, queryConfigWithValue);
 

@@ -32,7 +32,7 @@ import java.util.Objects;
 public class ImmutableRowStruct extends RowStruct {
     private final Row theRow;
 
-    private boolean wasNull = false;
+    private boolean wasNull;
 
     public ImmutableRowStruct(@Nonnull Row theRow, @Nonnull StructMetaData metaData) {
         super(metaData);

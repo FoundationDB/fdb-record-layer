@@ -29,7 +29,7 @@ public class MutableRowStruct extends RowStruct {
 
     private Row row;
 
-    private boolean wasNull = false;
+    private boolean wasNull;
 
     public MutableRowStruct(StructMetaData metaData) {
         super(metaData);

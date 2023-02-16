@@ -155,18 +155,18 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitFullDescribeStatement(RelationalParser.FullDescribeStatementContext ctx) {
-        final var queryPlan = (QueryPlan.LogicalQueryPlan)visit(ctx.describeObjectClause());
+        final var queryPlan = (QueryPlan.LogicalQueryPlan) visit(ctx.describeObjectClause());
         return ctx.EXPLAIN() == null ? queryPlan : queryPlan.forExplain();
     }
 
     @Override
     public QueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
         Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null ||
-                             ctx.insertStatement() != null ||
-                             ctx.updateStatement() != null ||
-                             ctx.deleteStatement() != null, UNSUPPORTED_QUERY);
+                ctx.insertStatement() != null ||
+                ctx.updateStatement() != null ||
+                ctx.deleteStatement() != null, UNSUPPORTED_QUERY);
 
-        return (QueryPlan)visitChildren(ctx);
+        return (QueryPlan) visitChildren(ctx);
     }
 
     @Override // not supported yet
@@ -1609,8 +1609,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         final var arrayArgumentValues = valuesBuilder.build();
         final var arrayConstructorFn = FunctionCatalog.resolve("array", arrayArgumentValues.size())
-                                                      .orElseThrow(() -> Assert.failUnchecked("unable to resolve internal function"));
-        final var insertValues = (Value)arrayConstructorFn.encapsulate(arrayArgumentValues);
+                .orElseThrow(() -> Assert.failUnchecked("unable to resolve internal function"));
+        final var insertValues = (Value) arrayConstructorFn.encapsulate(arrayArgumentValues);
         return new ExplodeExpression(insertValues);
     }
 

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.collect.HashMultiset;
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
