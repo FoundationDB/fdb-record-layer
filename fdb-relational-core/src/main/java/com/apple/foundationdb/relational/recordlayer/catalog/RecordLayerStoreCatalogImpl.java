@@ -48,6 +48,7 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
+import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
@@ -142,31 +143,21 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
      * @throws RelationalException in case of schema parsing error.
      */
     private void bootstrapSystemDatabase(Transaction transaction) throws RelationalException {
-
-        // poor man's approach for checking SYS schema existence
         // TODO this needs careful design to solve a spectrum of issues pertaining concurrent bootstrapping.
         URI dbUri = URI.create(SYS_DB);
-        try {
-            loadSchema(transaction, dbUri, SCHEMA);
-        } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA && ve.getErrorCode() != ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
-                return;
-            }
+        if (doesSchemaExist(transaction, dbUri, SCHEMA)) {
+            return;
         }
-
         if (!doesDatabaseExist(transaction, dbUri)) {
             createDatabase(transaction, dbUri);
         }
-        final SchemaTemplate schemaTemplate = getCatalogSchemaTemplate();
         if (!schemaTemplateCatalog.doesSchemaTemplateExist(transaction, TEMPLATE)) {
-            schemaTemplateCatalog.updateTemplate(transaction, schemaTemplate);
+            schemaTemplateCatalog.updateTemplate(transaction, getCatalogSchemaTemplate());
         }
-        if (!doesSchemaExist(transaction, dbUri, SCHEMA)) {
-            //map the schema to the template
-            final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), SCHEMA);
-            //insert the schema into the catalog
-            saveSchema(transaction, schema);
-        }
+        //map the schema to the template
+        final Schema schema = getCatalogSchemaTemplate().generateSchema(dbUri.getPath(), SCHEMA);
+        //insert the schema into the catalog
+        saveSchema(transaction, schema);
     }
 
     public void initialize(@Nonnull final Transaction createTxn) throws RelationalException {
@@ -176,6 +167,14 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                     .setContext(createTxn.unwrap(FDBRecordContext.class))
                     .setMetaDataProvider(metaDataProvider)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+
+            // Update the schema template without any existence checks for now because we depend on the in-memory schema
+            // template store that does not persist. Hence, even though the entry remains in the schema table (that is
+            // backed by the RecordStore) the catalog schema template needs to be `put`
+            if (getSchemaTemplateCatalog() instanceof InMemorySchemaTemplateCatalog) {
+                schemaTemplateCatalog.updateTemplate(createTxn, getCatalogSchemaTemplate());
+            }
+
             bootstrapSystemDatabase(createTxn);
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);

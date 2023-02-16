@@ -43,6 +43,7 @@ public class HollowStoreCatalog implements StoreCatalog {
         return null;
     }
 
+    @Nonnull
     @Override
     public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
