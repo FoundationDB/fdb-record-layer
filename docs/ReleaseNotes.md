@@ -15,7 +15,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `StoreSubTimer` class now forwards metrics to an underlying timer when `add` is called, which previously could cause metrics reported only on commit to disappear entirely [(Issue #2010)](https://github.com/FoundationDB/fdb-record-layer/issues/2010)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
