@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -57,7 +58,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -118,7 +118,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
          */
         @Nonnull
         @VisibleForTesting
-        private RecordQueryPlan generatePhysicalPlan(@Nonnull final PlanContext planContext) throws RelationalException {
+        private RecordQueryPlan generatePhysicalPlan(@Nonnull final PlanContext planContext, Options options) throws RelationalException {
             PlanCache cache = planContext.getPlanCache();
             RecordQueryPlan plan = null;
             LogicalQuery logicalQuery = LogicalQuery.of(query, relationalExpression);
@@ -127,7 +127,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 plan = cache.getPlan(logicalQuery, planContext.getSchemaState());
             }
             if (plan == null) {
-                final CascadesPlanner planner = createPlanner(planContext);
+                final CascadesPlanner planner = createPlanner(planContext, options);
                 try {
                     plan = planner.planGraph(
                             () -> GroupExpressionRef.of(relationalExpression),
@@ -156,7 +156,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                 final FDBRecordStore store = recordLayerSchema.loadStore();
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
-                RecordQueryPlan recordQueryPlan = generatePhysicalPlan(planContext);
+                RecordQueryPlan recordQueryPlan = generatePhysicalPlan(planContext, context.options);
                 if (forExplain) {
                     return explainPhysicalPlan(recordQueryPlan);
                 } else {
@@ -241,10 +241,28 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
     }
 
-    private static CascadesPlanner createPlanner(PlanContext planContext) {
+    private static IndexFetchMethod toRecLayerIndexFetchMethod(Options.IndexFetchMethod method) throws RelationalException {
+        if (method == null) {
+            return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+        }
+        switch (method) {
+            case SCAN_AND_FETCH:
+                return IndexFetchMethod.SCAN_AND_FETCH;
+            case USE_REMOTE_FETCH:
+                return IndexFetchMethod.USE_REMOTE_FETCH;
+            case USE_REMOTE_FETCH_WITH_FALLBACK:
+                return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+            default:
+                throw new RelationalException("Index Fetch Method mismatch when converting the option from Relational to the Record Layer",
+                        ErrorCode.INTERNAL_ERROR);
+        }
+    }
+
+    private static CascadesPlanner createPlanner(PlanContext planContext, Options options) throws RelationalException {
+        Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
         RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
-                .setIndexFetchMethod(IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK)
+                .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
                 .build();
         planner.setConfiguration(configuration);
 

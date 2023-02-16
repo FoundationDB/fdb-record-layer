@@ -57,8 +57,26 @@ public final class Options {
          */
         REPLACE_ON_DUPLICATE_PK,
 
-        PLAN_CACHE_MAX_ENTRIES
+        /**
+         * Capacity limit of Relational's plan cache. Entries will be evicted from the cache following an LRU model.
+         */
+        PLAN_CACHE_MAX_ENTRIES,
+
+        /**
+         * An indicator for the index fetch method to use for a query or an index scan.
+         * Possible values are:
+         * <UL>
+         * <LI>{@link IndexFetchMethod#SCAN_AND_FETCH} use regular index scan followed by fetch</LI>
+         * <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH} use remote fetch feature from FDB</LI>
+         * <LI>{@link IndexFetchMethod#USE_REMOTE_FETCH_WITH_FALLBACK} use remote fetch ability with fallback to regular
+         * scan and fetch in case of failure. This is a safety measure meant to be used while the
+         * remote fetch mechanism is being tested</LI>
+         * </UL>
+         */
+        INDEX_FETCH_METHOD
     }
+
+    public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
 
     private static final Map<Name, List<OptionContract>> contracts = Map.of(
             Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)),
@@ -67,8 +85,15 @@ public final class Options {
             Name.REQUIRED_METADATA_TABLE_VERSION, List.of(new TypeContract<>(Integer.class), new RangeContract<>(-1, Integer.MAX_VALUE)),
             Name.TRANSACTION_TIMEOUT, List.of(new TypeContract<>(Long.class), new RangeContract<>(-1L, Long.MAX_VALUE)),
             Name.REPLACE_ON_DUPLICATE_PK, List.of(new TypeContract<>(Boolean.class)),
-            Name.PLAN_CACHE_MAX_ENTRIES, List.of(new TypeContract<>(Integer.class))
+            Name.PLAN_CACHE_MAX_ENTRIES, List.of(new TypeContract<>(Integer.class)),
+            Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class))
     );
+
+    private static final Map<Name, Object> defaults = Map.of(
+            Name.CONTINUATION_PAGE_SIZE, Integer.MAX_VALUE,
+            Name.REPLACE_ON_DUPLICATE_PK, false,
+            Name.PLAN_CACHE_MAX_ENTRIES, 0,
+            Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
 
     public static final Options NONE = Options.builder().build();
 
@@ -82,9 +107,9 @@ public final class Options {
 
     @SuppressWarnings("unchecked")
     public <T> T getOption(Name name) {
-        T option = (T) optionsMap.get(name);
-        if (option == null && parentOptions != null) {
-            return parentOptions.getOption(name);
+        T option = getOptionInternal(name);
+        if (option == null) {
+            return (T) defaults.get(name);
         } else {
             return option;
         }
@@ -139,6 +164,16 @@ public final class Options {
     private static void validateOption(Name name, Object value) throws SQLException {
         for (OptionContract contract : contracts.get(name)) {
             contract.validate(name, value);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getOptionInternal(Name name) {
+        T option = (T) optionsMap.get(name);
+        if (option == null && parentOptions != null) {
+            return parentOptions.getOption(name);
+        } else {
+            return option;
         }
     }
 }

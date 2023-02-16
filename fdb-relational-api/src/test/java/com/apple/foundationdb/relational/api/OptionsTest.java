@@ -130,4 +130,9 @@ class OptionsTest {
                 .hasMessage("Option CONTINUATION should be of type interface com.apple.foundationdb.relational.api.Continuation but is class java.lang.Object");
 
     }
+
+    @Test
+    void testDefault() {
+        assertEquals((Integer) Options.NONE.getOption(Options.Name.CONTINUATION_PAGE_SIZE), Integer.MAX_VALUE);
+    }
 }
