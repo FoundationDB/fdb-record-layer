@@ -98,8 +98,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
             builder.add(
                     MatchedOrderingPart.of(value,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            (comparisonRange == null || comparisonRange.isEmpty()) ? null : queryPredicate,
+                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(), queryPredicate,
                             isReverse));
         }
 

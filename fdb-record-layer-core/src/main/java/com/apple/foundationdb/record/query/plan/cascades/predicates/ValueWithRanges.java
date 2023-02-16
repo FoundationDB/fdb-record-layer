@@ -179,17 +179,6 @@ public class ValueWithRanges implements PredicateWithValue {
         return new ValueWithRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 
-    private boolean impliedBy(@Nonnull final ValueWithRanges other) {
-        final var leftRanges = getRanges();
-        final var rightRanges = other.getRanges();
-        for (final var left : leftRanges) {
-            if (!left.isCompileTimeEvaluable() || !(left.isEmpty() == Proposition.FALSE) || rightRanges.stream().noneMatch(right -> right.encloses(left) == Proposition.TRUE)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public boolean equalsValueOnly(@Nonnull final QueryPredicate other) {
         return (other instanceof ValueWithRanges) && value.equals(((ValueWithRanges)other).value);
     }
@@ -262,7 +251,8 @@ public class ValueWithRanges implements PredicateWithValue {
                 }
             }
 
-            if (impliedBy(candidate)) {
+            final var candidateRanges = candidate.getRanges();
+            if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
@@ -274,7 +264,7 @@ public class ValueWithRanges implements PredicateWithValue {
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
-                        if (candidate.impliedBy(this)) {
+                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange).coalesce()))) {
                             return Optional.empty();
                         }
                         // check if ranges are semantically equal.

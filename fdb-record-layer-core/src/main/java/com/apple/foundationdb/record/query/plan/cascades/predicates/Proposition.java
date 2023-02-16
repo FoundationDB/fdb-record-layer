@@ -67,4 +67,20 @@ public enum Proposition {
     public static Proposition of(@Nullable final Boolean bool) {
         return null == bool ? UNKNOWN : (bool ? TRUE : FALSE);
     }
+
+    /**
+     * Collapses the ternary logic into binary logic.
+     * <br> 
+     * It has the following semantics.
+     * <br>
+     * <ul>
+     *     <li>{@code TRUE} maps to {@code TRUE}</li>
+     *     <li>{@code FALSE} maps to {@code FALSE}</li>
+     *     <li>{@code UNKNOWN} maps to {@code FALSE}</li>
+     * </ul>
+     * @return a coalesced boolean value.
+     */
+    boolean coalesce() {
+        return this == TRUE;
+    }
 }

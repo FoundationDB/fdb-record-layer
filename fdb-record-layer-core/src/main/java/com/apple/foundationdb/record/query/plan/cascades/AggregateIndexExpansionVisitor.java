@@ -44,6 +44,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -52,6 +53,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -63,7 +65,7 @@ import java.util.stream.Stream;
  * by an optional {@link MatchableSortExpression} that defines the sort order of the match candidate stream of records.
  */
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
-                                            implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
+                                            implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState>, IndexPredicateExpansion {
     @Nonnull
     private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
@@ -151,6 +153,30 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var valueValues = Lists.<Value>newArrayList();
         final var state = VisitorState.of(keyValues, valueValues, baseQuantifier, ImmutableList.of(), 0, 0);
         final var selectWhereGraphExpansion = pop(groupingKeyExpression.getWholeKey().expand(push(state)));
+
+        if (index.hasPredicate()) {
+            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
+            final var valueRangesMaybe = dnfPredicateToRanges(filteredIndexPredicate);
+            final var predicateExpansionBuilder = GraphExpansion.builder();
+            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+            } else {
+                final var valueRanges = valueRangesMaybe.get();
+                for (final var value : valueRanges.keySet()) {
+                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                    final var maybePlaceholder = selectWhereGraphExpansion.getPlaceholders()
+                            .stream()
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .findFirst();
+                    if (maybePlaceholder.isEmpty()) {
+                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                    } else {
+                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                    }
+                }
+            }
+            allExpansionsBuilder.add(predicateExpansionBuilder.build());
+        }
 
         // add an RCV column representing the grouping columns as the first result set column
         final var groupingValue = RecordConstructorValue.ofColumns(groupingValues

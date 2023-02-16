@@ -217,10 +217,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
-            // if any of the candidate predicates has a restriction (range defined) return empty set.
-            if (StreamSupport.stream(candidatePredicates.spliterator(), false).anyMatch(p -> !isPlaceholderWithEmptyRange(p))) {
-                return Set.of();
-            }
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
             return impliesCandidatePredicate(aliasMap, tautologyPredicate)
                     .map(ImmutableSet::of)
