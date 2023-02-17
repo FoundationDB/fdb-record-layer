@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -63,7 +64,7 @@ public class PreparedStatementTests {
 
     @Test
     void failsToQueryWithoutASchema() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (Connection conn = ddl.getConnection()) {
                 conn.setSchema(null);
 
@@ -77,7 +78,7 @@ public class PreparedStatementTests {
 
     @Test
     void simpleSelect() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
@@ -91,7 +92,7 @@ public class PreparedStatementTests {
 
     @Test
     void basicParameterizedQuery() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
@@ -110,7 +111,7 @@ public class PreparedStatementTests {
 
     @Test
     void parameterizedQueryMultipleParameters() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
@@ -136,7 +137,7 @@ public class PreparedStatementTests {
 
     @Test
     void parameterizedQueryNamedParameters() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
@@ -162,7 +163,7 @@ public class PreparedStatementTests {
 
     @Test
     void parameterizedQueryNamedAndUnnamedParameters() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
             }
@@ -188,7 +189,7 @@ public class PreparedStatementTests {
 
     @Test
     void parameterizedQueryMissingNamedParameters() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
@@ -202,7 +203,7 @@ public class PreparedStatementTests {
 
     @Test
     void executeWithoutNeededParameterShouldThrow() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?")) {
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
@@ -218,7 +219,7 @@ public class PreparedStatementTests {
 
     @Test
     void limit() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14), (15)");
             }
@@ -236,7 +237,7 @@ public class PreparedStatementTests {
 
     @Test
     void continuation() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
             }
@@ -273,7 +274,7 @@ public class PreparedStatementTests {
     @Test
     // TODO (Prepared Statement does not cast fields if set with the wrong types)
     void setWrongTypeForQuestionMarkParameter() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }
@@ -310,7 +311,7 @@ public class PreparedStatementTests {
     @Test
     // TODO (Prepared Statement does not cast fields if set with the wrong types)
     void setWrongTypeForQuestionMarkNamedParameter() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10)");
             }

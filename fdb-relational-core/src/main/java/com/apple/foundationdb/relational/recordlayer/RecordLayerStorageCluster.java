@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -120,14 +119,13 @@ public class RecordLayerStorageCluster implements StorageCluster {
                 return null;
             }
         }
-        KeySpacePath ksPath = KeySpaceUtils.uriToPath(url, keySpace);
-
+        final var databasePath = RelationalKeyspaceProvider.toDatabasePath(url, keySpace);
         final var ddlQueryFactory = new RecordLayerCatalogQueryFactory(catalog);
 
         return new RecordLayerDatabase(fdb, new CatalogMetaDataStore(catalog),
                 catalog,
                 rlConfiguration,
-                ksPath,
+                databasePath,
                 ddlFactory,
                 ddlQueryFactory,
                 planCache,

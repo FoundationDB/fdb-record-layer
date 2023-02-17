@@ -145,12 +145,6 @@ public class Ddl implements AutoCloseable {
         }
 
         @Nonnull
-        public Builder database(@Nonnull final String dbName) throws URISyntaxException {
-            database = URI.create("/" + dbName);
-            return this;
-        }
-
-        @Nonnull
         public Builder database(@Nonnull final URI dbName) throws URISyntaxException {
             database = dbName;
             return this;

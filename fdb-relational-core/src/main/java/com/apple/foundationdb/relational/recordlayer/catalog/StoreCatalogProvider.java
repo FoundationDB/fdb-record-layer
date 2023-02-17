@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.NoOpSchemaTemplateCatalog;
@@ -34,9 +35,9 @@ import java.net.URI;
 
 public class StoreCatalogProvider {
 
-    public static StoreCatalog getCatalog(Transaction txn) throws RelationalException {
+    public static StoreCatalog getCatalog(Transaction txn, KeySpace keySpace) throws RelationalException {
         final var schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
-        final var storeCatalog = new RecordLayerStoreCatalogImpl(RelationalKeyspaceProvider.getKeySpace(), schemaTemplateCatalog);
+        final var storeCatalog = new RecordLayerStoreCatalogImpl(keySpace, schemaTemplateCatalog);
         storeCatalog.initialize(txn);
         return storeCatalog;
     }

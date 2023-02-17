@@ -34,13 +34,13 @@
     create index vi1 as select col1 from t1
     create index mv7 as select min_ever(col3) from t2
 ---
-- query: drop database /AGG_IDX_YAML
+- query: drop database /FRL/AGG_IDX_YAML
 ---
-- query: create database /AGG_IDX_YAML
+- query: create database /FRL/AGG_IDX_YAML
 ---
-- query: create schema /AGG_IDX_YAML/test with template aggregate_index_tests_template
+- query: create schema /FRL/AGG_IDX_YAML/test with template aggregate_index_tests_template
 ---
-- connect: "jdbc:embed:/AGG_IDX_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/AGG_IDX_YAML?schema=TEST"
 ---
 - query: INSERT INTO T1
     VALUES (1, 10, 1),  
@@ -147,7 +147,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /AGG_IDX_YAML
+- query: drop database /FRL/AGG_IDX_YAML
 ---
 - query: drop schema template aggregate_index_tests_template
 ...

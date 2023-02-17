@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +56,7 @@ public class UniqueIndexTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, URI.create("/DbWithUniqueTests"), getTemplate_definition);
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, UniqueIndexTests.class, getTemplate_definition);
 
     @RegisterExtension
     @Order(2)

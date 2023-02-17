@@ -28,13 +28,13 @@
     create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
-- query: drop database /SELECT_A_STAR_YAML
+- query: drop database /FRL/SELECT_A_STAR_YAML
 ---
-- query: create database /SELECT_A_STAR_YAML
+- query: create database /FRL/SELECT_A_STAR_YAML
 ---
-- query: create schema /SELECT_A_STAR_YAML/test with template select_a_star_template
+- query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
 ---
-- connect: "jdbc:embed:/SELECT_A_STAR_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
 ---
 - query: INSERT INTO A
     VALUES (1, 10, 1),
@@ -113,5 +113,5 @@
 ---
 - query: drop schema template select_a_star_template
 ---
-- query: drop database /SELECT_A_STAR_YAML
+- query: drop database /FRL/SELECT_A_STAR_YAML
 ...

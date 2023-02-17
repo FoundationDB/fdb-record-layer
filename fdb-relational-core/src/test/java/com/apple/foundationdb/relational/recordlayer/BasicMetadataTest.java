@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,7 +55,7 @@ public class BasicMetadataTest {
     @RegisterExtension
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/basic_metadata_test"), TestSchemas.restaurant());
+            BasicMetadataTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
@@ -163,10 +162,10 @@ public class BasicMetadataTest {
     void canGetTableIndexes() throws SQLException {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
-        try (final RelationalResultSet tableData = metaData.getIndexInfo("/basic_metadata_test", "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
+        try (final RelationalResultSet tableData = metaData.getIndexInfo("/TEST/BasicMetadataTest", "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
             ResultSetAssert.assertThat(tableData).hasNextRow()
                     .hasRowExactly(
-                            "/basic_metadata_test", //table_cat
+                            "/TEST/BasicMetadataTest", //table_cat
                             "TEST_SCHEMA", //table_schem
                             "RESTAURANT_REVIEWER", //table_name
                             false, //non_unique

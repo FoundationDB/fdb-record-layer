@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -60,7 +59,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     private final int formatVersion;
 
     private final SerializerRegistry serializerRegistry;
-    private final KeySpacePath ksPath;
+    private final RelationalKeyspaceProvider.RelationalDatabasePath databasePath;
     @Nonnull
     private final Options options;
 
@@ -74,7 +73,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
      * @param metaDataStore         a store to fetch RecordMetaData objects from
      * @param storeCatalog          the catalog when we need to do catalog lookups
      * @param config                general RecordLayer configurations
-     * @param dbPathPrefix          the path to the database that this represents
+     * @param databasePath          the path to the database that this represents
      * @param metadataOperationsFactory a factory for constant actions
      * @param ddlQueryFactory       a factory for DDL queries
      * @param planCache             a plan cache to use, or null if no caching should be enabled.
@@ -85,7 +84,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                RecordMetaDataStore metaDataStore,
                                StoreCatalog storeCatalog,
                                RecordLayerConfig config,
-                               KeySpacePath dbPathPrefix,
+                               RelationalKeyspaceProvider.RelationalDatabasePath databasePath,
                                @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                @Nonnull final DdlQueryFactory ddlQueryFactory,
                                @Nullable PlanCache planCache,
@@ -98,7 +97,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         this.userVersionChecker = config.getUserVersionChecker();
         this.formatVersion = config.getFormatVersion();
         this.serializerRegistry = config.getSerializerRegistry();
-        this.ksPath = dbPathPrefix;
+        this.databasePath = databasePath;
         this.defaultSchema = defaultSchema;
         this.options = options;
     }
@@ -142,9 +141,9 @@ public class RecordLayerDatabase extends AbstractDatabase {
     FDBRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
 
-        KeySpacePath storePath;
+        RelationalKeyspaceProvider.RelationalSchemaPath schemaPath;
         try {
-            storePath = ksPath.add("schema", schemaName);
+            schemaPath = databasePath.schemaPath(schemaName);
         } catch (NoSuchDirectoryException nsde) {
             throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
         } catch (MetaDataException mde) {
@@ -155,10 +154,10 @@ public class RecordLayerDatabase extends AbstractDatabase {
 
         try {
             return FDBRecordStore.newBuilder()
-                    .setKeySpacePath(storePath)
-                    .setSerializer(serializerRegistry.loadSerializer(storePath))
+                    .setKeySpacePath(schemaPath)
+                    .setSerializer(serializerRegistry.loadSerializer(schemaPath))
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadMetaData(txn, KeySpaceUtils.pathToUri(this.ksPath), schemaName))
+                    .setMetaDataProvider(metaDataStore.loadMetaData(txn, databasePath.toUri(), schemaName))
                     .setUserVersionChecker(userVersionChecker)
                     .setFormatVersion(formatVersion)
                     .setContext(txn.unwrap(FDBRecordContext.class))
@@ -187,7 +186,6 @@ public class RecordLayerDatabase extends AbstractDatabase {
 
     @Override
     public URI getURI() {
-        return KeySpaceUtils.pathToUri(ksPath);
+        return databasePath.toUri();
     }
-
 }

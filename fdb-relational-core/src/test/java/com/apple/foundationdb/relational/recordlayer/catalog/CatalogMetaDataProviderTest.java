@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -56,7 +57,7 @@ class CatalogMetaDataProviderTest {
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //create the Catalog RecordStore
-            storeCatalog = StoreCatalogProvider.getCatalog(txn);
+            storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.getKeySpace());
             txn.commit();
         }
 

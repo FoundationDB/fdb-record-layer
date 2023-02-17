@@ -42,7 +42,7 @@ import java.util.Collections;
 import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
-    private final KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
+    private final KeySpace keySpace;
     private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
@@ -54,12 +54,13 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
-        this.ddlFactoryBuilder = ddlFactory;
-        this.planCacheSupplier = Suppliers.ofInstance(null);
+        this(ddlFactory, Suppliers.ofInstance(null));
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory,
                                      Supplier<PlanCache> planCacheSupplier) {
+        RelationalKeyspaceProvider.registerDomainIfNotExists("TEST");
+        this.keySpace = RelationalKeyspaceProvider.getKeySpace();
         this.ddlFactoryBuilder = ddlFactory;
         this.planCacheSupplier = planCacheSupplier;
     }
@@ -91,7 +92,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         StoreCatalog storeCatalog;
         try (var txn = new DirectFdbConnection(database).getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn);
+            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();
         }
 

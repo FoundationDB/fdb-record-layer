@@ -31,13 +31,13 @@
     create index ib as select q from b
     create index ir as select sq.f from r, (select f from r.nr) sq;
 ---
-- query: drop database /SUBQUERY_YAML
+- query: drop database /FRL/SUBQUERY_YAML
 ---
-- query: create database /SUBQUERY_YAML
+- query: create database /FRL/SUBQUERY_YAML
 ---
-- query: create schema /SUBQUERY_YAML/test with template subquery_tests_template
+- query: create schema /FRL/SUBQUERY_YAML/test with template subquery_tests_template
 ---
-- connect: "jdbc:embed:/SUBQUERY_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/SUBQUERY_YAML?schema=TEST"
 ---
 - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
 ---
@@ -93,5 +93,5 @@
 ---
 - query: drop schema template subquery_tests_template
 ---
-- query: drop database /SUBQUERY_YAML
+- query: drop database /FRL/SUBQUERY_YAML
 ...

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -34,8 +33,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -95,11 +94,11 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         catalog.saveSchema(txn, schema);
 
         //now create the FDBRecordStore
-        KeySpacePath ksPath = KeySpaceUtils.uriToPath(dbUri, keySpace).add("schema", schemaName);
+        final var databasePath = RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName);
         try {
             FDBRecordStore.newBuilder()
-                    .setKeySpacePath(ksPath)
-                    .setSerializer(rlConfig.getSerializerRegistry().loadSerializer(ksPath))
+                    .setKeySpacePath(databasePath)
+                    .setSerializer(rlConfig.getSerializerRegistry().loadSerializer(databasePath))
                     .setMetaDataProvider(new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn))
                     .setUserVersionChecker(rlConfig.getUserVersionChecker())
                     .setFormatVersion(rlConfig.getFormatVersion())

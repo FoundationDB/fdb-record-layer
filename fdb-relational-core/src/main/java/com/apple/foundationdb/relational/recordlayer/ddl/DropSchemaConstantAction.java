@@ -24,13 +24,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
@@ -56,11 +55,9 @@ public class DropSchemaConstantAction implements ConstantAction {
         if ("/__SYS".equals(dbUri.getPath())) {
             throw new RelationalException("Cannot drop /__SYS schemas", ErrorCode.INSUFFICIENT_PRIVILEGE);
         }
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri, keySpace);
-        final KeySpacePath schemaPath = dbPath.add("schema", schemaName);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
         try {
-            FDBRecordStore.deleteStore(ctx, schemaPath);
+            FDBRecordStore.deleteStore(ctx, RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

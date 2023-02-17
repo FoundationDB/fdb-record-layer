@@ -37,13 +37,13 @@
    create table t2(col1 bigint, primary key(col1))
    create table t3(col1 bigint, col2 string, primary key(col1))
 ---
-- query: drop database /YOUSSEF
+- query: drop database /FRL/YOUSSEF
 ---
-- query: create database /YOUSSEF
+- query: create database /FRL/YOUSSEF
 ---
-- query: create schema /YOUSSEF/test with template test_template
+- query: create schema /FRL/YOUSSEF/test with template test_template
 ---
-- connect: "jdbc:embed:/YOUSSEF?schema=TEST"
+- connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
 ---
 # We are inserting an array of three rows, each containing two columns
 # note the `table` configuration is very important
@@ -86,9 +86,9 @@
          create table t1(id bigint, col5 s2, primary key(id))
          create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
 ---
-- query: create schema /YOUSSEF/test_nested with template test_template_nested
+- query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
 ---
-- connect: "jdbc:embed:/YOUSSEF?schema=TEST_NESTED"
+- connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
 ---
 # As you can see, it is much quicker to craft two relatively complex records using YAML
 # syntax than JSON (which we use in CLI) and Java API (which we use in JUnit ITs).
@@ -111,5 +111,5 @@
 ---
 - query: drop schema template test_template
 ---
-- query: drop database /YOUSSEF
+- query: drop database /FRL/YOUSSEF
 ...

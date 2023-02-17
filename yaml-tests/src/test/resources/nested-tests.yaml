@@ -29,13 +29,13 @@
     create table t1(id bigint, g bigint, h s3, primary key(id))
     create table t2(id bigint, g bigint, h s3, primary key(id))
 ---
-- query: drop database /STANDARD_YAML
+- query: drop database /FRL/STANDARD_YAML
 ---
-- query: create database /STANDARD_YAML
+- query: create database /FRL/STANDARD_YAML
 ---
-- query: create schema /STANDARD_YAML/test with template standard_tests_template
+- query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
 ---
-- connect: "jdbc:embed:/STANDARD_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
 ---
 - query: INSERT INTO T1
     VALUES (1, 2, ((3, 4), (5, 6))),
@@ -58,7 +58,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /STANDARD_YAML
+- query: drop database /FRL/STANDARD_YAML
 ---
 - query: drop schema template standard_tests_template
 ...

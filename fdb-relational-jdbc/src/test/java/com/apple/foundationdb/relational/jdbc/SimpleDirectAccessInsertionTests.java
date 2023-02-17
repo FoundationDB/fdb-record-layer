@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 import com.apple.foundationdb.relational.utils.DirectAccessApiProtobufFactory;
@@ -59,8 +60,7 @@ import java.util.Map;
 public class SimpleDirectAccessInsertionTests {
     private static RelationalServer relationalServer;
     private static final String SCHEMA_NAME = "TEST_SCHEMA";
-    private static final String SYSDB = "/__SYS";
-    private static final String SCHEMA = "CATALOG";
+    private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static URI databasePath;
     private static String templateName;
 
@@ -73,7 +73,7 @@ public class SimpleDirectAccessInsertionTests {
         JDBCRelationalDriverTest.getDriver();
         relationalServer = ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT);
         // Copied from Simple DatabaseRule Construtor.
-        databasePath = URI.create("/" + SimpleDirectAccessInsertionTests.class.getSimpleName());
+        databasePath = URI.create("/FRL/" + SimpleDirectAccessInsertionTests.class.getSimpleName());
         templateName = databasePath.getPath().substring(databasePath.getPath().lastIndexOf("/") + 1) +
                 "_TEMPLATE";
     }
@@ -91,7 +91,7 @@ public class SimpleDirectAccessInsertionTests {
     @BeforeEach
     public void beforeEach() throws SQLException {
         // Here we do what is done inside in the test extension SimpleDatabaseRule... before and after each test.
-        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDB + "?schema=" + SCHEMA;
+        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
         try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
                 .unwrap(RelationalConnection.class)) {
             try (Statement statement = connection.createStatement()) {
@@ -112,7 +112,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @AfterEach
     public void afterEach() throws SQLException {
-        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDB + "?schema=" + SCHEMA;
+        String jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
         try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
                 .unwrap(RelationalConnection.class)) {
             try (Statement statement = connection.createStatement()) {

@@ -44,20 +44,16 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
     private final DatabaseRule databaseRule;
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull URI dbPath,
+    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition) {
         final String schemaName = "TEST_SCHEMA";
+        final var dbPath = URI.create("/TEST/" + testClass.getSimpleName());
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
         this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
         this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
         this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
-    }
-
-    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull Class<?> testClass,
-                              @Nonnull String templateDefinition) {
-        this(relationalExtension, URI.create("/" + testClass.getSimpleName()), templateDefinition);
     }
 
     @Override

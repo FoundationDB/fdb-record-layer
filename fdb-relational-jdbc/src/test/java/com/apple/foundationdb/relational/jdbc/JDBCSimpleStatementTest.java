@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 
@@ -40,9 +41,8 @@ import java.sql.Types;
  * Run some simple Statement updates/executes against a remote Relational DB.
  */
 public class JDBCSimpleStatementTest {
-    private static final String SYSDB = "/__SYS";
-    private static final String SCHEMA = "CATALOG";
-    private static final String TESTDB = "/test_db";
+    private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
+    private static final String TESTDB = "/FRL/jdbc_test_db";
 
     private static RelationalServer relationalServer;
 
@@ -68,7 +68,7 @@ public class JDBCSimpleStatementTest {
 
     @Test
     public void simpleStatement() throws SQLException, IOException {
-        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDB + "?schema=" + SCHEMA;
+        var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
         try (RelationalConnection connection = JDBCRelationalDriverTest.getDriver().connect(jdbcStr, null)
                 .unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
@@ -101,17 +101,21 @@ public class JDBCSimpleStatementTest {
                     Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnLabel(1));
                     Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(SYSDB, resultSet.getString(1));
-                    Assertions.assertEquals(SYSDB, resultSet.getString(SYSDB));
-                    Assertions.assertTrue(resultSet.next());
                     Assertions.assertEquals(TESTDB, resultSet.getString(1));
                     Assertions.assertEquals(TESTDB, resultSet.getString(TESTDB));
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(SYSDBPATH, resultSet.getString(1));
+                    Assertions.assertEquals(SYSDBPATH, resultSet.getString(SYSDBPATH));
                     Assertions.assertFalse(resultSet.next());
                     Assertions.assertEquals(0,
                             statement.executeUpdate("Drop database \"" + TESTDB + "\""));
                     resultSet.clearWarnings(); // Does nothing.
                     // For now they are empty.
                     Assertions.assertNull(resultSet.getWarnings());
+                }
+            } finally {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.executeUpdate("Drop database \"" + TESTDB + "\"");
                 }
             }
         }

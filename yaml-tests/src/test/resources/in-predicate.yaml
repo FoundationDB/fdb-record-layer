@@ -26,13 +26,13 @@
     create type as struct ts(sa bigint, sb bigint)
     create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
 ---
-- query: drop database /IN_PREDICATE_DB
+- query: drop database /FRL/IN_PREDICATE_DB
 ---
-- query: create database /IN_PREDICATE_DB
+- query: create database /FRL/IN_PREDICATE_DB
 ---
-- query: create schema /IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
+- query: create schema /FRL/IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
 ---
-- connect: "jdbc:embed:/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
+- connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
 ---
 - query: INSERT INTO TA
     VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
@@ -173,7 +173,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /IN_PREDICATE_DB
+- query: drop database /FRL/IN_PREDICATE_DB
 ---
 - query: drop schema template in_predicate_schema_template
 ...

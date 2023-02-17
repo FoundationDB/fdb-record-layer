@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
@@ -101,7 +102,7 @@ public class StandardQueryTests {
 
     @Test
     void failsToQueryWithoutASchema() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (Connection conn = ddl.getConnection()) {
                 conn.setSchema(null);
 
@@ -115,7 +116,7 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelect() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -135,7 +136,8 @@ public class StandardQueryTests {
 
     @Test
     void simpleSelectWithNonNullableArrays() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+        //        var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build();
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement, true);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -154,7 +156,7 @@ public class StandardQueryTests {
 
     @Test
     void canQueryPKZero() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement, 0L, "");
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
@@ -169,7 +171,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithPredicateVariants() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 Message r11 = insertRestaurantComplexRecord(statement, 11L);
@@ -203,7 +205,7 @@ public class StandardQueryTests {
 
     @Test
     void explainTableScan() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
@@ -216,7 +218,7 @@ public class StandardQueryTests {
 
     @Test
     void explainHintedIndexScan() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
@@ -229,7 +231,7 @@ public class StandardQueryTests {
 
     @Test
     void explainUnhintedIndexScan() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
@@ -242,7 +244,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithPredicateCompositionVariants() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -286,7 +288,7 @@ public class StandardQueryTests {
     @Test
     @Disabled("(yhatem) until https://github.com/FoundationDB/fdb-record-layer/issues/1945 is fixed")
     void selectWithNullInComparisonOperator() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is null")) {
@@ -322,7 +324,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithFalsePredicate() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
@@ -335,7 +337,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithFalsePredicate2() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 11L);
@@ -348,7 +350,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithContinuation() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -381,7 +383,7 @@ public class StandardQueryTests {
 
     @Test
     void selectWithContinuationBeginEndShouldFail() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -397,7 +399,7 @@ public class StandardQueryTests {
 
     @Test
     void testSelectWithIndexHint() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 // successfully execute a query with hinted index
@@ -427,7 +429,7 @@ public class StandardQueryTests {
     void testSelectWithCoveringIndexHint() throws Exception {
         final String schema = "CREATE TABLE T1(COL1 bigint, COL2 bigint, COL3 bigint, PRIMARY KEY(COL1, COL3))" +
                 " CREATE INDEX T1_IDX as select col1, col3, col2 from t1 order by col1, col3";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("T1").setField("COL1", 42L).setField("COL2", 100L).setField("COL3", 200L).build();
                 int cnt = statement.executeInsert("T1", row1);
@@ -447,7 +449,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualColumns() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -460,7 +462,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumns() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT RestaurantComplexRecord.name FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -473,7 +475,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumnsOverAlias() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
@@ -486,7 +488,7 @@ public class StandardQueryTests {
 
     @Test
     void projectIndividualQualifiedColumnsOverAlias2() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT X.name FROM RestaurantComplexRecord AS X WHERE 11 <= rest_no")) {
@@ -499,7 +501,7 @@ public class StandardQueryTests {
 
     @Test
     void getBytes() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 1, "getBytes", "blob1".getBytes(StandardCharsets.UTF_8));
@@ -531,7 +533,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E )" +
                 " CREATE TYPE AS STRUCT E ( f bigint )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
                         .setField("ID", 42L)
@@ -583,7 +585,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E )" +
                 " CREATE TYPE AS STRUCT E ( f bigint array )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message result = statement.getDataBuilder("TBL1")
                         .setField("ID", 42L)
@@ -634,7 +636,7 @@ public class StandardQueryTests {
                 " CREATE TYPE AS STRUCT D ( e E array )" +
                 " CREATE TYPE AS STRUCT E ( f bigint array )" +
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try {
                     statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1");
@@ -649,7 +651,7 @@ public class StandardQueryTests {
     @Disabled
     // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT rest_no FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
@@ -662,7 +664,7 @@ public class StandardQueryTests {
     @Disabled
     // until we implement1 operators for type promotion and casts in record layer.
     void predicateWithImplicitCast() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
@@ -678,7 +680,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateWorks() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), false);
@@ -693,7 +695,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateWorksWithNonNullableArray() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), true);
                 Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())), true);
@@ -707,7 +709,7 @@ public class StandardQueryTests {
 
     @Test
     void existsPredicateNestedWorks() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
@@ -729,7 +731,7 @@ public class StandardQueryTests {
         final String schema = "CREATE TYPE AS STRUCT customer_detail(name string, phone_number string, address string) " +
                 "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp bigint,sent boolean) " +
                 "CREATE TABLE conversations(id bigint, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("CONVERSATIONS")
                         .setField("ID", 0L)
@@ -813,7 +815,7 @@ public class StandardQueryTests {
 
     @Test
     void aliasingColumnsWorks() throws Exception {
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT Y.M FROM (SELECT X.N AS M FROM (SELECT name AS N FROM RestaurantComplexRecord WHERE 11 <= rest_no) X) Y")) {
@@ -827,7 +829,7 @@ public class StandardQueryTests {
     @Test
     void aliasingTableToResolveAmbiguityWorks() throws Exception {
         final String schema = "CREATE TABLE FOO(FOO bigint, PRIMARY KEY(FOO))";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 final Message row1 = statement.getDataBuilder("FOO").setField("FOO", 42L).build();
                 int cnt = statement.executeInsert("FOO", row1);

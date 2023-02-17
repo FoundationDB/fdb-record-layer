@@ -61,7 +61,7 @@ public class DdlRecordLayerSchemaTest {
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/TEST/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
 
     @Test
     void canCreateSchema() throws Exception {

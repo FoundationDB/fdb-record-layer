@@ -26,13 +26,13 @@
     CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
     create table t1(id s1, g bigint, primary key(id.a, id.b))
 ---
-- query: drop database /PRIMARY_KEY_YAML
+- query: drop database /FRL/PRIMARY_KEY_YAML
 ---
-- query: create database /PRIMARY_KEY_YAML
+- query: create database /FRL/PRIMARY_KEY_YAML
 ---
-- query: create schema /PRIMARY_KEY_YAML/test with template primary_key_tests_template
+- query: create schema /FRL/PRIMARY_KEY_YAML/test with template primary_key_tests_template
 ---
-- connect: "jdbc:embed:/PRIMARY_KEY_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/PRIMARY_KEY_YAML?schema=TEST"
 ---
 # TODO error handling incorrect
 # - query: INSERT INTO T1
@@ -53,7 +53,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /PRIMARY_KEY_YAML
+- query: drop database /FRL/PRIMARY_KEY_YAML
 ---
 - query: drop schema template primary_key_tests_template
 ...

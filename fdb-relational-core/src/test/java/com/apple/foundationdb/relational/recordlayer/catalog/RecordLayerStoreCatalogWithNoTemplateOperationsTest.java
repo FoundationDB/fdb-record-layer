@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import org.junit.jupiter.api.AfterEach;
@@ -54,7 +53,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
     @AfterEach
     void deleteAllRecords() throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final KeySpacePath keySpacePath = KeySpaceUtils.uriToPath(URI.create("/__SYS/CATALOG"), RelationalKeyspaceProvider.getKeySpace());
+            final KeySpacePath keySpacePath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/__SYS"), RelationalKeyspaceProvider.getKeySpace()).schemaPath("CATALOG");
             FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
             txn.commit();
         }
@@ -66,7 +65,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         long templateVersion = 1L;
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", templateName, templateVersion);
+            Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1);
@@ -86,7 +85,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         long templateVersion = 1L;
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", templateName, templateVersion);
+            Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1);
             txn.commit();
@@ -97,7 +96,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
     void testSaveSchema() throws RelationalException {
         String templateName = "test_template_name";
         long templateVersion = 1L;
-        Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", templateName, templateVersion);
+        Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
@@ -120,7 +119,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
     @Test
     void testRepairSchema() throws RelationalException {
         // save schema with template version 1L
-        Schema schema1 = generateTestSchema("test_schema_name", "test_database_id", "test_template_name", 1);
+        Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 1);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));

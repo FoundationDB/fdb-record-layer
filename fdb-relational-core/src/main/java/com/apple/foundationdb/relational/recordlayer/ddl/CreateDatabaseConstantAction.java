@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -33,15 +35,21 @@ public class CreateDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
 
     private final StoreCatalog storeCatalog;
+    private final KeySpace keySpace;
 
     public CreateDatabaseConstantAction(@Nonnull URI dbUrl,
-                                        @Nonnull StoreCatalog storeCatalog) {
+                                        @Nonnull StoreCatalog storeCatalog,
+                                        @Nonnull KeySpace keySpace) {
         this.dbUrl = dbUrl;
         this.storeCatalog = storeCatalog;
+        this.keySpace = keySpace;
     }
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
+        // Probably not the best way to do so, we just need to verify if the database path is valid.
+        // TODO (pranjal_gupta2): find a better way to do this validation
+        RelationalKeyspaceProvider.toDatabasePath(dbUrl, keySpace);
         //verify that the database doesn't exist already
         if (storeCatalog.doesDatabaseExist(txn, dbUrl)) {
             throw new RelationalException("Database " + dbUrl + " already exists", ErrorCode.DATABASE_ALREADY_EXISTS);

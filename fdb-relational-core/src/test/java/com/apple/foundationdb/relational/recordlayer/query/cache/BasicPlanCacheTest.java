@@ -57,7 +57,7 @@ public class BasicPlanCacheTest {
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/" + this.getClass().getSimpleName()));
+    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/TEST/" + this.getClass().getSimpleName()));
 
     @RegisterExtension
     @Order(3)

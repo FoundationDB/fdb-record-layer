@@ -29,13 +29,13 @@
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
 ---
-- query: drop database /JOIN_YAML
+- query: drop database /FRL/JOIN_YAML
 ---
-- query: create database /JOIN_YAML
+- query: create database /FRL/JOIN_YAML
 ---
-- query: create schema /JOIN_YAML/test with template join_tests_template
+- query: create schema /FRL/JOIN_YAML/test with template join_tests_template
 ---
-- connect: "jdbc:embed:/JOIN_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
 ---
 - query: INSERT INTO EMP
     VALUES (1, 'Jack', 'Williams', 1),
@@ -108,7 +108,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /JOIN_YAML
+- query: drop database /FRL/JOIN_YAML
 ---
 - query: drop schema template join_tests_template
 ...

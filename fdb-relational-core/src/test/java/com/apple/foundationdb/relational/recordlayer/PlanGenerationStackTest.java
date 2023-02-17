@@ -38,7 +38,6 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -60,8 +59,7 @@ public class PlanGenerationStackTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/" + PlanGenerationStackTest.class.getSimpleName()), TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, PlanGenerationStackTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)

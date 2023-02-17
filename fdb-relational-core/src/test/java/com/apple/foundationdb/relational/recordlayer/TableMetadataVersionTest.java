@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.util.Collections;
 
 public class TableMetadataVersionTest {
@@ -44,8 +43,7 @@ public class TableMetadataVersionTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/metadata_version_test"), TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableMetadataVersionTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)

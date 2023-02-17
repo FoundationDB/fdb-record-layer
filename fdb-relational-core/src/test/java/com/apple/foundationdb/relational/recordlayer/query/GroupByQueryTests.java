@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.net.URI;
+
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 
 public class GroupByQueryTests {
@@ -49,7 +51,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -74,7 +76,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b, c from T1 order by a, b, c";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -99,7 +101,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from T1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -128,7 +130,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from T1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -157,7 +159,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from T1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -186,7 +188,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 5);
@@ -215,7 +217,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -244,7 +246,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -273,7 +275,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -294,7 +296,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -315,7 +317,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -336,7 +338,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -357,7 +359,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -378,7 +380,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -399,7 +401,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b from t1 order by a, b";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
                 insertT1Record(statement, 3, 1, 1, 10);
@@ -420,7 +422,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -449,7 +451,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -478,7 +480,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a from t1";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -505,7 +507,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);
@@ -535,7 +537,7 @@ public class GroupByQueryTests {
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE TABLE T2(pk bigint, x bigint, y bigint, z bigint, primary key(pk))" +
                         "CREATE INDEX idx1 AS SELECT B FROM T1";
-        try (var ddl = Ddl.builder().database("QT").relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
                 insertT1Record(statement, 3, 1, 2, 10);

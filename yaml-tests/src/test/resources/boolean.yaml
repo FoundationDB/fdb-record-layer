@@ -25,13 +25,13 @@
 - query: create schema template boolean_tests_schema_template
     create table lb(a bigint, b boolean, primary key(a))
 ---
-- query: drop database /BOOLEAN_YAML
+- query: drop database /FRL/BOOLEAN_YAML
 ---
-- query: create database /BOOLEAN_YAML
+- query: create database /FRL/BOOLEAN_YAML
 ---
-- query: create schema /BOOLEAN_YAML/BOOLEAN_SCHEMA with template boolean_tests_schema_template
+- query: create schema /FRL/BOOLEAN_YAML/BOOLEAN_SCHEMA with template boolean_tests_schema_template
 ---
-- connect: "jdbc:embed:/BOOLEAN_YAML?schema=BOOLEAN_SCHEMA"
+- connect: "jdbc:embed:/FRL/BOOLEAN_YAML?schema=BOOLEAN_SCHEMA"
 ---
 - insert: [ { A: 1, B: true },
             {A: 2, B: false},
@@ -121,7 +121,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /BOOLEAN_YAML
+- query: drop database /FRL/BOOLEAN_YAML
 ---
 - query: drop schema template boolean_tests_schema_template
 ...

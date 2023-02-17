@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.net.URI;
 import java.sql.ResultSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -54,7 +55,7 @@ public class LargeRecordLayerSchemaTest {
         StringBuilder template = new StringBuilder("CREATE TABLE T1(");
         template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " bigint").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
-        try (var ddl = Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/" + LargeRecordLayerSchemaTest.class.getSimpleName())).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (var statement = conn.createStatement()) {
                     DynamicMessageBuilder toInsert = statement.getDataBuilder("T1");
@@ -82,7 +83,7 @@ public class LargeRecordLayerSchemaTest {
         template.append(IntStream.range(0, colCount).mapToObj(LargeRecordLayerSchemaTest::column).map(c -> c + " bigint").collect(Collectors.joining(",")));
         template.append(", PRIMARY KEY(").append(column(0)).append("))");
         RelationalAssertions.assertThrowsSqlException(() ->
-                Ddl.builder().database(LargeRecordLayerSchemaTest.class.getSimpleName()).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build())
+                Ddl.builder().database(URI.create("/TEST/" + LargeRecordLayerSchemaTest.class.getSimpleName())).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build())
                 .hasErrorCode(ErrorCode.TOO_MANY_COLUMNS);
     }
 

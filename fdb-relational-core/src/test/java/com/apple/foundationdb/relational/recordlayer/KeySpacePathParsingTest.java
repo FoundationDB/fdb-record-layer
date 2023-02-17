@@ -56,15 +56,14 @@ public class KeySpacePathParsingTest {
     @Test
     void testParsingKeySpacePath() throws RelationalException {
         URI expected = URI.create("/prod/testApp/12345");
-        KeySpacePath path = KeySpaceUtils.uriToPath(expected, testSpace);
-        final URI uri = KeySpaceUtils.pathToUri(path);
+        final URI uri = KeySpaceUtils.pathToUri(KeySpaceUtils.toKeySpacePath(expected, testSpace));
         Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
     }
 
     @Test
     void cannotParseEmptyUri() {
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(URI.create(""), testSpace))
+                () -> KeySpaceUtils.toKeySpacePath(URI.create(""), testSpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
@@ -72,7 +71,7 @@ public class KeySpacePathParsingTest {
     void testUrlNotValidForKeySpace() {
         //throws the right exception when we can't parse an entry
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"), testSpace))
+                () -> KeySpaceUtils.toKeySpacePath(URI.create("/prod/testApp/notAUser"), testSpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
@@ -81,7 +80,7 @@ public class KeySpacePathParsingTest {
         // Default keySpace doesn't have directory with null type
         final URI expected = URI.create("//testApp/12345");
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(expected, testSpace))
+                () -> KeySpaceUtils.toKeySpacePath(expected, testSpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
@@ -93,7 +92,7 @@ public class KeySpacePathParsingTest {
                                 .addSubdirectory(new KeySpaceDirectory("User", LONG))));
 
         final URI expected = URI.create("//testApp/12345");
-        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
+        final KeySpacePath path = KeySpaceUtils.toKeySpacePath(expected, keySpace);
         Assertions.assertEquals(expected, KeySpaceUtils.pathToUri(path), "KeySpacePath is not parsed as expected");
     }
 
@@ -107,11 +106,11 @@ public class KeySpacePathParsingTest {
                                 .addSubdirectory(new KeySpaceDirectory("User", LONG))));
 
         final URI expected = URI.create("/prod/testApp/12345");
-        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
+        final KeySpacePath path = KeySpaceUtils.toKeySpacePath(expected, keySpace);
         Assertions.assertEquals(expected, KeySpaceUtils.pathToUri(path), "Invalid parsing of URI or KeySpacePaths");
 
         final URI expected2 = URI.create("/prod//12345");
-        final KeySpacePath path2 = KeySpaceUtils.uriToPath(expected2, keySpace);
+        final KeySpacePath path2 = KeySpaceUtils.toKeySpacePath(expected2, keySpace);
         Assertions.assertEquals(expected2, KeySpaceUtils.pathToUri(path2), "Invalid parsing of URI or KeySpacePaths");
     }
 
@@ -121,7 +120,7 @@ public class KeySpacePathParsingTest {
                 new KeySpaceDirectory("env", STRING)
                         .addSubdirectory(new KeySpaceDirectory("db", STRING)));
 
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
+        KeySpacePath dbPath = KeySpaceUtils.toKeySpacePath(URI.create("/prod/testDb"), keySpace);
         KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
         String keySpaceString = extended.toString();
         Assertions.assertEquals("/ (NULL)\n    +- env (STRING)\n       +- db (STRING)\n          +- TEST_SCHEMA (STRING=TEST_SCHEMA)\n", keySpaceString);
@@ -137,7 +136,7 @@ public class KeySpacePathParsingTest {
                         .addSubdirectory(new KeySpaceDirectory("db", STRING)
                                 .addSubdirectory(new KeySpaceDirectory("TEST_SCHEMA", STRING, "T"))));
 
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
+        KeySpacePath dbPath = KeySpaceUtils.toKeySpacePath(URI.create("/prod/testDb"), keySpace);
         KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
         KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("TEST_SCHEMA");
         Assertions.assertEquals("T", schemaDirectory.getValue());
@@ -149,15 +148,15 @@ public class KeySpacePathParsingTest {
          * Explicitly tests that KeySpacePaths can correctly be parsed from URIs
          */
         final KeySpace keySpace = sampleKeySpace();
-        KeySpacePath parsedMain = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/"), keySpace);
+        KeySpacePath parsedMain = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/"), keySpace);
         KeySpacePath expectedMain = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("firstStore");
         Assertions.assertEquals(expectedMain, parsedMain, "Incorrectly parsed the first store path");
 
-        KeySpacePath parsedServer = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/1"), keySpace);
+        KeySpacePath parsedServer = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/1"), keySpace);
         KeySpacePath expectedServer = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("secondStore", 1L);
         Assertions.assertEquals(expectedServer, parsedServer, "Incorrectly parsed the second store path");
 
-        KeySpacePath parsedDatabase = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/2"), keySpace);
+        KeySpacePath parsedDatabase = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/2"), keySpace);
         KeySpacePath expectedDatabase = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("thirdStore", 2L);
         Assertions.assertEquals(expectedDatabase, parsedDatabase, "Incorrectly parsed the second store path");
     }
@@ -165,7 +164,7 @@ public class KeySpacePathParsingTest {
     @Test
     void testDirectoryLayer() throws RelationalException {
         final URI expected = URI.create("/prod/testApp/12345");
-        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, getKeySpaceWithDirectoryLayerForTesting());
+        final KeySpacePath path = KeySpaceUtils.toKeySpacePath(expected, getKeySpaceWithDirectoryLayerForTesting());
         final URI uri = KeySpaceUtils.pathToUri(path);
         Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
 
@@ -187,7 +186,7 @@ public class KeySpacePathParsingTest {
     void noLeadingSlash() throws RelationalException {
         URI expected = URI.create("/prod/testApp/12345");
         URI input = URI.create("prod/testApp/12345");
-        KeySpacePath path = KeySpaceUtils.uriToPath(input, testSpace);
+        KeySpacePath path = KeySpaceUtils.toKeySpacePath(input, testSpace);
         final URI uri = KeySpaceUtils.pathToUri(path);
         Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
     }
@@ -206,10 +205,10 @@ public class KeySpacePathParsingTest {
                         .addSubdirectory(new KeySpaceDirectory("a", typeAndDefault.getLeft(), typeAndDefault.getRight())));
 
         URI uri = URI.create("/prod/" + typeAndDefault.getRight());
-        Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.uriToPath(uri, keySpace)));
+        Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.toKeySpacePath(uri, keySpace)));
         URI wrongUri = URI.create("/prod/3");
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace))
+                () -> KeySpaceUtils.toKeySpacePath(wrongUri, keySpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
@@ -220,10 +219,10 @@ public class KeySpacePathParsingTest {
                         .addSubdirectory(new DirectoryLayerDirectory("a", "S")));
 
         URI uri = URI.create("/prod/S");
-        Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.uriToPath(uri, keySpace)));
+        Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(KeySpaceUtils.toKeySpacePath(uri, keySpace)));
         URI wrongUri = URI.create("/prod/3");
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(wrongUri, keySpace))
+                () -> KeySpaceUtils.toKeySpacePath(wrongUri, keySpace))
                 .hasErrorCode(ErrorCode.INVALID_PATH);
     }
 
@@ -232,7 +231,7 @@ public class KeySpacePathParsingTest {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("testRoot", BYTES));
         RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.uriToPath(URI.create("/foo"), keySpace))
+                () -> KeySpaceUtils.toKeySpacePath(URI.create("/foo"), keySpace))
                 .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
     }
 

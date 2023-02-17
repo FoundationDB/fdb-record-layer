@@ -41,13 +41,13 @@
     create table t4(p bigint, q st_6, primary key(p))
     create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
 ---
-- query: drop database /ORDERBY_YAML
+- query: drop database /FRL/ORDERBY_YAML
 ---
-- query: create database /ORDERBY_YAML
+- query: create database /FRL/ORDERBY_YAML
 ---
-- query: create schema /ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
+- query: create schema /FRL/ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
 ---
-- connect: "jdbc:embed:/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
+- connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
 ---
 - query: INSERT INTO T1
     VALUES (1, 10, 5),
@@ -227,7 +227,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /ORDERBY_YAML
+- query: drop database /FRL/ORDERBY_YAML
 ---
 - query: drop schema template orderby_tests_schema_template
 ...

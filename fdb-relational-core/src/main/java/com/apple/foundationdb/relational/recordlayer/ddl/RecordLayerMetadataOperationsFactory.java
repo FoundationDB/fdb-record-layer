@@ -60,7 +60,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath, catalog);
+        return new CreateDatabaseConstantAction(dbPath, catalog, baseKeySpace);
     }
 
     @Nonnull

@@ -31,13 +31,13 @@
       create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
       create index mv5 as select col2 from t2
 ---
-- query: drop database /AGG_IDX_YAML_COUNT_EMPTY
+- query: drop database /FRL/AGG_IDX_YAML_COUNT_EMPTY
 ---
-- query: create database /AGG_IDX_YAML_COUNT_EMPTY
+- query: create database /FRL/AGG_IDX_YAML_COUNT_EMPTY
 ---
-- query: create schema /AGG_IDX_YAML_COUNT_EMPTY/test with template aggregate_index_tests_template_count_empty
+- query: create schema /FRL/AGG_IDX_YAML_COUNT_EMPTY/test with template aggregate_index_tests_template_count_empty
 ---
-- connect: "jdbc:embed:/AGG_IDX_YAML_COUNT_EMPTY?schema=TEST"
+- connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT_EMPTY?schema=TEST"
 ---
 - query: explain select count(*) from t1;
 - result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
@@ -92,7 +92,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /AGG_IDX_YAML_COUNT_EMPTY
+- query: drop database /FRL/AGG_IDX_YAML_COUNT_EMPTY
 ---
 - query: drop schema template aggregate_index_tests_template_count_empty
 ...

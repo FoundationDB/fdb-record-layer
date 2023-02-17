@@ -32,13 +32,13 @@
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
 ---
-- query: drop database /GB_YAML
+- query: drop database /FRL/GB_YAML
 ---
-- query: create database /GB_YAML
+- query: create database /FRL/GB_YAML
 ---
-- query: create schema /GB_YAML/test with template groupby_tests_template
+- query: create schema /FRL/GB_YAML/test with template groupby_tests_template
 ---
-- connect: "jdbc:embed:/GB_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
 ---
 - query: INSERT INTO T1
     VALUES (1, 10, 1),
@@ -165,7 +165,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /GB_YAML
+- query: drop database /FRL/GB_YAML
 ---
 - query: drop schema template groupby_tests_template
 ...

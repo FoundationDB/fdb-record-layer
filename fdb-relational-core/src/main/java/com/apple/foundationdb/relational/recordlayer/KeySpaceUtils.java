@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -29,7 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,8 +61,9 @@ public final class KeySpaceUtils {
         return uriPath;
     }
 
+    @VisibleForTesting
     @Nonnull
-    public static KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
+    public static KeySpacePath toKeySpacePath(@Nonnull URI url, KeySpace keySpace) throws RelationalException {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
@@ -76,6 +77,9 @@ public final class KeySpaceUtils {
             pathElems = Arrays.copyOf(pathElems, pathElems.length + 1);
             pathElems[pathElems.length - 1] = "";
         }
+        if (pathElems.length == 2 && RelationalKeyspaceProvider.SYS.equals(pathElems[1])) {
+            return new RelationalKeyspaceProvider.RelationalSystemDatabasePath(keySpace.path(RelationalKeyspaceProvider.SYS));
+        }
         KeySpaceDirectory directory = keySpace.getRoot();
         KeySpacePath thePath = null;
         for (KeySpaceDirectory sub : directory.getSubdirectories()) {
@@ -88,28 +92,7 @@ public final class KeySpaceUtils {
         if (thePath == null) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
         }
-
         return thePath;
-    }
-
-    public static KeySpacePath getSchemaPath(@Nonnull URI schemaUrl, @Nonnull KeySpace keySpace) throws RelationalException {
-        String schemaPath = getPath(schemaUrl);
-        int indexOfLastSlash = schemaPath.lastIndexOf("/");
-        if (indexOfLastSlash < 1) {
-            throw new RelationalException("Invalid schemaUrl: <" + schemaUrl + ">", ErrorCode.INVALID_PATH);
-        }
-        String schemaId = schemaPath.substring(indexOfLastSlash + 1);
-        if (schemaId.isEmpty()) {
-            throw new RelationalException("Invalid schemaUrl with empty schema: <" + schemaUrl + ">", ErrorCode.INVALID_PATH);
-        }
-        URI dbUrl = URI.create(schemaPath.substring(0, indexOfLastSlash));
-        KeySpacePath dbPath = uriToPath(dbUrl, keySpace);
-        extendKeySpaceForSchema(keySpace, dbPath, schemaId);
-        try {
-            return dbPath.add(schemaId);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
     }
 
     public static String getPath(@Nonnull URI url) {

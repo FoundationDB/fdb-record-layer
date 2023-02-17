@@ -110,7 +110,7 @@ public abstract class EmbeddedRelationalBenchmark {
 
             RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
             try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
-                catalog = StoreCatalogProvider.getCatalog(txn);
+                catalog = StoreCatalogProvider.getCatalog(txn, keySpace);
                 txn.commit();
             }
 

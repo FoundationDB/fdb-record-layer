@@ -59,7 +59,7 @@ public class CaseSensitivityTest {
     @Test
     void selectFromCaseInsensitiveTable() throws Exception {
         final String schema = "CREATE TABLE tbl1 (id bigint, value bigint, PRIMARY KEY(id))";
-        try (var ddl = Ddl.builder().database("CaseSensitivity").relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/CaseSensitivity")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 for (String tableName : List.of("tbl1", "TBL1", "TbL1", "\"TBL1\"")) {
                     Assertions.assertDoesNotThrow(() -> statement.execute("SELECT * FROM " + tableName));
@@ -78,14 +78,14 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a database
-                statement.executeUpdate("CREATE DATABASE /upper");
+                statement.executeUpdate("CREATE DATABASE /test/upper");
                 RelationalAssertions.assertThrowsSqlException(() ->
-                        statement.executeUpdate("CREATE DATABASE \"/UPPER\""))
+                        statement.executeUpdate("CREATE DATABASE \"/TEST/UPPER\""))
                         .hasErrorCode(ErrorCode.DATABASE_ALREADY_EXISTS);
             } finally {
                 try (Statement statement = conn.createStatement()) {
                     //try to drop the db for test cleanliness
-                    statement.executeUpdate("DROP DATABASE /upper");
+                    statement.executeUpdate("DROP DATABASE /test/upper");
                 }
             }
         }
@@ -102,7 +102,7 @@ public class CaseSensitivityTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousDatabases(boolean quoted) throws Exception {
-        List<String> databases = List.of("/ABC1", "/def2", "/Ghi3", "/jKL4");
+        List<String> databases = List.of("/TEST/ABC1", "/TEST/def2", "/TEST/Ghi3", "/TEST/jKL4");
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("CATALOG");
             try {
@@ -138,16 +138,17 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE DATABASE /various_schemas");
+                    statement.executeUpdate("DROP DATABASE /test/various_schemas");
+                    statement.executeUpdate("CREATE DATABASE /test/various_schemas");
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE temp_various_schemas CREATE TABLE foo(a bigint, PRIMARY KEY(a))");
                 }
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String schema : schemas) {
-                        statement.executeUpdate("CREATE SCHEMA " + quote("/VARIOUS_SCHEMAS/" + schema, quoted) + " WITH TEMPLATE temp_various_schemas");
+                        statement.executeUpdate("CREATE SCHEMA " + quote("/TEST/VARIOUS_SCHEMAS/" + schema, quoted) + " WITH TEMPLATE temp_various_schemas");
                     }
                 }
                 try (RelationalStatement statement = conn.createStatement()) {
-                    try (RelationalResultSet rs = statement.executeQuery("SELECT SCHEMA_NAME FROM \"SCHEMAS\" WHERE DATABASE_ID = '/VARIOUS_SCHEMAS'")) {
+                    try (RelationalResultSet rs = statement.executeQuery("SELECT SCHEMA_NAME FROM \"SCHEMAS\" WHERE DATABASE_ID = '/TEST/VARIOUS_SCHEMAS'")) {
                         List<Row> expectedResults = schemas.stream().map(s -> quoted ? s : s.toUpperCase(Locale.ROOT)).map(ValueTuple::new).collect(Collectors.toList());
                         ResultSetAssert.assertThat(rs)
                                 .isExactlyInAnyOrder(new IteratorResultSet(rs.getMetaData().unwrap(StructMetaData.class), expectedResults.listIterator(), 0));
@@ -155,7 +156,7 @@ public class CaseSensitivityTest {
                 }
             } finally {
                 try (Statement statement = conn.createStatement()) {
-                    statement.executeUpdate("DROP DATABASE /various_schemas");
+                    statement.executeUpdate("DROP DATABASE /test/various_schemas");
                     statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_schemas");
                 }
             }
@@ -195,21 +196,22 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE DATABASE /various_tables_db");
+                    statement.executeUpdate("DROP DATABASE /test/various_tables_db");
+                    statement.executeUpdate("CREATE DATABASE /test/various_tables_db");
                     for (String table : tables) {
                         statement.executeUpdate(String.format(
                                 "CREATE SCHEMA TEMPLATE temp_various_table_%s CREATE TABLE %s (a bigint, PRIMARY KEY(a))",
                                 table, quoted ? quote(table, true) : table.toLowerCase(Locale.ROOT)));
                         statement.executeUpdate(String.format(
-                                "CREATE SCHEMA /various_tables_db/various_table_%s with template temp_various_table_%s",
+                                "CREATE SCHEMA /test/various_tables_db/various_table_%s with template temp_various_table_%s",
                                 table, table));
                     }
                 }
                 RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String table : tables) {
-                    try (RelationalResultSet rs = md.getTables("/VARIOUS_TABLES_DB", "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT), null, null)) {
+                    try (RelationalResultSet rs = md.getTables("/TEST/VARIOUS_TABLES_DB", "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT), null, null)) {
                         List<Row> row = List.of(new ArrayRow(
-                                "/VARIOUS_TABLES_DB",
+                                "/TEST/VARIOUS_TABLES_DB",
                                 "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT),
                                 quoted ? table : table.toUpperCase(Locale.ROOT),
                                 null));
@@ -219,7 +221,7 @@ public class CaseSensitivityTest {
             } finally {
                 try (Statement statement = conn.createStatement()) {
                     for (String table : tables) {
-                        statement.executeUpdate("DROP DATABASE /various_tables_db");
+                        statement.executeUpdate("DROP DATABASE /test/various_tables_db");
                         statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_table_" + table);
                     }
                 }
@@ -235,7 +237,7 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeUpdate("CREATE DATABASE /various_columns_db");
+                    statement.executeUpdate("CREATE DATABASE /test/various_columns_db");
                     for (String column : columns) {
                         statement.executeUpdate(String.format(
                                 "CREATE SCHEMA TEMPLATE temp_various_column_%s CREATE TABLE tbl_various_columns (%s bigint, PRIMARY KEY(%s))",
@@ -243,20 +245,20 @@ public class CaseSensitivityTest {
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT),
                                 quoted ? quote(column, true) : column.toLowerCase(Locale.ROOT)));
                         statement.executeUpdate(String.format(
-                                "CREATE SCHEMA /various_columns_db/various_columns_%s with template temp_various_column_%s",
+                                "CREATE SCHEMA /test/various_columns_db/various_columns_%s with template temp_various_column_%s",
                                 column, column));
                     }
                 }
                 RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String column : columns) {
-                    try (RelationalResultSet rs = md.getColumns("/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null)) {
+                    try (RelationalResultSet rs = md.getColumns("/TEST/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null)) {
                         ResultSetAssert.assertThat(rs).hasNextRow().hasColumn("COLUMN_NAME", quoted ? column : column.toUpperCase(Locale.ROOT));
                     }
                 }
             } finally {
                 try (Statement statement = conn.createStatement()) {
                     for (String column : columns) {
-                        statement.executeUpdate("DROP DATABASE /various_columns_db");
+                        statement.executeUpdate("DROP DATABASE /test/various_columns_db");
                         statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_column_" + column);
                     }
                 }
@@ -266,7 +268,7 @@ public class CaseSensitivityTest {
 
     @Test
     public void overload() throws Exception {
-        List<String> databases = List.of("/database", "/DATABASE", "/Database", "/DaTaBaSe");
+        List<String> databases = List.of("/TEST/database", "/TEST/DATABASE", "/TEST/Database", "/TEST/DaTaBaSe");
         List<String> schemas = List.of("schema", "SCHEMA", "Schema", "ScHeMa");
         List<String> tables = List.of("table", "TABLE", "Table", "TaBlE");
         List<String> columns = List.of("column", "COLUMN", "Column", "CoLuMn");

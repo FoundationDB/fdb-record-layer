@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.google.protobuf.TextFormat;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -88,25 +89,24 @@ public class RelationalServerTest {
     }
 
     static void simpleJDBCServiceClientOperation(ManagedChannel managedChannel) {
-        String sysdb = "/__SYS";
-        String schema = "CATALOG";
-        String testdb = "/test_db";
+        String sysDbPath = "/" + RelationalKeyspaceProvider.SYS;
+        String testdb = "/FRL/server_test_db";
         JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         try {
-            update(stub, sysdb, schema, "Drop database \"" + testdb + "\"");
-            update(stub, sysdb, schema,
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database \"" + testdb + "\"");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG,
                     "CREATE SCHEMA TEMPLATE test_template " +
                             "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
-            update(stub, sysdb, schema, "create database \"" + testdb + "\"");
-            update(stub, sysdb, schema, "create schema \"" + testdb + "/test_schema\" with template test_template");
-            ResultSet resultSet = execute(stub, sysdb, schema, "select * from databases;");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create database \"" + testdb + "\"");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create schema \"" + testdb + "/test_schema\" with template test_template");
+            ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "select * from databases;");
             Assertions.assertEquals(2, resultSet.getRowCount());
             Assertions.assertEquals(1, resultSet.getRow(0).getColumns().getColumnCount());
             Assertions.assertEquals(1, resultSet.getRow(1).getColumns().getColumnCount());
             Assertions.assertTrue(resultSet.getRow(0).getColumns().getColumn(0).hasString());
             Assertions.assertTrue(resultSet.getRow(1).getColumns().getColumn(0).hasString());
-            Assertions.assertEquals(sysdb, resultSet.getRow(0).getColumns().getColumn(0).getString());
-            Assertions.assertEquals(testdb, resultSet.getRow(1).getColumns().getColumn(0).getString());
+            Assertions.assertEquals(testdb, resultSet.getRow(0).getColumns().getColumn(0).getString());
+            Assertions.assertEquals(sysDbPath, resultSet.getRow(1).getColumns().getColumn(0).getString());
         } catch (Throwable t) {
             com.google.rpc.Status status = StatusProto.fromThrowable(t);
             if (status != null) {
@@ -114,7 +114,7 @@ public class RelationalServerTest {
             }
             throw t;
         } finally {
-            update(stub, sysdb, schema, "Drop database \"/test_db\"");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database \"" + testdb + "\"");
         }
     }
 

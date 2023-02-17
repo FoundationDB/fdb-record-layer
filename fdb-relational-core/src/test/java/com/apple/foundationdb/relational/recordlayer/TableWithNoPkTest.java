@@ -53,8 +53,8 @@ public class TableWithNoPkTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/" + TableWithNoPkTest.class.getSimpleName()), "CREATE TABLE no_pk(a bigint, b bigint, SINGLE ROW ONLY)");
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, TableWithNoPkTest.class,
+            "CREATE TABLE no_pk(a bigint, b bigint, SINGLE ROW ONLY)");
 
     @Test
     void simpleTest() throws RelationalException, SQLException {

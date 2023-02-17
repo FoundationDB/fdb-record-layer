@@ -25,13 +25,13 @@
 - query: create schema template limit_tests_schema_template
       create table ta(a bigint, b bigint, primary key(a))
 ---
-- query: drop database /LIMIT_YAML
+- query: drop database /FRL/LIMIT_YAML
 ---
-- query: create database /LIMIT_YAML
+- query: create database /FRL/LIMIT_YAML
 ---
-- query: create schema /LIMIT_YAML/LIMIT_SCHEMA with template limit_tests_schema_template
+- query: create schema /FRL/LIMIT_YAML/LIMIT_SCHEMA with template limit_tests_schema_template
 ---
-- connect: "jdbc:embed:/LIMIT_YAML?schema=LIMIT_SCHEMA"
+- connect: "jdbc:embed:/FRL/LIMIT_YAML?schema=LIMIT_SCHEMA"
 ---
 - query: INSERT INTO TA
     VALUES (1, 2),
@@ -137,7 +137,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /LIMIT_YAML
+- query: drop database /FRL/LIMIT_YAML
 ---
 - query: drop schema template limit_tests_schema_template
 ...

@@ -52,23 +52,22 @@ public class SystemCatalogQueryTest {
     @BeforeEach
     public void setup() throws Exception {
         runDdl("CREATE SCHEMA TEMPLATE st CREATE TABLE FOO (ID bigint, BAR string, PRIMARY KEY(ID));");
-        createDb("/DB1");
-        createDb("/DB2");
-        createDb("/DB3");
-        createSchema("/DB1", "/S11");
-        createSchema("/DB2", "/S12");
-        createSchema("/DB2", "/S21");
-        createSchema("/DB3", "/S31");
-        createSchema("/DB3", "/S32");
-        createSchema("/DB3", "/S33");
-
+        createDb("/TEST/DB1");
+        createDb("/TEST/DB2");
+        createDb("/TEST/DB3");
+        createSchema("/TEST/DB1", "/S11");
+        createSchema("/TEST/DB2", "/S12");
+        createSchema("/TEST/DB2", "/S21");
+        createSchema("/TEST/DB3", "/S31");
+        createSchema("/TEST/DB3", "/S32");
+        createSchema("/TEST/DB3", "/S33");
     }
 
     @AfterEach
     public void teardown() throws Exception {
-        dropDb("/DB1");
-        dropDb("/DB2");
-        dropDb("/DB3");
+        dropDb("/TEST/DB1");
+        dropDb("/TEST/DB2");
+        dropDb("/TEST/DB3");
         runDdl("DROP SCHEMA TEMPLATE st");
     }
 
@@ -103,12 +102,12 @@ public class SystemCatalogQueryTest {
             try (RelationalStatement statement = conn.createStatement();
                  RelationalResultSet rs = statement.executeQuery("SELECT schema_name,database_id FROM \"SCHEMAS\"")) {
                 ResultSetAssert.assertThat(rs).containsRowsExactly(List.of(
-                        new Object[]{"S11", "/DB1"},
-                        new Object[]{"S12", "/DB2"},
-                        new Object[]{"S21", "/DB2"},
-                        new Object[]{"S31", "/DB3"},
-                        new Object[]{"S32", "/DB3"},
-                        new Object[]{"S33", "/DB3"},
+                        new Object[]{"S11", "/TEST/DB1"},
+                        new Object[]{"S12", "/TEST/DB2"},
+                        new Object[]{"S21", "/TEST/DB2"},
+                        new Object[]{"S31", "/TEST/DB3"},
+                        new Object[]{"S32", "/TEST/DB3"},
+                        new Object[]{"S33", "/TEST/DB3"},
                         new Object[]{"CATALOG", "/__SYS"}
                 ));
             }
@@ -133,9 +132,9 @@ public class SystemCatalogQueryTest {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT * FROM \"DATABASES\"")) {
                 shouldBe(rs, Set.of(
-                        List.of("/DB1"),
-                        List.of("/DB2"),
-                        List.of("/DB3"),
+                        List.of("/TEST/DB1"),
+                        List.of("/TEST/DB2"),
+                        List.of("/TEST/DB3"),
                         List.of("/__SYS")
                 ));
             }
@@ -148,9 +147,9 @@ public class SystemCatalogQueryTest {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement(); ResultSet rs = statement.executeQuery("SELECT database_id FROM \"DATABASES\" WHERE database_id != '/__SYS'")) {
                 shouldBe(rs, Set.of(
-                        List.of("/DB1"),
-                        List.of("/DB2"),
-                        List.of("/DB3")
+                        List.of("/TEST/DB1"),
+                        List.of("/TEST/DB2"),
+                        List.of("/TEST/DB3")
                 ));
             }
         }

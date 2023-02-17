@@ -52,8 +52,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/" + SimpleDirectAccessInsertionTests.class.getSimpleName()), TestSchemas.restaurant());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
 
     @Test
     void insertNestedFields() throws RelationalException, SQLException {

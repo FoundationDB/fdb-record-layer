@@ -42,7 +42,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +57,7 @@ public class CursorTest {
     @RegisterExtension
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
-            URI.create("/" + CursorTest.class.getSimpleName()),
+            CursorTest.class,
             TestSchemas.restaurant());
 
     @RegisterExtension
