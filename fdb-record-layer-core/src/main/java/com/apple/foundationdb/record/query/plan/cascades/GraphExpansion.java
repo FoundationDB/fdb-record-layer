@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -36,7 +36,9 @@ import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -114,7 +116,7 @@ public class GraphExpansion {
     public List<CorrelationIdentifier> getPlaceholderAliases() {
         return placeholders
                 .stream()
-                .map(ValueComparisonRangePredicate.Placeholder::getAlias)
+                .map(Placeholder::getParameterAlias)
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -189,14 +191,22 @@ public class GraphExpansion {
                         .collect(ImmutableList.toImmutableList());
 
         if (!placeholders.isEmpty()) {
+
+            // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
+            // order of parameters determines their sargability.
+            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
+
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
             final var localPredicates = ImmutableSet.copyOf(getPredicates());
-            final var resultPlaceHolders = Lists.newArrayList(placeholders);
+            final var resultPlaceHolders = Lists.newArrayList(deDupPlaceholders);
             final var localPlaceHolderPairs =
-                    IntStream.range(0, placeholders.size())
-                            .mapToObj(i -> Pair.of(placeholders.get(i), i))
-                            .filter(p -> localPredicates.contains(p.getKey()))
+                    IntStream.range(0, deDupPlaceholders.size())
+                            .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
+                            .filter(placeholderWithIndex -> localPredicates.stream()
+                                    .filter(localPredicate -> localPredicate instanceof ValueWithRanges)
+                                    .map(localPredicate -> (ValueWithRanges)localPredicate)
+                                    .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 
             final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
@@ -209,7 +219,7 @@ public class GraphExpansion {
                     while (iterator.hasNext()) {
                         final var currentPlaceholderPair = iterator.next();
                         final var currentPlaceHolder = currentPlaceholderPair.getKey();
-                        if (localPlaceHolder.semanticEqualsWithoutParameterAlias(currentPlaceHolder, identities)) {
+                        if (localPlaceHolder.getValue().semanticEquals(currentPlaceHolder.getValue(), identities)) {
                             if (foundAtOrdinal < 0) {
                                 foundAtOrdinal = currentPlaceholderPair.getRight();
                                 resultPredicates.add(currentPlaceHolder);
@@ -230,6 +240,8 @@ public class GraphExpansion {
         }
         return graphExpansion.new Sealed();
     }
+
+
 
     @Nonnull
     public SelectExpression buildSelect() {

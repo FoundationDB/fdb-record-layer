@@ -48,7 +48,6 @@ message Index {
     RANK = 3;
     RANK_UNIQUE = 4;    // (Meaning the score is unique.)
   };
-  // TODO: Generalize to predicate on records in storage area to be included in index.
   repeated string record_type = 1;
   optional Type index_type = 2 [deprecated = true]; // Use type.
   optional string name = 3;
@@ -64,6 +63,7 @@ message Index {
     required string value = 2;
   };
   optional int32 added_version = 10;
+  optional Predicate predicate = 11;
   extensions 1000 to 2000;
 }
 
@@ -202,4 +202,70 @@ message JoinedRecordType {
 
   repeated JoinConstituent join_constituents = 10;
   repeated Join joins = 11;
+}
+
+///////////////////////////////////////////////////
+
+enum ComparisonType {
+    EQUALS = 1;
+    NOT_EQUALS = 2;
+    LESS_THAN = 3;
+    LESS_THAN_OR_EQUALS = 4;
+    GREATER_THAN = 5;
+    GREATER_THAN_OR_EQUALS = 6;
+    STARTS_WITH = 7;
+    NOT_NULL = 8;
+    IS_NULL = 9;
+}
+
+message SimpleComparison {
+  optional ComparisonType type = 1;
+  optional Value operand = 2;
+}
+
+// in Comparisons.Comparison we have a special NullComparison that takes care of comparing
+// an operand to null.
+message NullComparison {
+  optional bool isNull = 1;
+}
+
+message Comparison {
+  // exactly one of the following
+  optional SimpleComparison simple_comparison = 1;
+  optional NullComparison null_comparison = 2;
+}
+
+message AndPredicate {
+  repeated Predicate children = 1;
+}
+
+message OrPredicate {
+  repeated Predicate children = 2;
+}
+
+message ConstantPredicate {
+  enum ConstantValue {
+    TRUE = 1;
+    FALSE = 2;
+    NULL = 3;
+  }
+  optional ConstantValue value = 1;
+}
+
+message NotPredicate {
+  optional Predicate child = 1;
+}
+
+message ValuePredicate {
+  repeated string value = 1;
+  optional Comparison comparison = 2;
+}
+
+message Predicate {
+  // exactly one of the following
+  optional AndPredicate and_predicate = 1;
+  optional OrPredicate or_predicate = 2;
+  optional ConstantPredicate constant_predicate = 3;
+  optional NotPredicate not_predicate = 4;
+  optional ValuePredicate value_predicate = 5;
 }

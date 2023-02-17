@@ -176,6 +176,10 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                                 pushedRequestedOrderings,
                                 matchPartition);
 
+                if (dataAccessReference.getMembers().isEmpty()) {
+                    continue;
+                }
+
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
                         .build(dataAccessReference);

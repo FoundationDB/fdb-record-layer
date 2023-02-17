@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -111,7 +111,7 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.bindingPredicatesSupplier = Suppliers.memoize(this::computeBindingQueryPredicates);
+        this.bindingPredicatesSupplier = this::computeBindingQueryPredicates;
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
     }
 
@@ -184,12 +184,12 @@ public class PartialMatch {
         for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
             final var predicateMapping = entry.getValue();
             final var candidatePredicate = predicateMapping.getCandidatePredicate();
-            if (!(candidatePredicate instanceof ValueComparisonRangePredicate.Placeholder)) {
+            if (!(candidatePredicate instanceof Placeholder)) {
                 continue;
             }
 
-            final var placeholder = (ValueComparisonRangePredicate.Placeholder)candidatePredicate;
-            if (boundParameterPrefixMap.containsKey(placeholder.getAlias())) {
+            final var placeholder = (Placeholder)candidatePredicate;
+            if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
                 bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
             }
         }

@@ -75,6 +75,8 @@ public class Index {
     private boolean useExplicitSubspaceKey = false;
     private int addedVersion;
     private int lastModifiedVersion;
+    @Nullable
+    private final IndexPredicate predicate;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -107,12 +109,30 @@ public class Index {
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type,
                  @Nonnull Map<String, String> options) {
+        this(name, rootExpression, type, options, null);
+    }
+
+    /**
+     * Construct new index meta-data.
+     * @param name the name of the index, which is unique for the whole meta-data
+     * @param rootExpression the key expression for the index, such as what field(s) to index
+     * @param type the type of index
+     * @param options additional options, which may be type-specific
+     * @param predicate index predicate, for sparse indexes, can be null.
+     * @see IndexTypes
+     */
+    public Index(@Nonnull String name,
+                 @Nonnull KeyExpression rootExpression,
+                 @Nonnull String type,
+                 @Nonnull Map<String, String> options,
+                 @Nullable IndexPredicate predicate) {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
         this.options = options;
         this.subspaceKey = normalizeSubspaceKey(name, name);
         this.lastModifiedVersion = 0;
+        this.predicate = predicate;
     }
 
     public Index(@Nonnull String name,
@@ -149,7 +169,7 @@ public class Index {
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
-        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options));
+        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options), orig.predicate);
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
         } else {
@@ -204,6 +224,11 @@ public class Index {
         }
         if (proto.hasLastModifiedVersion()) {
             lastModifiedVersion = proto.getLastModifiedVersion();
+        }
+        if (proto.hasPredicate()) {
+            this.predicate = IndexPredicate.fromProto(proto.getPredicate());
+        } else {
+            this.predicate = null;
         }
     }
 
@@ -587,6 +612,25 @@ public class Index {
     }
 
     /**
+     * Returns the predicate associated with the index in case of a filtered (sparse) index.
+     *
+     * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
+     */
+    @Nullable
+    public IndexPredicate getPredicate() {
+        return predicate;
+    }
+
+    /**
+     * Checks whether a predicate is defined on the index.
+     *
+     * @return {@code true} if the index has a predicate, otherwise {@code false}.
+     */
+    public boolean hasPredicate() {
+        return predicate != null;
+    }
+
+    /**
      * Set the version at which the index was changed.
      * @param lastModifiedVersion the last modified version
      */
@@ -614,6 +658,9 @@ public class Index {
         if (lastModifiedVersion > 0) {
             builder.setLastModifiedVersion(lastModifiedVersion);
         }
+        if (predicate != null) {
+            builder.setPredicate(predicate.toProto());
+        }
         return builder.build();
     }
 
@@ -627,6 +674,9 @@ public class Index {
         str.append("}");
         if (lastModifiedVersion > 0) {
             str.append("#").append(lastModifiedVersion);
+        }
+        if (predicate != null) {
+            str.append("where ").append(predicate);
         }
         return str.toString();
     }
@@ -646,7 +696,8 @@ public class Index {
                 && this.addedVersion == that.addedVersion
                 && this.lastModifiedVersion == that.lastModifiedVersion
                 && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
-                && this.options.equals(that.options);
+                && this.options.equals(that.options)
+                && Objects.equals(this.predicate, that.predicate);
     }
 
     @Override

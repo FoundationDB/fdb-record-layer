@@ -288,6 +288,15 @@ public class AliasMap {
     }
 
     /**
+     * Returns the inverse of this {@link AliasMap}.
+     * @return The inverse of this {@link AliasMap}.
+     */
+    @Nonnull
+    public AliasMap inverse() {
+        return new AliasMap(map.inverse());
+    }
+
+    /**
      * Get the source for a target passed in or a default in case there is no mapping for the target alias.
      * @param target the target to return the source for
      * @param defaultValue default value to return is there is no mapping in this map for {@code target}

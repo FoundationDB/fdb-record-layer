@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
@@ -44,6 +44,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -52,6 +53,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -152,6 +154,30 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var state = VisitorState.of(keyValues, valueValues, baseQuantifier, ImmutableList.of(), 0, 0);
         final var selectWhereGraphExpansion = pop(groupingKeyExpression.getWholeKey().expand(push(state)));
 
+        if (index.hasPredicate()) {
+            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
+            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
+            final var predicateExpansionBuilder = GraphExpansion.builder();
+            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+            } else {
+                final var valueRanges = valueRangesMaybe.get();
+                for (final var value : valueRanges.keySet()) {
+                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                    final var maybePlaceholder = selectWhereGraphExpansion.getPlaceholders()
+                            .stream()
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .findFirst();
+                    if (maybePlaceholder.isEmpty()) {
+                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                    } else {
+                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                    }
+                }
+            }
+            allExpansionsBuilder.add(predicateExpansionBuilder.build());
+        }
+
         // add an RCV column representing the grouping columns as the first result set column
         final var groupingValue = RecordConstructorValue.ofColumns(groupingValues
                 .stream()
@@ -217,8 +243,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingValueReference != null) {
             Values.deconstructRecord(groupingValueReference).forEach(v -> {
                 final var field = (FieldValue)v;
-                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueComparisonRangePredicate.Placeholder.class));
-                placeholderAliases.add(placeholder.getAlias());
+                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueWithRanges.class));
+                placeholderAliases.add(placeholder.getParameterAlias());
                 selectHavingGraphExpansionBuilder
                         .addResultColumn(Column.unnamedOf(field))
                         .addPlaceholder(placeholder)

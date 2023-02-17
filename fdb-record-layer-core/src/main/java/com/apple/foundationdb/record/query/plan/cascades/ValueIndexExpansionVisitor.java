@@ -29,10 +29,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -40,6 +42,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -66,7 +69,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
+        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -109,6 +112,30 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         allExpansionsBuilder.add(keyValueExpansion);
 
+        if (index.hasPredicate()) {
+            final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
+            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
+            final var predicateExpansionBuilder = GraphExpansion.builder();
+            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+            } else {
+                final var valueRanges = valueRangesMaybe.get();
+                for (final var value : valueRanges.keySet()) {
+                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                    final var maybePlaceholder = keyValueExpansion.getPlaceholders()
+                            .stream()
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .findFirst();
+                    if (maybePlaceholder.isEmpty()) {
+                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                    } else {
+                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                    }
+                }
+            }
+            allExpansionsBuilder.add(predicateExpansionBuilder.build());
+        }
+
         final var keySize = keyValues.size();
 
         if (primaryKey != null) {
@@ -135,8 +162,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final var parameters = completeExpansion.getPlaceholderAliases();
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, completeExpansion.buildSelect());
+        final var sealedExpansion = completeExpansion.seal();
+        final var parameters = sealedExpansion.getPlaceholders().stream().map(Placeholder::getParameterAlias).collect(ImmutableList.toImmutableList());
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),

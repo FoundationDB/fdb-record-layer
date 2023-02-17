@@ -342,8 +342,16 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return Optional.empty();
     }
 
+    /**
+     * Checks whether the comparison is already defined in {@code this} {@link ComparisonRange}. If so, it returns a
+     * {@link MergeResult} of {@code this}. Otherwise, it returns a {@link MergeResult} of {@code this} and adds the
+     * {@code comparison} as a residual.
+     *
+     * @param comparison the comparison to check.
+     * @return {@link MergeResult} of {@code this}, potentially with {@code comparison} as a residual.
+     */
     @Nonnull
-    public MergeResult merge(@Nonnull Comparisons.Comparison comparison) {
+    public MergeResult merge(@Nonnull final Comparisons.Comparison comparison) {
         final ScanComparisons.ComparisonType comparisonType = ScanComparisons.getComparisonType(comparison);
         if (comparisonType == ScanComparisons.ComparisonType.NONE) {
             return MergeResult.of(this, comparison);

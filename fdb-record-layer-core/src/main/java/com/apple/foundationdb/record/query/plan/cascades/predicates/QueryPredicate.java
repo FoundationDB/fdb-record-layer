@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -100,7 +101,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
      * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueComparisonRangePredicate.Sargable}) on the query side.
+     * ({@link ValueWithRanges}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -164,7 +165,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                                              boundParameterPrefixMap,
                                              ImmutableList.copyOf(childFunctions)))))));
         }
-        
+
+        if (this.semanticEquals(candidatePredicate, aliasMap)) {
+            return Optional.of(new PredicateMapping(this,
+                    candidatePredicate,
+                    PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+        }
         return Optional.empty();
     }
 
@@ -219,11 +225,19 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return result;
     }
 
+    private static boolean isPlaceholderWithEmptyRange(@Nonnull final QueryPredicate value) {
+        return (value instanceof Placeholder) && ((Placeholder)value).getRanges().isEmpty();
+    }
+
     /**
      * Method that indicates whether this predicate is filtering at all.
      * @return {@code true} if this predicate always evaluates to true, {@code false} otherwise
      */
     default boolean isTautology() {
+        return false;
+    }
+
+    default boolean isContradiction() {
         return false;
     }
 
@@ -333,6 +347,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
         predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
         return predicateCorrelatedToBuilder.build();
+    }
+
+    @Nonnull
+    default Optional<ValueWithRanges> toValueWithRangesMaybe() {
+        return Optional.empty();
     }
 
     @Nonnull

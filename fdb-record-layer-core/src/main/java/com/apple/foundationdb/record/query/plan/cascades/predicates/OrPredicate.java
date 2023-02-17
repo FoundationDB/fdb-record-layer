@@ -25,16 +25,21 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,7 +47,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -59,8 +66,12 @@ import java.util.stream.Collectors;
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
+    @Nonnull
+    private final Supplier<Optional<ValueWithRanges>> valueWithRangesSupplier;
+
     public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
+        this.valueWithRangesSupplier = Suppliers.memoize(this::computeToValueWithRangesMaybe);
     }
 
     @Nullable
@@ -105,6 +116,139 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new OrPredicate(ImmutableList.copyOf(newChildren));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<ValueWithRanges> toValueWithRangesMaybe() {
+        return valueWithRangesSupplier.get();
+    }
+
+    @Nonnull
+    public Optional<ValueWithRanges> computeToValueWithRangesMaybe() {
+        // expression hierarchy must be of a single level, all children must be simple .
+        if (!getChildren().stream().allMatch(child -> child instanceof PredicateWithValue)) {
+            return Optional.empty();
+        }
+        // all children must reference the same value
+        if (getChildren().stream().map(c -> ((PredicateWithValue)c).getValue()).distinct().count() > 1) {
+            return Optional.empty();
+        }
+
+        final var value = ((PredicateWithValue)getChildren().stream().findFirst().orElseThrow()).getValue();
+        final ImmutableSet.Builder<RangeConstraints> rangesSet = ImmutableSet.builder();
+
+        for (final var child : getChildren()) {
+            final var rangesBuilder = RangeConstraints.newBuilder();
+            if (child instanceof ValuePredicate) {
+                final var valuePredicate = (ValuePredicate)child;
+                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
+                    return Optional.empty();
+                }
+            } else if (child instanceof ValueWithRanges) {
+                rangesSet.addAll(((ValueWithRanges)child).getRanges());
+            } else {
+                // unknown child type.
+                return Optional.empty();
+            }
+
+            final var range = rangesBuilder.build();
+            if (range.isEmpty()) {
+                return Optional.empty();
+            }
+            rangesSet.add(range.get());
+        }
+
+        return Optional.of(ValueWithRanges.constraint(value, rangesSet.build()));
+    }
+
+    /**
+     * Checks for implication with a match candidate predicate by constructing a disjunction set of compile-time
+     * ranges of the {@code this} and the candidate predicate and, if the construction is possible, matches them.
+     * Matching the disjunction sets works as the following:
+     * <br>
+     * given an LHS that is: range(x1,x2) ∪ range(x3, x4) ∪ range(x5, x6) and RHS that is range(y1, y2) ∪ range (y3, y4):
+     * - each range in the LHS must find a companion range in RHS that implies it, if not, we reject the candidate predicate.
+     * <br>
+     * - if each companion range is _also_ implied by the LHS range, we have a match that does not require any compensation.
+     * <br>
+     * - otherwise, we match with a compensation that is effectively the reapplication of the entire LHS on top.
+     * <br>
+     * <b>example 1:</b>
+     * - LHS: range(3, 10) ∪ range(15, 20), range (50, 60)
+     * - RHS: range(0, 50) ∪ range (51,200)
+     * result:
+     * - match with {@code this} applied as a residual.
+     * <br>
+     * <b>example 2:</b>
+     * - LHS: range(3,10) ∪ range(15,20)
+     * - RHS: range(15,20) ∪ range(3,10)
+     * result:
+     * - exact match (no compensation required)
+     * <br>
+     * <b>example 3:</b>
+     * - LHS: range(3,10) ∪ range(15,20)
+     * - RHS: range(3,17)
+     * result:
+     * - no match.
+     *
+     * @param aliasMap the current alias map.
+     * @param candidatePredicate another predicate to match.
+     * @return optional match mapping.
+     */
+    @Nonnull
+    @Override
+    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
+        final var valueWithRangesMaybe = toValueWithRangesMaybe();
+        if (valueWithRangesMaybe.isEmpty()) {
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        }
+        final var leftValueWithRanges = valueWithRangesMaybe.get();
+
+        final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe();
+        if (candidateValueWithRangesMaybe.isEmpty()) {
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+        }
+        final var rightValueWithRanges = candidateValueWithRangesMaybe.get();
+
+        if (!leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), aliasMap)) {
+            return Optional.empty();
+        }
+
+        // each leg of this must match a companion from the candidate.
+        // also check if we can get an exact match, because if so, we do not need to generate a compensation.
+        var requiresCompensation = false;
+        for (final var leftRange : leftValueWithRanges.getRanges()) {
+            boolean termRequiresCompensation = true;
+            boolean foundMatch = false;
+            for (final var rightRange : rightValueWithRanges.getRanges()) {
+                if (rightRange.encloses(leftRange) == Proposition.TRUE) {
+                    foundMatch = true;
+                    if (leftRange.encloses(rightRange) == Proposition.TRUE) {
+                        termRequiresCompensation = false;
+                        break;
+                    }
+                }
+            }
+            if (!foundMatch) {
+                return Optional.empty();
+            }
+            requiresCompensation = requiresCompensation || termRequiresCompensation;
+        }
+
+        // need a compensation, because at least one leg did not find an exactly-matching companion, in this case,
+        // add this predicate as a residual on top.
+        if (requiresCompensation) {
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this,
+                    candidatePredicate,
+                    ((partialMatch, boundParameterPrefixMap) ->
+                             Objects.requireNonNull(foldNullable(Function.identity(),
+                                     (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                                             boundParameterPrefixMap,
+                                             ImmutableList.copyOf(childFunctions)))))));
+        } else {
+            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+        }
     }
 
     @Nonnull
