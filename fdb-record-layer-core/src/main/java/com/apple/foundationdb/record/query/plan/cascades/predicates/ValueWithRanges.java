@@ -183,6 +183,10 @@ public class ValueWithRanges implements PredicateWithValue {
         return (other instanceof ValueWithRanges) && value.equals(((ValueWithRanges)other).value);
     }
 
+    public boolean isEmpty() {
+        return getRanges().isEmpty();
+    }
+
     @Nonnull
     public static ValueWithRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
         return new ValueWithRanges(value, ImmutableSet.of(range));

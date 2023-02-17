@@ -547,7 +547,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // unmapped other set now. The reasoning is that this predicate is not filtering, so it does not cause
                     // records to be filtered that are not filtered on the query side.
                     remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).getRanges().isEmpty()));
+                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).isEmpty()));
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
@@ -597,7 +597,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     /**
-     * Breaks a list of predicates into a number of saragbles and value predicates.
+     * Breaks a list of predicates into a number of sargables and value predicates.
      * @param predicates The predicates to partition.
      * @return a list of sargables and value predicates.
      */

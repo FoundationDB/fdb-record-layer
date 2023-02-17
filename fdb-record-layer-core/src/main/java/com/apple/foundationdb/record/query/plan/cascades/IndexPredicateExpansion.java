@@ -36,7 +36,7 @@ import java.util.Optional;
 /**
  * Trait that plugs index predicate expansion utility methods into the consumer.
  */
-public interface IndexPredicateExpansion {
+public class IndexPredicateExpansion {
 
     /**
      * Verifies that a given predicate is in a disjunctive normal form (DNF) and groups it into a mapping from a {@link Value}
@@ -49,7 +49,7 @@ public interface IndexPredicateExpansion {
      * @return A mapping from a {@link Value} and list of corresponding {@link RangeConstraints}.
      */
     @Nonnull
-    default Optional<Multimap<Value, RangeConstraints>> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+    public static Optional<Multimap<Value, RangeConstraints>> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
         ImmutableMultimap.Builder<Value, RangeConstraints> result = ImmutableMultimap.builder();
 
         // simple case: x > 3 is DNF
@@ -71,7 +71,7 @@ public interface IndexPredicateExpansion {
         return Optional.of(result.build());
     }
 
-    default boolean conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
+    private static boolean conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
         if (group instanceof AndPredicate) {
             final var terms = ((AndPredicate)group).getChildren();
             Optional<Value> key = Optional.empty();

@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState>, IndexPredicateExpansion {
+public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private final Index index;
     @Nonnull
@@ -114,7 +114,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
-            final var valueRangesMaybe = dnfPredicateToRanges(filteredIndexPredicate);
+            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
             final var predicateExpansionBuilder = GraphExpansion.builder();
             if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
                 allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));

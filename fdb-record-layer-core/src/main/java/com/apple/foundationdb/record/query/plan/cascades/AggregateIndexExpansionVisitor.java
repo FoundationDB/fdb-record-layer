@@ -65,7 +65,7 @@ import java.util.stream.Stream;
  * by an optional {@link MatchableSortExpression} that defines the sort order of the match candidate stream of records.
  */
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
-                                            implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState>, IndexPredicateExpansion {
+                                            implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
@@ -156,7 +156,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
-            final var valueRangesMaybe = dnfPredicateToRanges(filteredIndexPredicate);
+            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
             final var predicateExpansionBuilder = GraphExpansion.builder();
             if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
                 allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
