@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
@@ -542,12 +543,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     }
 
                     //
-                    // Last chance for unmapped candidate predicates - if there is a placeholder without compile-time range
-                    // or a tautology on the candidate side that is still unmapped, we can (and should) remove it from the
-                    // unmapped other set now. The reasoning is that this predicate is not filtering, so it does not cause
-                    // records to be filtered that are not filtered on the query side.
+                    // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still
+                    // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
+                    // not filtering, so it does not cause records to be filtered that are not filtered on the query side.
+                    //
                     remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> queryPredicate.isTautology() || (queryPredicate instanceof ValueWithRanges && ((ValueWithRanges)queryPredicate).isEmpty()));
+                            .removeIf(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
