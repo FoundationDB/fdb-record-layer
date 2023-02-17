@@ -176,6 +176,38 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testMultiTargetWithTimeQuota() {
+        // Build the index in small chunks
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 107;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setTransactionTimeQuotaMilliseconds(1)
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        // cannot predict exactly how many times the transaction time quota will be reached, but surely more than 0
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+        assertReadable(indexes);
+        assertAllValidated(indexes);
+    }
+
+    @Test
     void testMultiTargetMismatchStateFailure() {
         //Throw when one index has a different status
 

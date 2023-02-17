@@ -79,7 +79,7 @@ public class IndexingThrottle {
 
     IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
         this.common = common;
-        this.limit = common.config.getMaxLimit();
+        this.limit = common.config.getInitialLimit();
         this.expectedIndexState = expectedIndexState;
     }
 
@@ -108,16 +108,16 @@ public class IndexingThrottle {
 
     private synchronized void loadConfig() {
         if (common.loadConfig()) {
-            final int maxLimit = common.config.getMaxLimit();
-            if (limit > maxLimit) {
+            final int initialLimit = common.config.getInitialLimit();
+            if (limit > initialLimit) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
-                            KeyValueLogMessage.build("Decreasing the limit to the new maxLimit.",
+                            KeyValueLogMessage.build("Decreasing the limit to the new initial limit.",
                                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                     LogMessageKeys.LIMIT, limit,
-                                    LogMessageKeys.MAX_LIMIT, maxLimit).toString());
+                                    LogMessageKeys.MAX_LIMIT, initialLimit).toString());
                 }
-                limit = maxLimit;
+                limit = initialLimit;
             }
         }
     }
