@@ -129,6 +129,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void sparseIndex() throws Exception {
+        doRun("sparse-index-tests.yaml");
+    }
+
+    @Test
     public void inPredicate() throws Exception {
         doRun("in-predicate.yaml");
     }

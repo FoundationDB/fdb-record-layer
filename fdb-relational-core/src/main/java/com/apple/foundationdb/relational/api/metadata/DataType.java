@@ -170,9 +170,9 @@ public abstract class DataType {
         @Override
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.BOOLEAN.type();
-            } else {
                 return Primitives.NULLABLE_BOOLEAN.type();
+            } else {
+                return Primitives.BOOLEAN.type();
             }
         }
 
@@ -198,9 +198,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.INTEGER.type();
-            } else {
                 return Primitives.NULLABLE_INTEGER.type();
+            } else {
+                return Primitives.INTEGER.type();
             }
         }
 
@@ -225,9 +225,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.LONG.type();
-            } else {
                 return Primitives.NULLABLE_LONG.type();
+            } else {
+                return Primitives.LONG.type();
             }
         }
 
@@ -252,9 +252,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.FLOAT.type();
-            } else {
                 return Primitives.NULLABLE_FLOAT.type();
+            } else {
+                return Primitives.FLOAT.type();
             }
         }
 
@@ -279,9 +279,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.DOUBLE.type();
-            } else {
                 return Primitives.NULLABLE_DOUBLE.type();
+            } else {
+                return Primitives.DOUBLE.type();
             }
         }
 
@@ -306,9 +306,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.STRING.type();
-            } else {
                 return Primitives.NULLABLE_STRING.type();
+            } else {
+                return Primitives.STRING.type();
             }
         }
 
@@ -333,9 +333,9 @@ public abstract class DataType {
         @Nonnull
         public DataType withNullable(boolean isNullable) {
             if (isNullable) {
-                return Primitives.BYTES.type();
-            } else {
                 return Primitives.NULLABLE_BYTES.type();
+            } else {
+                return Primitives.BYTES.type();
             }
         }
 

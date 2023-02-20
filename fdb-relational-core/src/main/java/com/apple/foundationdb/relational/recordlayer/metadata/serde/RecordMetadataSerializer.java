@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -68,10 +69,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
-        getBuilder().addIndex(index.getTableName(), new Index(index.getName(),
-                ((RecordLayerIndex) index).getKeyExpression(),
-                index.getIndexType(),
-                Map.of(IndexOptions.UNIQUE_OPTION, Boolean.toString(index.isUnique()))));
+        final var recLayerIndex = (RecordLayerIndex) index;
+        getBuilder().addIndex(index.getTableName(),
+                new Index(index.getName(),
+                        recLayerIndex.getKeyExpression(),
+                        index.getIndexType(),
+                        Map.of(IndexOptions.UNIQUE_OPTION, Boolean.toString(index.isUnique())),
+                        recLayerIndex.getPredicate() == null ? null : IndexPredicate.fromProto(recLayerIndex.getPredicate())));
     }
 
     @Override

@@ -39,7 +39,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -209,13 +208,14 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexWithPredicateIsNotSupported() throws Exception {
+    void createIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T(p bigint, a A array, b B array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT * FROM T where p > 10 order by p, a, b";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate");
+                "CREATE INDEX mv1 AS SELECT p FROM T where p > 10 order by p";
+        // todo (yhatem) verify the predicate.
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE);
     }
 
     @Test
@@ -226,7 +226,7 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, more than one iteration generator found");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
     }
 
     @Test
@@ -237,7 +237,7 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT * FROM T1, T2 order by t1.p1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, more than one iteration generator found");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
     }
 
     @Test
@@ -334,7 +334,7 @@ public class IndexTest {
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,X.c1, Y.b2 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, more than one iteration generator found");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
     }
 
     @Test

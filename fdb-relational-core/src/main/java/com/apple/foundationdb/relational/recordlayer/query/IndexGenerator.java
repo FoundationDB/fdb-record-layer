@@ -1,5 +1,5 @@
 /*
- * KeyExpressionGenerator.java
+ * IndexGenerator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.IndexPredicateExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -41,6 +43,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -53,13 +57,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -85,7 +92,7 @@ import static java.util.stream.Collectors.toList;
  * Generates a {@link KeyExpression} from a given query plan.
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public final class KeyExpressionGenerator {
+public final class IndexGenerator {
 
     /**
      * Map from each correlation in the query plan to its list of results.
@@ -99,7 +106,7 @@ public final class KeyExpressionGenerator {
     @Nonnull
     private final RelationalExpression relationalExpression;
 
-    private KeyExpressionGenerator(@Nonnull final RelationalExpression relationalExpression) {
+    private IndexGenerator(@Nonnull final RelationalExpression relationalExpression) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = ReferencesAndDependenciesProperty.evaluate(GroupExpressionRef.of(relationalExpression));
         relationalExpressions =
@@ -112,9 +119,26 @@ public final class KeyExpressionGenerator {
     }
 
     @Nonnull
-    public Pair<KeyExpression, String> transform() {
+    public RecordLayerIndex generate(@Nonnull final String indexName, boolean isUnique, @Nonnull final Type.Record tableType, boolean containsNonNullableArray) {
+        final var indexBuilder = RecordLayerIndex.newBuilder()
+                .setName(indexName)
+                .setTableName(getRecordTypeName())
+                .setUnique(isUnique);
+
         collectQuantifiers(relationalExpression);
-        checkValidity(relationalExpression);
+
+        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(GroupExpressionRef.of(relationalExpression));
+        final var expressionRefs =
+                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(ExpressionRef::get).collect(toList());
+
+        checkValidity(expressionRefs);
+
+        // add predicates
+        final var predicate = getTopLevelPredicate(Lists.reverse(expressionRefs));
+        if (predicate != null) {
+            indexBuilder.setPredicate(IndexPredicate.fromQueryPredicate(predicate).toProto());
+        }
 
         final var simplifiedValues = collectResultValues(relationalExpression.getResultValue());
 
@@ -127,6 +151,7 @@ public final class KeyExpressionGenerator {
         final var fieldValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue).map(sv -> (FieldValue) sv).collect(toList());
         final var orderByValues = getOrderByValues(relationalExpression);
         if (aggregateValues.isEmpty()) {
+            indexBuilder.setIndexType(IndexTypes.VALUE);
             Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue), "Unsupported index definition, order by must be a subset of projection list", ErrorCode.UNSUPPORTED_OPERATION);
             if (fieldValues.size() > 1) {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), "Unsupported index definition, value indexes must have an order by clause at the top level", ErrorCode.UNSUPPORTED_OPERATION);
@@ -135,9 +160,9 @@ public final class KeyExpressionGenerator {
             final var expression = generate(reordered);
             final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
-                return Pair.of(keyWithValue(expression, splitPoint), IndexTypes.VALUE);
+                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNonNullableArray)));
             } else {
-                return Pair.of(expression, IndexTypes.VALUE);
+                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNonNullableArray)));
             }
         } else {
             Assert.thatUnchecked(aggregateValues.size() == 1, "Unsupported index definition, multiple group by aggregations found", ErrorCode.UNSUPPORTED_OPERATION);
@@ -146,8 +171,11 @@ public final class KeyExpressionGenerator {
             }
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
             final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues));
-            return generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
+            final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
+            indexBuilder.setIndexType(indexExpressionAndType.getRight());
+            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNonNullableArray)));
         }
+        return indexBuilder.build();
     }
 
     @Nonnull
@@ -266,11 +294,7 @@ public final class KeyExpressionGenerator {
         }
     }
 
-    private void checkValidity(@Nonnull final RelationalExpression relationalExpression) {
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(GroupExpressionRef.of(relationalExpression));
-        final var expressionRefs =
-                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
-                        .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(ExpressionRef::get).collect(toList());
+    private void checkValidity(@Nonnull final List<? extends RelationalExpression> expressionRefs) {
 
         // there must be exactly one type full-unordered-scan, no joins, no self-joins.
         final var numScans = expressionRefs.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
@@ -284,16 +308,52 @@ public final class KeyExpressionGenerator {
         final var groupByContainsOneAggregation = expressionRefs.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
         Assert.thatUnchecked(groupByContainsOneAggregation, "Unsupported index definition, found group by expression with more than one aggregation", ErrorCode.UNSUPPORTED_OPERATION);
 
-        // predicates are not allowed
-        final var hasPredicate = expressionRefs.stream().anyMatch(r -> r instanceof SelectExpression && !((SelectExpression) r).getPredicates().isEmpty());
-        Assert.thatUnchecked(!hasPredicate, "Unsupported index definition, found predicate", ErrorCode.UNSUPPORTED_OPERATION);
-
         // result values of each operation must be simple, e.g. no arithmetic values.
         final var allRecordValues = expressionRefs.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, "Unsupported index definition, some operators return non-record values", ErrorCode.UNSUPPORTED_OPERATION);
 
         final var allSimpleValues = expressionRefs.stream().allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
         Assert.thatUnchecked(allSimpleValues, "Unsupported index definition, not all fields can be mapped to key expression in", ErrorCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Nullable
+    private static QueryPredicate getTopLevelPredicate(@Nonnull final List<? extends RelationalExpression> expressions) {
+        if (expressions.isEmpty()) {
+            return null;
+        }
+        int currentExpression = 0;
+        if (expressions.get(currentExpression) instanceof LogicalSortExpression) {
+            currentExpression++;
+        }
+        if (expressions.size() > currentExpression && expressions.get(currentExpression) instanceof SelectExpression) {
+            if (expressions.size() > (currentExpression + 1) && expressions.get(currentExpression + 1) instanceof GroupByExpression) {
+                // the above select-having must not contain any predicate.
+                Assert.thatUnchecked(((SelectExpression) expressions.get(currentExpression)).getPredicates().isEmpty(), "Unsupported index definition, found predicate in select-having", ErrorCode.UNSUPPORTED_OPERATION);
+                currentExpression++; // group-by expression.
+                Assert.thatUnchecked(expressions.size() > currentExpression);
+                currentExpression++; // select-where.
+            }
+        }
+        // current expression is either top-level select, or select-where or top-level group by.
+        // make sure any other select statement does not have any predicates defined.
+        for (int i = currentExpression + 1; i < expressions.size(); i++) {
+            if (expressions.get(i) instanceof SelectExpression) {
+                final var innerSelect = (SelectExpression) expressions.get(i);
+                Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), "Unsupported index definition, found predicate in inner-select", ErrorCode.UNSUPPORTED_OPERATION);
+            }
+        }
+        final var predicates = ((SelectExpression) expressions.get(currentExpression)).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
+        // todo (yhatem) make sure we through if the generated DNF does not meet the deserialization requirements.
+        if (predicates.isEmpty()) {
+            return null;
+        }
+        final var conjunction = predicates.size() == 1 ? predicates.get(0) : AndPredicate.and(predicates);
+        final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction).orElse(conjunction);
+        Assert.thatUnchecked(IndexPredicate.isSupported(result), String.format("Unsupported predicate '%s'", result));
+        if (IndexPredicateExpansion.dnfPredicateToRanges(result).isEmpty()) {
+            return conjunction;
+        }
+        return result;
     }
 
     private static final class AnnotatedAccessor extends FieldValue.ResolvedAccessor {
@@ -431,7 +491,7 @@ public final class KeyExpressionGenerator {
     }
 
     @Nonnull
-    public static KeyExpressionGenerator from(@Nonnull final RelationalExpression relationalExpression) {
-        return new KeyExpressionGenerator(relationalExpression);
+    public static IndexGenerator from(@Nonnull final RelationalExpression relationalExpression) {
+        return new IndexGenerator(relationalExpression);
     }
 }

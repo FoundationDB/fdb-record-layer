@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -65,12 +64,9 @@ import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1521,28 +1517,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
         context.pop();
 
-        // create a key expression.
-        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression);
-        final var generator = KeyExpressionGenerator.from(viewPlan);
-        final var indexExpressionAndType = generator.transform();
-
-        // add the index to the metadata under construction.
-        final var table = context.asDdl().getMetadataBuilder().extractTable(generator.getRecordTypeName());
-        final var indexKeyExpression = indexExpressionAndType.getLeft().toKeyExpression();
-        final var indexType = indexExpressionAndType.getRight();
-        final var modifiedIndexKeyExpression = NullableArrayUtils.wrapArray(indexKeyExpression, table.getType(), containsNonNullableArray);
         final var isUnique = ctx.UNIQUE() != null;
-
+        final var generator = IndexGenerator.from(viewPlan);
+        final var table = context.asDdl().getMetadataBuilder().extractTable(generator.getRecordTypeName());
+        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression);
+        final var index = generator.generate(indexName, isUnique, table.getType(), containsNonNullableArray);
         final var tableWithIndex = RecordLayerTable.Builder
                 .from(table)
-                .addIndex(RecordLayerIndex
-                        .newBuilder()
-                        .setName(indexName)
-                        .setTableName(table.getName())
-                        .setIndexType(indexType)
-                        .setUnique(isUnique)
-                        .setKeyExpression(KeyExpression.fromProto(modifiedIndexKeyExpression))
-                        .build())
+                .addIndex(index)
                 .build();
         context.asDdl().getMetadataBuilder().addTable(tableWithIndex);
         return null;

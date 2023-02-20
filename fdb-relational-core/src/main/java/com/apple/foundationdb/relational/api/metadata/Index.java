@@ -57,6 +57,13 @@ public interface Index extends Metadata {
      */
     boolean isUnique();
 
+    /**
+     * Checks whether the index is sparse or not.
+     *
+     * @return {@code True} if the index is sparse, otherwise {@code False}.
+     */
+    boolean isSparse();
+
     @Override
     default void accept(@Nonnull final Visitor visitor) {
         visitor.visit(this);

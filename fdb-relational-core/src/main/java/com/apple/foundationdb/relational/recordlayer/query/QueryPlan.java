@@ -58,6 +58,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;

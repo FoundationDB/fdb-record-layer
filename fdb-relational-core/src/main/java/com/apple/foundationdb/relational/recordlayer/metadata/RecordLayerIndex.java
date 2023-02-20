@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public final class RecordLayerIndex implements Index  {
 
@@ -42,15 +44,20 @@ public final class RecordLayerIndex implements Index  {
 
     private final boolean isUnique;
 
+    @Nullable
+    private final RecordMetaDataProto.Predicate predicate;
+
     private RecordLayerIndex(@Nonnull final String tableName,
                              @Nonnull final String indexType,
                              @Nonnull final String name,
                              @Nonnull final KeyExpression keyExpression,
+                             @Nonnull final RecordMetaDataProto.Predicate predicate,
                              boolean isUnique) {
         this.tableName = tableName;
         this.indexType = indexType;
         this.name = name;
         this.keyExpression = keyExpression;
+        this.predicate = predicate;
         this.isUnique = isUnique;
     }
 
@@ -70,6 +77,16 @@ public final class RecordLayerIndex implements Index  {
         return isUnique;
     }
 
+    @Override
+    public boolean isSparse() {
+        return predicate != null;
+    }
+
+    @Nullable
+    public RecordMetaDataProto.Predicate getPredicate() {
+        return predicate;
+    }
+
     @Nonnull
     @Override
     public String getName() {
@@ -87,6 +104,7 @@ public final class RecordLayerIndex implements Index  {
                 .setIndexType(index.getType())
                 .setTableName(tableName)
                 .setKeyExpression(index.getRootExpression())
+                .setPredicate(index.toProto().getPredicate())
                 .setUnique(index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false))
                 .build();
     }
@@ -96,6 +114,9 @@ public final class RecordLayerIndex implements Index  {
         private String indexType;
         private String name;
         private KeyExpression keyExpression;
+
+        @Nullable
+        private RecordMetaDataProto.Predicate predicate;
 
         private boolean isUnique;
 
@@ -123,8 +144,15 @@ public final class RecordLayerIndex implements Index  {
             return this;
         }
 
+        @Nonnull
         public Builder setUnique(boolean isUnique) {
             this.isUnique = isUnique;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setPredicate(@Nullable final RecordMetaDataProto.Predicate predicate) {
+            this.predicate = predicate;
             return this;
         }
 
@@ -134,7 +162,7 @@ public final class RecordLayerIndex implements Index  {
             Assert.notNullUnchecked(tableName, "table name is not set");
             Assert.notNullUnchecked(indexType, "index type is not set");
             Assert.notNullUnchecked(keyExpression, "index key expression is not set");
-            return new RecordLayerIndex(tableName, indexType, name, keyExpression, isUnique);
+            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate, isUnique);
         }
     }
 

@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -91,8 +92,6 @@ public abstract class RecordLayerStoreCatalogTestBase {
                 storeCatalog.saveSchema(txn, schema);
             }
             txn.commit();
-        } catch (Exception e) {
-            var a = 34;
         }
         // list all schemas
         Set<String> fullSchemaNames = new HashSet<>();
