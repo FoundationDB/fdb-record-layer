@@ -168,7 +168,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
             UniqueId parentId = getUniqueId();
             schemas.map(schema -> {
                 final int workloadInt = counter.getAndIncrement();
-                URI dbPath = URI.create("/" + schema.getDisplayName() + "_" + workloadInt + "");
+                URI dbPath = URI.create("/TEST/" + schema.getDisplayName() + "_" + workloadInt + "");
                 return dataSets.stream().map(dataSet -> new AutoWorkload(schema, dataSet, dbPath, connectors, getTestClass().getSimpleName() + "." + workloadInt, config));
             }).forEach(workloadStream -> workloadStream.forEach(workload -> {
                 Collection<QuerySet> queries = queryInvoker.getQueries(instance, workload.getSchema(), context, executableInvoker);

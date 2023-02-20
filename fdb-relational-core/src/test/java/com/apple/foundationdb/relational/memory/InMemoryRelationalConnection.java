@@ -21,8 +21,6 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -38,6 +36,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -157,7 +156,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
 
     public MetadataOperationsFactory getConstantActionFactory() {
         RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
-        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, createNewKeySpace()) {
+        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, RelationalKeyspaceProvider.getKeySpace()) {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
@@ -184,14 +183,6 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                 return txn -> catalog.deleteDatabase(txn, dbUrl, Continuation.BEGIN);
             }
         };
-    }
-
-    private KeySpace createNewKeySpace() {
-        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        KeySpaceDirectory schemaDir = new KeySpaceDirectory("schema", KeySpaceDirectory.KeyType.STRING);
-        dbDirectory.addSubdirectory(schemaDir);
-        KeySpaceDirectory catalogDirectory = new KeySpaceDirectory("CATALOG", KeySpaceDirectory.KeyType.NULL);
-        return new KeySpace(dbDirectory, catalogDirectory);
     }
 
     public DdlQueryFactory getDdlQueryFactory() {
