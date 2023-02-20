@@ -137,7 +137,7 @@ public abstract class IndexPredicate {
     /**
      * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate}.
      */
-    static class AndPredicate extends IndexPredicate {
+    public static class AndPredicate extends IndexPredicate {
         @Nonnull
         private final List<IndexPredicate> children;
 
@@ -173,12 +173,17 @@ public abstract class IndexPredicate {
         public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
+
+        @Override
+        public String toString() {
+            return '(' + children.stream().map(IndexPredicate::toString).collect(Collectors.joining(" AND ")) + ") ";
+        }
     }
 
     /**
      * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate}.
      */
-    static class OrPredicate extends IndexPredicate {
+    public static class OrPredicate extends IndexPredicate {
         @Nonnull
         private final List<IndexPredicate> children;
 
@@ -213,13 +218,18 @@ public abstract class IndexPredicate {
         public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
+
+        @Override
+        public String toString() {
+            return '(' + children.stream().map(IndexPredicate::toString).collect(Collectors.joining(" OR ")) + ") ";
+        }
     }
 
     /**
      * a POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate}.
      */
-    static class ConstantPredicate extends IndexPredicate {
-        enum ConstantValue {
+    public static class ConstantPredicate extends IndexPredicate {
+        public enum ConstantValue {
             TRUE,
             FALSE,
             NULL
@@ -304,20 +314,25 @@ public abstract class IndexPredicate {
                     throw new RecordCoreException(String.format("attempt to serialize unsupported value '%s'", this.value));
             }
         }
+
+        @Override
+        public String toString() {
+            return value.name() + ' ';
+        }
     }
 
     /**
      * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate}.
      */
-    static class NotPredicate extends IndexPredicate {
+    public static class NotPredicate extends IndexPredicate {
         @Nonnull
         private final IndexPredicate value;
 
-        NotPredicate(@Nonnull final IndexPredicate value) {
+        public NotPredicate(@Nonnull final IndexPredicate value) {
             this.value = value;
         }
 
-        NotPredicate(@Nonnull final RecordMetaDataProto.NotPredicate notPredicate) {
+        public NotPredicate(@Nonnull final RecordMetaDataProto.NotPredicate notPredicate) {
             this.value = IndexPredicate.fromProto(notPredicate.getChild());
         }
 
@@ -346,19 +361,24 @@ public abstract class IndexPredicate {
         public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate(this.value.toPredicate(value));
         }
+
+        @Override
+        public String toString() {
+            return "(NOT " + value + ") ";
+        }
     }
 
     /**
      * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}.
      */
-    static class ValuePredicate extends IndexPredicate {
+    public static class ValuePredicate extends IndexPredicate {
         @Nonnull
         private final List<String> fieldPath;
 
         @Nonnull
         private final IndexComparison comparison;
 
-        ValuePredicate(@Nonnull final List<String> fieldPath, @Nonnull final IndexComparison comparison) {
+        public ValuePredicate(@Nonnull final List<String> fieldPath, @Nonnull final IndexComparison comparison) {
             this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.comparison = comparison;
         }
@@ -370,7 +390,7 @@ public abstract class IndexPredicate {
             this.comparison = IndexComparison.fromComparison(predicate.getComparison());
         }
 
-        ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
+        public ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
             Verify.verify(proto.getValueCount() > 0, String.format("attempt to deserialize %s without value", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
             Verify.verify(proto.hasComparison(), String.format("attempt to deserialize %s without comparison", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
             this.fieldPath = ImmutableList.copyOf(proto.getValueList());
@@ -402,6 +422,11 @@ public abstract class IndexPredicate {
         @Override
         public QueryPredicate toPredicate(@Nonnull final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(FieldValue.ofFieldNames(value, fieldPath), comparison.toComparison());
+        }
+
+        @Override
+        public String toString() {
+            return '(' + fieldPath.stream().collect(Collectors.joining("/")) + ' ' + comparison + ") ";
         }
     }
 }

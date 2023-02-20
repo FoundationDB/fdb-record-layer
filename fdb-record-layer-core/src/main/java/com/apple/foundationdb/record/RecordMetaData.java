@@ -99,6 +99,25 @@ public class RecordMetaData implements RecordMetaDataProvider {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
+    protected RecordMetaData(@Nonnull RecordMetaData orig) {
+        this(orig.getRecordsDescriptor(),
+                orig.getUnionDescriptor(),
+                Collections.unmodifiableMap(orig.unionFields),
+                Collections.unmodifiableMap(orig.recordTypes),
+                Collections.unmodifiableMap(orig.syntheticRecordTypes),
+                Collections.unmodifiableMap(orig.recordTypeKeyToSyntheticTypeMap),
+                Collections.unmodifiableMap(orig.indexes),
+                Collections.unmodifiableMap(orig.universalIndexes),
+                Collections.unmodifiableList(orig.formerIndexes),
+                orig.splitLongRecords,
+                orig.storeRecordVersions,
+                orig.version,
+                orig.subspaceKeyCounter,
+                orig.usesSubspaceKeyCounter,
+                orig.recordCountKey, // TODO: Do we need to protect from modification?
+                orig.usesLocalRecordsDescriptor);
+    }
+
     @SuppressWarnings("squid:S00107") // There is a Builder.
     protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
                              @Nonnull Descriptors.Descriptor unionDescriptor,
