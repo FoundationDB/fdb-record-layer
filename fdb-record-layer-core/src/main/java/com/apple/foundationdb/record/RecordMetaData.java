@@ -114,7 +114,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 orig.version,
                 orig.subspaceKeyCounter,
                 orig.usesSubspaceKeyCounter,
-                orig.recordCountKey, // TODO: Do we need to protect from modification?
+                orig.recordCountKey,
                 orig.usesLocalRecordsDescriptor);
     }
 
