@@ -229,6 +229,9 @@ public abstract class IndexPredicate {
      * a POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate}.
      */
     public static class ConstantPredicate extends IndexPredicate {
+        /**
+         * The constant to use.
+         */
         public enum ConstantValue {
             TRUE,
             FALSE,
