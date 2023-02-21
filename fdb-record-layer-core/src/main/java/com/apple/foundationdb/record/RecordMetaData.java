@@ -191,7 +191,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public RecordType getRecordType(@Nonnull String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -262,7 +262,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -278,7 +278,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -740,5 +740,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
                                     throw new IllegalArgumentException("cannot form union type of complex fields");
                                 })));
+    }
+
+    @Nonnull
+    private MetaDataException unknownTypeException(final @Nonnull String name) {
+        return new MetaDataException("Unknown record type " + name);
     }
 }

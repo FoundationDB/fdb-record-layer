@@ -387,6 +387,7 @@ public abstract class IndexPredicate {
         }
 
         @VisibleForTesting
+        @SuppressWarnings("java:S5803")
         ValuePredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
             Verify.verify(predicate.getValue() instanceof FieldValue);
             this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathNames());
