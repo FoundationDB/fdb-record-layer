@@ -548,7 +548,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // not filtering, so it does not cause records to be filtered that are not filtered on the query side.
                     //
                     remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
+                            .removeIf(queryPredicate -> (queryPredicate instanceof Placeholder && !((Placeholder)queryPredicate).isConstraining()) ||
+                                                        queryPredicate.isTautology());
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();

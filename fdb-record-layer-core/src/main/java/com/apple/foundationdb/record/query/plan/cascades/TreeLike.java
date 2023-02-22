@@ -24,6 +24,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -74,10 +75,24 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @Nonnull
     default Iterable<? extends T> inPreOrder() {
+        return inPreOrder(self -> true);
+    }
+
+    /**
+     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
+     * @param descentIntoPredicate a predicate that determines of the traversal enters the subtree underneath the
+     *        current node
+     * @return an {@link Iterable} of nodes
+     */
+    @Nonnull
+    default Iterable<? extends T> inPreOrder(@Nonnull final Predicate<T> descentIntoPredicate) {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
-        iterablesBuilder.add(ImmutableList.of(getThis()));
-        for (final T child : getChildren()) {
-            iterablesBuilder.add(child.inPreOrder());
+        final var self = getThis();
+        iterablesBuilder.add(ImmutableList.of(self));
+        if (descentIntoPredicate.test(self)) {
+            for (final T child : getChildren()) {
+                iterablesBuilder.add(child.inPreOrder());
+            }
         }
         return Iterables.concat(iterablesBuilder.build());
     }
@@ -106,6 +121,19 @@ public interface TreeLike<T extends TreeLike<T>> {
     @Nonnull
     default Iterable<? extends T> filter(@Nonnull final Predicate<T> predicate) {
         return Iterables.filter(inPreOrder(), predicate::test);
+    }
+
+    /**
+     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like that
+     * are filtered by a {@link Predicate} that filters out every node for which {@code predicate} returns {@code false}.
+     * @param <T1> a fixed sub class of {@code T}
+     * @param clazz a class object that is used to filter the nodes in this tree-like by their associated class
+     * @return an {@link Iterable} of nodes that are at least of type {@code T1}
+     */
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    default <T1 extends T> Iterable<T1> filter(@Nonnull final Class<T1> clazz) {
+        return () -> Streams.stream(inPreOrder()).filter(clazz::isInstance).map(t -> (T1)t).iterator();
     }
 
     /**
@@ -153,8 +181,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      *        The result of the folding function is also of type {@code F}.
      * @param <M> the type parameter of the result of the mapping function
      * @param <F> the type parameter of the result of the folding function
-     * @return an {@link Optional} containing the fold of the tree rooted at {@code this} if it exists,
-     *         {@code Optional.empty()} otherwise.
+     * @return the fold of the tree rooted at {@code this} if it exists, {@code null} otherwise.
      */
     @Nullable
     default <M, F> F foldNullable(@Nonnull final Function<T, M> mapFunction,
