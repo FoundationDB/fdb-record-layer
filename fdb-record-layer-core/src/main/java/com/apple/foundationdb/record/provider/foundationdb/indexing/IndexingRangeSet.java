@@ -165,6 +165,20 @@ public class IndexingRangeSet {
     }
 
     /**
+     * Get all missing ranges in a snapshot resolution. This function can be used to avoid adding all the missing ranges
+     * to the transaction's conflict list.
+     *
+     * @return a future containing a full list of all missing range.
+     */
+    @Nonnull
+    public CompletableFuture<List<Range>> listMissingRangesSnapshotAsync() {
+        final long startTime = System.nanoTime();
+        CompletableFuture<List<Range>> future = rangeSet.missingRanges(context.ensureActive().snapshot(), null, null)
+                .asList();
+        return context.instrument(FDBStoreTimer.Events.RANGE_SET_LIST_MISSING, future, startTime);
+    }
+
+    /**
      * Insert a range into the range set.
      *
      * @param begin the inclusive begin endpoint or {@code null} to indicate the beginning

@@ -338,7 +338,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
         validateSameMetadataOrThrow(store);
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getPrimaryIndex());
-        return rangeSet.listMissingRangesAsync().thenCompose(missingRanges ->
+        return rangeSet.listMissingRangesSnapshotAsync().thenCompose(missingRanges ->
                 buildNextRangeOnly(sortAndSquash(missingRanges), subspaceProvider, subspace));
     }
 
