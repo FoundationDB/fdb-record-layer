@@ -66,7 +66,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
@@ -264,10 +263,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 mapPlan(
-                        fetchFromPartialRecordPlan(
-                                predicatesFilterPlan(
-                                        coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(unbounded())))))
-                                        .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("rest_no"), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)))))));
+                        predicatesFilterPlan(
+                                coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(unbounded())))))
+                                .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("rest_no"), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L))))));
 
         assertMatchesExactly(plan, planMatcher);
     }

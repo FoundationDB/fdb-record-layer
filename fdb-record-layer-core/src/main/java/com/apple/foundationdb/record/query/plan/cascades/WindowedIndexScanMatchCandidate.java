@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
@@ -56,7 +55,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -422,26 +420,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+    public Optional<Value> pushValueThroughFetch(@Nonnull Value toBePushedValue,
                                                  @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
-        // replace the quantified column value inside the given value with the quantified value in the match candidate
-        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, new Type.Any());
-        final Value translatedValue =
-                value.rebase(AliasMap.of(sourceAlias, baseAlias));
-        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(baseAlias));
-
-        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(baseObjectValue), indexKeyValues)) {
-            final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
-            if (resultValueCorrelatedTo.size() != 1) {
-                continue;
-            }
-            if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
-                return Optional.of(matchResultValue.rebase(AliasMap.of(baseAlias, targetAlias)));
-            }
-        }
-
-        return Optional.empty();
+        return ScanWithFetchMatchCandidate.pushValueThroughFetch(toBePushedValue,
+                baseAlias,
+                sourceAlias,
+                targetAlias,
+                indexKeyValues);
     }
 
     @Nonnull

@@ -63,8 +63,10 @@ import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
@@ -87,10 +89,10 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
         assertMatchesExactly(plan,
-                mapPlan(indexPlan()
+                mapPlan(coveringIndexPlan().where(indexPlanOf(indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("SparseIndex"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
-                        .and(scanComparisons(range("([50],>")))));
+                        .and(scanComparisons(range("([50],>")))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -103,10 +105,10 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
         assertMatchesExactly(plan,
-                mapPlan(indexPlan()
+                mapPlan(coveringIndexPlan().where(indexPlanOf(indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("SparseIndex"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
-                        .and(scanComparisons(range("([50],>")))));
+                        .and(scanComparisons(range("([50],>")))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

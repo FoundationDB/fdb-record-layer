@@ -56,9 +56,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * retrieved by an index scan underneath a {@link RecordQueryFetchFromPartialRecordPlan} in order to filter out records
  * not satisfying the pushed predicates prior to a potentially expensive fetch operation.
  *
- * A predicate can be pushed if and only if the predicate's leaves which (in the prior of this rule) refer to entities
- * in the fetched full record can be translated to counterparts in the index record. The translation is specific to
- * the kind of index and the therefore the kind of {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
+ * A predicate can be pushed if and only if the predicate's leaves which (in the prior of this rule refer to entities
+ * in the fetched full record) can be translated to counterparts in the index record. The translation is specific to
+ * the kind of index and therefore the kind of {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
  *
  * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
@@ -198,7 +198,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
         }
 
         // for case 2 and case 3 we can at least build a FILTER(inner, pushedPredicates) as that is
-        // required both for case 2 nd 3
+        // required both for case 2 and 3
 
         final Quantifier.Physical newInnerQuantifier = Quantifier.physical(GroupExpressionRef.of(innerPlan), newInnerAlias);
 
