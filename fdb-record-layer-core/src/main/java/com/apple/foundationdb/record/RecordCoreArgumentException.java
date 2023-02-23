@@ -31,11 +31,11 @@ import javax.annotation.Nonnull;
 public class RecordCoreArgumentException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull Object ... keyValue) {
+    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull Object... keyValue) {
         super(msg, keyValue);
     }
 
-    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull IllegalArgumentException cause) {
+    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull Throwable cause) {
         super(msg, cause);
     }
 }
