@@ -24,11 +24,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -145,12 +143,7 @@ public class IndexingScrubMissing extends IndexingBase {
         validateOrThrowEx(IndexTypes.VALUE.equals(index.getType()) || scrubbingPolicy.ignoreIndexTypeCheck(), "scrubbed index is not a VALUE index");
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
 
-
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
-
+        final ScanProperties scanProperties = scanPropertiesWithLimits(true);
         final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingRecords(store, index);
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
             if (range == null) {

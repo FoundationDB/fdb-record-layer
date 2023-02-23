@@ -36,8 +36,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,7 +53,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public abstract class OnlineIndexerTest extends FDBTestBase {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerTest.class);
 
     RecordMetaData metaData;
     RecordQueryPlanner planner;

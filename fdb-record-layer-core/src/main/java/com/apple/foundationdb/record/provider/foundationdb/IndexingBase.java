@@ -27,13 +27,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -708,87 +711,21 @@ public abstract class IndexingBase {
                                                             @Nonnull AtomicBoolean hasMore,
                                                             @Nullable AtomicLong recordsScanned,
                                                             final boolean isIdempotent) {
-        final FDBStoreTimer timer = getRunner().getTimer();
-        final FDBRecordContext context = store.getContext();
 
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
+        final FDBStoreTimer timer = getRunner().getTimer();
         AtomicLong recordsScannedCounter = new AtomicLong();
-
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
+
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
                         AsyncUtil.whileTrue(() -> cursor.onNext()
-                                .thenCompose(result -> {
-                                    RecordCursorResult<T> currResult;
-                                    final boolean isExhausted;
-                                    if (result.hasNext()) {
-                                        // has next, process one previous item (if exists)
-                                        currResult = nextResult.get();
-                                        nextResult.set(result);
-                                        if (currResult == null) {
-                                            // that was the first item, nothing to process
-                                            return AsyncUtil.READY_TRUE;
-                                        }
-                                        isExhausted = false;
-                                    } else {
-                                        // end of the cursor list
-                                        timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-                                        if (!result.getNoNextReason().isSourceExhausted()) {
-                                            nextResultCont.set(nextResult.get());
-                                            hasMore.set(true);
-                                            return AsyncUtil.READY_FALSE;
-                                        }
-                                        // source is exhausted, fall down to handle the last item and return with hasMore=false
-                                        currResult = nextResult.get();
-                                        if (currResult == null) {
-                                            // there was no data
-                                            hasMore.set(false);
-                                            return AsyncUtil.READY_FALSE;
-                                        }
-                                        // here, process the last item and return
-                                        nextResult.set(null);
-                                        isExhausted = true;
-                                    }
-
-                                    // here: currResult must have value
-                                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
-                                    recordsScannedCounter.incrementAndGet();
-
-                                    return getRecordToIndex.apply(store, currResult)
-                                            .thenCompose(rec -> {
-                                                if (null == rec) {
-                                                    if (isExhausted) {
-                                                        hasMore.set(false);
-                                                        return AsyncUtil.READY_FALSE;
-                                                    }
-                                                    return AsyncUtil.READY_TRUE;
-                                                }
-                                                // This record should be indexed. Add it to the transaction.
-                                                if (isIdempotent) {
-                                                    store.addRecordReadConflict(rec.getPrimaryKey());
-                                                }
-                                                timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-
-                                                final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
-                                                if (isExhausted) {
-                                                    // we've just processed the last item
-                                                    hasMore.set(false);
-                                                    return updateMaintainer.thenApply(vignore -> false);
-                                                }
-                                                return updateMaintainer.thenCompose(vignore ->
-                                                        context.getApproximateTransactionSize().thenApply(size -> {
-                                                            if (size >= common.config.getMaxWriteLimitBytes()) {
-                                                                // the transaction becomes too big - stop iterating
-                                                                timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
-                                                                nextResultCont.set(nextResult.get());
-                                                                hasMore.set(true);
-                                                                return false;
-                                                            }
-                                                            return true;
-                                                        }));
-                                            });
-                                }), cursor.getExecutor()))
+                                .thenCompose(result ->
+                                        iterateCursorOnly(store, timer, result,
+                                                getRecordToIndex, nextResult, nextResultCont,
+                                                recordsScannedCounter, hasMore, isIdempotent)
+                                ), cursor.getExecutor()))
                 .thenApply(vignore -> {
                     long recordsScannedInTransaction = recordsScannedCounter.get();
                     if (recordsScanned != null) {
@@ -803,6 +740,104 @@ public abstract class IndexingBase {
                     }
                     return null;
                 });
+    }
+
+    private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
+                                                             @Nullable FDBStoreTimer timer,
+                                                             @Nonnull RecordCursorResult<T> rangeCursor,
+                                                             @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
+                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                             @Nonnull AtomicLong recordsScannedCounter,
+                                                             @Nonnull AtomicBoolean hasMore,
+                                                             final boolean isIdempotent) {
+        RecordCursorResult<T> currResult;
+        final boolean isExhausted;
+        if (rangeCursor.hasNext()) {
+            // has next, process one previous item (if exists)
+            currResult = nextResult.get();
+            nextResult.set(rangeCursor);
+            if (currResult == null) {
+                // that was the first item, nothing to process
+                return AsyncUtil.READY_TRUE;
+            }
+            isExhausted = false;
+        } else {
+            // end of the cursor list
+            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+            if (!rangeCursor.getNoNextReason().isSourceExhausted()) {
+                nextResultCont.set(nextResult.get());
+                hasMore.set(true);
+                return AsyncUtil.READY_FALSE;
+            }
+            // source is exhausted, fall down to handle the last item and return with hasMore=false
+            currResult = nextResult.get();
+            if (currResult == null) {
+                // there was no data
+                hasMore.set(false);
+                return AsyncUtil.READY_FALSE;
+            }
+            // here, process the last item and return
+            nextResult.set(null);
+            isExhausted = true;
+        }
+
+        // here: currResult must have value
+        timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+        recordsScannedCounter.incrementAndGet();
+
+        return getRecordToIndex.apply(store, currResult)
+                .thenCompose(rec -> {
+                    if (null == rec) {
+                        if (isExhausted) {
+                            hasMore.set(false);
+                            return AsyncUtil.READY_FALSE;
+                        }
+                        return AsyncUtil.READY_TRUE;
+                    }
+                    // This record should be indexed. Add it to the transaction.
+                    if (isIdempotent) {
+                        store.addRecordReadConflict(rec.getPrimaryKey());
+                    }
+                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
+                    if (isExhausted) {
+                        // we've just processed the last item
+                        hasMore.set(false);
+                        return updateMaintainer.thenApply(vignore -> false);
+                    }
+                    return updateMaintainer.thenCompose(vignore ->
+                            hadTransactionReachedLimits(store)
+                                    .thenApply(shouldCommit -> {
+                                        if (shouldCommit) {
+                                            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
+                                            nextResultCont.set(nextResult.get());
+                                            hasMore.set(true);
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                    );
+                });
+    }
+
+    private CompletableFuture<Boolean> hadTransactionReachedLimits(FDBRecordStore store) {
+        final long transactionTimeLimitMilliseconds = common.config.getTransactionTimeLimitMilliseconds();
+        if (transactionTimeLimitMilliseconds > 0 &&
+                transactionTimeLimitMilliseconds < store.getContext().getTransactionAge()) {
+            // return true, since exceeded transaction time limit.
+            // Note that limiting transaction's time via cursor's ExecuteProperties::timeLimit could have caused it to provide
+            // a single record, which would not have been indexed but used for continuation (hence an infinite loop).
+            return AsyncUtil.READY_TRUE;
+        }
+        final long maxWriteLimit = common.config.getMaxWriteLimitBytes();
+        if (maxWriteLimit > 0) {
+            // return a transaction write size limit check
+            return store.getContext().getApproximateTransactionSize()
+                    .thenApply(size -> size > maxWriteLimit);
+        }
+        return AsyncUtil.READY_FALSE;
     }
 
     private CompletableFuture<Void> validateTypeStamp(@Nonnull FDBRecordStore store) {
@@ -891,6 +926,19 @@ public abstract class IndexingBase {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
         return end == null && cont == null;
+    }
+
+    protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {
+        final IsolationLevel isolationLevel =
+                isIdempotent ?
+                IsolationLevel.SNAPSHOT :
+                IsolationLevel.SERIALIZABLE;
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(isolationLevel)
+                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
+
+        return new ScanProperties(executeProperties.build());
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)
