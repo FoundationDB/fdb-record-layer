@@ -21,8 +21,8 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
@@ -33,6 +33,7 @@ import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -40,17 +41,24 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.tuple.ByteArrayUtil.compareUnsigned;
 import static com.apple.foundationdb.tuple.ByteArrayUtil.printable;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -98,7 +106,6 @@ public class RangeSetTest extends FDBTestBase {
         return ByteArrayUtil.compareUnsigned(r1.end, r2.begin) <= 0 || ByteArrayUtil.compareUnsigned(r2.end, r1.begin) <= 0;
     }
 
-
     private void checkIncreasing() {
         List<KeyValue> kvs = db.readAsync(tr -> tr.getRange(rsSubspace.range()).asList()).join();
         byte[] last = null;
@@ -113,7 +120,7 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @BeforeEach
-    public void setUp() throws Exception {
+    void setUp() throws Exception {
         db = FDB.instance().open();
         rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
         rs = new RangeSet(rsSubspace);
@@ -121,7 +128,7 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
-    public void clear() {
+    void clear() {
         db.run(tr -> {
             tr.set(rsSubspace.pack(new byte[]{(byte)0xde, (byte)0xad}), new byte[]{(byte)0xc0, (byte)0xde});
             return null;
@@ -134,7 +141,7 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
-    public void contains() {
+    void contains() {
         // Insert a few ranges manually.
         db.run(tr -> {
             tr.set(rsSubspace.pack(new byte[]{(byte)0x10}), new byte[]{(byte)0x66});
@@ -170,23 +177,23 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
-    public void containsEmpty() {
+    void containsEmpty() {
         assertThrows(IllegalArgumentException.class, () -> rs.contains(db, new byte[0]).join());
     }
 
     @Test
-    public void containsPastFF1() {
+    void containsPastFF1() {
         assertThrows(IllegalArgumentException.class, () -> rs.contains(db, new byte[]{(byte)0xff}).join());
     }
 
     @Test
-    public void containsPastFF2() {
+    void containsPastFF2() {
         assertThrows(IllegalArgumentException.class, () -> rs.contains(db, new byte[]{(byte)0xff, (byte)0x00}).join());
     }
 
     @Test
     @Tag(Tags.Slow)
-    public void insert() {
+    void insert() {
         List<byte[]> keys = createKeys();
         List<Range> rangeSource = Arrays.asList(
                 Range.startsWith(new byte[]{0x10}), // Step 1: An initial range
@@ -233,66 +240,182 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
-    public void insertEmpty() {
+    void insertEmpty() {
         assertThrows(IllegalArgumentException.class, () -> rs.insertRange(db, new byte[0], new byte[]{0x00}));
     }
 
     @Test
-    public void insertInverted() {
+    void insertInverted() {
         assertThrows(IllegalArgumentException.class, () -> rs.insertRange(db, new byte[]{0x15}, new byte[]{0x05}));
     }
 
     @Test
-    public void insertPastEnd() {
+    void insertPastEnd() {
         assertThrows(IllegalArgumentException.class, () -> rs.insertRange(db, new byte[]{(byte)0xff, (byte)0x10}, new byte[]{(byte)0xff, (byte)0x15}));
+    }
+
+    @Test
+    void readAndEditNonOverlappingRanges() {
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 3)) {
+            Range r1 = new Range(new byte[]{0x00}, new byte[]{0x01});
+            Range r2 = new Range(new byte[]{0x02}, new byte[]{0x03});
+            Range r3 = new Range(new byte[]{0x04}, new byte[]{0x05});
+
+            // Insert r1
+            Transaction tr1 = multi.get(0);
+            assertTrue(rs.insertRange(tr1, r1, true).join());
+
+            // In separate transactions, read the ranges r2 and r3. One of them
+            // is before r1 and the other other after
+            Transaction tr2 = multi.get(1);
+            assertEquals(List.of(r2), rs.missingRanges(tr2, r2).asList().join());
+            Transaction tr3 = multi.get(2);
+            assertEquals(List.of(r3), rs.missingRanges(tr3, r3).asList().join());
+
+            // As all three transactions are on non-overlapping ranges, all three should
+            // commit
+            multi.commit();
+        }
+    }
+
+    @Test
+    void concurrentlyExpandReadRange() {
+        Range r1 = new Range(new byte[]{0x02}, new byte[]{0x03});
+        rs.insertRange(db, r1).join();
+
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 18)) {
+            int currTr = 0;
+            Transaction tr1 = multi.get(currTr++);
+            assertTrue(rs.insertRange(tr1, new Range(new byte[]{0x03}, new byte[]{0x04}), true).join());
+
+            // Should succeed
+            assertTrue(rs.contains(multi.get(currTr++), new byte[]{0x02, 0x01}).join());
+            assertFalse(rs.contains(multi.get(currTr++), new byte[]{0x01, 0x01}).join());
+            assertFalse(rs.contains(multi.get(currTr++), new byte[]{0x04}).join());
+            assertEquals(0, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x02, 0x01}, new byte[]{0x02, 0x02}))
+                    .asList().join().size());
+            assertEquals(1, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x01, 0x01}, new byte[]{0x01, 0x02}))
+                    .asList().join().size());
+            assertEquals(1, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x01, 0x01}, new byte[]{0x02}))
+                    .asList().join().size());
+            assertEquals(1, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x04}, new byte[]{0x05}))
+                    .asList().join().size());
+            assertEquals(2, rs.missingRanges(multi.get(currTr++).snapshot()) // Should succeed if read at snapshot
+                    .asList().join().size());
+            assertFalse(rs.isEmpty(multi.get(currTr++).snapshot()).join());
+
+            // Should fail
+            final int failAfter = currTr;
+            assertFalse(rs.contains(multi.get(currTr++), new byte[]{0x03}).join());
+            assertFalse(rs.contains(multi.get(currTr++), new byte[]{0x03, 0x01}).join());
+            assertTrue(rs.contains(multi.get(currTr++), new byte[]{0x02}).join()); // fails because the key 0x02 itself is updated
+            assertEquals(2, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x01}, new byte[]{0x05}))
+                    .asList().join().size());
+            assertEquals(1, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x01}, new byte[]{0x02, 0x01}))
+                    .asList().join().size());
+            assertEquals(0, rs.missingRanges(multi.get(currTr++), r1)
+                    .asList().join().size());
+            assertEquals(1, rs.missingRanges(multi.get(currTr++), new Range(new byte[]{0x03, 0x01}, new byte[]{0x04, 0x01}))
+                    .asList().join().size());
+            assertFalse(rs.isEmpty(multi.get(currTr++)).join());
+
+            assertEquals(multi.size(), currTr);
+            multi.commit(IntStream.range(0, multi.size()).filter(i -> i >= failAfter).boxed().collect(Collectors.toSet()));
+        }
+    }
+
+    @Test
+    void failIfKeyInRangeIsInsertedConcurrently() {
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
+            Range r = new Range(new byte[]{0x01}, new byte[]{0x02});
+            Range overlappingRange = new Range(new byte[]{0x00, 0x01}, new byte[]{0x01, 0x01});
+
+            // Insert a range into the set
+            Transaction tr1 = multi.get(0);
+            assertTrue(rs.insertRange(tr1, overlappingRange, true).join());
+
+            // Read from a range that overlaps this range
+            Transaction tr2 = multi.get(1);
+            assertEquals(List.of(r), rs.missingRanges(tr2, r).asList().join());
+
+            // The second transaction should fail to commit
+            multi.commit(Set.of(1));
+        }
+    }
+
+    @Test
+    void insertNonOverlappingRanges() {
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 10)) {
+            for (int i = 0; i < multi.size(); i++) {
+                Transaction tr = multi.get(i);
+                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)i}, new byte[]{(byte)i, 0x00}), i % 2 == 0).join());
+            }
+
+            // All transactions should be able to commit
+            multi.commit();
+        }
+    }
+
+    @Test
+    void insertOverlappingRanges() {
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 10)) {
+            for (int i = 0; i < multi.size(); i++) {
+                Transaction tr = multi.get(i);
+                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)i}, new byte[]{(byte)(i + 1), 0x00}), false).join());
+            }
+
+            // Even transactions should be able to commit
+            multi.commit(IntStream.range(0, multi.size()).filter(i -> i % 2 != 0).boxed().collect(Collectors.toSet()));
+        }
     }
 
     // Test out a few of the wild and wacky things that can happen when there are insertions going concurrently.
     @Test
-    @Tag(Tags.Slow)
-    public void concurrentWithInsert() {
+    void concurrentWithInsert() {
         final List<byte[]> keys = createKeys();
         final List<Range> ranges = new ArrayList<>();
 
         // Two disjoint ranges -- both should succeed.
-        Transaction tr1 = db.createTransaction();
-        Transaction tr2 = db.createTransaction();
-        Range r1 = new Range(new byte[]{0x01}, new byte[]{0x02});
-        Range r2 = new Range(new byte[]{0x02}, new byte[]{0x03});
-        CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
-        CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
-        assertTrue(future1.join(), "Range 1 did not do insertion.");
-        assertTrue(future2.join(), "Range 2 did not do insertion.");
-        tr1.commit().join();
-        tr2.commit().join();
-        ranges.add(r1);
-        ranges.add(r2);
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
+            Transaction tr1 = multi.get(0);
+            Transaction tr2 = multi.get(1);
+
+            Range r1 = new Range(new byte[]{0x01}, new byte[]{0x02});
+            Range r2 = new Range(new byte[]{0x02}, new byte[]{0x03});
+            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+            CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
+            assertTrue(future1.join(), "Range 1 did not do insertion.");
+            assertTrue(future2.join(), "Range 2 did not do insertion.");
+
+            multi.commit();
+            ranges.add(r1);
+            ranges.add(r2);
+        }
+
         checkConsistent(ranges, keys);
         checkIncreasing();
 
         // Two non-disjoint ranges. The second should fail.
-        tr1 = db.createTransaction();
-        tr2 = db.createTransaction();
-        r1 = new Range(new byte[]{0x03}, new byte[]{0x05});
-        r2 = new Range(new byte[]{0x04}, new byte[]{0x06});
-        future1 = rs.insertRange(tr1, r1);
-        future2 = rs.insertRange(tr2, r2);
-        assertTrue(future1.join(), "Range 1 did not do insertion");
-        assertTrue(future2.join(), "Range 2 did not do insertion");
-        tr1.commit().join();
-        tr2.commit().handle((vignore, e) -> {
-            assertNotNull(e, "No error thrown from commit");
-            assertTrue(e instanceof FDBException, "Non-FDBException " + e.toString());
-            FDBException fdbe = (FDBException)e;
-            assertEquals(FDBError.NOT_COMMITTED.code(), fdbe.getCode(), "Did not get not-committed error.");
-            return vignore;
-        }).join();
-        ranges.add(r1);
+        try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
+            Transaction tr1 = multi.get(0);
+            Transaction tr2 = multi.get(1);
+
+            Range r1 = new Range(new byte[]{0x03}, new byte[]{0x05});
+            Range r2 = new Range(new byte[]{0x04}, new byte[]{0x06});
+            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+            CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
+
+            assertTrue(future1.join(), "Range 1 did not do insertion");
+            assertTrue(future2.join(), "Range 2 did not do insertion");
+            multi.commit(Set.of(1));
+
+            ranges.add(r1);
+        }
+
         checkConsistent(ranges, keys);
         checkIncreasing();
 
         // Read during write - the reads in the range should fail.
-        r1 = new Range(new byte[]{0x07}, new byte[]{0x08});
         List<byte[]> specificKeys = Arrays.asList(
                 new byte[]{0x06, (byte)0xff},
                 new byte[]{0x07},
@@ -303,47 +426,35 @@ public class RangeSetTest extends FDBTestBase {
                 new byte[]{0x08, 0x10},
                 new byte[]{0x09}
         );
-
-        tr1 = db.createTransaction();
-        List<Transaction> transactions = specificKeys.stream().map(ignore -> db.createTransaction()).collect(Collectors.toList());
-        // Add write conflict ranges to each key so that they are not read only.
-        transactions.forEach(tr -> tr.addWriteConflictKey(DEADC0DE));
-
-        future1 = rs.insertRange(tr1, r1);
-        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
-        for (int i = 0; i < specificKeys.size(); i++) {
-            futures.add(rs.contains(transactions.get(i), specificKeys.get(i)));
-        }
-
-        assertTrue(future1.join(), "Range 1 did not do insertion");
-        futures.forEach(future -> assertFalse(future.join(), "Key should not be present"));
-
-        tr1.commit().join();
-        Range range = r1;
-        for (int i = 0; i < transactions.size(); i++) {
-            final int index = i;
-            transactions.get(i).commit().handle((vignore, e) -> {
-                byte[] key = specificKeys.get(index);
-                String repr = ByteArrayUtil.printable(key);
-                if (ByteArrayUtil.compareUnsigned(range.begin, key) <= 0
-                        && ByteArrayUtil.compareUnsigned(key, range.end) < 0 ) {
-                    assertNotNull(e, "No error from commit when key is " + repr);
-                    assertTrue(e instanceof FDBException, "Non-FDBException " + e.toString() + " with key " + repr);
-                    FDBException fdbe = (FDBException)e;
-                    assertEquals(FDBError.NOT_COMMITTED.code(), fdbe.getCode(), "Did not get non-committed error when key is " + repr);
-                } else {
-                    assertNull(e, "Error when key is " + repr);
+        try (MultipleTransactions multi = MultipleTransactions.create(db, specificKeys.size() + 1)) {
+            Transaction tr1 = multi.get(0);
+            Range r1 = new Range(new byte[]{0x07}, new byte[]{0x08});
+            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+            List<CompletableFuture<Boolean>> futures = new ArrayList<>(specificKeys.size());
+            Set<Integer> conflicting = new HashSet<>();
+            for (int i = 0; i < specificKeys.size(); i++) {
+                Transaction tr = multi.get(i + 1);
+                byte[] key = specificKeys.get(i);
+                futures.add(rs.contains(tr, specificKeys.get(i)));
+                if (ByteArrayUtil.compareUnsigned(r1.begin, key) <= 0
+                        && ByteArrayUtil.compareUnsigned(key, r1.end) < 0) {
+                    conflicting.add(i + 1);
                 }
-                return vignore;
-            }).join();
+            }
+
+            assertTrue(future1.join(), "Range 1 did not do insertion");
+            futures.forEach(future -> assertFalse(future.join(), "Key should not be present"));
+
+            multi.commit(conflicting);
+            ranges.add(r1);
         }
-        ranges.add(r1);
+
         checkConsistent(ranges, keys);
         checkIncreasing();
     }
 
     @Test
-    public void isFirstOrFinalKey() {
+    void isFirstOrFinalKey() {
         final byte[] firstKey = new byte[]{(byte)0x00};
         final byte[] finalKey = new byte[]{(byte)0xff};
         final byte[] justAKey = new byte[]{(byte)0x77};
@@ -358,7 +469,7 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
-    public void missingRanges() {
+    void missingRanges() {
         // First, from empty.
         List<Range> ranges = db.readAsync(tr -> rs.missingRanges(tr).asList()).join();
         assertEquals(1, ranges.size());
@@ -430,4 +541,78 @@ public class RangeSetTest extends FDBTestBase {
         }
     }
 
+    private static class MultipleTransactions implements AutoCloseable, Iterable<Transaction> {
+        private final List<Transaction> transactions;
+
+        private MultipleTransactions(List<Transaction> transactions) {
+            this.transactions = transactions;
+        }
+
+        public Transaction get(int i) {
+            return transactions.get(i);
+        }
+
+        @Override
+        @Nonnull
+        public Iterator<Transaction> iterator() {
+            return transactions.iterator();
+        }
+
+        public void forEach(Consumer<? super Transaction> consumer) {
+            transactions.forEach(consumer);
+        }
+
+        @Override
+        public void close() {
+            transactions.forEach(Transaction::close);
+        }
+
+        public int size() {
+            return transactions.size();
+        }
+
+        public void commit() {
+            commit(Collections.emptySet());
+        }
+
+        public void commit(Set<Integer> expectedConflicts) {
+            for (int i = 0; i < transactions.size(); i++) {
+                Transaction tr = transactions.get(i);
+                if (expectedConflicts.contains(i)) {
+                    CompletionException err = assertThrows(CompletionException.class, () -> tr.commit().join(),
+                            String.format("Transaction %d should not commit successfully", i));
+                    Throwable cause = err.getCause();
+                    assertNotNull(cause);
+                    assertTrue(cause instanceof FDBException);
+                    assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)cause).getCode());
+                } else {
+                    assertDoesNotThrow(() -> tr.commit().join(), String.format("Transaction %d should commit successfully", i));
+                }
+            }
+        }
+
+        public static MultipleTransactions create(Database db, int n) {
+            List<Transaction> transactions = new ArrayList<>(n);
+            boolean returned = false;
+            try {
+                for (int i = 0; i < n; i++) {
+                    transactions.add(db.createTransaction());
+                }
+                // Initialize all of the transactions so that the commit version for each of them
+                // will be after the read version for all of them. Also give each transaction a
+                // write conflict key so that it will be committed.
+                transactions.forEach(tr -> {
+                    tr.getReadVersion().join();
+                    tr.addWriteConflictKey(DEADC0DE);
+                });
+                MultipleTransactions multi = new MultipleTransactions(ImmutableList.copyOf(transactions));
+                returned = true;
+                return multi;
+            } finally {
+                if (!returned) {
+                    transactions.forEach(Transaction::close);
+                }
+            }
+        }
+    }
 }
