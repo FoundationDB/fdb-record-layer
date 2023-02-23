@@ -107,7 +107,7 @@ public abstract class IndexComparison {
         /**
          * The type of the comparison, this is a subset of {@link com.apple.foundationdb.record.query.expressions.Comparisons.Type}.
          */
-        enum ComparisonType {
+        public enum ComparisonType {
             EQUALS,
             NOT_EQUALS,
             LESS_THAN,
@@ -281,6 +281,11 @@ public abstract class IndexComparison {
             }
             return new Comparisons.SimpleComparison(type, operand);
         }
+
+        @Override
+        public String toString() {
+            return comparisonType.name() + ' ' + operand + ' ';
+        }
     }
 
     /**
@@ -317,6 +322,11 @@ public abstract class IndexComparison {
         @Override
         public Comparisons.Comparison toComparison() {
             return new Comparisons.NullComparison(isNull ? Comparisons.Type.IS_NULL : Comparisons.Type.NOT_NULL);
+        }
+
+        @Override
+        public String toString() {
+            return isNull ? "IS NULL " : "IS NOT NULL ";
         }
     }
 }

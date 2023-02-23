@@ -39,6 +39,17 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.338.0
+
+* **Bug fix** OnlineIndexer: make stamp operations public [(Issue #2027)](https://github.com/FoundationDB/fdb-record-layer/issues/2027)
+
+### 3.3.337.0
+
+
+### 3.3.336.0
+
+* **Feature** improve logic to push plans through a fetch [(Issue #2020)](https://github.com/FoundationDB/fdb-record-layer/issues/2020)
+
 ### 3.3.335.0
 
 * **Bug fix** The `StoreSubTimer` class now forwards metrics to an underlying timer when `add` is called, which previously could cause metrics reported only on commit to disappear entirely [(Issue #2010)](https://github.com/FoundationDB/fdb-record-layer/issues/2010)
