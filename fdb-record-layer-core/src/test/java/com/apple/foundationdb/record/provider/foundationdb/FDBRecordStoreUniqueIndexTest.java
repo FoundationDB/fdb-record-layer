@@ -340,8 +340,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         // last_modified_version, so adding it to the meta-data won't cause the index to be rebuilt during
         // check version. However, bump the meta-data version to ensure that anyone with an old meta-data version
         // (who will expect the index to be unique, if READABLE) knows to reload the meta-data.
-        final Index nonUniqueIndex = new Index(uniqueIndex);
-        nonUniqueIndex.getOptions().put(IndexOptions.UNIQUE_OPTION, Boolean.FALSE.toString());
+        final Index nonUniqueIndex = new IndexWithOptions(uniqueIndex, IndexOptions.UNIQUE_OPTION, Boolean.FALSE.toString());
         assertFalse(nonUniqueIndex.isUnique());
         final RecordMetaDataHook nonUniqueHook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", nonUniqueIndex);
