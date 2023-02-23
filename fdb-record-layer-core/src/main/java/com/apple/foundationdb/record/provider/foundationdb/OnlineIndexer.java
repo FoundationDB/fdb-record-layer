@@ -819,7 +819,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps".
      */
     @API(API.Status.EXPERIMENTAL)
-    Map<String, IndexBuildProto.IndexBuildIndexingStamp> queryIndexingStamps() {
+    public Map<String, IndexBuildProto.IndexBuildIndexingStamp> queryIndexingStamps() {
         return indexingStamp(IndexingBase.IndexingStampOperation.QUERY, null, null);
     }
 
@@ -831,7 +831,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    Map<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
+    public Map<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
         return indexingStamp(IndexingBase.IndexingStampOperation.BLOCK, id, ttlSeconds);
     }
 
@@ -842,7 +842,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return  a map of target indexes and their "indexing stamps" before the change.
      */
     @API(API.Status.EXPERIMENTAL)
-    Map<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {
+    public Map<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {
         return indexingStamp(IndexingBase.IndexingStampOperation.UNBLOCK, id, null);
     }
 
