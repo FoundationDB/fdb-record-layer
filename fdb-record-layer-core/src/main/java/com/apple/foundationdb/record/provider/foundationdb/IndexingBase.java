@@ -27,13 +27,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -714,7 +717,6 @@ public abstract class IndexingBase {
         final FDBStoreTimer timer = getRunner().getTimer();
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
-        final long transactionStartMillis = System.currentTimeMillis();
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -722,8 +724,7 @@ public abstract class IndexingBase {
                                 .thenCompose(result ->
                                         iterateCursorOnly(store, timer, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
-                                                recordsScannedCounter, hasMore, isIdempotent,
-                                                transactionStartMillis)
+                                                recordsScannedCounter, hasMore, isIdempotent)
                                 ), cursor.getExecutor()))
                 .thenApply(vignore -> {
                     long recordsScannedInTransaction = recordsScannedCounter.get();
@@ -742,15 +743,14 @@ public abstract class IndexingBase {
     }
 
     private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
-                                                             @Nonnull FDBStoreTimer timer,
+                                                             @Nullable FDBStoreTimer timer,
                                                              @Nonnull RecordCursorResult<T> rangeCursor,
                                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                              @Nonnull AtomicLong recordsScannedCounter,
                                                              @Nonnull AtomicBoolean hasMore,
-                                                             final boolean isIdempotent,
-                                                             final long transactionStartMillis) {
+                                                             final boolean isIdempotent) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
         if (rangeCursor.hasNext()) {
@@ -808,7 +808,7 @@ public abstract class IndexingBase {
                         return updateMaintainer.thenApply(vignore -> false);
                     }
                     return updateMaintainer.thenCompose(vignore ->
-                            hadTransactionReachedLimits(transactionStartMillis, store)
+                            hadTransactionReachedLimits(store)
                                     .thenApply(shouldCommit -> {
                                         if (shouldCommit) {
                                             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
@@ -822,15 +822,14 @@ public abstract class IndexingBase {
                 });
     }
 
-    private CompletableFuture<Boolean> hadTransactionReachedLimits(long transactionStartMillis,
-                                                                   FDBRecordStore store) {
-        final long transactionTimeQuotaMilliseconds = common.config.getTransactionTimeQuotaMilliseconds();
-        if (transactionTimeQuotaMilliseconds > 0) {
-            long nowMillis = System.currentTimeMillis();
-            if (nowMillis > (transactionStartMillis + transactionTimeQuotaMilliseconds)) {
-                // reached transaction time quota limit
-                return AsyncUtil.READY_TRUE;
-            }
+    private CompletableFuture<Boolean> hadTransactionReachedLimits(FDBRecordStore store) {
+        final long transactionTimeLimitMilliseconds = common.config.getTransactionTimeLimitMilliseconds();
+        if (transactionTimeLimitMilliseconds > 0 &&
+                transactionTimeLimitMilliseconds < store.getContext().getTransactionAge()) {
+            // return true, since exceeded transaction time limit.
+            // Note that limiting transaction's time via cursor's ExecuteProperties::timeLimit could have caused it to provide
+            // a single record, which would not have been indexed but used for continuation (hence an infinite loop).
+            return AsyncUtil.READY_TRUE;
         }
         final long maxWriteLimit = common.config.getMaxWriteLimitBytes();
         if (maxWriteLimit > 0) {
@@ -927,6 +926,19 @@ public abstract class IndexingBase {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
         return end == null && cont == null;
+    }
+
+    protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {
+        final IsolationLevel isolationLevel =
+                isIdempotent ?
+                IsolationLevel.SNAPSHOT :
+                IsolationLevel.SERIALIZABLE;
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(isolationLevel)
+                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
+
+        return new ScanProperties(executeProperties.build());
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)

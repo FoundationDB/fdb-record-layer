@@ -108,16 +108,16 @@ public class IndexingThrottle {
 
     private synchronized void loadConfig() {
         if (common.loadConfig()) {
-            final int initialLimit = common.config.getInitialLimit();
-            if (limit > initialLimit) {
+            final int maxLimit = common.config.getMaxLimit();
+            if (limit > maxLimit) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
-                            KeyValueLogMessage.build("Decreasing the limit to the new initial limit.",
+                            KeyValueLogMessage.build("Decreasing the limit to the new max limit.",
                                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                     LogMessageKeys.LIMIT, limit,
-                                    LogMessageKeys.MAX_LIMIT, initialLimit).toString());
+                                    LogMessageKeys.MAX_LIMIT, maxLimit).toString());
                 }
-                limit = initialLimit;
+                limit = maxLimit;
             }
         }
     }

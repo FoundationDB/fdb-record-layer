@@ -128,6 +128,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Default length between last access and lease's end time in milliseconds.
      */
     public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
+    public static final long DEFAULT_TRANSACTION_TIME_LIMIT = 4_000;
     /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
@@ -892,20 +893,20 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
         private final long timeLimitMilliseconds;
-        private final long transactionTimeQuotaMilliseconds;
+        private final long transactionTimeLimitMilliseconds;
         public static final long UNLIMITED_TIME = 0;
 
         Config(int maxLimit, int initialLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
-                   int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeQuotaMilliseconds) {
+                   int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds) {
             this.maxLimit = maxLimit;
-            this.initialLimit = initialLimit > 0 && initialLimit < maxLimit ? initialLimit : maxLimit;
+            this.initialLimit = initialLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
             this.progressLogIntervalMillis = progressLogIntervalMillis;
             this.increaseLimitAfter = increaseLimitAfter;
             this.maxWriteLimitBytes = maxWriteLimitBytes;
             this.timeLimitMilliseconds = timeLimitMilliseconds;
-            this.transactionTimeQuotaMilliseconds = transactionTimeQuotaMilliseconds;
+            this.transactionTimeLimitMilliseconds = transactionTimeLimitMilliseconds;
         }
 
         /**
@@ -921,7 +922,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @return the initial number of records to process in one transaction
          */
         public int getInitialLimit() {
-            return initialLimit;
+            return initialLimit > 0 ? Math.min(initialLimit, maxLimit) : maxLimit;
         }
 
         /**
@@ -980,8 +981,8 @@ public class OnlineIndexer implements AutoCloseable {
          * Get the time quota for a single transaction.
          * @return the time quota for a single transaction
          */
-        public long getTransactionTimeQuotaMilliseconds() {
-            return transactionTimeQuotaMilliseconds;
+        public long getTransactionTimeLimitMilliseconds() {
+            return transactionTimeLimitMilliseconds;
         }
 
         @Nonnull
@@ -1004,7 +1005,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setRecordsPerSecond(this.recordsPerSecond)
                     .setMaxRetries(this.maxRetries)
                     .setTimeLimitMilliseconds(timeLimitMilliseconds)
-                    .setTransactionTimeQuotaMilliseconds(this.transactionTimeQuotaMilliseconds);
+                    .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds);
         }
 
         /**
@@ -1021,7 +1022,7 @@ public class OnlineIndexer implements AutoCloseable {
             private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
             private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
             private long timeLimitMilliseconds = UNLIMITED_TIME;
-            private long transactionTimeQuotaMilliseconds = UNLIMITED_TIME;
+            private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
 
             protected Builder() {
 
@@ -1134,18 +1135,19 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set the time quota for a single transaction. If this quota is exceeds, the indexer will commit the
-             * transaction and start a new one. This can be useful to avoid timeouts while scanning a high number of records
+             * Set the time limit for a single transaction. If this limit is exceeded, the indexer will commit the
+             * transaction and start a new one. This can be useful to avoid timeouts while scanning many records
              * in each transaction.
-             * A non-positive value (default) implies unlimited quota.
-             * Note that this quota, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
+             * A non-positive value implies unlimited.
+             * Note that this limit, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
              * a good idea.
-             * @param timeQuotaMilliseconds the time limit in milliseconds
+             * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
+             * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
              * @return this builder
              */
             @Nonnull
-            public Builder setTransactionTimeQuotaMilliseconds(long timeQuotaMilliseconds) {
-                this.transactionTimeQuotaMilliseconds = timeQuotaMilliseconds;
+            public Builder setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
+                this.transactionTimeLimitMilliseconds = timeLimitMilliseconds;
                 return this;
             }
 
@@ -1156,7 +1158,7 @@ public class OnlineIndexer implements AutoCloseable {
             @Nonnull
             public Config build() {
                 return new Config(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
-                        maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeQuotaMilliseconds);
+                        maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds);
             }
         }
     }
@@ -1201,7 +1203,7 @@ public class OnlineIndexer implements AutoCloseable {
         private boolean useSynchronizedSession = true;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
         private long timeLimitMilliseconds = 0;
-        private long transactionTimeQuotaMilliseconds = 0;
+        private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
 
         protected Builder() {
         }
@@ -1984,18 +1986,19 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set the time quota for a single transaction. If this quota is exceeds, the indexer will commit the
-         * transaction and start a new one. This can be useful to avoid timeouts while scanning a high number of records
+         * Set the time limit for a single transaction. If this limit is exceeded, the indexer will commit the
+         * transaction and start a new one. This can be useful to avoid timeouts while scanning many records
          * in each transaction.
-         * A non-positive value (default) implies unlimited quota.
-         * Note that this quota, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
+         * A non-positive value implies unlimited.
+         * Note that this limit, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
          * a good idea.
-         * @param timeQuotaMilliseconds the time limit in milliseconds
+         * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
+         * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
          * @return this builder
          */
         @Nonnull
-        public Builder setTransactionTimeQuotaMilliseconds(long timeQuotaMilliseconds) {
-            this.transactionTimeQuotaMilliseconds = timeQuotaMilliseconds;
+        public Builder setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
+            this.transactionTimeLimitMilliseconds = timeLimitMilliseconds;
             return this;
         }
 
@@ -2037,7 +2040,7 @@ public class OnlineIndexer implements AutoCloseable {
             determineIndexingPolicy();
             validate();
             Config conf = new Config(limit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
-                    maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeQuotaMilliseconds);
+                    maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds);
             return new OnlineIndexer(runner, recordStoreBuilder, targetIndexes, recordTypes,
                     configLoader, conf,
                     useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);

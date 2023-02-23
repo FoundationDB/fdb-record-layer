@@ -194,7 +194,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
-                .setTransactionTimeQuotaMilliseconds(1)
+                .setTransactionTimeLimitMilliseconds(1)
                 .build()) {
             indexBuilder.buildIndex(true);
         }

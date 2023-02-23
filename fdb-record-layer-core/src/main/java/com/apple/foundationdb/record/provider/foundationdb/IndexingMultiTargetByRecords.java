@@ -162,18 +162,9 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         validateSameMetadataOrThrow(store);
         final List<Index> targetIndexes = common.getTargetIndexes();
         final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
-
-        final IsolationLevel isolationLevel =
-                isIdempotent ?
-                IsolationLevel.SNAPSHOT :
-                IsolationLevel.SERIALIZABLE;
-
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
-
+        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, common.getPrimaryIndex());
+
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
             if (range == null) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
