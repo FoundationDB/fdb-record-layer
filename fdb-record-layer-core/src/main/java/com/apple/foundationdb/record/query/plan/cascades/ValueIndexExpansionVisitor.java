@@ -196,6 +196,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
         final var trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
         index.trimPrimaryKey(trimmedPrimaryKeyComponents);
+        if (trimmedPrimaryKeyComponents.isEmpty()) {
+            return rootExpression;
+        }
         final var fullKeyListBuilder = ImmutableList.<KeyExpression>builder();
         fullKeyListBuilder.add(rootExpression);
         fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
