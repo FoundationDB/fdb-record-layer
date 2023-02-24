@@ -44,23 +44,23 @@
 ---
 - connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
 ---
-- query: explain select id from t3 where tombstone = true or tombstone is not null
-- result: [{!sc "map(Index(I4 <,>"}]
+- query: select id from t3 where tombstone = true or tombstone is not null
+- explain: [{!sc "map(Covering(Index(I4 <,>"}]
 ---
-- query: explain select col1 from t1 where col1 > 55 and col1 < 100
-- result: [{!sc "map(Index(I1 ([55],[100]))"}]
+- query: select col1 from t1 where col1 > 55 and col1 < 100
+- explain: [{!sc "map(Covering(Index(I1 ([55],[100]))"}]
 ---
-- query: explain select col1 from t1 where col1 > 50 and col1 < 350
-- result: [{!sc "map(Index(I2 ([50],[350]))"}]
+- query: select col1 from t1 where col1 > 50 and col1 < 350
+- explain: [{!sc "map(Covering(Index(I2 ([50],[350]))"}]
 ---
-- query: explain select tombstone from t2 where tombstone is null
-- result: [{!sc "map(Scan("}]
+- query: select tombstone from t2 where tombstone is null
+- explain: [{!sc "map(Scan("}]
 ---
-- query: explain select tombstone from t2 where tombstone is not null
-- result: [{!sc "map(Index(I3 ([null],>)"}]
+- query: select tombstone from t2 where tombstone is not null
+- explain: [{!sc "map(Covering(Index(I3 ([null],>)"}]
 ---
-- query: explain select id from t5 where col1 < 40 or col1 > 90
-- result: [{!sc "map(Index(I6 <,>"}]
+- query: select id from t5 where col1 < 40 or col1 > 90
+- explain: [{!sc "map(Covering(Index(I6 <,>"}]
 ---
 - query: drop database /FRL/SPARSE_YAML
 ...

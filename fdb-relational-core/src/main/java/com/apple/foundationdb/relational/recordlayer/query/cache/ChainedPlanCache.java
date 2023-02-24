@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalQuery;
 
@@ -140,7 +142,8 @@ public class ChainedPlanCache implements PlanCache {
         );
 
         //used as the secondary field in the entry
-        List<String> indexFields = new ArrayList<>(plan.getUsedIndexes());
+        // TODO used indexes should not be set here, this is a crux that just puts in all the queried record types
+        List<String> indexFields = new ArrayList<>(RecordTypesProperty.evaluate(GroupExpressionRef.of(plan)));
         Collections.sort(indexFields); //make sure that we have a uniform ordering
         CacheKey key = new CacheKey(query, indexFields);
         cacheMap.put(key, new CacheValue(query, plan, cacheConditions));

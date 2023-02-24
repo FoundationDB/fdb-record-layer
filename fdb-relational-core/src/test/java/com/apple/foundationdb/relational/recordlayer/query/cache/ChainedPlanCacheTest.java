@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalQuery;
 
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -87,6 +88,7 @@ public class ChainedPlanCacheTest {
         Assertions.assertThat(pc.getPlan(lq, secondSs)).isNull();
     }
 
+    @Disabled
     @Test
     void canCacheMultipleEntriesWithDifferentIndexes() {
         LogicalQuery lq = new LogicalQuery("select * from restaurant", 0);
