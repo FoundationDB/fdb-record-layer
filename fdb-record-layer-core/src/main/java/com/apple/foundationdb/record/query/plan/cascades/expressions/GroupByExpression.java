@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -277,7 +278,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap aliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          @Nonnull final EvaluationContext evaluationContext) {
 
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -34,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -61,7 +61,7 @@ public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileT
     @Override
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
         return Optional.of(new ExistsPredicate(child.getAlias()));
     }

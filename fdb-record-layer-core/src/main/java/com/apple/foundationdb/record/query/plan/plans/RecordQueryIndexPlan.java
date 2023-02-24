@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -119,7 +120,12 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
+public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
+                                             RecordQueryPlanWithComparisons,
+                                             RecordQueryPlanWithIndex,
+                                             PlannerGraphRewritable,
+                                             RecordQueryPlanWithMatchCandidate,
+                                             RecordQueryPlanWithConstraint {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
@@ -139,6 +145,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Optional<? extends MatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Type resultType;
+    @Nonnull
+    private final QueryPlanConstraint constraint;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
@@ -176,6 +184,19 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                 final boolean strictlySorted,
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, QueryPlanConstraint.tautology());
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -191,6 +212,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 this.indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
             }
         }
+        this.constraint = constraint;
     }
 
     @Nonnull
@@ -625,6 +647,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
             LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                     LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
         }
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlanConstraint getConstraint() {
+        return constraint;
     }
 
     /**

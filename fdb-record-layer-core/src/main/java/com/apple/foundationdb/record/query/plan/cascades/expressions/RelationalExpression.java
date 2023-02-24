@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -668,17 +669,20 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *         all the records that the query may produce.
      *     </li>
      * </ul>
+     *
      * @param candidateExpression the candidate expression
      * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
-     *        from one of the expressions below that quantifier
+     * from one of the expressions below that quantifier
+     *
      * @return an iterable of {@link MatchInfo}s if subsumption between this expression and the candidate expression
-     *         can be established
+     * can be established
      */
     @Nonnull
     default Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                            @Nonnull final AliasMap aliasMap,
-                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                           @Nonnull final EvaluationContext evaluationContext) {
         // we don't match by default -- end
         return ImmutableList.of();
     }

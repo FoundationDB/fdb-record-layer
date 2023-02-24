@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
@@ -317,6 +319,23 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .build();
         return new QueryPlanResult(plan, info);
+    }
+
+    @Nonnull
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull final EvaluationContext evaluationContext) {
+        try {
+            planPartial(() -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(metaData, query)),
+                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query, evaluationContext));
+            final RecordQueryPlan plan = resultOrFail();
+            final QueryPlanInfo info = QueryPlanInfo.newBuilder()
+                    .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
+                    .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
+                    .build();
+            final var constraints = QueryPlanConstraint.collectConstraints(plan);
+            return new QueryPlanResult(plan, info, constraints);
+        } finally {
+            Debugger.withDebugger(Debugger::onDone);
+        }
     }
 
     @Nonnull

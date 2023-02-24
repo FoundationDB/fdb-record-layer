@@ -167,10 +167,13 @@ public class OrPredicate extends AndOrPredicate {
      * ranges of the {@code this} and the candidate predicate and, if the construction is possible, matches them.
      * Matching the disjunction sets works as the following:
      * <br>
-     * given an LHS that is: range(x1,x2) ∪ range(x3, x4) ∪ range(x5, x6) and RHS that is range(y1, y2) ∪ range (y3, y4):
-     * - each range in the LHS must find a companion range in RHS that implies it, if not, we reject the candidate predicate.
+     * given an LHS that is: range(x1,x2) ∪ range(x3, x4) ∪ range(x5, x6) and RHS that is range(y1, y2) ∪ range (y3,
+     * y4):
+     * - each range in the LHS must find a companion range in RHS that implies it, if not, we reject the candidate
+     * predicate.
      * <br>
-     * - if each companion range is _also_ implied by the LHS range, we have a match that does not require any compensation.
+     * - if each companion range is _also_ implied by the LHS range, we have a match that does not require any
+     * compensation.
      * <br>
      * - otherwise, we match with a compensation that is effectively the reapplication of the entire LHS on top.
      * <br>
@@ -194,20 +197,21 @@ public class OrPredicate extends AndOrPredicate {
      *
      * @param aliasMap the current alias map.
      * @param candidatePredicate another predicate to match.
+     *
      * @return optional match mapping.
      */
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
+    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate, final @Nonnull EvaluationContext evaluationContext) {
         final var valueWithRangesMaybe = toValueWithRangesMaybe();
         if (valueWithRangesMaybe.isEmpty()) {
-            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
         }
         final var leftValueWithRanges = valueWithRangesMaybe.get();
 
         final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe();
         if (candidateValueWithRangesMaybe.isEmpty()) {
-            return super.impliesCandidatePredicate(aliasMap, candidatePredicate);
+            return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
         }
         final var rightValueWithRanges = candidateValueWithRangesMaybe.get();
 

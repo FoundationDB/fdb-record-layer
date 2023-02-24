@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This class represents the result of matching one expression against a candidate.
@@ -60,6 +62,9 @@ public class MatchInfo {
 
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
+
+    @Nonnull
+    private final Supplier<Optional<QueryPlanConstraint>> capturedConstraintsSupplier;
 
     @Nonnull
     private final PredicateMap predicateMap;
@@ -85,6 +90,18 @@ public class MatchInfo {
             quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
             return mapBuilder.build();
         });
+        this.capturedConstraintsSupplier = Suppliers.memoize(() -> {
+            final var constraints = predicateMap.getMap()
+                    .values()
+                    .stream()
+                    .flatMap(predicate -> predicate.getConstraint().isPresent() ? Stream.of(predicate.getConstraint().get()) : Stream.empty())
+                    .collect(Collectors.toUnmodifiableList());
+            if (constraints.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(evaluationContext -> constraints.stream().allMatch(constraint -> constraint.satisfiesConstraint(evaluationContext)));
+        }
+        );
         this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
             final PredicateMap.Builder targetBuilder = PredicateMap.builder();
@@ -119,6 +136,11 @@ public class MatchInfo {
     @Nonnull
     public PredicateMap getPredicateMap() {
         return predicateMap;
+    }
+
+    @Nonnull
+    public Optional<QueryPlanConstraint> getConstraintMaybe() {
+        return capturedConstraintsSupplier.get();
     }
 
     @Nonnull

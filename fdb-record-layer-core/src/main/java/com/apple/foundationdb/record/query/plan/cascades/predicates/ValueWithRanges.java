@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -212,14 +214,17 @@ public class ValueWithRanges implements PredicateWithValue {
      *  to each other and the candidate domain is bound, then we check if {@code this} range is enclosed by the candidate's
      *  range, if so, we have an implication and we proceed to create a mapping similar to the above logic.</li>
      * </ul>
+     *
      * @param aliasMap the current alias map
      * @param candidatePredicate another predicate (usually in a match candidate)
+     *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
     @Nonnull
     @Override
     public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
-                                                                @Nonnull final QueryPredicate candidatePredicate) {
+                                                                @Nonnull final QueryPredicate candidatePredicate,
+                                                                @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
             return Optional.empty();
         }
@@ -252,7 +257,8 @@ public class ValueWithRanges implements PredicateWithValue {
             }
 
             final var candidateRanges = candidate.getRanges();
-            if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()))) {
+            final var dereferencedValueWithRanges = dereference(evaluationContext);
+            if (dereferencedValueWithRanges.getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
@@ -260,7 +266,7 @@ public class ValueWithRanges implements PredicateWithValue {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, alias));
+                    }, Optional.of(alias), Optional.of(captureConstraint(candidate))));
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
@@ -272,7 +278,7 @@ public class ValueWithRanges implements PredicateWithValue {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }));
+                    }, Optional.empty(), Optional.of(captureConstraint(candidate))));
                 }
             }
         }
@@ -335,5 +341,41 @@ public class ValueWithRanges implements PredicateWithValue {
     @Override
     public String toString() {
         return "(" + getValue() + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
+    }
+
+    @Nonnull
+    private ValueWithRanges dereference(@Nonnull final EvaluationContext evaluationContext) {
+        final var newRanges = ImmutableSet.<RangeConstraints>builder();
+        for (final var range : ranges) {
+            final var builder = RangeConstraints.newBuilder();
+            for (final var comparison : range.getComparisons()) {
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    final var valueComparison = (Comparisons.ValueComparison)comparison;
+                    final var comparisonValue = valueComparison.getComparandValue();
+                    final var newComparisonValue = comparisonValue.isConstant() ? comparisonValue.compileTimeEval(evaluationContext) : comparisonValue;
+                    if (newComparisonValue instanceof Value) {
+                        builder.addComparisonMaybe(comparison);
+                    } else {
+                        builder.addComparisonMaybe(new Comparisons.SimpleComparison(valueComparison.getType(), comparisonValue));
+                    }
+                } else {
+                    builder.addComparisonMaybe(comparison);
+                }
+            }
+            newRanges.add(builder.build().orElseThrow());
+        }
+        return new ValueWithRanges(value, newRanges.build());
+    }
+
+    @Nonnull
+    private QueryPlanConstraint captureConstraint(@Nonnull final ValueWithRanges candidatePredicate) {
+        return evaluationContext ->
+                dereference(evaluationContext)
+                        .getRanges()
+                        .stream()
+                        .allMatch(range -> candidatePredicate
+                                .getRanges()
+                                .stream()
+                                .anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()));
     }
 }

@@ -130,7 +130,7 @@ class BooleanValueTest {
         }
 
         @Override
-        public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
+        public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext, @Nonnull final CorrelationIdentifier innermostAlias) {
             return Optional.empty();
         }
     }
@@ -760,7 +760,7 @@ class BooleanValueTest {
         if (result != null) {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(EvaluationContext.forTypeRepository(typeRepositoryBuilder.build()), Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {

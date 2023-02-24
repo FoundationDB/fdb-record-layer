@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -231,8 +232,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
-                                (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
-                                baseRecordType));
+                                Optional.of((ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()),
+                                baseRecordType,
+                                partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -284,8 +286,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
-                        (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
-                        baseRecordType);
+                        Optional.of((ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()),
+                        baseRecordType,
+                        partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -224,7 +225,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap aliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          @Nonnull final EvaluationContext evaluationContext) {
         // TODO This method should be simplified by adding some structure to it.
         final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
@@ -416,7 +418,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             if (correlatedToMatchedAliases) {
                 final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates());
+                        predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates(), evaluationContext);
 
                 if (!correlatedToUnmatchedAliases) {
                     predicateMappingsBuilder.add(impliedMappingsForPredicate);

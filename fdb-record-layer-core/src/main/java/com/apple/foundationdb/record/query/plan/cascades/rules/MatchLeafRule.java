@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -87,7 +88,7 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
                     // member expressions that do have quantifiers they range over as we are interested in only the leaf
                     // expressions.
                     if (leafMember.getQuantifiers().isEmpty()) {
-                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember);
+                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember, context.getEvaluationContext());
                         // yield any match to the planner
                         boundMatchInfos.forEach(boundMatchInfo ->
                                 call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
@@ -109,7 +110,8 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
      *         mappings (between query expression and candidate expression).
      */
     private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(@Nonnull RelationalExpression expression,
-                                                               @Nonnull RelationalExpression candidateExpression) {
+                                                               @Nonnull RelationalExpression candidateExpression,
+                                                               @Nonnull final EvaluationContext context) {
         // Enumerate all possibilities for aliases that this expression and the candidate expression are correlated to.
         final Iterable<AliasMap> boundCorrelatedIterable =
                 expression.enumerateUnboundCorrelatedTo(AliasMap.emptyMap(), candidateExpression);
@@ -119,7 +121,7 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
         // be mostly only zero or one.
         return IterableHelpers.flatMap(boundCorrelatedIterable,
                 boundAliasMap ->
-                        IterableHelpers.map(expression.subsumedBy(candidateExpression, boundAliasMap, IdentityBiMap.create()),
+                        IterableHelpers.map(expression.subsumedBy(candidateExpression, boundAliasMap, IdentityBiMap.create(), context),
                                 matchInfo ->
                                         BoundMatch.withAliasMapAndMatchResult(boundAliasMap, matchInfo)));
     }

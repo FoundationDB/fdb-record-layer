@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.google.common.base.Verify;
@@ -120,37 +121,50 @@ public class PredicateMultiMap {
         @Nonnull
         private final Optional<CorrelationIdentifier> parameterAliasOptional;
 
+        @Nonnull
+        private final Optional<QueryPlanConstraint> constraint;
+
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction) {
-            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.empty());
+            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.empty(), Optional.empty());
         }
 
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                 @Nonnull final CorrelationIdentifier parameterAlias) {
-            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.of(parameterAlias));
+            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, Optional.of(parameterAlias), Optional.empty());
         }
 
         public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                 @Nonnull final QueryPredicate candidatePredicate,
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                 @Nonnull final Optional<CorrelationIdentifier> parameterAlias) {
-            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias);
+            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias, Optional.empty());
+        }
+
+        public PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
+                                @Nonnull final QueryPredicate candidatePredicate,
+                                @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
+                                @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
+                                @Nonnull final Optional<QueryPlanConstraint> constraint) {
+            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias, constraint);
         }
 
         private PredicateMapping(@Nonnull final Kind mappingKind,
                                  @Nonnull final QueryPredicate queryPredicate,
                                  @Nonnull final Optional<QueryPredicate> candidatePredicateOptional,
                                  @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
-                                 @Nonnull final Optional<CorrelationIdentifier> parameterAlias) {
+                                 @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
+                                 @Nonnull final Optional<QueryPlanConstraint> constraint) {
             Verify.verify(mappingKind.hasMapping == candidatePredicateOptional.isPresent());
             this.mappingKind = mappingKind;
             this.queryPredicate = queryPredicate;
             this.candidatePredicateOptional = candidatePredicateOptional;
             this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
+            this.constraint = constraint;
         }
 
         @Nonnull
@@ -192,6 +206,11 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
+        public Optional<QueryPlanConstraint> getConstraint() {
+            return constraint;
+        }
+
+        @Nonnull
         public static PredicateMapping noMappingUncorrelated(@Nonnull final QueryPredicate queryPredicate) {
             return noMappingWithKind(Kind.UNCORRELATED, queryPredicate);
         }
@@ -204,7 +223,7 @@ public class PredicateMultiMap {
         @Nonnull
         private static PredicateMapping noMappingWithKind(@Nonnull final Kind mappingKind, @Nonnull final QueryPredicate queryPredicate) {
             Verify.verify(!mappingKind.hasMapping());
-            return new PredicateMapping(mappingKind, queryPredicate, Optional.empty(), CompensatePredicateFunction.UNDEFINED, Optional.empty());
+            return new PredicateMapping(mappingKind, queryPredicate, Optional.empty(), CompensatePredicateFunction.UNDEFINED, Optional.empty(), Optional.empty());
         }
     }
 

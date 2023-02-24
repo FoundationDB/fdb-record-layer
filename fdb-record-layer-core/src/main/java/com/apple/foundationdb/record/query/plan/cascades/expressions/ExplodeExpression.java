@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -125,7 +126,10 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          @Nonnull final EvaluationContext evaluationContext) {
         return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
     }
 

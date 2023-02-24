@@ -155,12 +155,16 @@ public class QueryPlanInfo {
     public static class Builder {
         private final Map<QueryPlanInfoKey<?>, Object> infoMap;
 
+        @Nonnull
+        private QueryPlanConstraint constraint;
+
         private Builder() {
             infoMap = new HashMap<>();
         }
 
         private Builder(QueryPlanInfo source) {
             infoMap = new HashMap<>(source.info);
+            constraint = QueryPlanConstraint.tautology();
         }
 
         /**

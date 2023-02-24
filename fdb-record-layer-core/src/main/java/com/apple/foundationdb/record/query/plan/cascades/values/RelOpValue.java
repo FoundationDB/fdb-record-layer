@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -131,7 +130,7 @@ public class RelOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
@@ -141,9 +140,9 @@ public class RelOpValue implements BooleanValue {
             if (childCorrelatedTo.contains(innermostAlias)) {
                 // AFAIU [NOT] NULL are the only unary predicates
                 return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
-            } else if (typeRepository != null) {
+            } else if (evaluationContext != null) {
                 // it seems this is a constant expression, try to evaluate it.
-                return tryBoxSelfAsConstantPredicate(typeRepository);
+                return tryBoxSelfAsConstantPredicate(evaluationContext);
             }
         } else if (childrenCount == 2) {
             // only binary comparison functions are commutative.
@@ -154,17 +153,17 @@ public class RelOpValue implements BooleanValue {
             final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
 
-            if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && typeRepository != null) {
-                return tryBoxSelfAsConstantPredicate(typeRepository);
+            if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && evaluationContext != null) {
+                return tryBoxSelfAsConstantPredicate(evaluationContext);
             }
             if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
                 // the operands are swapped inside this if branch
-                return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? typeRepository : null,
+                return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? evaluationContext : null,
                         rightChild,
                         leftChild,
                         swapBinaryComparisonOperator(comparisonType));
             } else {
-                return promoteOperandsAndCreatePredicate(rightChildCorrelatedTo.isEmpty() ? typeRepository : null,
+                return promoteOperandsAndCreatePredicate(rightChildCorrelatedTo.isEmpty() ? evaluationContext : null,
                         leftChild,
                         rightChild,
                         comparisonType);
@@ -175,7 +174,7 @@ public class RelOpValue implements BooleanValue {
 
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
-    private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final TypeRepository typeRepository,
+    private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final EvaluationContext evaluationContext,
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
                                                                               @Nonnull final Comparisons.Type comparisonType) {
@@ -186,8 +185,8 @@ public class RelOpValue implements BooleanValue {
         leftChild = PromoteValue.inject(leftChild, maxtype);
         rightChild = PromoteValue.inject(rightChild, maxtype);
 
-        if (typeRepository != null) {
-            final Object comparand = rightChild.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+        if (evaluationContext != null) {
+            final Object comparand = rightChild.compileTimeEval(evaluationContext);
             return comparand == null
                    ? Optional.of(new ConstantPredicate(false))
                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
@@ -198,8 +197,8 @@ public class RelOpValue implements BooleanValue {
 
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
-    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {
-        final Object constantValue = compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull final EvaluationContext evaluationContext) {
+        final Object constantValue = compileTimeEval(evaluationContext);
         if (constantValue instanceof Boolean) {
             if ((boolean)constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);

@@ -166,11 +166,11 @@ public class AndOrValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(leftChild instanceof BooleanValue);
         Verify.verify(rightChild instanceof BooleanValue);
-        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, innermostAlias);
+        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(evaluationContext, innermostAlias);
         if (leftPredicateOptional.isPresent()) {
             final QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
@@ -179,7 +179,7 @@ public class AndOrValue implements BooleanValue {
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
-            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(typeRepository, innermostAlias);
+            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(evaluationContext, innermostAlias);
             if (rightPredicateOptional.isPresent()) {
                 final QueryPredicate rightPredicate = rightPredicateOptional.get();
                 if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {
