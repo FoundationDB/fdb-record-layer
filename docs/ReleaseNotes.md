@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.341.0
+
+
 ### 3.3.340.0
 
 * **Bug fix** Cascades planner no longer trips over `VALUE` indexes which contain all fields in the primary key [(Issue #2015)](https://github.com/FoundationDB/fdb-record-layer/issues/2015)
