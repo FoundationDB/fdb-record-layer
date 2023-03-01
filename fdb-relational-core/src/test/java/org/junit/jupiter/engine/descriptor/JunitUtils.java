@@ -55,7 +55,7 @@ public final class JunitUtils {
     public static ExtensionContext newClassExecutionContext(ExtensionContext parent, EngineExecutionListener listener,
                                                             ClassBasedTestDescriptor testDescriptor, JupiterConfiguration config,
                                                             ThrowableCollector collector) {
-        return new ClassExtensionContext(parent, listener, testDescriptor, config, collector);
+        return newClassExecutionContext(parent, listener, testDescriptor, config, collector);
     }
 
     public interface ExceptionHandlerInvoker<E extends Extension> {

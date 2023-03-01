@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.autotest.engine;
 import com.apple.foundationdb.relational.autotest.SchemaDescription;
 
 import org.junit.jupiter.api.extension.InvocationInterceptor;
-import org.junit.jupiter.engine.execution.ExecutableInvoker;
+import org.junit.jupiter.engine.execution.InterceptingExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.jupiter.engine.extension.ExtensionRegistry;
 import org.junit.platform.commons.JUnitException;
@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 class SchemaInvoker {
-    private static final ExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
+    private static final InterceptingExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
     private final List<Method> schemaMethods;
     private final List<Field> schemaFields;
 
@@ -49,7 +49,7 @@ class SchemaInvoker {
     public Stream<SchemaDescription> getSchemaDescriptions(Object testInstance,
                                                            JupiterEngineExecutionContext context,
                                                            ExtensionRegistry extensionRegistry,
-                                                           ExecutableInvoker executableInvoker) {
+                                                           InterceptingExecutableInvoker executableInvoker) {
         Stream<SchemaDescription> fieldStream = getSchemasFromField(testInstance);
         Stream<SchemaDescription> methodStream = getSchemaFromMethod(testInstance, context, extensionRegistry, executableInvoker);
 
@@ -58,7 +58,7 @@ class SchemaInvoker {
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    private Stream<SchemaDescription> getSchemaFromMethod(Object testInstance, JupiterEngineExecutionContext context, ExtensionRegistry registry, ExecutableInvoker executableInvoker) {
+    private Stream<SchemaDescription> getSchemaFromMethod(Object testInstance, JupiterEngineExecutionContext context, ExtensionRegistry registry, InterceptingExecutableInvoker executableInvoker) {
         if (schemaMethods.isEmpty()) {
             return Stream.empty();
         }

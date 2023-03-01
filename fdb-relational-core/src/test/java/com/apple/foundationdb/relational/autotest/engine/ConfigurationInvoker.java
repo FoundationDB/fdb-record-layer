@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.autotest.engine;
 import com.apple.foundationdb.relational.autotest.WorkloadConfig;
 
 import org.junit.jupiter.api.extension.InvocationInterceptor;
-import org.junit.jupiter.engine.execution.ExecutableInvoker;
+import org.junit.jupiter.engine.execution.InterceptingExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.platform.commons.JUnitException;
 
@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 class ConfigurationInvoker {
-    private static final ExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
+    private static final InterceptingExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
     private final List<Method> schemaMethods;
     private final List<Field> schemaFields;
 
@@ -48,7 +48,7 @@ class ConfigurationInvoker {
 
     public Collection<WorkloadConfig> getConfigurations(Object testInstance,
                                                         JupiterEngineExecutionContext context,
-                                                        ExecutableInvoker executableInvoker) {
+                                                        InterceptingExecutableInvoker executableInvoker) {
         Collection<WorkloadConfig> fieldStream = getSchemasFromField(testInstance);
         Collection<WorkloadConfig> methodStream = getSchemaFromMethod(testInstance, context, executableInvoker);
 
@@ -64,7 +64,7 @@ class ConfigurationInvoker {
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    private Collection<WorkloadConfig> getSchemaFromMethod(Object testInstance, JupiterEngineExecutionContext context, ExecutableInvoker executableInvoker) {
+    private Collection<WorkloadConfig> getSchemaFromMethod(Object testInstance, JupiterEngineExecutionContext context, InterceptingExecutableInvoker executableInvoker) {
         if (schemaMethods.isEmpty()) {
             return Collections.emptyList();
         }

@@ -27,13 +27,14 @@ import com.apple.foundationdb.relational.autotest.WorkloadConfig;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
 import org.junit.jupiter.api.extension.TestInstances;
 import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.jupiter.engine.descriptor.ClassTestDescriptor;
 import org.junit.jupiter.engine.descriptor.JunitUtils;
-import org.junit.jupiter.engine.execution.ExecutableInvoker;
+import org.junit.jupiter.engine.execution.InterceptingExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.jupiter.engine.extension.ExtensionRegistry;
 import org.junit.jupiter.engine.extension.MutableExtensionRegistry;
@@ -55,8 +56,8 @@ import static org.junit.jupiter.engine.descriptor.TestFactoryTestDescriptor.DYNA
 
 class AutoTestDescriptor extends ClassTestDescriptor {
 
-    private static final ExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
-    private static final ExecutableInvoker executableInvoker = new ExecutableInvoker();
+    private static final InterceptingExecutableInvoker executableInvoker = new InterceptingExecutableInvoker();
+    private static final InterceptingExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
 
     private final SchemaInvoker schemaInvoker;
     private final DataInvoker dataInvoker;
@@ -159,7 +160,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
         config.setDefaults(defaultConfig); //make sure the default values are set if they weren't overridden
 
         MutableExtensionRegistry autoTestRegistry = context.getExtensionRegistry();
-        autoTestRegistry = MutableExtensionRegistry.createRegistryFrom(autoTestRegistry, Collections.emptyList());
+        autoTestRegistry = MutableExtensionRegistry.createRegistryFrom(autoTestRegistry, (Stream<Class<? extends Extension>>) Collections.emptyList());
 
         autoTestRegistry.registerExtension(config, instance);
 

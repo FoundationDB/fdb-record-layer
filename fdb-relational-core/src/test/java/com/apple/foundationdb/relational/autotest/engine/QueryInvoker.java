@@ -24,8 +24,9 @@ import com.apple.foundationdb.relational.autotest.ParameterizedQuery;
 import com.apple.foundationdb.relational.autotest.Query;
 import com.apple.foundationdb.relational.autotest.SchemaDescription;
 
+import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
-import org.junit.jupiter.engine.execution.ExecutableInvoker;
+import org.junit.jupiter.engine.execution.InterceptingExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.jupiter.engine.extension.MutableExtensionRegistry;
 import org.junit.platform.commons.JUnitException;
@@ -40,7 +41,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 class QueryInvoker {
-    private static final ExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
+    private static final InterceptingExecutableInvoker.ReflectiveInterceptorCall<Method, Object> interceptorCall = InvocationInterceptor::interceptTestFactoryMethod;
     private final List<Method> schemaMethods;
     private final List<Field> schemaFields;
 
@@ -52,7 +53,7 @@ class QueryInvoker {
     public Collection<QuerySet> getQueries(Object testInstance,
                                            SchemaDescription schemaDescription,
                                            JupiterEngineExecutionContext context,
-                                           ExecutableInvoker executableInvoker) {
+                                           InterceptingExecutableInvoker executableInvoker) {
         Collection<QuerySet> fieldStream = getQueriessFromField(testInstance);
         Collection<QuerySet> methodStream = getQueriesFromMethod(testInstance, schemaDescription, context, executableInvoker);
 
@@ -71,12 +72,12 @@ class QueryInvoker {
     private Collection<QuerySet> getQueriesFromMethod(Object testInstance,
                                                                 SchemaDescription description,
                                                                 JupiterEngineExecutionContext context,
-                                                                ExecutableInvoker executableInvoker) {
+                                                                InterceptingExecutableInvoker executableInvoker) {
         if (schemaMethods.isEmpty()) {
             return Collections.emptyList();
         }
         MutableExtensionRegistry extensionRegistry = context.getExtensionRegistry();
-        extensionRegistry = MutableExtensionRegistry.createRegistryFrom(extensionRegistry, Collections.emptyList());
+        extensionRegistry = MutableExtensionRegistry.createRegistryFrom(extensionRegistry, (Stream<Class<? extends Extension>>) Collections.emptyList());
         extensionRegistry.registerExtension(new SchemaParameterResolver(description), testInstance);
         List<QuerySet> querySets = new ArrayList<>();
         for (Method method : schemaMethods) {
