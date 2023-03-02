@@ -53,7 +53,10 @@ public final class ExceptionUtil {
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;
-        } else if (re instanceof RecordCoreStorageException) {
+        } else if (re instanceof RecordCoreStorageException ||
+                (re.getCause() != null && re.getCause() instanceof RecordCoreStorageException)) {
+            // Async handling can make a RecordCoreStorageException with cause of RecordCoreStorageException
+            // when 'Transaction is not active' exception.
             code = ErrorCode.TRANSACTION_INACTIVE;
         } else if (re.getCause() instanceof RecordAlreadyExistsException) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;

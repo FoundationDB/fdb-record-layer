@@ -21,8 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.DbState;
-import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
+import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -55,19 +54,12 @@ public final class YamlRunner implements AutoCloseable {
 
     @Nonnull
     private final InputStream inputStream;
+    private final CliCommandFactory cliCommandFactory;
 
-    @Nonnull
-    private final DbState dbState;
-
-    @Nonnull
-    private final DbStateCommandFactory commandFactory;
-
-    private YamlRunner(@Nonnull String resourcePath, @Nonnull final InputStream inputStream,
-                       @Nonnull final DbState dbState, @Nonnull DbStateCommandFactory commandFactory) {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull CliCommandFactory commandFactory) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.inputStream = inputStream;
-        this.dbState = dbState;
-        this.commandFactory = commandFactory;
+        this.inputStream = getInputStream(resourcePath);
+        this.cliCommandFactory = commandFactory;
     }
 
     private static class CustomTagsInject extends SafeConstructor {
@@ -219,21 +211,22 @@ public final class YamlRunner implements AutoCloseable {
         for (final var region : yaml.loadAll(inputStream)) {
             final var regionWithLines = (CustomTagsInject.LinedObject) region;
             currentLine = regionWithLines.getStartMark().getLine() + 1;
-            debug(String.format("📍 executing at line %s of '%s'", currentLine, resourcePath));
+            LOG.debug("📍 executing at line {} of '{}'", currentLine, resourcePath);
             final var commandObject = regionWithLines.getObject();
             final var commandAndConfiguration = Matchers.arrayList(commandObject, "test commands");
             final var command = resolveCommand(commandAndConfiguration);
             try {
-                command.invoke(commandAndConfiguration, commandFactory, dbState);
+                command.invoke(commandAndConfiguration, this.cliCommandFactory);
             } catch (Exception | Error e) {
                 addYamlFileStackFrameToException(e, resourcePath, currentLine);
                 throw e;
             }
         }
-        debug(String.format("🏁 executed all tests in '%s' successfully!", resourcePath));
+        LOG.debug("🏁 executed all tests in '{}' successfully!", resourcePath);
     }
 
-    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path, int line) {
+    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path,
+                                                         int line) {
         final StackTraceElement[] stackTrace = exception.getStackTrace();
         StackTraceElement[] newStackTrace = new StackTraceElement[stackTrace.length + 1];
         newStackTrace[0] = new StackTraceElement("<YAML FILE>", "", path, line);
@@ -243,28 +236,18 @@ public final class YamlRunner implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        dbState.close();
         inputStream.close();
+        if (this.cliCommandFactory != null) {
+            this.cliCommandFactory.close();
+        }
     }
 
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
-    public static YamlRunner create(@Nonnull final String resourcePath) throws RelationalException {
+    private static InputStream getInputStream(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
         Assert.notNull(inputStream, String.format("could not find '%s' in resources bundle", resourcePath));
-        try {
-            final var dbState = new DbState();
-            return new YamlRunner(resourcePath, inputStream, dbState, new DbStateCommandFactory(dbState));
-        } catch (RelationalException ve) {
-            Assert.fail(String.format("failed to create a '%s' object.", DbState.class.getSimpleName()));
-            throw ve;
-        }
-    }
-
-    static void debug(@Nonnull final String message) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(message);
-        }
+        return inputStream;
     }
 }

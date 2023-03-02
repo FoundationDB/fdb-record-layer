@@ -164,13 +164,13 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public int getJDBCMajorVersion() throws SQLException {
-        Driver driver = DriverManager.getDriver(JDBCRelationalDriver.JDBC_BASE_URL);
+        Driver driver = DriverManager.getDriver(JDBCURI.JDBC_BASE_URL);
         return driver.getMajorVersion();
     }
 
     @Override
     public int getJDBCMinorVersion() throws SQLException {
-        Driver driver = DriverManager.getDriver(JDBCRelationalDriver.JDBC_BASE_URL);
+        Driver driver = DriverManager.getDriver(JDBCURI.JDBC_BASE_URL);
         return driver.getMinorVersion();
     }
 

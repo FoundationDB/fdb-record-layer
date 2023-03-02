@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
@@ -79,11 +80,13 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         if (!checkStatementRequest(request, responseObserver)) {
             return;
         }
-        try (RelationalResultSet resultSet =
-                this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql())) {
-            StatementResponse statementResponse = resultSet == null ? StatementResponse.newBuilder().build() :
-                    StatementResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(resultSet)).build();
-            responseObserver.onNext(statementResponse);
+        try {
+            StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
+            ResultSet resultSet = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql());
+            if (resultSet != null) {
+                statementResponseBuilder.setResultSet(resultSet);
+            }
+            responseObserver.onNext(statementResponseBuilder.build());
             responseObserver.onCompleted();
         } catch (SQLException e) {
             responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));

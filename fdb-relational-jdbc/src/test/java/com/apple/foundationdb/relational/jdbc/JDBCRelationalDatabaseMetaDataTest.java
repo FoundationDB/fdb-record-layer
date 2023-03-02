@@ -39,7 +39,7 @@ public class JDBCRelationalDatabaseMetaDataTest {
     @BeforeAll
     public static void beforeAll() {
         DatabaseMetaDataResponse response = DatabaseMetaDataResponse.newBuilder().build();
-        connection = new JDBCRelationalConnection(JDBCRelationalDriver.JDBC_BASE_URL + "example.com");
+        connection = new JDBCRelationalConnection(JDBCURI.JDBC_BASE_URL + "example.com");
         databaseMetaData = new JDBCRelationalDatabaseMetaData(connection, response);
     }
 

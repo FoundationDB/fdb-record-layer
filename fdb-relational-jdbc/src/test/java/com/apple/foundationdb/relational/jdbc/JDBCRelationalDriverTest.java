@@ -94,6 +94,7 @@ public class JDBCRelationalDriverTest {
         Assertions.assertNotNull(sqlException);
     }
 
+    @Test
     public void testDriverMiscellaneous() throws SQLException {
         Assertions.assertFalse(driver.jdbcCompliant());
         // Currently getPropertyInfo doesn't do anything.

@@ -20,6 +20,8 @@
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.cli.DbState;
+import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
@@ -40,7 +42,7 @@ public class DatatypeIntegrationTests {
     }
 
     private void doRun(@Nonnull final String fileName) throws Exception {
-        try (var yamlRunner = YamlRunner.create(fileName)) {
+        try (YamlRunner yamlRunner = new YamlRunner(fileName, new DbStateCommandFactory(new DbState()))) {
             try {
                 yamlRunner.run();
             } catch (Exception e) {

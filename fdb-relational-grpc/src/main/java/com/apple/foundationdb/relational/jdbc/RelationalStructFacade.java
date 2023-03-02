@@ -201,7 +201,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public Object getObject(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getObject(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
@@ -260,6 +260,7 @@ class RelationalStructFacade implements RelationalStruct {
          * Fields kept in the order-of-insert.
          * Used ensuring we maintain insert-order.
          */
+        // TODO: Use LinkedHashMap instead of Map and List as in the below! Stack 01/31/2023.
         private final List<String> fieldOrder = new ArrayList<>();
         /**
          * Metadata accumulated so far.

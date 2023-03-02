@@ -417,6 +417,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public void close() throws SQLException {
         //TODO(bfines) implement
+        // For example, close out the currentResultSet if one.
     }
 
     /* ****************************************************************************************************************/

@@ -101,7 +101,8 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @ExcludeFromJacocoGeneratedReport
     @Override
     public double getDouble(int oneBasedColumn) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getDouble();
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -191,13 +192,15 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @ExcludeFromJacocoGeneratedReport
     @Nonnull
     public Continuation getContinuation() throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
+        return null;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
+        return null;
     }
 
     @Override
@@ -218,6 +221,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 return getStruct(oneBasedColumn);
             case Types.ARRAY:
                 return getArray(oneBasedColumn);
+            case Types.DOUBLE:
+                return getDouble(oneBasedColumn);
+            case Types.BOOLEAN:
+                return getBoolean(oneBasedColumn);
             case Types.BINARY:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);

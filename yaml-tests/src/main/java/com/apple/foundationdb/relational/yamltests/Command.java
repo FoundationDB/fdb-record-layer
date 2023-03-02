@@ -22,8 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.cli.DbState;
-import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
+import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
@@ -38,19 +37,7 @@ import java.util.List;
 
 public abstract class Command {
 
-    private static final Logger LOG = LogManager.getLogger(Command.class);
-
-    static void debug(@Nonnull final String message) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(message);
-        }
-    }
-
-    static void error(@Nonnull final String message) {
-        if (LOG.isErrorEnabled()) {
-            LOG.error(message);
-        }
-    }
+    private static final Logger logger = LogManager.getLogger(Command.class);
 
     protected Continuation checkForError(Object queryResults, SQLException sqlException,
                                          String errorCode, String query) throws Exception {
@@ -70,7 +57,7 @@ public abstract class Command {
                     resultSetPrettyPrinter)
             );
         }
-        debug(String.format("checking error code resulted from executing '%s'", query));
+        logger.debug("checking error code resulted from executing '{}'", query);
         if (sqlException == null) {
             if (errorCode != null) {
                 Assert.fail("‼️ unexpected NULL SQLException!");
@@ -81,7 +68,7 @@ public abstract class Command {
         if (!sqlException.getSQLState().equals(errorCode)) {
             Assertions.fail(String.format("‼️ expecting '%s' error code, got '%s' instead!", errorCode, sqlException.getSQLState()));
         } else {
-            debug(String.format("✔️ error codes '%s' match!", errorCode));
+            logger.debug("✔️ error codes '{}' match!", errorCode);
         }
         return Continuation.EMPTY_SET;
     }
@@ -90,19 +77,19 @@ public abstract class Command {
         if ("connect".equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull DbStateCommandFactory factory, @Nonnull DbState dbState) throws Exception {
+                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     final var uri = Matchers.string(Matchers.firstEntry(Matchers.first(region, "connect"), "connect").getValue(), "connect");
-                    debug(String.format("connecting to '%s'", uri));
+                    logger.debug("connecting to '{}'", uri);
                     final var connectionFun = factory.getConnectCommand(URI.create(Matchers.notNull(uri, "connection URI")));
                     connectionFun.call();
-                    debug(String.format("connected to '%s'", uri));
+                    logger.debug("connected to '{}'", uri);
                 }
             };
             // todo (yhatem) refactor tests and remove this once REL-269 is in.
         } else if ("insert".equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull DbStateCommandFactory factory, @Nonnull DbState dbState) throws Exception {
+                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     final var tableEntry = Matchers.firstEntry(Matchers.second(region), "table name");
                     Matchers.matches(Matchers.notNull(Matchers.string(Matchers.notNull(tableEntry, "table name").getKey(), "table name"), "table name"), "table");
 
@@ -114,17 +101,17 @@ public abstract class Command {
                     }
 
                     final var tableName = Matchers.notNull(Matchers.string(Matchers.notNull(tableEntry, "table name").getValue(), "table name"), "table name");
-                    final var connection = Matchers.notNull(dbState.getConnection(), "database connection");
+                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     try (var statement = connection.createStatement()) {
-                        debug("parsing YAML input into PB Message(s)");
+                        logger.debug("parsing YAML input into PB Message(s)");
                         final var yamlData = Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "insert data").getValue(), "insert data");
                         final DynamicMessageBuilder tableRowBuilder = Matchers.notNull(statement.getDataBuilder(tableName), String.format("table '%s' message builder", tableName));
                         final var dataList = Generators.yamlToDynamicMessage(yamlData, tableRowBuilder);
                         if (dataList.isEmpty()) {
-                            debug(String.format("⚠️ parsed 0 rows, skipping insert into '%s'", tableName));
+                            logger.debug("⚠️ parsed 0 rows, skipping insert into '{}'", tableName);
                             return;
                         }
-                        debug(String.format("inserting %d row(s) in '%s'", dataList.size(), tableName));
+                        logger.debug("inserting {} row(s) in '{}'", dataList.size(), tableName);
                         SQLException sqlException = null;
                         try {
                             statement.executeInsert(tableName, dataList); // todo: affected rows.
@@ -143,7 +130,5 @@ public abstract class Command {
         }
     }
 
-    public abstract void invoke(@Nonnull final List<?> region,
-                                @Nonnull final DbStateCommandFactory factory,
-                                @Nonnull final DbState dbState) throws Exception;
+    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final CliCommandFactory factory) throws Exception;
 }

@@ -112,6 +112,14 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
+    public int getUpdateCount() throws SQLException {
+        // "Retrieves the current result as an update count; if the result is a ResultSet object or there are
+        // no more results, -1 is returned. This method should be called only once per result."
+        // TODO: on only call once and on what if update count rather than resultSet.
+        return this.currentResultSet == null ? 0 : -1;
+    }
+
+    @Override
     public int executeUpdate(String sql) throws SQLException {
         return update(sql, Options.NONE);
     }
@@ -277,14 +285,14 @@ class JDBCRelationalStatement implements RelationalStatement {
     @ExcludeFromJacocoGeneratedReport
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
     public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
-        return null;
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
     @ExcludeFromJacocoGeneratedReport
     public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
-        return null;
+        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override

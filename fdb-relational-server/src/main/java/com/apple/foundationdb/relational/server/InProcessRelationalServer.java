@@ -61,7 +61,7 @@ public class InProcessRelationalServer implements Closeable {
         return getServerName();
     }
 
-    InProcessRelationalServer start() throws IOException {
+    public InProcessRelationalServer start() throws IOException {
         // Create access to backing database.
         // TODO: Make this multi-query/-tenant/-database!
         try {

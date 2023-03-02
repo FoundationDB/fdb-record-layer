@@ -23,14 +23,15 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.cli.DbState;
-import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.cli.formatters.ResultSetFormat;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"PMD.GuardLogStatement"})
 // It already is, but PMD is confused and reporting error in unrelated locations.
 class QueryCommand extends Command {
+    private static final Logger logger = LogManager.getLogger(QueryCommand.class);
 
     private enum QueryConfig {
         RESULT("result"),
@@ -82,16 +84,17 @@ class QueryCommand extends Command {
     }
 
     private void logAndThrowUnexpectedException(SQLException e) throws Exception {
-        error(String.format("‼️ statement failed with the following error:%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                "%s%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                e.getMessage()));
+        logger.error("‼️ statement failed with the following error:\n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                "{}\n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n",
+                e.getMessage());
         throw e;
     }
 
-    private void executeNoCheckStatement(@Nonnull String queryString, @Nonnull final DbStateCommandFactory factory) throws Exception {
-        debug(String.format("executing query '%s'", queryString));
+    private void executeNoCheckStatement(@Nonnull String queryString, @Nonnull final CliCommandFactory factory)
+            throws Exception {
+        logger.debug("executing query '{}'", queryString);
         Object queryResults = null;
         SQLException sqlException = null;
         try {
@@ -99,17 +102,17 @@ class QueryCommand extends Command {
         } catch (SQLException se) {
             sqlException = se;
         }
-        debug(String.format("finished executing query '%s'", queryString));
+        logger.debug("finished executing query '{}'", queryString);
         if (sqlException != null) {
             logAndThrowUnexpectedException(sqlException);
         }
 
-        if (queryResults instanceof ErrorCapturingResultSet) {
-            final var resultSet = (ErrorCapturingResultSet) queryResults;
+        if (queryResults instanceof RelationalResultSet) {
+            final var resultSet = (RelationalResultSet) queryResults;
             // slurp
             boolean valid = true;
             while (valid) { // suppress check style
-                valid = ((ErrorCapturingResultSet) queryResults).next();
+                valid = ((RelationalResultSet) queryResults).next();
             }
             resultSet.close();
         }
@@ -139,11 +142,8 @@ class QueryCommand extends Command {
         if (sqlException != null) {
             logAndThrowUnexpectedException(sqlException);
         }
-        debug(String.format("matching results of query '%s'", query));
-        Assert.that(queryResults instanceof ErrorCapturingResultSet, String.format("‼️ unexpected query result of type '%s' (expecting '%s')",
-                queryResults.getClass().getSimpleName(),
-                ErrorCapturingResultSet.class.getSimpleName()));
-        final var resultSet = (ErrorCapturingResultSet) queryResults;
+        logger.debug("matching results of query '{}'", query);
+        final var resultSet = (RelationalResultSet) queryResults;
         final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.RESULT_AS_SET);
         if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
             Assertions.fail(String.format("‼️ result mismatch:%n" +
@@ -156,14 +156,14 @@ class QueryCommand extends Command {
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                     Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set")));
         } else {
-            debug("✔️ results match!");
+            logger.debug("✔️ results match!");
         }
         return resultSet.getContinuation();
     }
 
-    private Continuation executeWithAConfig(@Nonnull String query, @Nonnull final DbStateCommandFactory factory,
+    private Continuation executeWithAConfig(@Nonnull String query, @Nonnull final CliCommandFactory factory,
                                             @Nonnull QueryConfigWithValue queryConfigWithValue) throws Exception {
-        debug(String.format("executing query '%s'", query));
+        logger.debug("executing query '{}'", query);
         Object queryResults = null;
         SQLException sqlException = null;
 
@@ -182,7 +182,7 @@ class QueryCommand extends Command {
         } finally {
             Debugger.setDebugger(savedDebugger);
         }
-        debug(String.format("finished executing query '%s'", query));
+        logger.debug("finished executing query '{}'", query);
         var continuation = Continuation.EMPTY_SET;
         switch (config) {
             case RESULT:
@@ -203,7 +203,7 @@ class QueryCommand extends Command {
     }
 
     @Override
-    public void invoke(@Nonnull final List<?> region, @Nonnull final DbStateCommandFactory factory, @Nonnull final DbState dbState) throws Exception {
+    public void invoke(@Nonnull final List<?> region, @Nonnull final CliCommandFactory factory) throws Exception {
         final var queryString = Matchers.string(Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "query string").getValue(), "query string"), "query string");
         final var regionWithoutQuery = region.stream().skip(1).collect(Collectors.toList());
         boolean queryHasRun = false;

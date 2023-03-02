@@ -65,7 +65,8 @@ public class TypeConversion {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         var metadata =
                 resultSet.getMetadata().getColumnMetadata().getColumnMetadata(index).getStructMetadata();
-        return new RelationalStructFacade(metadata, resultSet.getRow(rowIndex).getColumns().getColumn(index).getStruct());
+        Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
+        return column.hasStruct() ? new RelationalStructFacade(metadata, column.getStruct()) : null;
     }
 
     /**
@@ -129,9 +130,6 @@ public class TypeConversion {
         return keySetBuilder.build();
     }
 
-    /**
-     * Make a native KeySet from a protobuf KeySet.
-     */
     public static com.apple.foundationdb.relational.api.KeySet fromProtobuf(KeySet protobufKeySet) throws SQLException {
         com.apple.foundationdb.relational.api.KeySet keySet = new com.apple.foundationdb.relational.api.KeySet();
         for (Map.Entry<String, KeySetValue> entry : protobufKeySet.getFieldsMap().entrySet()) {
@@ -196,11 +194,13 @@ public class TypeConversion {
     }
 
     private static ListColumnMetadata toListColumnMetadataProtobuf(RelationalStruct relationalStruct) throws SQLException {
-        var metadata = relationalStruct.getMetaData();
         var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
-        for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
-            var columnMetadata = toColumnMetadata(relationalStruct, oneBasedIndex);
-            listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
+        if (relationalStruct != null) {
+            var metadata = relationalStruct.getMetaData();
+            for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
+                var columnMetadata = toColumnMetadata(relationalStruct, oneBasedIndex);
+                listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
+            }
         }
         return listColumnMetadataBuilder.build();
     }
@@ -264,6 +264,10 @@ public class TypeConversion {
                 column = toColumn(relationalStruct.getBytes(oneBasedIndex),
                         (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom((byte[]) a)));
                 break;
+            case Types.DOUBLE:
+                column = toColumn(relationalStruct.getDouble(oneBasedIndex),
+                        (a, b) -> a == null ? b.clearDouble() : b.setDouble((Double) a));
+                break;
             default:
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
@@ -295,9 +299,6 @@ public class TypeConversion {
         return Struct.newBuilder().setColumns(listColumnBuilder.build()).build();
     }
 
-    /**
-     * Map Relational-Core RelationalResultSet to protobuf ResultSet.
-     */
     public static ResultSet toProtobuf(RelationalResultSet relationalResultSet) throws SQLException {
         var resultSetBuilder = ResultSet.newBuilder();
         var metadata = relationalResultSet.getMetaData();

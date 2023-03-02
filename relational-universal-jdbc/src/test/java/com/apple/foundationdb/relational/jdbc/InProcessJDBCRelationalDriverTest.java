@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
 import org.junit.jupiter.api.AfterEach;
@@ -75,20 +76,34 @@ public class InProcessJDBCRelationalDriverTest {
     @Test
     public void connectAndGetDatabaseMetaData() throws SQLException, IOException {
         try (Connection connection = driver.connect("jdbc:relational:///__SYS", null)) {
-            Assertions.assertFalse(connection.isClosed());
-            DatabaseMetaData databaseMetaData = connection.getMetaData();
-            // These should be the same. One version is read from the server, the
-            // other is read by looking at the classpath. Ditto for the URL.
-            // They'll be the same in test context. They will likely not be the same in production,
-            // at least sometimes.
-            Assertions.assertEquals(BuildVersion.getInstance().getVersion(),
-                    databaseMetaData.getDatabaseProductVersion());
-            Assertions.assertEquals(BuildVersion.getInstance().getMajorVersion(),
-                    databaseMetaData.getDatabaseMajorVersion());
-            Assertions.assertEquals(BuildVersion.getInstance().getMinorVersion(),
-                    databaseMetaData.getDatabaseMinorVersion());
-            Assertions.assertEquals(BuildVersion.getInstance().getURL(),
-                    databaseMetaData.getURL());
+            checkConnection(connection);
         }
+    }
+
+    @Test
+    public void connectAndGetDatabaseMetaDataFromExistingInProcessServer() throws SQLException, IOException {
+        try (InProcessRelationalServer inProcessJDBCRelationalDriver = new InProcessRelationalServer().start()) {
+            String uriStr = "jdbc:relational:///__SYS?server=" + inProcessJDBCRelationalDriver.getServerName();
+            try (Connection connection = driver.connect(uriStr, null)) {
+                checkConnection(connection);
+            }
+        }
+    }
+
+    private void checkConnection(Connection connection) throws SQLException {
+        Assertions.assertFalse(connection.isClosed());
+        DatabaseMetaData databaseMetaData = connection.getMetaData();
+        // These should be the same. One version is read from the server, the
+        // other is read by looking at the classpath. Ditto for the URL.
+        // They'll be the same in test context. They will likely not be the same in production,
+        // at least sometimes.
+        Assertions.assertEquals(BuildVersion.getInstance().getVersion(),
+                databaseMetaData.getDatabaseProductVersion());
+        Assertions.assertEquals(BuildVersion.getInstance().getMajorVersion(),
+                databaseMetaData.getDatabaseMajorVersion());
+        Assertions.assertEquals(BuildVersion.getInstance().getMinorVersion(),
+                databaseMetaData.getDatabaseMinorVersion());
+        Assertions.assertEquals(BuildVersion.getInstance().getURL(),
+                databaseMetaData.getURL());
     }
 }

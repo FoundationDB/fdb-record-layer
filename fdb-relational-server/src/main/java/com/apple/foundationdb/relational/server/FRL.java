@@ -38,6 +38,8 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
+import com.apple.foundationdb.relational.jdbc.TypeConversion;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
@@ -119,13 +121,37 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    private static URI createEmbeddedJDBCURI(String database, String schema)  {
+        return URI.create(JDBC_EMBED_PREFIX + database + (schema != null ? "?schema=" + schema : ""));
+    }
+
+    /**
+     * Execute <code>sql</code>.
+     * @param database Database to run the <code>sql</code> against.
+     * @param schema Schema to use on <code>database</code>
+     * @param sql SQL to execute.
+     * @return Returns ResultSet or null.
+     * @throws SQLException For all sorts of reasons.
+     */
     @Nullable
-    public RelationalResultSet execute(String database, String schema, String sql) throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+    public ResultSet execute(String database, String schema, String sql) throws SQLException {
+        // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
+        // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
+        // We used to explicitly set schema up here but this was provoking a new, separate, transaction; just let
+        // embedded JDBC driver do its thing on connect with database and schema.
+        // Third transaction is then created to run the sql. Transaction closes when connection closes so do all our
+        // work inside here including reading all out of the ResultSet while under transaction else callers who try
+        // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
+        // TODO: Transaction handling.
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                    return relationalStatement.execute(sql) ? relationalStatement.getResultSet() : null;
+                    ResultSet resultSet = null;
+                    if (relationalStatement.execute(sql)) {
+                        resultSet = TypeConversion.toProtobuf(relationalStatement.getResultSet());
+                        relationalStatement.getResultSet().close();
+                    }
+                    return resultSet;
                 }
             }
         } catch (RelationalException e) {
@@ -134,8 +160,7 @@ public class FRL implements AutoCloseable {
     }
 
     public int update(String database, String schema, String sql) throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeUpdate(sql);
@@ -161,8 +186,7 @@ public class FRL implements AutoCloseable {
     @Deprecated
     public int insert(List<ByteString> data, String database, String schema, String tableName)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     // Get a parser to use deserializing ByteStrings.
@@ -184,8 +208,7 @@ public class FRL implements AutoCloseable {
 
     public int insert(String database, String schema, String tableName, List<RelationalStruct> data)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeInsert(tableName, data, Options.NONE);
@@ -198,8 +221,7 @@ public class FRL implements AutoCloseable {
 
     public RelationalResultSet get(String database, String schema, String tableName, KeySet keySet)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeGet(tableName, keySet, Options.NONE);
@@ -212,8 +234,7 @@ public class FRL implements AutoCloseable {
 
     public RelationalResultSet scan(String database, String schema, String tableName, KeySet keySet)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(URI.create(JDBC_EMBED_PREFIX + database), Options.NONE)) {
-            connection.setSchema(schema);
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeScan(tableName, keySet, Options.NONE);

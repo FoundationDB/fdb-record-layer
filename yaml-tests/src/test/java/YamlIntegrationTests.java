@@ -20,6 +20,10 @@
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.cli.CliCommandFactory;
+import com.apple.foundationdb.relational.cli.DbState;
+import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
@@ -30,7 +34,7 @@ import javax.annotation.Nonnull;
 
 public class YamlIntegrationTests {
 
-    private static final Logger LOG = LogManager.getLogger(YamlIntegrationTests.class);
+    private static final Logger logger = LogManager.getLogger(YamlIntegrationTests.class);
 
     public YamlIntegrationTests() {
         if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
@@ -39,18 +43,17 @@ public class YamlIntegrationTests {
         Debugger.setup();
     }
 
-    protected final void doRun(@Nonnull final String fileName) throws Exception {
-        try (var yamlRunner = YamlRunner.create(fileName)) {
-            try {
-                yamlRunner.run();
-            } catch (Exception e) {
-                if (LOG.isErrorEnabled()) {
-                    LOG.error(String.format("‼️ running test file '%s' was not successful", fileName));
-                }
-                e.printStackTrace();
-                throw e;
-            }
+    void doRun(@Nonnull final String fileName) throws Exception {
+        try  (YamlRunner yamlRunner = new YamlRunner(fileName, createCliCommandFactory())) {
+            yamlRunner.run();
+        } catch (Exception e) {
+            logger.error("‼️ running test file '{}' was not successful", fileName, e);
+            throw e;
         }
+    }
+
+    CliCommandFactory createCliCommandFactory() throws RelationalException {
+        return new DbStateCommandFactory(new DbState());
     }
 
     @Test
