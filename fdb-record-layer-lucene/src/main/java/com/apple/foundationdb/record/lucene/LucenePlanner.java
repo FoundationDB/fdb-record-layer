@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -62,6 +63,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -208,8 +210,9 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask, @Nonnull QueryComponent queryComponent) {
-        if (queryComponent instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
+        final QueryComponent adjustedQueryComponent = tryPushResidual(queryComponent);
+        if (adjustedQueryComponent instanceof LuceneQueryComponent) {
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)adjustedQueryComponent;
             for (String field : luceneQueryComponent.getFields()) {
                 if (!validateIndexField(state, field)) {
                     return null;
@@ -234,14 +237,36 @@ public class LucenePlanner extends RecordQueryPlanner {
                     break;
             }
             if (scanParameters != null) {
-                if (queryComponent != state.filter) {
-                    filterMask = filterMask.getChild(queryComponent);
+                if (adjustedQueryComponent != state.filter) {
+                    filterMask = filterMask.getChild(adjustedQueryComponent);
                 }
                 filterMask.setSatisfied(true);
                 return scanParameters;
             }
         }
         return null;
+    }
+
+
+    private QueryComponent tryPushResidual(@Nonnull QueryComponent queryComponent) {
+        if (!(queryComponent instanceof NestedField)) {
+            return queryComponent;
+        }
+        final ImmutableList.Builder<String> prefixBuilder = ImmutableList.builder();
+        NestedField runner = (NestedField)queryComponent;
+        while (true) {
+            prefixBuilder.add(runner.getName());
+            if (runner.getChild() instanceof LuceneQueryComponent) {
+                final var luceneQueryComponent = (LuceneQueryComponent)runner.getChild();
+                final var prefix = prefixBuilder.build();
+                final var name = String.join("_", prefix);
+                return new LuceneQueryComponent(luceneQueryComponent.getQuery(), luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
+            } else if (runner.getChild() instanceof NestedField) {
+                runner = (NestedField)runner.getChild();
+            } else {
+                return queryComponent;
+            }
+        }
     }
 
     @Nullable
@@ -266,11 +291,11 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+        LuceneQueryComponent adjustedFilter = filter;
         if (!parentFieldPath.isEmpty()) {
-            // TODO: Or should this be an error?
-            return null;
+            adjustedFilter = (LuceneQueryComponent)tryPushResidual(filter);
         }
-        for (String field : filter.getFields()) {
+        for (String field : adjustedFilter.getFields()) {
             if (!validateIndexField(state, field)) {
                 return null;
             }
@@ -280,9 +305,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         if (filter.isMultiFieldSearch()) {
-            return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
+            return new LuceneQueryMultiFieldSearchClause(adjustedFilter.getQuery(), adjustedFilter.isQueryIsParameter());
         } else {
-            return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+            return new LuceneQuerySearchClause(adjustedFilter.getQuery(), adjustedFilter.isQueryIsParameter());
         }
     }
 

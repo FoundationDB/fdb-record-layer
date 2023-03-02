@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.BooleanComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
+import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -150,16 +151,20 @@ public class BooleanNormalizer {
 
     @Nullable
     private QueryComponent normalize(@Nullable final QueryComponent predicate, boolean failIfTooLarge) {
-        if (!needsNormalize(predicate)) {
+        var processed = predicate;
+        if (needsPreprocessing(predicate)) {
+            processed = preprocess(predicate);
+        }
+        if (!needsNormalize(processed)) {
             return predicate;
-        } else if (!shouldNormalize(predicate)) {
+        } else if (!shouldNormalize(processed)) {
             if (failIfTooLarge) {
-                throw new DNFTooLargeException(predicate);
+                throw new DNFTooLargeException(processed);
             } else {
                 return predicate;
             }
         } else {
-            final List<List<QueryComponent>> orOfAnd = toDNF(predicate, false);
+            final List<List<QueryComponent>> orOfAnd = toDNF(processed, false);
             if (checkForDuplicateConditions) {
                 removeDuplicateConditions(orOfAnd);
             }
@@ -172,6 +177,58 @@ public class BooleanNormalizer {
                (predicate instanceof ComponentWithChildren ?
                 ((ComponentWithChildren)predicate).getChildren().stream().anyMatch(this::isBooleanPredicate) :
                 isBooleanPredicate(((ComponentWithSingleChild)predicate).getChild()));
+    }
+
+    private boolean needsPreprocessing(@Nullable final QueryComponent predicate) {
+        if (predicate == null) {
+            return false;
+        }
+        if (predicate instanceof AndComponent) {
+            return ((AndComponent)predicate).getChildren().stream().anyMatch(this::needsPreprocessing);
+        }
+        if (predicate instanceof OrComponent) {
+            return ((OrComponent)predicate).getChildren().stream().anyMatch(this::needsPreprocessing);
+        }
+        if (predicate instanceof NestedField) {
+            final var nestedField = (NestedField)predicate;
+            if (nestedField.getChild() instanceof OrComponent) {
+                return true;
+            } else {
+                return nestedField.getChild() instanceof AndComponent;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Transform a predicate comprising {@link NestedField} with {@link com.apple.foundationdb.record.query.expressions.AndOrComponent} to
+     * and equivalent predicate where the {@link NestedField} is moved inside.
+     * <br>
+     * Example:
+     * {@code And(A, NestedExpression(B, Or(C, D, E)) -> And(A, Or(NestedExpression(B,C), NestedExpression(B,D), NestedExpression(B, E))}
+     * @param predicate predicate to transform.
+     * @return transformed predicate.
+     */
+    @Nullable
+    private QueryComponent preprocess(@Nullable final QueryComponent predicate) {
+        if (predicate instanceof AndComponent) {
+            return AndComponent.from(((AndComponent)predicate).getChildren().stream().map(this::preprocess).collect(Collectors.toList()));
+        }
+        if (predicate instanceof OrComponent) {
+            return OrComponent.from(((OrComponent)predicate).getChildren().stream().map(this::preprocess).collect(Collectors.toList()));
+        }
+        if (predicate instanceof NestedField) {
+            final var nestedField = (NestedField)predicate;
+            if (nestedField.getChild() instanceof OrComponent) {
+                final var orChild = (OrComponent)nestedField.getChild();
+                return OrComponent.from(orChild.getChildren().stream().map(nestedField::withOtherChild).collect(Collectors.toList()));
+            } else if (nestedField.getChild() instanceof AndComponent) {
+                final var andChild = (AndComponent)nestedField.getChild();
+                return OrComponent.from(andChild.getChildren().stream().map(nestedField::withOtherChild).collect(Collectors.toList()));
+            }
+            return nestedField;
+        }
+        return predicate;
     }
 
     private boolean shouldNormalize(@Nullable final QueryComponent predicate) {
