@@ -67,6 +67,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -206,13 +207,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public RelationalExpression visitParenthesisSelect(RelationalParser.ParenthesisSelectContext ctx) {
-        Assert.isNullUnchecked(ctx.lockClause(), UNSUPPORTED_QUERY);
         return (RelationalExpression) ctx.queryExpression().accept(this);
     }
 
     @Override
     public RelationalExpression visitSimpleSelect(RelationalParser.SimpleSelectContext ctx) {
-        Assert.isNullUnchecked(ctx.lockClause(), UNSUPPORTED_QUERY);
         return (RelationalExpression) ctx.querySpecification().accept(this);
     }
 
@@ -225,26 +224,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return (RelationalExpression) ctx.querySpecification().accept(this);
     }
 
-    @ExcludeFromJacocoGeneratedReport // not reachable for now, but planned.
-    @Override
-    public RelationalExpression visitQueryExpressionNointo(RelationalParser.QueryExpressionNointoContext ctx) {
-        if (ctx.queryExpressionNointo() != null) {
-            return (RelationalExpression) (visit(ctx.queryExpressionNointo())); // recursive
-        }
-        return (RelationalExpression) visit(ctx.querySpecificationNointo());
-    }
-
     @Override
     public RelationalExpression visitQuerySpecification(RelationalParser.QuerySpecificationContext ctx) {
-        Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
-        Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
-
-        return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.havingClause(), ctx.orderByClause(), ctx.limitClause());
-    }
-
-    @Override
-    public RelationalExpression visitQuerySpecificationNointo(RelationalParser.QuerySpecificationNointoContext ctx) {
         Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
@@ -1514,7 +1495,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // parse the index query using the newly-constructed metadata so far
         final var schemaTemplate = context.asDdl().getMetadataBuilder().build();
         context.pushDqlContext(schemaTemplate);
-        final var viewPlan = (RelationalExpression) ctx.querySpecificationNointo().accept(this);
+        final var viewPlan = (RelationalExpression) ctx.querySpecification().accept(this);
         context.pop();
 
         final var isUnique = ctx.UNIQUE() != null;

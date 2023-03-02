@@ -41,7 +41,7 @@ sqlStatements
 
 sqlStatement
     : ddlStatement | dmlStatement | transactionStatement
-    | replicationStatement | preparedStatement
+    | preparedStatement
     | administrationStatement | utilityStatement
     ;
 
@@ -56,9 +56,7 @@ ddlStatement
 
 dmlStatement
     : selectStatementWithContinuation | insertStatement | updateStatement
-    | deleteStatement | replaceStatement | callStatement
-    | loadDataStatement | loadXmlStatement | doStatement
-    | handlerStatement
+    | deleteStatement
     ;
 
 transactionStatement
@@ -66,14 +64,6 @@ transactionStatement
     | beginWork | commitWork | rollbackWork
     | savepointStatement | rollbackStatement
     | releaseStatement | lockTables | unlockTables
-    ;
-
-replicationStatement
-    : changeMaster | changeReplicationFilter | purgeBinaryLogs
-    | resetMaster | resetSlave | startSlave | stopSlave
-    | startGroupReplication | stopGroupReplication
-    | xaStartTransaction | xaEndTransaction | xaPrepareStatement
-    | xaCommitWork | xaRollbackWork | xaRecoverWork
     ;
 
 preparedStatement
@@ -165,7 +155,7 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS querySpecificationNointo
+    : (UNIQUE)? INDEX indexName=uid AS querySpecification
     ;
 
 idxField
@@ -215,26 +205,8 @@ schemaTemplateId:
 //    Primary DML Statements
 
 
-callStatement
-    : CALL fullId
-      (
-        '(' (constants | expressions)? ')'
-      )?
-    ;
-
 deleteStatement
     : singleDeleteStatement | multipleDeleteStatement
-    ;
-
-doStatement
-    : DO expressions
-    ;
-
-handlerStatement
-    : handlerOpenStatement
-    | handlerReadIndexStatement
-    | handlerReadStatement
-    | handlerCloseStatement
     ;
 
 insertStatement
@@ -255,54 +227,6 @@ insertStatement
       )?
     ;
 
-loadDataStatement
-    : LOAD DATA
-      priority=(LOW_PRIORITY | CONCURRENT)?
-      LOCAL? INFILE filename=STRING_LITERAL
-      violation=(REPLACE | IGNORE)?
-      INTO TABLE tableName
-      (PARTITION '(' uidList ')' )?
-      (CHARACTER SET charset=charsetName)?
-      (
-        fieldsFormat=(FIELDS | COLUMNS)
-        selectFieldsInto+
-      )?
-      (
-        LINES
-          selectLinesInto+
-      )?
-      (
-        IGNORE decimalLiteral linesFormat=(LINES | ROWS)
-      )?
-      ( '(' assignmentField (',' assignmentField)* ')' )?
-      (SET updatedElement (',' updatedElement)*)?
-    ;
-
-loadXmlStatement
-    : LOAD XML
-      priority=(LOW_PRIORITY | CONCURRENT)?
-      LOCAL? INFILE filename=STRING_LITERAL
-      violation=(REPLACE | IGNORE)?
-      INTO TABLE tableName
-      (CHARACTER SET charset=charsetName)?
-      (ROWS IDENTIFIED BY '<' tag=STRING_LITERAL '>')?
-      ( IGNORE decimalLiteral linesFormat=(LINES | ROWS) )?
-      ( '(' assignmentField (',' assignmentField)* ')' )?
-      (SET updatedElement (',' updatedElement)*)?
-    ;
-
-replaceStatement
-    : REPLACE priority=(LOW_PRIORITY | DELAYED)?
-      INTO? tableName
-      (PARTITION '(' partitions=uidList ')' )?
-      (
-        ('(' columns=uidList ')')? insertStatementValue
-        | SET
-          setFirst=updatedElement
-          (',' setElements+=updatedElement)*
-      )
-    ;
-
 selectStatementWithContinuation
     : selectStatement (WITH CONTINUATION continuationAtom)?
     ;
@@ -314,20 +238,20 @@ continuationAtom
 
 // done
 selectStatement
-    : querySpecification lockClause?                                #simpleSelect // done
-    | queryExpression lockClause?                                   #parenthesisSelect // done
-    | querySpecificationNointo unionStatement+
+    : querySpecification                               #simpleSelect // done
+    | queryExpression                                  #parenthesisSelect // done
+    | querySpecification unionStatement+
         (
           UNION unionType=(ALL | DISTINCT)?
           (querySpecification | queryExpression)
         )?
-        orderByClause? limitClause? lockClause?                     #unionSelect // done (unsupported)
-    | queryExpressionNointo unionParenthesis+
+        orderByClause? limitClause?                    #unionSelect // done (unsupported)
+    | queryExpression unionParenthesis+
         (
           UNION unionType=(ALL | DISTINCT)?
           queryExpression
         )?
-        orderByClause? limitClause? lockClause?                     #unionParenthesisSelect // done (unsupported)
+        orderByClause? limitClause?                    #unionParenthesisSelect // done (unsupported)
     ;
 
 // details
@@ -345,10 +269,6 @@ updatedElement
 
 assignmentField
     : uid | LOCAL_ID
-    ;
-
-lockClause
-    : FOR UPDATE | LOCK IN SHARE MODE
     ;
 
 //    Detailed DML Statements
@@ -464,42 +384,24 @@ queryExpression
     ;
 
 // done
-queryExpressionNointo
-    : '(' querySpecificationNointo ')'
-    | '(' queryExpressionNointo ')'
-    ;
-
-// done
 querySpecification
-    : SELECT selectSpec* selectElements selectIntoExpression?
-      fromClause? groupByClause? havingClause? windowClause? orderByClause? limitClause?
-    | SELECT selectSpec* selectElements // done
-    fromClause? groupByClause? havingClause? windowClause? orderByClause? limitClause? selectIntoExpression?
-    ;
-
-// done
-querySpecificationNointo
     : SELECT selectSpec* selectElements
       fromClause? groupByClause? havingClause? windowClause? orderByClause? limitClause?
     ;
 
 unionParenthesis
-    : UNION unionType=(ALL | DISTINCT)? queryExpressionNointo
+    : UNION unionType=(ALL | DISTINCT)? queryExpression
     ;
 
 unionStatement
     : UNION unionType=(ALL | DISTINCT)?
-      (querySpecificationNointo | queryExpressionNointo)
+      (querySpecification | queryExpression)
     ;
 
 // details
 
 selectSpec
-    : (ALL | DISTINCT | DISTINCTROW)
-    | HIGH_PRIORITY | STRAIGHT_JOIN | SQL_SMALL_RESULT
-    | SQL_BIG_RESULT | SQL_BUFFER_RESULT
-    | (SQL_CACHE | SQL_NO_CACHE)
-    | SQL_CALC_FOUND_ROWS
+    : ALL | DISTINCT | DISTINCTROW
     ;
 
 selectElements // done
@@ -512,33 +414,6 @@ selectElement
     | fullColumnName (AS? uid)?                                     #selectColumnElement // done
     | functionCall (AS? uid)?                                       #selectFunctionElement // done (partially supported)
     | (LOCAL_ID VAR_ASSIGN)? expression (AS? uid)?                  #selectExpressionElement // done
-    ;
-
-selectIntoExpression
-    : INTO assignmentField (',' assignmentField )*                  #selectIntoVariables
-    | INTO DUMPFILE STRING_LITERAL                                  #selectIntoDumpFile
-    | (
-        INTO OUTFILE filename=STRING_LITERAL
-        (CHARACTER SET charset=charsetName)?
-        (
-          fieldsFormat=(FIELDS | COLUMNS)
-          selectFieldsInto+
-        )?
-        (
-          LINES selectLinesInto+
-        )?
-      )                                                             #selectIntoTextFile
-    ;
-
-selectFieldsInto
-    : TERMINATED BY terminationField=STRING_LITERAL
-    | OPTIONALLY? ENCLOSED BY enclosion=STRING_LITERAL
-    | ESCAPED BY escaping=STRING_LITERAL
-    ;
-
-selectLinesInto
-    : STARTING BY starting=STRING_LITERAL
-    | TERMINATED BY terminationLine=STRING_LITERAL
     ;
 
 fromClause // done
@@ -657,79 +532,6 @@ transactionLevel
 
 
 // Replication's Statements
-
-//    Base Replication
-
-changeMaster
-    : CHANGE MASTER TO
-      masterOption (',' masterOption)* channelOption?
-    ;
-
-changeReplicationFilter
-    : CHANGE REPLICATION FILTER
-      replicationFilter (',' replicationFilter)*
-    ;
-
-purgeBinaryLogs
-    : PURGE purgeFormat=(BINARY | MASTER) LOGS
-       (
-           TO fileName=STRING_LITERAL
-           | BEFORE timeValue=STRING_LITERAL
-       )
-    ;
-
-resetMaster
-    : RESET MASTER
-    ;
-
-resetSlave
-    : RESET SLAVE ALL? channelOption?
-    ;
-
-startSlave
-    : START SLAVE (threadType (',' threadType)*)?
-      (UNTIL untilOption)?
-      connectionOption* channelOption?
-    ;
-
-stopSlave
-    : STOP SLAVE (threadType (',' threadType)*)?
-    ;
-
-startGroupReplication
-    : START GROUP_REPLICATION
-    ;
-
-stopGroupReplication
-    : STOP GROUP_REPLICATION
-    ;
-
-// details
-
-masterOption
-    : stringMasterOption '=' STRING_LITERAL                         #masterStringOption
-    | decimalMasterOption '=' decimalLiteral                        #masterDecimalOption
-    | boolMasterOption '=' boolVal=('0' | '1')                      #masterBoolOption
-    | MASTER_HEARTBEAT_PERIOD '=' REAL_LITERAL                      #masterRealOption
-    | IGNORE_SERVER_IDS '=' '(' (uid (',' uid)*)? ')'               #masterUidListOption
-    ;
-
-stringMasterOption
-    : MASTER_BIND | MASTER_HOST | MASTER_USER | MASTER_PASSWORD
-    | MASTER_LOG_FILE | RELAY_LOG_FILE | MASTER_SSL_CA
-    | MASTER_SSL_CAPATH | MASTER_SSL_CERT | MASTER_SSL_CRL
-    | MASTER_SSL_CRLPATH | MASTER_SSL_KEY | MASTER_SSL_CIPHER
-    | MASTER_TLS_VERSION
-    ;
-decimalMasterOption
-    : MASTER_PORT | MASTER_CONNECT_RETRY | MASTER_RETRY_COUNT
-    | MASTER_DELAY | MASTER_LOG_POS | RELAY_LOG_POS
-    ;
-
-boolMasterOption
-    : MASTER_AUTO_POSITION | MASTER_SSL
-    | MASTER_SSL_VERIFY_SERVER_CERT
-    ;
 
 channelOption
     : FOR CHANNEL STRING_LITERAL
@@ -1338,7 +1140,7 @@ diagnosticsConditionInformationName
 describeObjectClause
     : (
         selectStatementWithContinuation | deleteStatement | insertStatement
-        | replaceStatement | updateStatement
+        | updateStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
     ;

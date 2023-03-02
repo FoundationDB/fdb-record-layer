@@ -25,8 +25,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
-
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+
 import com.google.protobuf.TextFormat;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;

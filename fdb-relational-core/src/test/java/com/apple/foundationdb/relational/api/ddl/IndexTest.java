@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
