@@ -63,7 +63,7 @@ transactionStatement
     : startTransaction
     | beginWork | commitWork | rollbackWork
     | savepointStatement | rollbackStatement
-    | releaseStatement | lockTables | unlockTables
+    | releaseStatement
     ;
 
 preparedStatement
@@ -86,7 +86,7 @@ administrationStatement
     | checksumTable | optimizeTable | repairTable
     | createUdfunction | installPlugin | uninstallPlugin
     | setStatement | showStatement | binlogStatement
-    | cacheIndexStatement | flushStatement | killStatement
+    | cacheIndexStatement | killStatement
     | loadIndexIntoCache | resetStatement
     | shutdownStatement
     ;
@@ -410,10 +410,10 @@ selectElements // done
 
 // done
 selectElement
-    : uid DOT STAR                                                  #selectStarElement // done
-    | fullColumnName (AS? uid)?                                     #selectColumnElement // done
-    | functionCall (AS? uid)?                                       #selectFunctionElement // done (partially supported)
-    | (LOCAL_ID VAR_ASSIGN)? expression (AS? uid)?                  #selectExpressionElement // done
+    : uid DOT STAR              #selectStarElement // done
+    | fullColumnName (AS? uid)? #selectColumnElement // done
+    | functionCall (AS? uid)?   #selectFunctionElement // done (partially supported)
+    | expression (AS? uid)?     #selectExpressionElement // done  
     ;
 
 fromClause // done
@@ -483,15 +483,6 @@ releaseStatement
     : RELEASE SAVEPOINT uid
     ;
 
-lockTables
-    : LOCK TABLES lockTableElement (',' lockTableElement)*
-    ;
-
-unlockTables
-    : UNLOCK TABLES
-    ;
-
-
 // details
 
 setAutocommitStatement
@@ -507,14 +498,6 @@ transactionMode
     : WITH CONSISTENT SNAPSHOT
     | READ WRITE
     | READ ONLY
-    ;
-
-lockTableElement
-    : tableName (AS? uid)? lockAction
-    ;
-
-lockAction
-    : READ LOCAL? | LOW_PRIORITY? WRITE
     ;
 
 transactionOption
@@ -536,76 +519,6 @@ transactionLevel
 channelOption
     : FOR CHANNEL STRING_LITERAL
     ;
-
-replicationFilter
-    : REPLICATE_DO_DB '=' '(' uidList ')'                           #doDbReplication
-    | REPLICATE_IGNORE_DB '=' '(' uidList ')'                       #ignoreDbReplication
-    | REPLICATE_DO_TABLE '=' '(' tables ')'                         #doTableReplication
-    | REPLICATE_IGNORE_TABLE '=' '(' tables ')'                     #ignoreTableReplication
-    | REPLICATE_WILD_DO_TABLE '=' '(' simpleStrings ')'             #wildDoTableReplication
-    | REPLICATE_WILD_IGNORE_TABLE
-       '=' '(' simpleStrings ')'                                    #wildIgnoreTableReplication
-    | REPLICATE_REWRITE_DB '='
-      '(' tablePair (',' tablePair)* ')'                            #rewriteDbReplication
-    ;
-
-tablePair
-    : '(' firstTable=tableName ',' secondTable=tableName ')'
-    ;
-
-threadType
-    : IO_THREAD | SQL_THREAD
-    ;
-
-untilOption
-    : gtids=(SQL_BEFORE_GTIDS | SQL_AFTER_GTIDS)
-      '=' gtuidSet                                                  #gtidsUntilOption
-    | MASTER_LOG_FILE '=' STRING_LITERAL
-      ',' MASTER_LOG_POS '=' decimalLiteral                         #masterLogUntilOption
-    | RELAY_LOG_FILE '=' STRING_LITERAL
-      ',' RELAY_LOG_POS '=' decimalLiteral                          #relayLogUntilOption
-    | SQL_AFTER_MTS_GAPS                                            #sqlGapsUntilOption
-    ;
-
-connectionOption
-    : USER '=' conOptUser=STRING_LITERAL                            #userConnectionOption
-    | PASSWORD '=' conOptPassword=STRING_LITERAL                    #passwordConnectionOption
-    | DEFAULT_AUTH '=' conOptDefAuth=STRING_LITERAL                 #defaultAuthConnectionOption
-    | PLUGIN_DIR '=' conOptPluginDir=STRING_LITERAL                 #pluginDirConnectionOption
-    ;
-
-gtuidSet
-    : uuidSet (',' uuidSet)*
-    | STRING_LITERAL
-    ;
-
-
-//    XA Transactions
-
-xaStartTransaction
-    : XA xaStart=(START | BEGIN) xid xaAction=(JOIN | RESUME)?
-    ;
-
-xaEndTransaction
-    : XA END xid (SUSPEND (FOR MIGRATE)?)?
-    ;
-
-xaPrepareStatement
-    : XA PREPARE xid
-    ;
-
-xaCommitWork
-    : XA COMMIT xid (ONE PHASE)?
-    ;
-
-xaRollbackWork
-    : XA ROLLBACK xid
-    ;
-
-xaRecoverWork
-    : XA RECOVER (CONVERT xid)?
-    ;
-
 
 // Prepared Statements
 
@@ -1002,11 +915,6 @@ cacheIndexStatement
       IN schema=uid
     ;
 
-flushStatement
-    : FLUSH flushFormat=(NO_WRITE_TO_BINLOG | LOCAL)?
-      flushOption (',' flushOption)*
-    ;
-
 killStatement
     : KILL connectionFormat=(CONNECTION | QUERY)?
       decimalLiteral+
@@ -1031,24 +939,6 @@ shutdownStatement
 
 tableIndexes
     : tableName ( indexFormat=(INDEX | KEY)? '(' uidList ')' )?
-    ;
-
-flushOption
-    : (
-        DES_KEY_FILE | HOSTS
-        | (
-            BINARY | ENGINE | ERROR | GENERAL | RELAY | SLOW
-          )? LOGS
-        | OPTIMIZER_COSTS | PRIVILEGES | QUERY CACHE | STATUS
-        | USER_RESOURCES | TABLES (WITH READ LOCK)?
-       )                                                            #simpleFlushOption
-    | RELAY LOGS channelOption?                                     #channelFlushOption
-    | (TABLE | TABLES) tables? flushTableOption?                    #tableFlushOption
-    ;
-
-flushTableOption
-    : WITH READ LOCK
-    | FOR EXPORT
     ;
 
 loadedTableIndexes
@@ -1690,22 +1580,14 @@ functionArg
 expression
     : notOperator=(NOT | '!') expression                            #notExpression     // done
     | expression logicalOperator expression                         #logicalExpression // done
-    | predicate IS NOT? testValue=(TRUE | FALSE | UNKNOWN)          #isExpression      // done
+    | predicate IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)     #isExpression      // done
     | predicate                                                     #predicateExpression // done
     ;
 
 predicate
     : predicate NOT? IN '(' (selectStatement | expressions) ')'     #inPredicate // done
-    | predicate IS NOT? nullLiteral                                 #isNullPredicate // done
     | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
-    | predicate comparisonOperator
-      quantifier=(ALL | ANY | SOME) '(' selectStatement ')'         #subqueryComparisonPredicate // done (unsupported)
-    | predicate NOT? BETWEEN predicate AND predicate                #betweenPredicate // done (unsupported)
-    | predicate SOUNDS LIKE predicate                               #soundsLikePredicate // done (unsupported)
-    | predicate NOT? LIKE predicate (ESCAPE STRING_LITERAL)?        #likePredicate // done (unsupported)
-    | predicate NOT? regex=(REGEXP | RLIKE) predicate               #regexpPredicate // done (unsupported)
-    | (LOCAL_ID VAR_ASSIGN)? expressionAtom                         #expressionAtomPredicate // done
-    | predicate MEMBER OF '(' predicate ')'                         #jsonMemberOfPredicate // done (unsupported)
+    | expressionAtom                                                #expressionAtomPredicate // done
     ;
 
 
@@ -1716,7 +1598,6 @@ expressionAtom
     | functionCall                                                  #functionCallExpressionAtom // done
     | preparedStatementParameter                                    #preparedStatementParameterAtom // done
     | expressionAtom COLLATE collationName                          #collateExpressionAtom // done (unsupported)
-    | mysqlVariable                                                 #mysqlVariableExpressionAtom // done (unsupported)
     | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)
     | BINARY expressionAtom                                         #binaryExpressionAtom // done (unsupported)
     //| '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done

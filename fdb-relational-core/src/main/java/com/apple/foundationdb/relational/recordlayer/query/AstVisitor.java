@@ -490,9 +490,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport // can not reach code path for now
     public Void visitSelectExpressionElement(RelationalParser.SelectExpressionElementContext ctx) {
-        Assert.isNullUnchecked(ctx.LOCAL_ID(), UNSUPPORTED_QUERY);
         final var expressionObj = ctx.expression().accept(this);
         Assert.thatUnchecked(expressionObj instanceof Value, UNSUPPORTED_QUERY);
         final var expression = (Value) expressionObj;
@@ -705,31 +703,33 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return (Value) ParserUtils.encapsulate(AndOrValue.OrFn.class, List.of(left, right));
     }
 
-    @ExcludeFromJacocoGeneratedReport
-    // remove once code branch is testable after fixing nullability bug in record layer
     @Override
     public Value visitIsExpression(RelationalParser.IsExpressionContext ctx) {
-        Assert.isNullUnchecked(ctx.UNKNOWN(), UNSUPPORTED_QUERY);
         final Value left = (Value) (visit(ctx.predicate()));
-        if (ctx.FALSE() == null && ctx.TRUE() == null) {
-            Assert.failUnchecked(String.format("unexpected value %s", ctx.getText()));
-        }
-        LiteralValue<Boolean> right = (ctx.TRUE() != null) ?
-                new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
-                new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
-        final Typed nullClause;
-        Class<? extends BuiltInFunction<Value>> combineFunc;
-        if (ctx.NOT() != null) {
-            //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
-            right = new LiteralValue<>(right.getResultType(), Boolean.FALSE.equals(right.getLiteralValue()));
-            nullClause = ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
-            combineFunc = AndOrValue.OrFn.class;
+        if (ctx.NULL_LITERAL() != null) {
+            if (ctx.NOT() != null) {
+                return (Value) ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
+            } else {
+                return (Value) ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
+            }
         } else {
-            nullClause = ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
-            combineFunc = AndOrValue.AndFn.class;
+            LiteralValue<Boolean> right = (ctx.TRUE() != null) ?
+                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
+                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
+            final Typed nullClause;
+            Class<? extends BuiltInFunction<Value>> combineFunc;
+            if (ctx.NOT() != null) {
+                //invert the condition, and add an allowance for null as well -- e.g. is not true => (is false or is null)
+                right = new LiteralValue<>(right.getResultType(), Boolean.FALSE.equals(right.getLiteralValue()));
+                nullClause = ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
+                combineFunc = AndOrValue.OrFn.class;
+            } else {
+                nullClause = ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
+                combineFunc = AndOrValue.AndFn.class;
+            }
+            final Typed equals = ParserUtils.encapsulate(RelOpValue.EqualsFn.class, List.of(left, right));
+            return (Value) ParserUtils.encapsulate(combineFunc, List.of(nullClause, equals));
         }
-        final Typed equals = ParserUtils.encapsulate(RelOpValue.EqualsFn.class, List.of(left, right));
-        return (Value) ParserUtils.encapsulate(combineFunc, List.of(nullClause, equals));
     }
 
     ///// Predicates ///////
@@ -751,70 +751,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Typed visitIsNullPredicate(RelationalParser.IsNullPredicateContext ctx) {
-        final Value left = (Value) (visit(ctx.predicate()));
-        if (ctx.NOT() != null) {
-            return ParserUtils.encapsulate(RelOpValue.NotNullFn.class, List.of(left));
-        } else {
-            return ParserUtils.encapsulate(RelOpValue.IsNullFn.class, List.of(left));
-        }
-    }
-
-    @Override
     public Value visitBinaryComparisonPredicate(RelationalParser.BinaryComparisonPredicateContext ctx) {
         final Value left = (Value) (visit(ctx.left));
         final Value right = (Value) (visit(ctx.right));
         BuiltInFunction<? extends Value> comparisonFunction = ParserUtils.getExplicitFunction(ctx.comparisonOperator().getText());
         return (Value) ParserUtils.encapsulate(comparisonFunction, List.of(left, right));
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitSubqueryComparisonPredicate(RelationalParser.SubqueryComparisonPredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitBetweenPredicate(RelationalParser.BetweenPredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitSoundsLikePredicate(RelationalParser.SoundsLikePredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitLikePredicate(RelationalParser.LikePredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitRegexpPredicate(RelationalParser.RegexpPredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override
-    public Value visitExpressionAtomPredicate(RelationalParser.ExpressionAtomPredicateContext ctx) {
-        Assert.isNullUnchecked(ctx.LOCAL_ID(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.VAR_ASSIGN(), UNSUPPORTED_QUERY);
-        return (Value) visit(ctx.expressionAtom());
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Typed visitJsonMemberOfPredicate(RelationalParser.JsonMemberOfPredicateContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
     }
 
     ///// Expression Atoms //////
@@ -833,27 +774,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
         }
         return new LiteralValue<>(param);
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitCollateExpressionAtom(RelationalParser.CollateExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitUnaryExpressionAtom(RelationalParser.UnaryExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitBinaryExpressionAtom(RelationalParser.BinaryExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
     }
 
     @Override
@@ -877,26 +797,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitBitExpressionAtom(RelationalParser.BitExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
     @Override
     public Value visitMathExpressionAtom(RelationalParser.MathExpressionAtomContext ctx) {
         final Value left = (Value) (visit(ctx.left));
         final Value right = (Value) (visit(ctx.right));
         BuiltInFunction<? extends Value> mathFunction = ParserUtils.getExplicitFunction(ctx.mathOperator().getText());
         return (Value) ParserUtils.encapsulate(mathFunction, List.of(left, right));
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitJsonExpressionAtom(RelationalParser.JsonExpressionAtomContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
     }
 
     ////// DB Objects /////
