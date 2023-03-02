@@ -277,12 +277,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
-    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, int group) {
-        return TestRecordsTextProto.SimpleDocument.newBuilder()
+    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, Integer group) {
+        var doc = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(docId)
-                .setText(text)
-                .setGroup(group)
-                .build();
+                .setText(text);
+        if (group != null) {
+            doc.setGroup(group);
+        }
+        return doc.build();
     }
 
     private TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
@@ -524,6 +526,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 1));
+            recordStore.saveRecord(createSimpleDocument(1548L, ENGINEER_JOKE, null));
 
             assertIndexEntryPrimaryKeys(List.of(1623L),
                     recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:2"), null, ScanProperties.FORWARD_SCAN));
