@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.autotest.ParameterizedQuery;
 import com.apple.foundationdb.relational.autotest.Query;
 import com.apple.foundationdb.relational.autotest.SchemaDescription;
 
-import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
 import org.junit.jupiter.engine.execution.InterceptingExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
@@ -77,7 +76,7 @@ class QueryInvoker {
             return Collections.emptyList();
         }
         MutableExtensionRegistry extensionRegistry = context.getExtensionRegistry();
-        extensionRegistry = MutableExtensionRegistry.createRegistryFrom(extensionRegistry, (Stream<Class<? extends Extension>>) Collections.emptyList());
+        extensionRegistry = MutableExtensionRegistry.createRegistryFrom(extensionRegistry, Stream.empty());
         extensionRegistry.registerExtension(new SchemaParameterResolver(description), testInstance);
         List<QuerySet> querySets = new ArrayList<>();
         for (Method method : schemaMethods) {

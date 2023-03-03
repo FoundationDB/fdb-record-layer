@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.autotest.WorkloadConfig;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
 import org.junit.jupiter.api.extension.TestInstances;
@@ -45,7 +44,6 @@ import org.junit.platform.engine.support.hierarchical.ThrowableCollector;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -160,7 +158,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
         config.setDefaults(defaultConfig); //make sure the default values are set if they weren't overridden
 
         MutableExtensionRegistry autoTestRegistry = context.getExtensionRegistry();
-        autoTestRegistry = MutableExtensionRegistry.createRegistryFrom(autoTestRegistry, (Stream<Class<? extends Extension>>) Collections.emptyList());
+        autoTestRegistry = MutableExtensionRegistry.createRegistryFrom(autoTestRegistry, Stream.empty());
 
         autoTestRegistry.registerExtension(config, instance);
 
