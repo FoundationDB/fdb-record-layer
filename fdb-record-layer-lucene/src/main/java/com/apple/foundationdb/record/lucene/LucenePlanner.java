@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -210,9 +209,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask, @Nonnull QueryComponent queryComponent) {
-        final QueryComponent adjustedQueryComponent = tryPushResidual(queryComponent);
-        if (adjustedQueryComponent instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)adjustedQueryComponent;
+        if (queryComponent instanceof LuceneQueryComponent) {
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             for (String field : luceneQueryComponent.getFields()) {
                 if (!validateIndexField(state, field)) {
                     return null;
@@ -237,8 +235,8 @@ public class LucenePlanner extends RecordQueryPlanner {
                     break;
             }
             if (scanParameters != null) {
-                if (adjustedQueryComponent != state.filter) {
-                    filterMask = filterMask.getChild(adjustedQueryComponent);
+                if (queryComponent != state.filter) {
+                    filterMask = filterMask.getChild(queryComponent);
                 }
                 filterMask.setSatisfied(true);
                 return scanParameters;
@@ -247,26 +245,13 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
-
-    private QueryComponent tryPushResidual(@Nonnull QueryComponent queryComponent) {
-        if (!(queryComponent instanceof NestedField)) {
-            return queryComponent;
+    @Nonnull
+    private LuceneQueryComponent tryPushResidual(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
+        if (prefix.isEmpty()) {
+            return luceneQueryComponent;
         }
-        final ImmutableList.Builder<String> prefixBuilder = ImmutableList.builder();
-        NestedField runner = (NestedField)queryComponent;
-        while (true) {
-            prefixBuilder.add(runner.getName());
-            if (runner.getChild() instanceof LuceneQueryComponent) {
-                final var luceneQueryComponent = (LuceneQueryComponent)runner.getChild();
-                final var prefix = prefixBuilder.build();
-                final var name = String.join("_", prefix);
-                return new LuceneQueryComponent(luceneQueryComponent.getQuery(), luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
-            } else if (runner.getChild() instanceof NestedField) {
-                runner = (NestedField)runner.getChild();
-            } else {
-                return queryComponent;
-            }
-        }
+        final var name = String.join("_", prefix);
+        return new LuceneQueryComponent(luceneQueryComponent.getQuery(), luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
     }
 
     @Nullable
@@ -291,11 +276,10 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
-        LuceneQueryComponent adjustedFilter = filter;
         if (!parentFieldPath.isEmpty()) {
-            adjustedFilter = (LuceneQueryComponent)tryPushResidual(filter);
+            filter = tryPushResidual(filter, parentFieldPath);
         }
-        for (String field : adjustedFilter.getFields()) {
+        for (String field : filter.getFields()) {
             if (!validateIndexField(state, field)) {
                 return null;
             }
@@ -305,9 +289,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         if (filter.isMultiFieldSearch()) {
-            return new LuceneQueryMultiFieldSearchClause(adjustedFilter.getQuery(), adjustedFilter.isQueryIsParameter());
+            return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
         } else {
-            return new LuceneQuerySearchClause(adjustedFilter.getQuery(), adjustedFilter.isQueryIsParameter());
+            return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
         }
     }
 
