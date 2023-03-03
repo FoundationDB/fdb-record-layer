@@ -277,6 +277,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
         if (!parentFieldPath.isEmpty()) {
+            // check whether the provided parent path is actually a field in the Lucene index itself.
             filter = tryPushResidual(filter, parentFieldPath);
         }
         for (String field : filter.getFields()) {
