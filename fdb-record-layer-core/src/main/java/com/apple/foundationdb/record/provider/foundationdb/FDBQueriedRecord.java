@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -350,8 +351,12 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
                 if (constituentRecordType == null) {
                     return null;
                 }
-                Tuple constituentPrimaryKey = primaryKey.getNestedTuple(position + 1);
-                M constituent = (M)protoRecord.getField(recordType.getDescriptor().findFieldByName(constituentName));
+
+                // Some scans like Lucene index scans populate the nested structures but do not have a proper primary
+                // key set (because it is not known). We (unfortunately) need to be defensive against that and not
+                // panic!
+                final Tuple constituentPrimaryKey = primaryKey.isEmpty() ? TupleHelpers.EMPTY : primaryKey.getNestedTuple(position + 1);
+                final M constituent = (M)protoRecord.getField(recordType.getDescriptor().findFieldByName(constituentName));
                 return new Covered<>(index, indexEntry, constituentPrimaryKey, constituentRecordType, constituent) {
                     @Nonnull
                     @Override

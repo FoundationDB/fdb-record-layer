@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -58,6 +59,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -93,6 +95,11 @@ public class LucenePlanner extends RecordQueryPlanner {
                                   @Nonnull Index index, @Nonnull QueryComponent filter,
                                   @Nullable KeyExpression sort, boolean sortReverse,
                                   @Nullable KeyExpression commonPrimaryKey) {
+        final RecordMetaData metaData = getRecordMetaData();
+        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        if (recordTypes.size() != 1) {
+            return null;
+        }
 
         final FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
 
@@ -141,7 +148,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         // Wrap in plan.
-        RecordQueryPlan plan = new LuceneIndexQueryPlan(index.getName(), scanParameters,
+        RecordQueryPlan plan = LuceneIndexQueryPlan.of(index.getName(), scanParameters,
                 resolveFetchIndexRecords(candidateScan.getPlanContext()), false,
                 state.planOrderingKey, state.storedFieldExpressions);
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
@@ -208,10 +215,22 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask, @Nonnull QueryComponent queryComponent) {
-        if (queryComponent instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
+        QueryComponent component = queryComponent;
+        final ImmutableList.Builder<String> prefixComponentsBuilder = ImmutableList.builder();
+        // find the prefix of the special scan (if it exists)
+        while (component instanceof NestedField) {
+            final var nestedField = (NestedField)component;
+            prefixComponentsBuilder.add(nestedField.getFieldName());
+            component = nestedField.getChild();
+        }
+        final var prefixComponents = prefixComponentsBuilder.build();
+        final String prefix = prefixComponents.isEmpty() ? null : String.join("_", prefixComponents);
+
+        if (component instanceof LuceneQueryComponent) {
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)component;
             for (String field : luceneQueryComponent.getFields()) {
-                if (!validateIndexField(state, field)) {
+                final String fullyPrefixedField = prefix == null ? field : prefix + "_" + field;
+                if (!validateIndexField(state, fullyPrefixedField)) {
                     return null;
                 }
             }

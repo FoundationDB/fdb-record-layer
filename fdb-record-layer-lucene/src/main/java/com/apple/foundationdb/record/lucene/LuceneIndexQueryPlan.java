@@ -20,41 +20,23 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexFetchMethod;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.ImmutableIntArray;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -68,82 +50,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Nullable
     private final List<KeyExpression> storedFields;
 
-    public LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters,
-                                @Nonnull FetchIndexRecords fetchIndexRecords, boolean reverse,
-                                @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
+    protected LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters,
+                                   @Nonnull FetchIndexRecords fetchIndexRecords, boolean reverse,
+                                   @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
         super(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, fetchIndexRecords, reverse, false);
         this.planOrderingKey = planOrderingKey;
         this.storedFields = storedFields;
-    }
-
-    /**
-     * Override here to have specific logic to build the {@link QueryResult} for lucene auto-complete and spell-check results.
-     * For these 2 scan types, results are returned as partial records that have only the grouping keys, primary key,
-     * and the text fields indexed by Lucene which have matches with the search key.
-     * So other fields than the matching text field won't be able to be read from the partial records.
-     * For an indexed record that have matches from multiple text fields, matching suggestions are returned as multiple partial records with different text fields populated,
-     * which share the same grouping keys and primary key, so they are considered as multiple results.
-     */
-    @Nonnull
-    @Override
-    @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                     @Nonnull EvaluationContext context,
-                                                                     @Nullable byte[] continuation,
-                                                                     @Nonnull ExecuteProperties executeProperties) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final Index index = metaData.getIndex(indexName);
-        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
-        if (recordTypes.size() != 1) {
-            throw new RecordCoreException("No lucene index should span multiple record types");
-        }
-        final IndexScanType scanType = getScanType();
-        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE) || scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
-            final RecordType recordType = recordTypes.iterator().next();
-            final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-            return entryRecordCursor
-                    .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                            getToPartialRecord(index, recordType, scanType), scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)))
-                    .map(QueryResult::fromQueriedRecord);
-        }
-        return super.executePlan(store, context, continuation, executeProperties);
-    }
-
-    /**
-     * Get the {@link IndexKeyValueToPartialRecord} instance for an {@link IndexEntry} representing a result of Lucene auto-complete suggestion.
-     * The partial record contains the suggestion in the field where it is indexed from, and the grouping keys if there are any.
-     * @param index the index being scanned
-     * @param recordType the record type for indexed records
-     * @param scanType the type of scan
-     * @return a partial record generator
-     */
-    @SuppressWarnings("UnstableApiUsage")
-    @VisibleForTesting
-    public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,
-                                                                  @Nonnull RecordType recordType,
-                                                                  @Nonnull IndexScanType scanType) {
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-
-        KeyExpression root = index.getRootExpression();
-        if (root instanceof GroupingKeyExpression) {
-            KeyExpression groupingKey = ((GroupingKeyExpression) root).getGroupingSubKey();
-            for (int i = 0; i < groupingKey.getColumnSize(); i++) {
-                AvailableFields.addCoveringField(groupingKey, AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i)), builder);
-            }
-        }
-
-        builder.addRequiredMessageFields();
-        if (!builder.isValid(true)) {
-            throw new RecordCoreException("Missing required field for result record")
-                    .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName())
-                    .addLogInfo(LogMessageKeys.RECORD_TYPE, recordType.getName())
-                    .addLogInfo(LogMessageKeys.SCAN_TYPE, scanType);
-        }
-
-        builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier(scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE),
-                recordType.getPrimaryKey()));
-
-        return builder.build();
     }
 
     /**
@@ -152,8 +64,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
      */
     @Override
     public boolean allowedForCoveringIndexPlan() {
-        return !getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)
-               && !getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK);
+        return true;
     }
 
     @Override
@@ -197,6 +108,11 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Override
     public PlanOrderingKey getPlanOrderingKey() {
         return planOrderingKey;
+    }
+
+    @Nullable
+    public List<KeyExpression> getStoredFields() {
+        return storedFields;
     }
 
     @Override
@@ -278,8 +194,21 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Override
     protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
-
-        // TODO this seems to be too simplistic
+        Verify.verify(newIndexScanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE));
         return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, planOrderingKey, storedFields);
+    }
+
+    @Nonnull
+    public static LuceneIndexQueryPlan of(@Nonnull final String indexName, @Nonnull final LuceneScanParameters scanParameters,
+                                          @Nonnull final FetchIndexRecords fetchIndexRecords, final boolean reverse,
+                                          @Nullable final PlanOrderingKey planOrderingKey, @Nullable final List<KeyExpression> storedFields) {
+        if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE)) {
+            return new LuceneIndexQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
+        } else if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
+            return new LuceneIndexAutoCompleteQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
+        } else if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
+            return new LuceneIndexSpellCheckQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
+        }
+        throw new RecordCoreException("unknown lucene scan warranted by caller");
     }
 }
