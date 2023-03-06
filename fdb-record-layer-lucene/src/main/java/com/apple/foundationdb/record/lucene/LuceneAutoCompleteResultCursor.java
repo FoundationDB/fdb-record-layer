@@ -394,4 +394,53 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 .addKeyAndValue(LogMessageKeys.INDEX_NAME, state.index.getName())
                 .addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(state.context));
     }
+
+    @Nullable
+    static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                            @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens) {
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int upto = 0;
+            Set<String> matchedInText = new HashSet<>();
+            Set<String> matchedPrefixes = new HashSet<>();
+            while (ts.incrementToken()) {
+                String token = termAtt.toString();
+                int startOffset = offsetAtt.startOffset();
+                int endOffset = offsetAtt.endOffset();
+                if (upto < startOffset) {
+                    upto = startOffset;
+                } else if (upto > startOffset) {
+                    continue;
+                }
+
+                if (matchedTokens.contains(token)) {
+                    // Token matches.
+                    upto = endOffset;
+                    matchedInText.add(token);
+                } else {
+                    for (String prefixToken : prefixTokens) {
+                        if (token.startsWith(prefixToken)) {
+                            upto = endOffset;
+                            matchedPrefixes.add(prefixToken);
+                            break;
+                        }
+                    }
+                }
+            }
+            ts.end();
+
+            if ((matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
+                // Query text not actually found in document text. Return null
+                return null;
+            }
+
+            // Text was found. Return text
+            return text;
+
+        } catch (IOException e) {
+            return null;
+        }
+    }
 }

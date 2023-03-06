@@ -69,8 +69,8 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     @Nonnull
     private final List<String> fields;
 
-    @Nonnull
-    private LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    @Nullable
+    private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     //MultiFieldSearch determines whether MultiFieldQueryParser or QueryParserBase is used.
     // QueryParserBase expects the query to contain the fields to be run against and takes a default field
@@ -90,11 +90,11 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch) {
-        this(type, query, queryIsParameter, fields, multiFieldSearch, new LuceneScanQueryParameters.LuceneQueryHighlightParameters(false));
+        this(type, query, queryIsParameter, fields, multiFieldSearch, null);
     }
 
     public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch,
-                                @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                                @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         this.type = type;
         this.query = query;
         this.queryIsParameter = queryIsParameter;
@@ -146,7 +146,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return multiFieldSearch;
     }
 
-    @Nonnull
+    @Nullable
     public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
         return luceneQueryHighlightParameters;
     }

@@ -132,7 +132,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
-    @Nonnull
+    @Nullable
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
@@ -149,7 +149,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable Sort sort,
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
-                       @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                       @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable final List<String> storedFields,
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
                        @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
@@ -476,7 +476,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
 
         private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
-                                   @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
+                                   @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
                                    @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
@@ -484,7 +484,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             this.termMap = new HashMap<>();
             this.analyzerSelector = analyzerSelector;
             this.indexKey = index.getRootExpression();
-            if (luceneQueryHighlightParameters.isHighlight()) {
+            if (luceneQueryHighlightParameters != null) {
                 getTerms(query, this.termMap);
             }
         }

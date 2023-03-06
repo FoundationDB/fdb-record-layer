@@ -60,16 +60,17 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Nullable
     final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
+    @Nullable
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
-        this(groupComparisons, query, null, null, null, new LuceneQueryHighlightParameters(false));
+        this(groupComparisons, query, null, null, null, null);
     }
 
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query,
                                      @Nullable Sort sort,
                                      @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                                     @Nonnull LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                                     @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
         this.query = query;
         this.sort = sort;
@@ -197,67 +198,26 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
         return semanticHashCode();
     }
 
-
     /**
      * The parameters for highlighting matching terms of a Lucene search.
      */
     public static class LuceneQueryHighlightParameters {
-        private static final String DEFAULT_LEFT_TAG = "<b>";
-        private static final String DEFAULT_RIGHT_TAG = "</b>";
-        private static final int DEFAULT_SNIPPETS_SIZE = 20;
-        private final boolean highlight;
-        @Nonnull
-        private final String leftTag;
-        @Nonnull
-        private final String rightTag;
-
-        private final boolean cutSnippets;
         private final int snippedSize;
-        private final boolean rewriteRecords;
 
-        public LuceneQueryHighlightParameters(boolean highlight) {
-            this(highlight, false);
+        /**
+         * Create parameter for lucene query highlights.
+         * @param snippetSize The size of the snippets that should be returned by the query. If zero or less, return the entire text
+         */
+        public LuceneQueryHighlightParameters(int snippetSize) {
+            this.snippedSize = snippetSize;
         }
 
-        public LuceneQueryHighlightParameters(boolean highlight, boolean cutSnippets) {
-            this(highlight, DEFAULT_LEFT_TAG, DEFAULT_RIGHT_TAG, cutSnippets, DEFAULT_SNIPPETS_SIZE, true);
-        }
-
-        public LuceneQueryHighlightParameters(boolean highlight, @Nonnull String leftTag, @Nonnull String rightTag,
-                                              boolean cutSnippets, int snippedSize, boolean rewriteRecords) {
-            this.highlight = highlight;
-            this.leftTag = leftTag;
-            this.rightTag = rightTag;
-            this.cutSnippets = cutSnippets;
-            this.snippedSize = snippedSize;
-            this.rewriteRecords = rewriteRecords;
-        }
-
-        public boolean isHighlight() {
-            return highlight;
-        }
-
-        @Nonnull
-        public String getLeftTag() {
-            return leftTag;
-        }
-
-        @Nonnull
-        public String getRightTag() {
-            return rightTag;
-        }
-
-        @Nonnull
         public boolean isCutSnippets() {
-            return cutSnippets;
+            return snippedSize > 1;
         }
 
         public int getSnippedSize() {
             return snippedSize;
-        }
-
-        public boolean isRewriteRecords() {
-            return rewriteRecords;
         }
     }
 }

@@ -138,8 +138,13 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
                             // matched terms
                             return null;
                         }
-                        String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
-                                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(autoCompleteScanBounds.isHighlight()), null);
+                        String match;
+                        if (autoCompleteScanBounds.isHighlight()) {
+                            match = LuceneHighlighting.searchAllAndHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
+                                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1), null);
+                        } else {
+                            match = LuceneAutoCompleteResultCursor.findMatch(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens);
+                        }
                         if (match == null) {
                             // Text not found in this field
                             return null;
