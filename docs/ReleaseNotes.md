@@ -26,7 +26,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** refactor lucene index auto complete and spell check [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.343.0
+
+* **Feature** refactor lucene index auto complete and spell check [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)
 
 ### 3.3.342.0
 
