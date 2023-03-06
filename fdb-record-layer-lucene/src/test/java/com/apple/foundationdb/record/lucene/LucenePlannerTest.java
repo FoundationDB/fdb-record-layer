@@ -22,15 +22,22 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
@@ -51,6 +58,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inParameter;
@@ -75,6 +84,8 @@ import static org.hamcrest.Matchers.hasToString;
  */
 @Tag(Tags.RequiresFDB)
 public class LucenePlannerTest extends FDBRecordStoreTestBase {
+
+    private static final String syntheticRecordTypeName = "luceneJoinedIdx";
 
     private static final FunctionKeyExpression docIdSortKey = function(LuceneFunctionNames.LUCENE_SORTED, field("doc_id"));
     private static final FunctionKeyExpression text1Key = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
@@ -109,6 +120,13 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
             scoreKey.groupBy(field("group")),
             LuceneIndexTypes.LUCENE);
 
+    private static final Index LUCENE_JOIN_INDEX = new Index("joinNestedConcat", concat(
+            field("cust").nest(function(LuceneFunctionNames.LUCENE_STORED, field("name"))),
+            field("order").nest(concat(function(LuceneFunctionNames.LUCENE_STORED, field("order_no")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("order_desc"))
+            ))
+    ), LuceneIndexTypes.LUCENE);
+
     private static final RecordMetaDataHook separateHook = metaDataBuilder -> {
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT1_INDEX);
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT2_INDEX);
@@ -131,6 +149,25 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
         metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_SCORE_INDEX);
     };
 
+    private static final RecordMetaDataHook syntheticLuceneRecordMetaDataHook = metaDataBuilder -> {
+        metaDataBuilder.getRecordType("CustomerWithHeader")
+                .setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader")
+                .setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        //set up the joined index
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType(syntheticRecordTypeName);
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+        joined.addJoin("order", field("___header").nest("z_key"),
+                "cust", field("___header").nest("z_key"));
+        joined.addJoin("order", field("custRef").nest("string_value"),
+                "cust", field("___header").nest("rec_id"));
+
+        metaDataBuilder.addIndex(joined, LUCENE_JOIN_INDEX);
+        metaDataBuilder.addIndex("OrderWithHeader", "order$custRef", concat(field("___header").nest("z_key"), field("custRef").nest("string_value")));
+    };
+
     private static final LuceneQueryComponent luceneSyntaxAnd =
             new LuceneQueryComponent("text:\"first\" AND text2:\"second\"", List.of("text", "text2"));
 
@@ -139,6 +176,12 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
 
     private static final LuceneQueryComponent luceneText2 =
             new LuceneQueryComponent("text2:\"second\"", List.of("text2"));
+
+    private static final LuceneQueryComponent luceneText3 =
+            new LuceneQueryComponent("cust_name: \"John Smith\"", List.of("name"));
+
+    private static final QueryComponent nestedFieldWithLuceneText =
+            new NestedField("cust", luceneText3);
 
     private static final RecordQuery luceneSyntaxAndQuery = RecordQuery.newBuilder()
             .setRecordType(COMPLEX_DOC)
@@ -200,6 +243,16 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                     ))
             .build();
 
+    private static final QueryComponent customerRecIdFilter = new NestedField("cust", new NestedField("___header", new FieldWithComparison("rec_id", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+
+    private static final RecordQuery andLuceneNestedField = RecordQuery.newBuilder()
+            .setRecordType(syntheticRecordTypeName)
+            .setFilter(Query.and(
+                    customerRecIdFilter,
+                    nestedFieldWithLuceneText
+            ))
+            .build();
+
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         openRecordStore(context, hook, true);
     }
@@ -209,10 +262,14 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
         recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData()).createOrOpen();
+        setPlannerWholeFilterConfig(attemptWholeFilter);
+    }
+
+    protected void setPlannerWholeFilterConfig(boolean isTrue) {
         planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
-                .setPlanOtherAttemptWholeFilter(attemptWholeFilter)
+                .setPlanOtherAttemptWholeFilter(isTrue)
                 .build());
     }
 
@@ -388,6 +445,28 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                         indexName(COMPLEX_SCORE_INDEX.getName()),
                         indexScanType(LuceneScanTypes.BY_LUCENE),
                         scanParams(query(hasToString("score:INT EQUALS $__in_score__0"))))));
+            }
+            assertThat(plan, matcher);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testLuceneQueryUnderNestedField(boolean attemptWholeFilter) {
+        try (FDBRecordContext context = openContext()) {
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsJoinIndexProto.getDescriptor());
+            syntheticLuceneRecordMetaDataHook.apply(metaDataBuilder);
+            recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData()).createOrOpen();
+            setPlannerWholeFilterConfig(attemptWholeFilter);
+            RecordQueryPlan plan = planner.plan(andLuceneNestedField);
+            final var filter = customerRecIdFilter;
+            Matcher<RecordQueryPlan> matcher;
+            if (attemptWholeFilter) {
+                matcher = fetch(filter(filter, coveringIndexScan(indexScan(allOf(indexName(LUCENE_JOIN_INDEX.getName()), indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("cust_name: \"John Smith\""))))))));
+            } else {
+                matcher = fetch(filter(filter, coveringIndexScan(indexScan(allOf(indexName(LUCENE_JOIN_INDEX.getName()), indexScanType(LuceneScanTypes.BY_LUCENE),
+                        scanParams(query(hasToString("cust_name: \"John Smith\""))))))));
             }
             assertThat(plan, matcher);
         }
