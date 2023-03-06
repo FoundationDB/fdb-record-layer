@@ -200,8 +200,10 @@ class JDBCRelationalConnection implements RelationalConnection {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void setAutoCommit(boolean autoCommit) throws SQLException {
-        // https://www.baeldung.com/java-jdbc-auto-commit
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        if (!autoCommit) {
+            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        }
+        this.autoCommit = autoCommit;
     }
 
     @Override
@@ -323,5 +325,11 @@ class JDBCRelationalConnection implements RelationalConnection {
     public void rollback() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented",
                 ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    public void setTransactionIsolation(int level) throws SQLException {
+        // TODO: Set but not implemented. SQLLine does this on startup.
+        this.transactionIsolationLevel = level;
     }
 }

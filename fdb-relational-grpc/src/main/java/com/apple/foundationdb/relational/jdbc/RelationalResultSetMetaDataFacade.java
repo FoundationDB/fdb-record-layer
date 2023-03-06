@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
+import java.sql.JDBCType;
 import java.sql.SQLException;
 
 /**
@@ -72,6 +73,12 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
     public int getColumnType(int oneBasedColumn) throws SQLException {
         return this.delegate.getColumnMetadata()
                 .getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getJavaSqlTypesCode();
+    }
+
+    @Override
+    public String getColumnTypeName(int oneBasedColumn) throws SQLException {
+        int code = getColumnType(oneBasedColumn);
+        return JDBCType.valueOf(code).getName();
     }
 
     @Override

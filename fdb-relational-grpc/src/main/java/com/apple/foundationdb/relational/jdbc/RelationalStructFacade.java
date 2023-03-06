@@ -236,11 +236,6 @@ class RelationalStructFacade implements RelationalStruct {
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @Override
-    public String getSQLTypeName() throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
     static RelationalStructBuilder newBuilder() {
         return new RelationalStructFacadeBuilder();
     }

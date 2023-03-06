@@ -220,6 +220,10 @@ public final class GrpcSQLException {
         StringWriter stringWriter = new StringWriter();
         PrintWriter printWriter = new PrintWriter(stringWriter);
         e.printStackTrace(printWriter);
-        return stringWriter.toString();
+        String str = stringWriter.toString();
+        // Don't return massive headers. These exceptions end up serialized as grpc headers and there is a limit on
+        // all headers of 8k. Pick arbitrary 4k size for exception.
+        final int maxSize = 4 * 1024;
+        return str.length() <= maxSize ? str : str.substring(0, maxSize);
     }
 }

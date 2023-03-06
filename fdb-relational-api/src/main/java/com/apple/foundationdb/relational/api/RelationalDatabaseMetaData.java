@@ -379,9 +379,9 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getExtraNameCharacters() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        // For now, no extra name characters.
+        return "";
     }
 
     @Override

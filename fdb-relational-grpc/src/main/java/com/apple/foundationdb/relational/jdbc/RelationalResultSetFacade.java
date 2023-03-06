@@ -37,6 +37,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
+import java.util.function.Function;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalResultSet} view.
@@ -49,6 +50,15 @@ class RelationalResultSetFacade implements RelationalResultSet {
      */
     private int rowIndex = -1;
 
+    private volatile boolean closed;
+    private boolean wasNull = true;
+
+    /**
+     * When column is primitive numeric and null, we have to return something -- can't return null when primitive type.
+     * This is what we return.
+     */
+    private static final int NUMERIC_VALUE_WHEN_NULL = -1;
+
     RelationalResultSetFacade(ResultSet delegate) {
         this.delegate = delegate;
         this.rows = delegate.getRowCount();
@@ -60,36 +70,79 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    public boolean isClosed() throws SQLException {
+        return this.closed;
+    }
+
+    @Override
     public void close() throws SQLException {
+        this.closed = true;
     }
 
     @Override
     public boolean wasNull() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        // "...is for checking if the last primitive value read from the result set was null (as primitives don't
+        // support null, while a database column does)"
+        // "Reports whether the last column read had a value of SQL NULL. Note that you must first call one of the
+        // getter methods on a column to try to read its value and then call the method wasNull to see if the value
+        // read was SQL NULL."
+        return this.wasNull;
+    }
+
+    private <R> R get(int oneBasedIndex, Function<Column, R> s) {
+        int index = PositionalIndex.toProtobuf(oneBasedIndex);
+        Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
+        return s.apply(column);
     }
 
     @Override
-    public String getString(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getString();
+    public String getString(final int oneBasedColumn) throws SQLException {
+        return get(oneBasedColumn, column -> {
+            if (column.hasString()) {
+                // Do I need to update lastColumnReadWasNull for String type?
+                // For primitives only?
+                this.wasNull = false;
+                return column.getString();
+            }
+            this.wasNull = true;
+            return null;
+        });
     }
 
     @Override
     public boolean getBoolean(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getBoolean();
+        return get(oneBasedColumn, column -> {
+            if (column.hasBoolean()) {
+                this.wasNull = false;
+                return column.getBoolean();
+            }
+            this.wasNull = true;
+            return false;
+        });
     }
 
     @Override
     public int getInt(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getInteger();
+        return get(oneBasedColumn, column -> {
+            if (column.hasInteger()) {
+                this.wasNull = false;
+                return column.getInteger();
+            }
+            this.wasNull = true;
+            return NUMERIC_VALUE_WHEN_NULL;
+        });
     }
 
     @Override
     public long getLong(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getLong();
+        return get(oneBasedColumn, column -> {
+            if (column.hasLong()) {
+                this.wasNull = false;
+                return column.getLong();
+            }
+            this.wasNull = true;
+            return Long.valueOf(NUMERIC_VALUE_WHEN_NULL);
+        });
     }
 
     @ExcludeFromJacocoGeneratedReport
@@ -98,17 +151,28 @@ class RelationalResultSetFacade implements RelationalResultSet {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     public double getDouble(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        return this.delegate.getRow(rowIndex).getColumns().getColumn(index).getDouble();
+        return get(oneBasedColumn, column -> {
+            if (column.hasDouble()) {
+                this.wasNull = false;
+                return column.getDouble();
+            }
+            this.wasNull = true;
+            return Double.valueOf(NUMERIC_VALUE_WHEN_NULL);
+        });
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     public byte[] getBytes(int oneBasedColumn) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return get(oneBasedColumn, column -> {
+            if (column.hasBinary()) {
+                this.wasNull = false;
+                return column.getBinary().toByteArray();
+            }
+            this.wasNull = true;
+            return null;
+        });
     }
 
     private static int columnLabelToColumnOneBasedIndex(java.util.List<Column> columns, String columnLabel) {

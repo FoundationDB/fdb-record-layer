@@ -45,8 +45,10 @@ import io.grpc.StatusRuntimeException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 
@@ -58,13 +60,49 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Nullable
     private RelationalResultSet currentResultSet;
 
+    /**
+     * Running result state.
+     * For {@link #getUpdateCount()}.
+     * TODO: Related to {@link #currentResultSet} ?
+     * TODO: More precision around when this value changes and how it changes (study other jdbc drivers).
+     */
+    private int updateCount = STATEMENT_NO_RESULT;
+
+    /**
+     * Special value that is used to indicate that a statement returned a {@link ResultSet}. The
+     * method {@link Statement#getUpdateCount()} will return this value if the previous statement that
+     * was executed with {@link Statement#execute(String)} returned a {@link ResultSet}.
+     */
+    public static final int STATEMENT_RESULT_SET = -1;
+    /**
+     * Special value that is used to indicate that a statement had no result. The method {@link
+     * Statement#getUpdateCount()} will return this value if the previous statement that was executed
+     * with {@link Statement#execute(String)}, such as DDL statements.
+     */
+    public static final int STATEMENT_NO_RESULT = -2;
+
     JDBCRelationalStatement(@Nonnull final JDBCRelationalConnection connection) {
         this.connection = connection;
+    }
+
+    private void checkOpen() throws SQLException {
+        if (isClosed()) {
+            throw new SQLException("Statement closed");
+        }
+    }
+
+    @Override
+    public int getUpdateCount() throws SQLException {
+        checkOpen();
+        // "Retrieves the current result as an update count; if the result is a ResultSet object or there are no more
+        // results, -1 is returned. This method should be called only once per result."
+        return this.updateCount;
     }
 
     @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
     private RelationalResultSet execute(@Nonnull String sql, @Nonnull Options options)
             throws SQLException {
+        checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
         StatementResponse statementResponse = null;
         try {
@@ -79,12 +117,14 @@ class JDBCRelationalStatement implements RelationalStatement {
             }
             throw sqlException;
         }
+        this.updateCount = STATEMENT_RESULT_SET;
         return statementResponse.hasResultSet() ? new RelationalResultSetFacade(statementResponse.getResultSet()) : null;
     }
 
     @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
     private int update(@Nonnull String sql, @Nonnull Options options)
             throws SQLException {
+        checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
         StatementResponse statementResponse = null;
         try {
@@ -102,25 +142,20 @@ class JDBCRelationalStatement implements RelationalStatement {
         if (statementResponse.hasResultSet()) {
             throw new SQLException(String.format("Query '%s' returns a ResultSet; use JDBC executeQuery instead", sql));
         }
-        return statementResponse.getRowCount();
+        this.updateCount = statementResponse.getRowCount();
+        return this.updateCount;
     }
 
     @Override
     public RelationalResultSet executeQuery(String sql) throws SQLException {
+        checkOpen();
         this.currentResultSet = execute(sql, Options.NONE);
         return this.currentResultSet;
     }
 
     @Override
-    public int getUpdateCount() throws SQLException {
-        // "Retrieves the current result as an update count; if the result is a ResultSet object or there are
-        // no more results, -1 is returned. This method should be called only once per result."
-        // TODO: on only call once and on what if update count rather than resultSet.
-        return this.currentResultSet == null ? 0 : -1;
-    }
-
-    @Override
     public int executeUpdate(String sql) throws SQLException {
+        checkOpen();
         return update(sql, Options.NONE);
     }
 
@@ -147,12 +182,14 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
+        checkOpen();
         this.currentResultSet = this.execute(sql, Options.NONE);
         return this.currentResultSet != null;
     }
 
     @Override
     public RelationalResultSet getResultSet() throws SQLException {
+        checkOpen();
         if (this.currentResultSet != null /*&& !currentResultSet.isClosed()  todo implement this*/) {
             return this.currentResultSet;
         }
@@ -161,11 +198,13 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public Connection getConnection() throws SQLException {
+        checkOpen();
         return this.connection;
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
+        checkOpen();
         RelationalResultSet resultSet = execute(sql, Options.NONE);
         if (resultSet != null) {
             this.currentResultSet = resultSet;
@@ -186,6 +225,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
     @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options) throws SQLException {
+        checkOpen();
         GetResponse getResponse = null;
         try {
             getResponse = this.connection.getStub().get(GetRequest.newBuilder()
@@ -202,6 +242,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             }
             throw sqlException;
         }
+        this.updateCount = STATEMENT_RESULT_SET;
         return getResponse == null ? null : new RelationalResultSetFacade(getResponse.getResultSet());
     }
 
@@ -211,6 +252,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options)
             throws SQLException {
+        checkOpen();
         ScanResponse response = null;
         try {
             response = this.connection.getStub().scan(ScanRequest.newBuilder()
@@ -233,6 +275,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+        checkOpen();
         InsertResponse insertResponse = null;
         try {
             // Add the messages as opaque ByteStrings. On the other side, it uses context to figure how to parse the
@@ -255,13 +298,15 @@ class JDBCRelationalStatement implements RelationalStatement {
             }
             throw sqlException;
         }
-        return insertResponse == null ? -1 : insertResponse.getRowCount();
+        this.updateCount = insertResponse == null ? STATEMENT_NO_RESULT : insertResponse.getRowCount();
+        return this.updateCount;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
+        checkOpen();
         InsertResponse insertResponse = null;
         try {
             insertResponse = this.connection.getStub().insert(InsertRequest.newBuilder()
@@ -278,7 +323,8 @@ class JDBCRelationalStatement implements RelationalStatement {
             }
             throw sqlException;
         }
-        return insertResponse == null ? -1 : insertResponse.getRowCount();
+        this.updateCount = insertResponse == null ? STATEMENT_NO_RESULT : insertResponse.getRowCount();
+        return this.updateCount;
     }
 
     @Override
@@ -298,11 +344,13 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
+        checkOpen();
         return -1;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
+        checkOpen();
     }
 }
