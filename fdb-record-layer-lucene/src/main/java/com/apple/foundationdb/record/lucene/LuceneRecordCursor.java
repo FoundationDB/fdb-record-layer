@@ -344,20 +344,22 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         }
                         Object value = null;
                         IndexableField docField = document.getField(storedFields.get(i));
-                        switch (storedFieldTypes.get(i)) {
-                            case STRING:
-                                value = docField.stringValue();
-                                break;
-                            case BOOLEAN:
-                                value = Boolean.valueOf(docField.stringValue());
-                                break;
-                            case INT:
-                            case LONG:
-                            case DOUBLE:
-                                value = docField.numericValue();
-                                break;
-                            default:
-                                break;
+                        if (docField != null) {
+                            switch (storedFieldTypes.get(i)) {
+                                case STRING:
+                                    value = docField.stringValue();
+                                    break;
+                                case BOOLEAN:
+                                    value = Boolean.valueOf(docField.stringValue());
+                                    break;
+                                case INT:
+                                case LONG:
+                                case DOUBLE:
+                                    value = docField.numericValue();
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
                         fieldValues.set(i, value);
                     }

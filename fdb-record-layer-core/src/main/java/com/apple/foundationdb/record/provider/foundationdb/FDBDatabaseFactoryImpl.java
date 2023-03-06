@@ -101,7 +101,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     protected synchronized FDB initFDB() {
         if (!inited) {
             if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(KeyValueLogMessage.build("Staring FDB")
+                LOGGER.info(KeyValueLogMessage.build("Starting FDB")
                         .addKeyAndValue(LogMessageKeys.API_VERSION, apiVersion.getVersionNumber())
                         .addKeyAndValue(LogMessageKeys.UNCLOSED_WARNING, unclosedWarning)
                         .addKeyAndValue(LogMessageKeys.TRACE_FORMAT, traceFormat)

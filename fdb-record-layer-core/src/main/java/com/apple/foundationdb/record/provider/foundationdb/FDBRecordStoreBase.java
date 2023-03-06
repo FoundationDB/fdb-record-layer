@@ -176,6 +176,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     RecordSerializer<M> getSerializer();
 
+
+    /**
+     * Returns the index maintainer for a given index.
+     * @param index the index
+     * @return the {@link IndexMaintainer} for the index passed in
+     */
+    @Nonnull
+    IndexMaintainer getIndexMaintainer(@Nonnull Index index);
+
     /**
      * Hook for checking if store state for client changes.
      */

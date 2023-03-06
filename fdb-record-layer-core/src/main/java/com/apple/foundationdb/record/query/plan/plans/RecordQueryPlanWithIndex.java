@@ -42,6 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * A query plan that uses a single index. This is usually by scanning
@@ -77,19 +78,22 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
     @Override
     @SuppressWarnings("PMD.CloseResource")
     default <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                      @Nonnull EvaluationContext context,
+                                                                      @Nonnull EvaluationContext evaluationContext,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-        return fetchIndexRecords(store,  entryRecordCursor, executeProperties)
+        final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction =
+                nestedContinuation -> executeEntries(store, evaluationContext, nestedContinuation, executeProperties);
+        return fetchIndexRecords(store, evaluationContext, entryCursorFunction, continuation, executeProperties)
                 .map(QueryResult::fromQueriedRecord);
     }
 
     @Nonnull
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                                    @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
+                                                                                    @Nonnull final EvaluationContext evaluationContext,
+                                                                                    @Nonnull final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
+                                                                                    @Nullable byte[] continuation,
                                                                                     @Nonnull final ExecuteProperties executeProperties) {
-        return getFetchIndexRecords().fetchIndexRecords(store, entryRecordCursor, executeProperties);
+        return getFetchIndexRecords().fetchIndexRecords(store, entryCursorFunction.apply(continuation), executeProperties);
     }
 
     @Nonnull
