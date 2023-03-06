@@ -66,8 +66,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
-import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -450,14 +450,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @ParameterizedTest
-    @ArgumentsSource(BooleanArgumentsProvider.class)
-    void simpleLuceneScans(boolean shouldDeferFetch, boolean withHighlight) throws Exception {
+    @ValueSource(booleans = {true, false})
+    void simpleLuceneScans(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(withHighlight ? LuceneQueryComponent.Type.QUERY_HIGHLIGHT : LuceneQueryComponent.Type.QUERY,
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "civil blood makes civil hands unclean", false, Lists.newArrayList(), true,
-                    withHighlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(1) : null);
+                    null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -467,10 +467,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI civil blood makes civil hands unclean")))));
-            // TODO(alacurie) WHY?
-            //if (withHighlight) {
-            //    matcher = highlight(matcher);
-            //}
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, matcher);
             List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
@@ -478,7 +474,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(Set.of(2L, 4L), Set.copyOf(primaryKeys));
 
             Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
-            texts.forEach(t -> assertTrue(t.contains(withHighlight ? "civil blood makes civil hands unclean" : "civil blood makes civil hands unclean")));
+            texts.forEach(t -> assertTrue(t.contains("civil blood makes civil hands unclean")));
         }
     }
 
@@ -612,15 +608,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @ParameterizedTest
-    @ArgumentsSource(BooleanArgumentsProvider.class)
-    void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch, boolean withHighlight) throws Exception {
+    @ValueSource(booleans = {true, false})
+    void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(withHighlight ? LuceneQueryComponent.Type.QUERY_HIGHLIGHT : LuceneQueryComponent.Type.QUERY, "(\"civil blood makes civil hands unclean\")", false, Lists.newArrayList("text"), true,
-                    withHighlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(1) : null);
-            final QueryComponent filter2 = new LuceneQueryComponent(withHighlight ? LuceneQueryComponent.Type.QUERY_HIGHLIGHT : LuceneQueryComponent.Type.QUERY, "(\"was king from 966 to 1016\")", false, Lists.newArrayList(), true,
-                    withHighlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(1) : null);
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"civil blood makes civil hands unclean\")", false, Lists.newArrayList("text"), true,
+                    null);
+            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"was king from 966 to 1016\")", false, Lists.newArrayList(), true,
+                    null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -635,12 +631,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI (\"was king from 966 to 1016\")")))));
             Matcher<RecordQueryPlan> matcher;
-            //if (withHighlight) {
-            // It would be possible to do the highlighting after the Fetch, as is done with filters, but there isn't
-            // a general-purpose version of that.
-            // TODO(alacurie) why ?
-            //matcher = primaryKeyDistinct(unorderedUnion(highlight(scan1), highlight(scan2)));
-            //} else
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(unorderedUnion(coveringIndexScan(scan1), coveringIndexScan(scan2))));
             } else {
@@ -658,25 +648,25 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
             Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
             for (String text : texts) {
-                boolean match1 = text.contains(withHighlight ? "was king from 966 to 1016" : "was king from 966 to 1016");
-                boolean match2 = text.contains(withHighlight ? "civil blood makes civil hands unclean" : "civil blood makes civil hands unclean");
+                boolean match1 = text.contains("was king from 966 to 1016");
+                boolean match2 = text.contains("civil blood makes civil hands unclean");
                 assertTrue(match1 || match2);
             }
         }
     }
 
     @ParameterizedTest
-    @ArgumentsSource(BooleanArgumentsProvider.class)
-    void delayFetchOnAndOfLuceneFilters(boolean shouldDeferFetch, boolean withHighlight) throws Exception {
+    @ValueSource(booleans = {true, false})
+    void delayFetchOnAndOfLuceneFilters(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(withHighlight ? LuceneQueryComponent.Type.QUERY_HIGHLIGHT : LuceneQueryComponent.Type.QUERY,
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "\"the continuance\"", false, Lists.newArrayList(), true,
-                    withHighlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(1) : null);
-            final QueryComponent filter2 = new LuceneQueryComponent(withHighlight ? LuceneQueryComponent.Type.QUERY_HIGHLIGHT : LuceneQueryComponent.Type.QUERY,
+                    null);
+            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "grudge", false, Lists.newArrayList(), true,
-                    withHighlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(1) : null);
+                    null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -687,10 +677,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" AND MULTI grudge")))));
-            // TODO(alacurie) WHY?
-            //if (withHighlight) {
-            //    matcher = highlight(matcher);
-            //}
             assertThat(plan, matcher);
             List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
             Set<Long> primaryKeys = queriedRecordList.stream().map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());
@@ -703,8 +689,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
             Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
             for (String text : texts) {
-                boolean match1 = text.contains(withHighlight ? "the continuance" : "the continuance");
-                boolean match2 = text.contains(withHighlight ? "grudge" : "grudge");
+                boolean match1 = text.contains("the continuance");
+                boolean match2 = text.contains("grudge");
                 assertTrue(match1 || match2);
             }
         }
