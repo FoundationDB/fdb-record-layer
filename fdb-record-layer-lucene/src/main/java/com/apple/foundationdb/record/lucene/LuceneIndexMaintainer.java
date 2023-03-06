@@ -155,7 +155,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             Analyzer analyzer = autoCompleteQueryAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey());
+                    executor, analyzer, state, scanAutoComplete.getGroupKey());
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
