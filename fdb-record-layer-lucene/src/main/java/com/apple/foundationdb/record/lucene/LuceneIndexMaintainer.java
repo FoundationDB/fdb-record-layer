@@ -109,6 +109,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
     }
 
+    public LuceneAnalyzerCombinationProvider getAutoCompleteQueryAnalyzerSelector() {
+        return autoCompleteQueryAnalyzerSelector;
+    }
+
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
@@ -151,7 +155,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             Analyzer analyzer = autoCompleteQueryAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), scanAutoComplete.isHighlight());
+                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey());
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {

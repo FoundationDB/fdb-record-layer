@@ -830,6 +830,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the required index
      * @return the maintainer for the given index
      */
+    @Nonnull
+    @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
         return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
     }
