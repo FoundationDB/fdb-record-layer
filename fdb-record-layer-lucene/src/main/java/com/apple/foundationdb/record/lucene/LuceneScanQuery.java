@@ -44,13 +44,13 @@ public class LuceneScanQuery extends LuceneScanBounds {
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
-    @Nonnull
+    @Nullable
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     public LuceneScanQuery(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey,
                            @Nonnull Query query, @Nullable Sort sort, @Nullable List<String> storedFields,
                            @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                           @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                           @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         super(scanType, groupKey);
         this.query = query;
         this.sort = sort;

@@ -361,7 +361,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false),
                 null, null, null,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight));
+                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1) : null );
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
@@ -805,7 +805,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             // Only 50 results are returned, although each matching doc has 2 fields that contain the search key
             assertEquals(50, results.size());
-            
+
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), context, "_0.cfs", true);
         }
     }
@@ -966,7 +966,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1645L, "Hello record layer", 1));
-            assertRecordTexts(List.of("Hello <b>recor</b>d layer"),
+            assertRecordTexts(List.of("Hello record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "recor*", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
@@ -1204,7 +1204,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void highlightedSynonymIndex() {
         final String original = "peanut butter and jelly sandwich";
-        final String highlighted = "<b>peanut</b> butter and jelly sandwich";
+        final String highlighted = "peanut butter and jelly sandwich";
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1236L, original, 1));
@@ -1337,15 +1337,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertRecordTexts(List.of("<b>Hello</b> record layer"),
+            assertRecordTexts(List.of("Hello record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordTexts(List.of("<b>Hel</b>lo record layer"),
+            assertRecordTexts(List.of("Hello record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordTexts(List.of("Hello re<b>cord</b> layer"),
+            assertRecordTexts(List.of("Hello record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "cord", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
@@ -1652,15 +1652,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "united states",
-                    ImmutableList.of("<b>united</b> <b>states</b> of america",
-                            "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "<b>united</b> kingdom, france, the <b>states</b>",
-                            "<b>states</b> <b>united</b> as a country",
-                            "<b>states</b> have been <b>united</b> as a country",
-                            "all the <b>states</b> <b>united</b> as a country",
-                            "all the <b>states</b> have been <b>united</b> as a country",
-                            "welcome to the <b>united</b> <b>states</b> of america",
-                            "The countries are <b>united</b> kingdom, france, the <b>states</b>"),
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "united kingdom, france, the states",
+                            "states united as a country",
+                            "states have been united as a country",
+                            "all the states united as a country",
+                            "all the states have been united as a country",
+                            "welcome to the united states of america",
+                            "The countries are united kingdom, france, the states"),
                     true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with term query,
@@ -1668,27 +1668,27 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united states \"",
-                    ImmutableList.of("<b>united</b> <b>states</b> of america",
-                            "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"),
                     true);
 
             // Only the texts containing "united states" are returned, the last token "states" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united states\"",
-                    ImmutableList.of("<b>united</b> <b>states</b> of america",
-                            "<b>united</b> <b>states</b> is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>states</b> of america"),
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"),
                     true);
 
             // Only the texts containing "united state" are returned, the last token "state" is queried with prefix query
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united state\"",
-                    ImmutableList.of("<b>united</b> <b>state</b>s of america",
-                            "<b>united</b> <b>state</b>s is a country in the continent of america",
-                            "welcome to the <b>united</b> <b>state</b>s of america"),
+                    ImmutableList.of("united states of america",
+                            "united states is a country in the continent of america",
+                            "welcome to the united states of america"),
                     true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
@@ -1696,24 +1696,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united states of \"",
-                    ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"),
                     true);
 
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united states of\"",
-                    ImmutableList.of("<b>united</b> <b>states</b> <b>of</b> america",
-                            "welcome to the <b>united</b> <b>states</b> <b>of</b> america"),
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"),
                     true);
 
             // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "\"united states o\"",
-                    ImmutableList.of("<b>united</b> <b>states</b> <b>o</b>f america",
-                            "welcome to the <b>united</b> <b>states</b> <b>o</b>f america"),
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"),
                     true);
 
             commit(context);
@@ -2483,7 +2483,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .map(Verify::verifyNotNull)
                     .map(i -> i.getKey().getString(i.getKeySize() - 2)).collect(Collectors.toList());
             if (highlight) {
-                assertEquals(ImmutableList.of("<b>Good</b> morning", "<b>Good</b> afternoon", "<b>good</b> evening", "<b>Good</b> night", "That's really <b>good</b>!", "I'm <b>good</b>"), suggestions);
+                assertEquals(ImmutableList.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good"), suggestions);
             } else {
                 assertEquals(ImmutableList.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good"), suggestions);
             }
@@ -2663,7 +2663,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             return storedRecord;
         }
         LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry) indexEntry;
-        if (!docIndexEntry.getLuceneQueryHighlightParameters().isHighlight()) {
+        if (docIndexEntry.getLuceneQueryHighlightParameters() == null) {
             return storedRecord;
         }
         M message = indexedRecord.getRecord();
