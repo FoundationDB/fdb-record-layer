@@ -21,27 +21,24 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayDeque;
@@ -50,7 +47,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -58,11 +54,205 @@ import java.util.Set;
  * Helper class for highlighting search matches.
  */
 public class LuceneHighlighting {
-    private static final int tokenCountBeforeHighlighted = 3;
-    private static final int tokenCountAfterHighlighted = 3;
-    private static final String highlightedTextConnector = "... ";
+    private static final int defaultSnippetSize = 7;
 
     private LuceneHighlighting() {
+    }
+
+    private static class TokenIterator implements Closeable {
+        TokenStream ts;
+        CharTermAttribute termAtt;
+        OffsetAttribute offsetAtt;
+
+        TokenIterator(TokenStream ts) throws IOException {
+            this.ts = ts;
+            termAtt = ts.addAttribute(CharTermAttribute.class);
+            offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+        }
+
+        boolean next() throws IOException {
+            int oldStartOffset = startOffset();
+            while(true) {
+                boolean inc = ts.incrementToken();
+                if (!inc) {
+                    return false;
+                }
+                if (oldStartOffset != startOffset()) {
+                    return true;
+                }
+            }
+        }
+
+        String getToken() {
+            return termAtt.toString();
+        }
+
+        int startOffset() {
+            return offsetAtt.startOffset();
+        }
+
+        int endOffset() {
+            return offsetAtt.endOffset();
+        }
+
+        @Override
+        public void close() throws IOException {
+            ts.end();
+            ts.close();
+
+        }
+    }
+
+    static private class SearchAllAndHighlightImpl {
+        private final TokenIterator it;
+        private final TokenIterator standardIt;
+        private final String text;
+        private final boolean cutSnippets;
+        private final int snippetSize;
+        @Nullable
+        private final List<Pair<Integer, Integer>> highlightedPositions;
+
+        private final StringBuilder sb = new StringBuilder();
+        private int upto = 0;
+        private final ArrayDeque<String> beforeHighlightTokens = new ArrayDeque<>();
+        int snippetRunningBudget = 0;
+        Set<String> matchedInText = new HashSet<>();
+        Set<String> matchedPrefixes = new HashSet<>();
+        boolean prefixTextConnector = false;
+        private static String highlightedTextConnector = "...";
+
+        SearchAllAndHighlightImpl(TokenIterator it,
+                                  TokenIterator standardIt,
+                                  String text,
+                                  boolean cutSnippets,
+                                  int snippetSize,
+                                  @Nullable final List<Pair<Integer, Integer>> highlightedPositions) {
+            this.it = it;
+            this.standardIt = standardIt;
+            this.text = text;
+            this.cutSnippets = cutSnippets;
+            this.snippetSize = snippetSize <= 0 ? defaultSnippetSize : snippetSize;
+            this.highlightedPositions = highlightedPositions;
+        }
+
+        private int tokenCountBeforeHighlighted() {
+            return (snippetSize - 1) / 2;
+        }
+
+        private void handleNonMatchToken() {
+            if (snippetRunningBudget > 0) {
+                addNonMatch(sb, text.substring(upto, standardIt.endOffset()));
+                snippetRunningBudget--;
+            }
+            if (snippetRunningBudget == 0) {
+                beforeHighlightTokens.addLast(text.substring(upto, standardIt.endOffset()));
+                if (beforeHighlightTokens.size() > tokenCountBeforeHighlighted()) {
+                    beforeHighlightTokens.pollFirst();
+                    prefixTextConnector = true;
+                }
+            }
+            upto = standardIt.endOffset();
+        }
+
+        private boolean handleMatchToken(final Set<String> matchedTokens) {
+            if (!matchedTokens.contains(it.getToken())) {
+                return false;
+            }
+            if (cutSnippets) {
+                snippetRunningBudget = snippetSize;
+                if (prefixTextConnector) {
+                    addNonMatch(sb, highlightedTextConnector);
+                    highlightedTextConnector = " ...";
+                    prefixTextConnector = false;
+                }
+                for (String token : beforeHighlightTokens) {
+                    addNonMatch(sb, token);
+                    snippetRunningBudget--;
+                }
+                beforeHighlightTokens.clear();
+            }
+            addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
+            addWholeMatch(sb, standardIt.getToken(), highlightedPositions);
+            snippetRunningBudget--;
+            //int start = it.startOffset();
+            //while (start < it.endOffset()) {
+            //    int index = text.toLowerCase(Locale.ROOT).indexOf(standardIt.getToken(), start);
+            //    if (index < 0 || index >= it.endOffset()) {
+            //        addNonMatch(sb, text.substring(start, it.endOffset()));
+            //        break;
+            //    }
+            //    int actualEndOffset = index + standardIt.getToken().length();
+            //    addNonMatch(sb, text.substring(start, index));
+            //    String substring = text.substring(index, actualEndOffset);
+            //    if (substring.equalsIgnoreCase(standardIt.getToken())) {
+            //        addWholeMatch(sb, substring, highlightedPositions);
+            //    } else {
+            //        addNonMatch(sb, substring);
+            //    }
+            //    start = actualEndOffset;
+            //}
+            upto = it.endOffset();
+            matchedInText.add(standardIt.getToken());
+            return true;
+        }
+
+        private boolean handlePrefixMatch(final Set<String> prefixTokens) {
+            for (String prefixToken : prefixTokens) {
+                if (it.getToken().startsWith(prefixToken)) {
+                    addPrefixMatch(sb, text.substring(it.startOffset(), it.endOffset()), prefixToken,
+                            highlightedPositions);
+                    upto = it.endOffset();
+                    matchedPrefixes.add(prefixToken);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void handleToken(final Set<String> matchedTokens, final Set<String> prefixTokens) {
+            boolean matched = handleMatchToken(matchedTokens);
+            if (!matched) {
+                matched = handlePrefixMatch(prefixTokens);
+            }
+            if (!matched) {
+                handleNonMatchToken();
+            }
+        }
+
+        public String search(final Set<String> matchedTokens, final Set<String> prefixTokens, final boolean allMatchingRequired) throws IOException {
+            while (it.next()) {
+                if (cutSnippets) {
+                    do {
+                        standardIt.next();
+                        if (standardIt.startOffset() < it.startOffset()) {
+                            // We're handling a stop word (we don't need to check if that word matches)
+                            handleNonMatchToken();
+                        } else {
+                            // We're handling a real word (We need to check if that word matches)
+                            handleToken(matchedTokens, prefixTokens);
+                        }
+                    } while (standardIt.startOffset() < it.startOffset());
+                } else {
+                    handleToken(matchedTokens, prefixTokens);
+                }
+            }
+
+            if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
+                // Query text not actually found in document text. Return null
+                return null;
+            }
+
+            // Text was found. Return text
+            if (upto < it.endOffset() && !cutSnippets) {
+                addNonMatch(sb, text.substring(upto));
+            }
+
+            if (snippetRunningBudget >= 0 && cutSnippets) {
+                addNonMatch(sb, " ...");
+            }
+            return sb.toString();
+        }
     }
 
     @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
@@ -72,105 +262,14 @@ public class LuceneHighlighting {
                                         boolean allMatchingRequired,
                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                         @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
-        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
-            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
-            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
-            ts.reset();
-            StringBuilder sb = new StringBuilder();
-            int upto = 0;
-            Set<String> matchedInText = new HashSet<>();
-            Set<String> matchedPrefixes = new HashSet<>();
-            ArrayDeque<String> pres = new ArrayDeque<>();
-            ArrayDeque<String> ends = new ArrayDeque<>();
-            int lastMatchPos = -tokenCountAfterHighlighted - 1;
-            int currentPos = 0;
-            while (ts.incrementToken()) {
-                String token = termAtt.toString();
-                int startOffset = offsetAtt.startOffset();
-                int endOffset = offsetAtt.endOffset();
-                if (upto < startOffset) {
-                    if (luceneQueryHighlightParameters.isCutSnippets()) {
-                        if (currentPos - lastMatchPos <= tokenCountAfterHighlighted + 1) {
-                            addNonMatch(sb, text.substring(upto, startOffset));
-                        } else {
-                            pres.add(text.substring(upto, startOffset));
-                            if (pres.size() > tokenCountBeforeHighlighted) {
-                                pres.poll();
-                            }
-                            if (ends.size() < luceneQueryHighlightParameters.getSnippedSize() - tokenCountAfterHighlighted) {
-                                ends.add(text.substring(upto, startOffset));
-                            }
-                        }
-                    } else {
-                        addNonMatch(sb, text.substring(upto, startOffset));
-                    }
-                    upto = startOffset;
-                } else if (upto > startOffset) {
-                    continue;
-                }
-
-                if (matchedTokens.contains(token)) {
-                    // Token matches.
-                    if (luceneQueryHighlightParameters.isCutSnippets() && currentPos - lastMatchPos > tokenCountBeforeHighlighted + tokenCountAfterHighlighted + 1) {
-                        addNonMatch(sb, highlightedTextConnector);
-                    }
-                    while (!pres.isEmpty()) {
-                        addNonMatch(sb, pres.poll());
-                    }
-                    ends.clear();
-                    int start = startOffset;
-                    while (start < endOffset) {
-                        int index = text.toLowerCase(Locale.ROOT).indexOf(token, start);
-                        if (index < 0 || index >= endOffset) {
-                            addNonMatch(sb, text.substring(start, endOffset));
-                            break;
-                        }
-                        int actualEndOffset = index + token.length();
-                        addNonMatch(sb, text.substring(start, index));
-                        String substring = text.substring(index, actualEndOffset);
-                        if (substring.equalsIgnoreCase(token)) {
-                            addWholeMatch(sb, substring,
-                                    highlightedPositions);
-                        } else {
-                            addNonMatch(sb, substring);
-                        }
-                        start = actualEndOffset;
-                    }
-                    upto = endOffset;
-                    matchedInText.add(token);
-                    lastMatchPos = currentPos;
-                } else {
-                    for (String prefixToken : prefixTokens) {
-                        if (token.startsWith(prefixToken)) {
-                            addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
-                                    highlightedPositions);
-                            upto = endOffset;
-                            matchedPrefixes.add(prefixToken);
-                            break;
-                        }
-                    }
-                }
-                currentPos++;
-            }
-            ts.end();
-
-            if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
-                // Query text not actually found in document text. Return null
-                return null;
-            }
-
-            // Text was found. Return text
-            int endOffset = offsetAtt.endOffset();
-            if (upto < endOffset && !luceneQueryHighlightParameters.isCutSnippets()) {
-                addNonMatch(sb, text.substring(upto));
-            } else if (luceneQueryHighlightParameters.isCutSnippets()) {
-                while (!ends.isEmpty()) {
-                    addNonMatch(sb, ends.poll());
-                }
-                addNonMatch(sb, highlightedTextConnector);
-            }
-            return sb.toString();
-
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
+             StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ;
+             TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
+             TokenIterator it = new TokenIterator(ts);
+             TokenIterator standardIt = new TokenIterator(standardTs)
+        ) {
+            var impl = new SearchAllAndHighlightImpl(it, standardIt, text, luceneQueryHighlightParameters.isCutSnippets(), luceneQueryHighlightParameters.getSnippedSize(), highlightedPositions);
+            return impl.search(matchedTokens, prefixTokens, allMatchingRequired);
         } catch (IOException e) {
             return null;
         }
@@ -223,70 +322,11 @@ public class LuceneHighlighting {
             return;
         }
         int start = sb.length();
-        sb.append(surface.substring(0, prefixToken.length()));
+        sb.append(surface, 0, prefixToken.length());
         if (highlightedPositions != null) {
             highlightedPositions.add(Pair.of(start, sb.length()));
         }
         sb.append(surface.substring(prefixToken.length()));
-    }
-
-    @Nullable
-    @SuppressWarnings("unchecked")
-    public static <M extends Message> FDBQueriedRecord<M> highlightTermsInRecord(@Nullable FDBQueriedRecord<M> queriedRecord) {
-        if (queriedRecord == null) {
-            return queriedRecord;
-        }
-        IndexEntry indexEntry = queriedRecord.getIndexEntry();
-        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
-            return queriedRecord;
-        }
-        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
-        if (docIndexEntry.getLuceneQueryHighlightParameters() == null) {
-            return queriedRecord;
-        }
-        M message = queriedRecord.getRecord();
-        M.Builder builder = message.toBuilder();
-        highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
-                docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
-        FDBStoredRecord<M> storedRecord = queriedRecord.getStoredRecord().asBuilder().setRecord((M) builder.build()).build();
-        return FDBQueriedRecord.indexed(new FDBIndexedRecord<>(indexEntry, storedRecord));
-    }
-
-    // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
-    @Nonnull
-    public static <M extends Message> void highlightTermsInMessage(@Nonnull KeyExpression expression, @Nonnull Message.Builder builder, @Nonnull Map<String, Set<String>> termMap,
-                                                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                                                   @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
-        RecordRebuildSource<M> recordRebuildSource = new RecordRebuildSource<>(null, builder.getDescriptorForType(), builder, builder.build());
-
-        LuceneIndexExpressions.getFields(expression, recordRebuildSource,
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
-                    if (type != LuceneIndexExpressions.DocumentFieldType.TEXT) {
-                        return;
-                    }
-                    Set<String> terms = getFieldTerms(termMap, fieldName);
-                    if (terms.isEmpty()) {
-                        return;
-                    }
-                    Set<String> prefixes = getPrefixTerms(terms);
-                    for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : source.message.getAllFields().entrySet()) {
-                        final Descriptors.FieldDescriptor entryDescriptor = entry.getKey();
-                        final Object entryValue = entry.getValue();
-                        if (entryValue instanceof String) {
-                            buildIfMatch(source, fieldName, value,
-                                    entryDescriptor, entryValue, 0,
-                                    terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
-                        } else if (entryValue instanceof List) {
-                            int index = 0;
-                            for (Object entryValueElement : ((List<?>) entryValue)) {
-                                buildIfMatch(source, fieldName, value,
-                                        entryDescriptor, entryValueElement, index,
-                                        terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
-                                index++;
-                            }
-                        }
-                    }
-                }, null);
     }
 
     private static Set<String> getPrefixTerms(@Nonnull Set<String> terms) {
@@ -306,17 +346,6 @@ public class LuceneHighlighting {
         return result;
     }
 
-    private static <M extends Message> void buildIfMatch(RecordRebuildSource<M> source, String fieldName, Object fieldValue,
-                                                         Descriptors.FieldDescriptor entryDescriptor, Object entryValue, int index,
-                                                         @Nonnull Set<String> terms, @Nonnull Set<String> prefixes,
-                                                         @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
-        if (entryValue.equals(fieldValue) && isMatch((String)entryValue, terms, prefixes)) {
-            String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, prefixes, false, luceneQueryHighlightParameters, null);
-            source.buildMessage(highlightedText, entryDescriptor, null, null, true, index);
-        }
-    }
-
     private static boolean isMatch(@Nonnull String candidate, @Nonnull Set<String> terms, @Nonnull Set<String> prefixes) {
         for (String term : terms) {
             if (StringUtils.containsIgnoreCase(candidate, term)) {
@@ -329,115 +358,6 @@ public class LuceneHighlighting {
             }
         }
         return false;
-    }
-
-    static class RecordRebuildSource<M extends Message> implements LuceneIndexExpressions.RecordSource<RecordRebuildSource<M>> {
-        @Nullable
-        public final RecordRebuildSource<M> parent;
-        @Nonnull
-        public final Descriptors.Descriptor descriptor;
-        @Nullable
-        public final Descriptors.FieldDescriptor fieldDescriptor;
-        @Nonnull
-        public final Message.Builder builder;
-        public final Message message;
-        public final int indexIfRepeated;
-
-        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Message message) {
-            //this.rec = rec;
-            this.parent = parent;
-            this.descriptor = descriptor;
-            this.fieldDescriptor = null;
-            this.builder = builder;
-            this.message = message;
-            this.indexIfRepeated = 0;
-        }
-
-        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.FieldDescriptor fieldDescriptor, @Nonnull Message.Builder builder, @Nonnull Message message, int indexIfRepeated) {
-            //this.rec = rec;
-            this.parent = parent;
-            this.descriptor = fieldDescriptor.getMessageType();
-            this.fieldDescriptor = fieldDescriptor;
-            this.builder = builder;
-            this.message = message;
-            this.indexIfRepeated = indexIfRepeated;
-        }
-
-        @Override
-        public Descriptors.Descriptor getDescriptor() {
-            return descriptor;
-        }
-
-        @Override
-        public Iterable<RecordRebuildSource<M>> getChildren(@Nonnull FieldKeyExpression parentExpression) {
-            final String parentField = parentExpression.getFieldName();
-            final Descriptors.FieldDescriptor parentFieldDescriptor = descriptor.findFieldByName(parentField);
-
-            final List<RecordRebuildSource<M>> children = new ArrayList<>();
-            int index = 0;
-            for (Key.Evaluated evaluated : parentExpression.evaluateMessage(null, message)) {
-                final Message submessage = (Message)evaluated.toList().get(0);
-                if (submessage != null) {
-                    if (parentFieldDescriptor.isRepeated()) {
-                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
-                                builder.newBuilderForField(parentFieldDescriptor),
-                                submessage, index++));
-                    } else {
-                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
-                                builder.getFieldBuilder(parentFieldDescriptor),
-                                submessage, index));
-                    }
-                }
-            }
-            return children;
-        }
-
-        @Override
-        public Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression) {
-            final List<Object> values = new ArrayList<>();
-            for (Key.Evaluated evaluated : fieldExpression.evaluateMessage(null, message)) {
-                Object value = evaluated.getObject(0);
-                if (value != null) {
-                    values.add(value);
-                }
-            }
-            return values;
-        }
-
-        @SuppressWarnings("java:S3776")
-        public void buildMessage(@Nullable Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField, int index) {
-            final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
-            if (mappedKeyFieldDescriptor != null) {
-                if (customizedKey == null) {
-                    return;
-                }
-                builder.setField(mappedKeyFieldDescriptor, customizedKey);
-            }
-
-            if (value == null) {
-                return;
-            }
-            if (subFieldDescriptor.isRepeated()) {
-                if (subFieldDescriptor.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE)) {
-                    Message.Builder subBuilder = builder.newBuilderForField(subFieldDescriptor);
-                    subBuilder.mergeFrom((Message) builder.getRepeatedField(subFieldDescriptor, index)).mergeFrom((Message) value);
-                    builder.setRepeatedField(subFieldDescriptor, index, subBuilder.build());
-                } else {
-                    builder.setRepeatedField(subFieldDescriptor, index, value);
-                }
-
-            } else {
-                int count = builder.getAllFields().size();
-                if (message != null && count == 0) {
-                    builder.mergeFrom(message);
-                }
-                builder.setField(subFieldDescriptor, value);
-            }
-
-            if (parent != null) {
-                parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField, indexIfRepeated);
-            }
-        }
     }
 
     @Nonnull
@@ -525,7 +445,7 @@ public class LuceneHighlighting {
                     Set<String> prefixes = getPrefixTerms(terms);
                     if (value instanceof String && isMatch((String)value, terms, prefixes)) {
                         List<Pair<Integer, Integer>> highlightedPositions = new ArrayList<>();
-                        String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)value).getAnalyzer(), (String)value, terms, prefixes, false, luceneQueryHighlightParameters, highlightedPositions);
+                        String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideQueryAnalyzer((String)value).getAnalyzer(), (String)value, terms, prefixes, false, luceneQueryHighlightParameters, highlightedPositions);
                         result.add(new HighlightedTerm(fieldName, highlightedText, highlightedPositions));
                     }
                 }, null);
