@@ -261,14 +261,14 @@ public class RangeSetTest extends FDBTestBase {
             Range r2 = new Range(new byte[]{0x02}, new byte[]{0x03});
             Range r3 = new Range(new byte[]{0x04}, new byte[]{0x05});
 
-            // Insert r1
+            // Insert r2
             Transaction tr1 = multi.get(0);
-            assertTrue(rs.insertRange(tr1, r1, true).join());
+            assertTrue(rs.insertRange(tr1, r2, true).join());
 
-            // In separate transactions, read the ranges r2 and r3. One of them
-            // is before r1 and the other other after
+            // In separate transactions, read the ranges r1 and r3. One of them
+            // is before r2 and the other other after
             Transaction tr2 = multi.get(1);
-            assertEquals(List.of(r2), rs.missingRanges(tr2, r2).asList().join());
+            assertEquals(List.of(r2), rs.missingRanges(tr2, r1).asList().join());
             Transaction tr3 = multi.get(2);
             assertEquals(List.of(r3), rs.missingRanges(tr3, r3).asList().join());
 
@@ -345,27 +345,121 @@ public class RangeSetTest extends FDBTestBase {
 
     @Test
     void insertNonOverlappingRanges() {
-        try (MultipleTransactions multi = MultipleTransactions.create(db, 10)) {
+        final int transactionCount = 10;
+        try (MultipleTransactions multi = MultipleTransactions.create(db, transactionCount)) {
             for (int i = 0; i < multi.size(); i++) {
                 Transaction tr = multi.get(i);
-                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)i}, new byte[]{(byte)i, 0x00}), i % 2 == 0).join());
+                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)(i + 1)}, new byte[]{(byte)(i + 1), 0x00}), i % 2 == 0).join());
             }
 
             // All transactions should be able to commit
             multi.commit();
         }
+        Range fullRange = new Range(new byte[]{1}, new byte[]{(byte) (transactionCount + 1)});
+        List<Range> gaps = IntStream.range(0, transactionCount)
+                .mapToObj(i -> new Range(new byte[]{(byte)(i + 1), 0x00}, new byte[]{(byte)(i + 2)}))
+                .collect(Collectors.toList());
+        assertGaps(fullRange, gaps, new byte[]{(byte)(transactionCount), 0x00});
     }
 
     @Test
     void insertOverlappingRanges() {
-        try (MultipleTransactions multi = MultipleTransactions.create(db, 10)) {
+        final int transactionCount = 10;
+        try (MultipleTransactions multi = MultipleTransactions.create(db, transactionCount)) {
             for (int i = 0; i < multi.size(); i++) {
                 Transaction tr = multi.get(i);
-                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)i}, new byte[]{(byte)(i + 1), 0x00}), false).join());
+                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)(i + 1)}, new byte[]{(byte)(i + 2), 0x00}), false).join());
             }
 
-            // Even transactions should be able to commit
+            // Even transactions should be able to commit. This is because the transactions are committed in order,
+            // so what will happen is:
+            //  1. Transaction 0 commits
+            //  2. Transaction 1 overlaps with transaction 0's range, so doesn't commit
+            //  3. Transaction 2 does not overlap with transaction 0, so commits. (It does overlap with transaction 1,
+            //     but that doesn't matter because it didn't commit)
+            //  4. Transaction 3 overlaps with transaction 2, so doesn't commit
+            //  5. Transaction 4 doesn't overlap with transactions 0 or 2 so commits
+            //  ...
+            // And so on
             multi.commit(IntStream.range(0, multi.size()).filter(i -> i % 2 != 0).boxed().collect(Collectors.toSet()));
+        }
+        final Range fullRange = new Range(new byte[]{1}, new byte[]{(byte) (transactionCount + 1)});
+        List<Range> gaps = IntStream.range(0, transactionCount)
+                .filter(i -> i % 2 != 0)
+                .mapToObj(i -> new Range(new byte[]{(byte)(i + 1), 0x00}, new byte[]{(byte)(i + 2)}))
+                .collect(Collectors.toList());
+        assertGaps(fullRange, gaps, new byte[]{(byte)(transactionCount), 0x00});
+    }
+
+    @Test
+    void insertAbuttingRanges() {
+        final int transactionCount = 10;
+        try (MultipleTransactions multi = MultipleTransactions.create(db, transactionCount)) {
+            for (int i = 0; i < multi.size(); i++) {
+                Transaction tr = multi.get(i);
+                assertTrue(rs.insertRange(tr, new Range(new byte[]{(byte)(i + 1)}, new byte[]{(byte)(i + 2)}), i % 2 == 0).join());
+            }
+
+            // All transactions should be able to commit as the ranges touch but do not overlap
+            multi.commit();
+        }
+
+        final Range fullRange = new Range(new byte[]{1}, new byte[]{(byte) (transactionCount + 1)});
+        assertGaps(fullRange, Collections.emptyList(), new byte[]{(byte) (transactionCount + 1)});
+    }
+
+    private void assertGaps(Range fullRange, List<Range> gaps, byte[] lastInRange) {
+        try (Transaction tr = db.createTransaction()) {
+            List<Range> missing = rs.missingRanges(tr, fullRange).asList().join();
+            assertEquals(gaps, missing);
+
+            List<Range> allMissing = rs.missingRanges(tr).asList().join();
+            List<Range> expectedAll = new ArrayList<>();
+            expectedAll.add(new Range(new byte[]{0}, fullRange.begin));
+            if (!gaps.isEmpty()) {
+                expectedAll.addAll(gaps.subList(0, gaps.size() - 1));
+            }
+            expectedAll.add(new Range(lastInRange, new byte[]{(byte)0xff}));
+            assertEquals(expectedAll, allMissing);
+
+            rs.insertRange(tr, fullRange, false).join();
+            assertTrue(rs.missingRanges(tr, fullRange).asList().join().isEmpty());
+            List<Range> allMissingAfterInsert = rs.missingRanges(tr).asList().join();
+            assertEquals(List.of(new Range(new byte[]{0}, fullRange.begin), new Range(fullRange.end, new byte[]{(byte)0xff})), allMissingAfterInsert);
+        }
+    }
+
+    @Test
+    void concurrentlyReadAndFillInGaps() {
+        List<Range> ranges = IntStream.range(0, 10)
+                .mapToObj(i -> new Range(new byte[]{(byte) (2 * i + 1)}, new byte[]{(byte) (2 * i + 2)}))
+                .collect(Collectors.toList());
+        try (Transaction tr = db.createTransaction()) {
+            for (Range r : ranges) {
+                rs.insertRange(tr, r, true).join();
+            }
+            tr.commit().join();
+        }
+
+        int maxRangeByte = 2 * ranges.size() + 1;
+        try (MultipleTransactions multi = MultipleTransactions.create(db, maxRangeByte + 1)) {
+            // Insert the full range with the first transaction
+            assertTrue(rs.insertRange(multi.get(0), null, null, false).join());
+
+            // Check on a key in each previously inserted range
+            Set<Integer> conflicts = new HashSet<>();
+            for (int i = 0; i < maxRangeByte; i++) {
+                byte[] key = new byte[]{(byte) i, 0x00};
+                Transaction tr = multi.get(i + 1);
+                boolean inARange = i % 2 != 0;
+                assertEquals(inARange, rs.contains(tr, key).join(), () -> String.format("key %s was in a range", ByteArrayUtil.printable(key)));
+                if (!inARange) {
+                    // The check should conflict with the insert if (and only if) the key wasn't in a range
+                    conflicts.add(i + 1);
+                }
+            }
+
+            multi.commit(conflicts);
         }
     }
 
