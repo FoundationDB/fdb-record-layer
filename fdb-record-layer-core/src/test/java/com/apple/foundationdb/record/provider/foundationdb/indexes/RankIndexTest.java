@@ -1327,7 +1327,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(Arrays.asList(0L, 2L)), scoreForRank(
                 containsInAnyOrder(
-                        hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank($__in_rank(Field { 'score' None} group 1)__0)")),
+                        hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank($__in_rank__0)")),
                 fetch(filter(rankComparisonFor("score", Comparisons.Type.EQUALS, "__rank_0"),
                         coveringIndexScan(indexScan(allOf(indexName("rank_by_gender"), bounds(hasTupleString("([M, null],[M, 1]]"))))))))));
 
@@ -1356,7 +1356,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 containsInAnyOrder(
                         hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank_else_skip(3)")),
                 fetch(filter(rankComparisonFor("score", Comparisons.Type.LESS_THAN, "__rank_0"),
-                        coveringIndexScan(indexScan(allOf(indexName("rank_by_gender"), bounds(hasTupleString("[EQUALS M, EQUALS $__in_rank([Field { 'gender' None}, Field { 'score' None}] group 1)__0]"))))))))));
+                        coveringIndexScan(indexScan(allOf(indexName("rank_by_gender"), bounds(hasTupleString("[EQUALS M, EQUALS $__in_rank__0]"))))))))));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
