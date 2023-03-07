@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.record.lucene.queryparser.classic.ParseException;
+import com.apple.foundationdb.record.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
