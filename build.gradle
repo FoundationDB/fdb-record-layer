@@ -40,6 +40,7 @@ plugins {
     id 'com.jfrog.artifactory' version '4.29.2'
     id 'de.undercouch.download' version '4.1.1'
     id 'org.sonarqube' version '3.3'
+    id 'ca.coglinc2.javacc' version '3.0.0'
 }
 
 ext {

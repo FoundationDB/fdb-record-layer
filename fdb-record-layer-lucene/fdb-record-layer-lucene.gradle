@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+plugins {
+    id 'ca.coglinc2.javacc' version '3.0.0'
+}
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 if (!hasProperty('coreNotStrict')) {
@@ -27,6 +31,7 @@ if (!hasProperty('coreNotStrict')) {
         options.compilerArgs += ["-Xlint:-cast"]
     }
 }
+
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
@@ -65,6 +70,11 @@ test {
             excludeTags 'Slow'
         }
     }
+}
+
+compileJavacc {
+    inputDirectory = file('src/main/java/com/apple/foundationdb/record/lucene/queryparser/classic')
+    outputDirectory = file('src/main/java/com/apple/foundationdb/record/lucene/queryparser/classic')
 }
 
 publishing {
