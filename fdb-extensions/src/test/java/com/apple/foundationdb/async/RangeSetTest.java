@@ -22,8 +22,6 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.FDBError;
-import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
@@ -31,9 +29,9 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.MultipleTransactions;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -43,22 +41,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.tuple.ByteArrayUtil.compareUnsigned;
 import static com.apple.foundationdb.tuple.ByteArrayUtil.printable;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -632,81 +625,6 @@ public class RangeSetTest extends FDBTestBase {
         for (int i = 0; i < ranges.size(); i++) {
             assertArrayEquals(expected.get(i).begin, ranges.get(i).begin);
             assertArrayEquals(expected.get(i).end, ranges.get(i).end);
-        }
-    }
-
-    private static class MultipleTransactions implements AutoCloseable, Iterable<Transaction> {
-        private final List<Transaction> transactions;
-
-        private MultipleTransactions(List<Transaction> transactions) {
-            this.transactions = transactions;
-        }
-
-        public Transaction get(int i) {
-            return transactions.get(i);
-        }
-
-        @Override
-        @Nonnull
-        public Iterator<Transaction> iterator() {
-            return transactions.iterator();
-        }
-
-        public void forEach(Consumer<? super Transaction> consumer) {
-            transactions.forEach(consumer);
-        }
-
-        @Override
-        public void close() {
-            transactions.forEach(Transaction::close);
-        }
-
-        public int size() {
-            return transactions.size();
-        }
-
-        public void commit() {
-            commit(Collections.emptySet());
-        }
-
-        public void commit(Set<Integer> expectedConflicts) {
-            for (int i = 0; i < transactions.size(); i++) {
-                Transaction tr = transactions.get(i);
-                if (expectedConflicts.contains(i)) {
-                    CompletionException err = assertThrows(CompletionException.class, () -> tr.commit().join(),
-                            String.format("Transaction %d should not commit successfully", i));
-                    Throwable cause = err.getCause();
-                    assertNotNull(cause);
-                    assertTrue(cause instanceof FDBException);
-                    assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)cause).getCode());
-                } else {
-                    assertDoesNotThrow(() -> tr.commit().join(), String.format("Transaction %d should commit successfully", i));
-                }
-            }
-        }
-
-        public static MultipleTransactions create(Database db, int n) {
-            List<Transaction> transactions = new ArrayList<>(n);
-            boolean returned = false;
-            try {
-                for (int i = 0; i < n; i++) {
-                    transactions.add(db.createTransaction());
-                }
-                // Initialize all of the transactions so that the commit version for each of them
-                // will be after the read version for all of them. Also give each transaction a
-                // write conflict key so that it will be committed.
-                transactions.forEach(tr -> {
-                    tr.getReadVersion().join();
-                    tr.addWriteConflictKey(DEADC0DE);
-                });
-                MultipleTransactions multi = new MultipleTransactions(ImmutableList.copyOf(transactions));
-                returned = true;
-                return multi;
-            } finally {
-                if (!returned) {
-                    transactions.forEach(Transaction::close);
-                }
-            }
         }
     }
 }
