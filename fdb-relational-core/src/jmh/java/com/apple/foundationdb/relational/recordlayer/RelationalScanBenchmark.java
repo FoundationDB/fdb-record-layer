@@ -75,7 +75,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
     private static final String templateDefinition =
             "CREATE TABLE DirectAccessBenchTable (id STRING, some_bytes BYTES, PRIMARY KEY(id))";
 
-    static final URI dbUri = URI.create("/putAndScan");
+    static final URI dbUri = URI.create("/BENCHMARKS/putAndScan");
 
     @Param({"1", "10", "100","1000"})
     int rowCount;

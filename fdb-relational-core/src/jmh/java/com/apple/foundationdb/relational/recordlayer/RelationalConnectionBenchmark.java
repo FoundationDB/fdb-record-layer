@@ -66,7 +66,7 @@ public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
     boolean setSchemaAtConnTime;
 
     final String schemaName = "testSchema";
-    URI dbUri = URI.create("/connectionDb");
+    URI dbUri = URI.create("/BENCHMARKS/connectionDb");
 
     @Setup(Level.Trial)
     public void trialUp() throws SQLException, RelationalException {

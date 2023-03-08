@@ -104,6 +104,7 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         public void up() throws RelationalException, SQLException {
+            RelationalKeyspaceProvider.registerDomainIfNotExists("BENCHMARKS");
             keySpace = RelationalKeyspaceProvider.getKeySpace();
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
             fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
@@ -131,8 +132,9 @@ public abstract class EmbeddedRelationalBenchmark {
             createSchemaTemplate();
         }
 
+        // Disabling the driver to be de-registered owing to TODO
         public void down() throws RelationalException {
-            engine.deregisterDriver();
+            // engine.deregisterDriver();
         }
 
         private void createSchemaTemplate() throws RelationalException, SQLException {

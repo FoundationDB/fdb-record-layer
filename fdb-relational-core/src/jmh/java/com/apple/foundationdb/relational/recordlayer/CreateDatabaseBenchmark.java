@@ -70,7 +70,7 @@ public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
         private int id = 0;
 
         public String getNextDbName() {
-            return "/CreateDatabaseBenchmark_" + Thread.currentThread().getId() + "_" + id++;
+            return "/BENCHMARKS/CreateDatabaseBenchmark_" + Thread.currentThread().getId() + "_" + id++;
         }
     }
 

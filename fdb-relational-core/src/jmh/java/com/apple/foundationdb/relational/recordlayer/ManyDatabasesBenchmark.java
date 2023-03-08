@@ -142,7 +142,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private String dbName(long dbId) {
-        return "/ManyDatabaseBenchmark" + dbId;
+        return "/BENCHMARKS/ManyDatabaseBenchmark" + dbId;
     }
 
     public static void main(String[] args) throws RunnerException {

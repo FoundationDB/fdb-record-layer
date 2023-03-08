@@ -61,7 +61,7 @@ public class SetSchemaBenchmark extends EmbeddedRelationalBenchmark {
     private static final String templateDefinition =
             "CREATE TABLE SetSchema (id STRING, some_bytes BYTES, PRIMARY KEY(id))";
 
-    static final URI dbUri = URI.create("/setSchema");
+    static final URI dbUri = URI.create("/BENCHMARKS/setSchema");
 
     Driver driver = new Driver(templateName, templateDefinition);
 

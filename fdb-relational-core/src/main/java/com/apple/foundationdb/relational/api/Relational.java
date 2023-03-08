@@ -48,10 +48,12 @@ public final class Relational {
     }
 
     public static RelationalDriver getDriver(@Nonnull URI connectionUrl) throws RelationalException {
-        if (registeredDriver != null && registeredDriver.acceptsURL(connectionUrl)) {
+        if (registeredDriver == null) {
+            throw new RelationalException("No Driver registered.", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+        } else if (registeredDriver.acceptsURL(connectionUrl)) {
             return registeredDriver;
         }
-        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">. Supported drivers: [embed]", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+        throw new RelationalException("Registered driver cannot interpret scheme <" + connectionUrl.getScheme() + ">  ", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
     }
 
     public static synchronized void registerDriver(@Nonnull RelationalDriver newDriver) throws RelationalException {

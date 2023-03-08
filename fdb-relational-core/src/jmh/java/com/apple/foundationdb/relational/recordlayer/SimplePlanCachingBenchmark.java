@@ -72,7 +72,7 @@ import java.util.stream.IntStream;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
-    static final String dbName = "/SimplePlanCaching";
+    static final String dbName = "/BENCHMARKS/SimplePlanCaching";
 
     static final String cacheSchema = "cacheSchema";
 

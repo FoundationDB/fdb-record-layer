@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class BasicBenchmark extends EmbeddedRelationalBenchmark {
-    static final String dbName = "/BasicBenchmark";
+    static final String dbName = "/BENCHMARKS/BasicBenchmark";
     static final String singleReadSchema = "singleReadSchema";
     static final String singleWriteSchema = "singleWriteSchema";
     AtomicInteger restNo = new AtomicInteger();
