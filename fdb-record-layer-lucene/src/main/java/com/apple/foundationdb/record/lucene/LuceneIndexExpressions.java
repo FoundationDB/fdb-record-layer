@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -29,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Descriptors;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
@@ -36,6 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -193,6 +197,32 @@ public class LuceneIndexExpressions {
                     fields.put(fieldName, derivation);
                 }, null);
         return fields;
+    }
+
+    /**
+     * Constructs a point-config map for a given {@link Index} fields.
+     * @param store The record store, used to retrieve metadata.
+     * @param index The index.
+     * @return a mapping between an index field name and its {@link PointsConfig}.
+     */
+    @Nonnull
+    public static Map<String, PointsConfig> constructPointConfigMap(@Nonnull final FDBRecordStoreBase<?> store,
+                                                                    @Nonnull Index index) {
+        final Map<String, PointsConfig> result = new HashMap<>();
+        for (final RecordType type : store.getRecordMetaData().recordTypesForIndex(index)) {
+            LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
+                final PointsConfig valueConfig = value.getPointsConfig();
+                if (valueConfig != null) {
+                    final PointsConfig oldConfig = result.get(key);
+                    if (oldConfig == null) {
+                        result.put(key, valueConfig);
+                    } else if (!oldConfig.equals(valueConfig)) {
+                        throw new RecordCoreException(String.format("The same key '%s' has two different points config types", key));
+                    }
+                }
+            });
+        }
+        return result;
     }
 
     /**

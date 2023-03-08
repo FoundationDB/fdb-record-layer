@@ -69,23 +69,8 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
-        final LuceneOptimizedMultiFieldQueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer());
-        Map<String, PointsConfig> pointsConfigMap = new HashMap<>();
-        final Collection<RecordType> recordTypes = store.getRecordMetaData().recordTypesForIndex(index);
-        for (RecordType type : recordTypes) {
-            LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
-                PointsConfig valueConfig = value.getPointsConfig();
-                if (valueConfig != null) {
-                    PointsConfig oldConfig = pointsConfigMap.get(key);
-                    if (oldConfig == null) {
-                        pointsConfigMap.put(key, valueConfig);
-                    } else if (!oldConfig.equals(valueConfig)) {
-                        throw new RecordCoreException("The same key has two different points config types");
-                    }
-                }
-            });
-        }
-        parser.setPointsConfig(pointsConfigMap);
+        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        final LuceneOptimizedMultiFieldQueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         parser.setDefaultOperator(QueryParser.Operator.OR);
         try {
             return parser.parse(searchString);
