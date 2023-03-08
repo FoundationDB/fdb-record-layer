@@ -73,12 +73,13 @@ public class LuceneHighlighting {
 
         boolean next() throws IOException {
             int oldStartOffset = startOffset();
+            int oldEndOffset = endOffset();
             while(true) {
                 boolean inc = ts.incrementToken();
                 if (!inc) {
                     return false;
                 }
-                if (oldStartOffset != startOffset()) {
+                if (oldStartOffset != startOffset() || oldEndOffset != endOffset()) {
                     return true;
                 }
             }
@@ -132,12 +133,12 @@ public class LuceneHighlighting {
             this.standardIt = standardIt;
             this.text = text;
             this.cutSnippets = cutSnippets;
-            this.snippetSize = snippetSize <= 0 ? defaultSnippetSize : snippetSize;
+            this.snippetSize =  snippetSize;
             this.highlightedPositions = highlightedPositions;
         }
 
         private int tokenCountBeforeHighlighted() {
-            return (snippetSize - 1) / 2;
+            return snippetSize < 0 ? Integer.MAX_VALUE : (snippetSize - 1) / 2;
         }
 
         private void handleNonMatchToken() {
@@ -159,21 +160,11 @@ public class LuceneHighlighting {
             if (!matchedTokens.contains(it.getToken())) {
                 return false;
             }
-            if (cutSnippets) {
-                snippetRunningBudget = snippetSize;
-                if (prefixTextConnector) {
-                    addNonMatch(sb, highlightedTextConnector);
-                    highlightedTextConnector = " ...";
-                    prefixTextConnector = false;
-                }
-                for (String token : beforeHighlightTokens) {
-                    addNonMatch(sb, token);
-                    snippetRunningBudget--;
-                }
-                beforeHighlightTokens.clear();
-            }
+//            if (cutSnippets) {
+            addHighlightTokens();
+//            }
             addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
-            addWholeMatch(sb, standardIt.getToken(), highlightedPositions);
+            addWholeMatch(sb, text.substring(standardIt.startOffset(),standardIt.endOffset()), highlightedPositions);
             snippetRunningBudget--;
             //int start = it.startOffset();
             //while (start < it.endOffset()) {
@@ -200,14 +191,31 @@ public class LuceneHighlighting {
         private boolean handlePrefixMatch(final Set<String> prefixTokens) {
             for (String prefixToken : prefixTokens) {
                 if (it.getToken().startsWith(prefixToken)) {
+                    addHighlightTokens();
+                    addNonMatch(sb, text.substring(upto, it.startOffset()));
                     addPrefixMatch(sb, text.substring(it.startOffset(), it.endOffset()), prefixToken,
                             highlightedPositions);
                     upto = it.endOffset();
                     matchedPrefixes.add(prefixToken);
+                    snippetRunningBudget--;
                     return true;
                 }
             }
             return false;
+        }
+
+        private void addHighlightTokens() {
+            snippetRunningBudget = snippetSize < 0 ? beforeHighlightTokens.size()+1 : snippetSize;
+            if (prefixTextConnector) {
+                addNonMatch(sb, highlightedTextConnector);
+                highlightedTextConnector = " ...";
+                prefixTextConnector = false;
+            }
+            for (String token : beforeHighlightTokens) {
+                addNonMatch(sb, token);
+                snippetRunningBudget--;
+            }
+            beforeHighlightTokens.clear();
         }
 
         private void handleToken(final Set<String> matchedTokens, final Set<String> prefixTokens) {
@@ -222,7 +230,7 @@ public class LuceneHighlighting {
 
         public String search(final Set<String> matchedTokens, final Set<String> prefixTokens, final boolean allMatchingRequired) throws IOException {
             while (it.next()) {
-                if (cutSnippets) {
+//                if (cutSnippets) {
                     do {
                         standardIt.next();
                         if (standardIt.startOffset() < it.startOffset()) {
@@ -233,9 +241,9 @@ public class LuceneHighlighting {
                             handleToken(matchedTokens, prefixTokens);
                         }
                     } while (standardIt.startOffset() < it.startOffset());
-                } else {
-                    handleToken(matchedTokens, prefixTokens);
-                }
+//                } else {
+//                    handleToken(matchedTokens, prefixTokens);
+//                }
             }
 
             if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
@@ -244,7 +252,8 @@ public class LuceneHighlighting {
             }
 
             // Text was found. Return text
-            if (upto < it.endOffset() && !cutSnippets) {
+            if (!cutSnippets) {
+                addHighlightTokens();
                 addNonMatch(sb, text.substring(upto));
             }
 
