@@ -105,13 +105,13 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
 
     @Nonnull
     @Override
-    public Query constructFieldWithoutPointsConfig(final String field, final String queryText, final boolean quoted) throws ParseException {
+    public Query constructFieldWithoutPointsConfig(final @Nonnull String field, final @Nonnull String queryText, final boolean quoted) throws ParseException {
         return super.getFieldQuery(field, queryText, quoted);
     }
 
     @Nonnull
     @Override
-    public Query constructRangeQueryWithoutPointsConfig(final String field, final String part1, final String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
+    public Query constructRangeQueryWithoutPointsConfig(final @Nonnull String field, final @Nonnull String part1, final @Nonnull String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
         return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
     }
 }

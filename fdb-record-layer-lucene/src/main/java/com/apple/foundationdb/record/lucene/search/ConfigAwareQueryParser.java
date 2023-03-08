@@ -48,8 +48,9 @@ public interface ConfigAwareQueryParser {
     Map<String, PointsConfig> getPointsConfig();
 
     @Nonnull
-    Query constructFieldWithoutPointsConfig(final String field, final String queryText, final boolean quoted) throws ParseException;
+    Query constructFieldWithoutPointsConfig(String field, String queryText, boolean quoted) throws ParseException;
 
+    @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
     @Nonnull
     default Query attemptConstructFieldQueryWithPointsConfig(final String field, final String queryText, final boolean quoted) throws ParseException {
         final var pointsConfig = getPointsConfig();
@@ -91,12 +92,13 @@ public interface ConfigAwareQueryParser {
     }
 
     @Nonnull
-    Query constructRangeQueryWithoutPointsConfig(final String field,
-                                                 final String part1,
-                                                 final String part2,
-                                                 final boolean startInclusive,
-                                                 final boolean endInclusive) throws ParseException;
+    Query constructRangeQueryWithoutPointsConfig(String field,
+                                                 String part1,
+                                                 String part2,
+                                                 boolean startInclusive,
+                                                 boolean endInclusive) throws ParseException;
 
+    @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
     @Nonnull
     default Query attemptConstructRangeQueryWithPointsConfig(final String field,
                                                              final String part1,
