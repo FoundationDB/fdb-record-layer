@@ -261,7 +261,7 @@ public class RangeSetTest extends FDBTestBase {
             // In separate transactions, read the ranges r1 and r3. One of them
             // is before r2 and the other other after
             Transaction tr2 = multi.get(1);
-            assertEquals(List.of(r2), rs.missingRanges(tr2, r1).asList().join());
+            assertEquals(List.of(r1), rs.missingRanges(tr2, r1).asList().join());
             Transaction tr3 = multi.get(2);
             assertEquals(List.of(r3), rs.missingRanges(tr3, r3).asList().join());
 
@@ -406,13 +406,13 @@ public class RangeSetTest extends FDBTestBase {
             List<Range> missing = rs.missingRanges(tr, fullRange).asList().join();
             assertEquals(gaps, missing);
 
-            List<Range> allMissing = rs.missingRanges(tr).asList().join();
             List<Range> expectedAll = new ArrayList<>();
             expectedAll.add(new Range(new byte[]{0}, fullRange.begin));
             if (!gaps.isEmpty()) {
                 expectedAll.addAll(gaps.subList(0, gaps.size() - 1));
             }
             expectedAll.add(new Range(lastInRange, new byte[]{(byte)0xff}));
+            List<Range> allMissing = rs.missingRanges(tr).asList().join();
             assertEquals(expectedAll, allMissing);
 
             rs.insertRange(tr, fullRange, false).join();
