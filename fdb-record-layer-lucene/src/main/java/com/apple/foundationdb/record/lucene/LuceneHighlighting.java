@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -315,6 +318,43 @@ public class LuceneHighlighting {
         sb.append(surface.substring(prefixToken.length()));
     }
 
+    // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
+    @Nonnull
+    public static <M extends Message> void highlightTermsInMessage(@Nonnull KeyExpression expression, @Nonnull Message.Builder builder, @Nonnull Map<String, Set<String>> termMap,
+                                                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                                                                   @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+        RecordRebuildSource<M> recordRebuildSource = new RecordRebuildSource<>(null, builder.getDescriptorForType(), builder, builder.build());
+
+        LuceneIndexExpressions.getFields(expression, recordRebuildSource,
+                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                    if (type != LuceneIndexExpressions.DocumentFieldType.TEXT) {
+                        return;
+                    }
+                    Set<String> terms = getFieldTerms(termMap, fieldName);
+                    if (terms.isEmpty()) {
+                        return;
+                    }
+                    Set<String> prefixes = getPrefixTerms(terms);
+                    for (Map.Entry<Descriptors.FieldDescriptor, Object> entry : source.message.getAllFields().entrySet()) {
+                        final Descriptors.FieldDescriptor entryDescriptor = entry.getKey();
+                        final Object entryValue = entry.getValue();
+                        if (entryValue instanceof String) {
+                            buildIfMatch(source, fieldName, value,
+                                    entryDescriptor, entryValue, 0,
+                                    terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
+                        } else if (entryValue instanceof List) {
+                            int index = 0;
+                            for (Object entryValueElement : ((List<?>) entryValue)) {
+                                buildIfMatch(source, fieldName, value,
+                                        entryDescriptor, entryValueElement, index,
+                                        terms, prefixes, analyzerSelector, luceneQueryHighlightParameters);
+                                index++;
+                            }
+                        }
+                    }
+                }, null);
+    }
+
     private static Set<String> getPrefixTerms(@Nonnull Set<String> terms) {
         Set<String> result = Collections.emptySet();
         Iterator<String> iter = terms.iterator();
@@ -332,6 +372,17 @@ public class LuceneHighlighting {
         return result;
     }
 
+    private static <M extends Message> void buildIfMatch(RecordRebuildSource<M> source, String fieldName, Object fieldValue,
+                                                         Descriptors.FieldDescriptor entryDescriptor, Object entryValue, int index,
+                                                         @Nonnull Set<String> terms, @Nonnull Set<String> prefixes,
+                                                         @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+        if (entryValue.equals(fieldValue) && isMatch((String)entryValue, terms, prefixes)) {
+            String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)entryValue).getAnalyzer(), (String)entryValue, terms, prefixes, false, luceneQueryHighlightParameters, null);
+            source.buildMessage(highlightedText, entryDescriptor, null, null, true, index);
+        }
+    }
+
     private static boolean isMatch(@Nonnull String candidate, @Nonnull Set<String> terms, @Nonnull Set<String> prefixes) {
         for (String term : terms) {
             if (StringUtils.containsIgnoreCase(candidate, term)) {
@@ -344,6 +395,115 @@ public class LuceneHighlighting {
             }
         }
         return false;
+    }
+
+    static class RecordRebuildSource<M extends Message> implements LuceneIndexExpressions.RecordSource<RecordRebuildSource<M>> {
+        @Nullable
+        public final RecordRebuildSource<M> parent;
+        @Nonnull
+        public final Descriptors.Descriptor descriptor;
+        @Nullable
+        public final Descriptors.FieldDescriptor fieldDescriptor;
+        @Nonnull
+        public final Message.Builder builder;
+        public final Message message;
+        public final int indexIfRepeated;
+
+        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Message message) {
+            //this.rec = rec;
+            this.parent = parent;
+            this.descriptor = descriptor;
+            this.fieldDescriptor = null;
+            this.builder = builder;
+            this.message = message;
+            this.indexIfRepeated = 0;
+        }
+
+        RecordRebuildSource(@Nullable RecordRebuildSource<M> parent, @Nonnull Descriptors.FieldDescriptor fieldDescriptor, @Nonnull Message.Builder builder, @Nonnull Message message, int indexIfRepeated) {
+            //this.rec = rec;
+            this.parent = parent;
+            this.descriptor = fieldDescriptor.getMessageType();
+            this.fieldDescriptor = fieldDescriptor;
+            this.builder = builder;
+            this.message = message;
+            this.indexIfRepeated = indexIfRepeated;
+        }
+
+        @Override
+        public Descriptors.Descriptor getDescriptor() {
+            return descriptor;
+        }
+
+        @Override
+        public Iterable<RecordRebuildSource<M>> getChildren(@Nonnull FieldKeyExpression parentExpression) {
+            final String parentField = parentExpression.getFieldName();
+            final Descriptors.FieldDescriptor parentFieldDescriptor = descriptor.findFieldByName(parentField);
+
+            final List<RecordRebuildSource<M>> children = new ArrayList<>();
+            int index = 0;
+            for (Key.Evaluated evaluated : parentExpression.evaluateMessage(null, message)) {
+                final Message submessage = (Message)evaluated.toList().get(0);
+                if (submessage != null) {
+                    if (parentFieldDescriptor.isRepeated()) {
+                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
+                                builder.newBuilderForField(parentFieldDescriptor),
+                                submessage, index++));
+                    } else {
+                        children.add(new RecordRebuildSource<M>(this, parentFieldDescriptor,
+                                builder.getFieldBuilder(parentFieldDescriptor),
+                                submessage, index));
+                    }
+                }
+            }
+            return children;
+        }
+
+        @Override
+        public Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression) {
+            final List<Object> values = new ArrayList<>();
+            for (Key.Evaluated evaluated : fieldExpression.evaluateMessage(null, message)) {
+                Object value = evaluated.getObject(0);
+                if (value != null) {
+                    values.add(value);
+                }
+            }
+            return values;
+        }
+
+        @SuppressWarnings("java:S3776")
+        public void buildMessage(@Nullable Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField, int index) {
+            final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
+            if (mappedKeyFieldDescriptor != null) {
+                if (customizedKey == null) {
+                    return;
+                }
+                builder.setField(mappedKeyFieldDescriptor, customizedKey);
+            }
+
+            if (value == null) {
+                return;
+            }
+            if (subFieldDescriptor.isRepeated()) {
+                if (subFieldDescriptor.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE)) {
+                    Message.Builder subBuilder = builder.newBuilderForField(subFieldDescriptor);
+                    subBuilder.mergeFrom((Message) builder.getRepeatedField(subFieldDescriptor, index)).mergeFrom((Message) value);
+                    builder.setRepeatedField(subFieldDescriptor, index, subBuilder.build());
+                } else {
+                    builder.setRepeatedField(subFieldDescriptor, index, value);
+                }
+
+            } else {
+                int count = builder.getAllFields().size();
+                if (message != null && count == 0) {
+                    builder.mergeFrom(message);
+                }
+                builder.setField(subFieldDescriptor, value);
+            }
+
+            if (parent != null) {
+                parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField, indexIfRepeated);
+            }
+        }
     }
 
     @Nonnull

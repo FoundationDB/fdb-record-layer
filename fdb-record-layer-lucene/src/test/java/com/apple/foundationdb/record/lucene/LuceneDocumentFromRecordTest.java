@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -64,6 +65,11 @@ class LuceneDocumentFromRecordTest {
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "some" for text field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("some")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("some text", builder.build().getText());
+
         KeyExpression primaryKey = field("doc_id");
 
         // Build the partial record message for suggestion
@@ -91,6 +97,11 @@ class LuceneDocumentFromRecordTest {
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group"));
         assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "text" for text field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("more text", builder.build().getText());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -124,6 +135,12 @@ class LuceneDocumentFromRecordTest {
                         textField("text", "some text"),
                         textField("text", "other text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "text" for text field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("some text", builder.build().getText(0));
+        assertEquals("other text", builder.build().getText(1));
 
         KeyExpression primaryKey = field("doc_id");
 
@@ -165,6 +182,12 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(10, "tag2"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "text" for text field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text2", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("first text", builder.build().getText());
+        assertEquals("second text", builder.build().getText2());
+
         KeyExpression primaryKey = concat(field("group"), field("header").nest("header_id"), field("doc_id"));
 
         // Build the partial record message for suggestion
@@ -205,6 +228,12 @@ class LuceneDocumentFromRecordTest {
                         textField("entry_value", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "v2" for entry_value field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_value", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("v1", builder.build().getEntry(0).getValue());
+        assertEquals("v2", builder.build().getEntry(1).getValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
@@ -240,6 +269,12 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v1"),
                         textField("k2", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "v2" for k2 field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("v1", builder.build().getEntry(0).getValue());
+        assertEquals("v2", builder.build().getEntry(1).getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -279,6 +314,12 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v10"),
                         textField("k2", "v20"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "v20" for k2 field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v20")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("v10", builder.build().getEntry(0).getValue());
+        assertEquals("v20", builder.build().getEntry(1).getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -323,6 +364,14 @@ class LuceneDocumentFromRecordTest {
                 Tuple.from(30, "r1"), ImmutableList.of(textField("entry_value", "val"), textField("entry_second_value", "2val"), textField("entry_third_value", "3val")),
                 Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "2val" for entry_second_value field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("2val")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("val", builder.build().getEntry(0).getValue());
+        assertEquals("2val", builder.build().getEntry(0).getSecondValue());
+        assertEquals("nval", builder.build().getEntry(1).getValue());
+        assertEquals("2nval", builder.build().getEntry(1).getSecondValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -369,6 +418,14 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(40, "de"), ImmutableList.of(textField("entry_value", "erste"), textField("entry_second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
+        // Highlight "second" for entry_second_value field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("second")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("first", builder.build().getEntry(0).getValue());
+        assertEquals("second", builder.build().getEntry(0).getSecondValue());
+        assertEquals("erste", builder.build().getEntry(1).getValue());
+        assertEquals("zweite", builder.build().getEntry(1).getSecondValue());
+
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
         // Build the partial record message for suggestion
@@ -411,6 +468,11 @@ class LuceneDocumentFromRecordTest {
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
                         textField("entry_k1_value", "testValue"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Highlight "testValue" for entry_k1_value field
+        LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_k1_value", Set.of("testvalue")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("testValue", builder.build().getEntry(0).getSubEntry().getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
