@@ -90,7 +90,7 @@ public class LuceneHighlighting {
             int oldEndOffset = endOffset();
             // This can only loop if we keep discovering new synonyms. Once we've seen them all, this will either go to
             // the next valid token and return true, or there won't be any token left in the stream and we'll return false
-            while(true) {
+            while (true) {
                 boolean inc = ts.incrementToken();
                 if (!inc) {
                     return false;
@@ -128,7 +128,7 @@ public class LuceneHighlighting {
      * - cut snippets
      * - return a list of highlighted positions
      */
-    static private class SearchAllAndHighlightImpl {
+    private static class SearchAllAndHighlightImpl {
         private final TokenIterator it;
         private final TokenIterator standardIt;
         private final String text;
@@ -185,7 +185,7 @@ public class LuceneHighlighting {
             }
             addBeforeTokens();
             addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
-            addWholeMatch(sb, text.substring(standardIt.startOffset(),standardIt.endOffset()), highlightedPositions);
+            addWholeMatch(sb, text.substring(standardIt.startOffset(), standardIt.endOffset()), highlightedPositions);
             snippetRunningBudget--;
             upto = it.endOffset();
             matchedInText.add(standardIt.getToken());
@@ -271,10 +271,10 @@ public class LuceneHighlighting {
                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                         @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
         try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
-             StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
-             TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
-             TokenIterator it = new TokenIterator(ts);
-             TokenIterator standardIt = new TokenIterator(standardTs)
+                 StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
+                 TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
+                 TokenIterator it = new TokenIterator(ts);
+                 TokenIterator standardIt = new TokenIterator(standardTs)
         ) {
             var impl = new SearchAllAndHighlightImpl(it, standardIt, text, luceneQueryHighlightParameters.isCutSnippets(), luceneQueryHighlightParameters.getSnippedSize(), highlightedPositions);
             return impl.search(matchedTokens, prefixTokens, allMatchingRequired);
