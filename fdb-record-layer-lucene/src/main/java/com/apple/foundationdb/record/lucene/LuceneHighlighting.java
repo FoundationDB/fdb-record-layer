@@ -160,29 +160,10 @@ public class LuceneHighlighting {
             if (!matchedTokens.contains(it.getToken())) {
                 return false;
             }
-//            if (cutSnippets) {
             addBeforeTokens();
-//            }
             addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
             addWholeMatch(sb, text.substring(standardIt.startOffset(),standardIt.endOffset()), highlightedPositions);
             snippetRunningBudget--;
-            //int start = it.startOffset();
-            //while (start < it.endOffset()) {
-            //    int index = text.toLowerCase(Locale.ROOT).indexOf(standardIt.getToken(), start);
-            //    if (index < 0 || index >= it.endOffset()) {
-            //        addNonMatch(sb, text.substring(start, it.endOffset()));
-            //        break;
-            //    }
-            //    int actualEndOffset = index + standardIt.getToken().length();
-            //    addNonMatch(sb, text.substring(start, index));
-            //    String substring = text.substring(index, actualEndOffset);
-            //    if (substring.equalsIgnoreCase(standardIt.getToken())) {
-            //        addWholeMatch(sb, substring, highlightedPositions);
-            //    } else {
-            //        addNonMatch(sb, substring);
-            //    }
-            //    start = actualEndOffset;
-            //}
             upto = it.endOffset();
             matchedInText.add(standardIt.getToken());
             return true;
@@ -230,20 +211,16 @@ public class LuceneHighlighting {
 
         public String search(final Set<String> matchedTokens, final Set<String> prefixTokens, final boolean allMatchingRequired) throws IOException {
             while (it.next()) {
-//                if (cutSnippets) {
-                    do {
-                        standardIt.next();
-                        if (standardIt.startOffset() < it.startOffset()) {
-                            // We're handling a stop word (we don't need to check if that word matches)
-                            handleNonMatchToken();
-                        } else {
-                            // We're handling a real word (We need to check if that word matches)
-                            handleToken(matchedTokens, prefixTokens);
-                        }
-                    } while (standardIt.startOffset() < it.startOffset());
-//                } else {
-//                    handleToken(matchedTokens, prefixTokens);
-//                }
+                do {
+                    standardIt.next();
+                    if (standardIt.startOffset() < it.startOffset()) {
+                        // We're handling a stop word (we don't need to check if that word matches)
+                        handleNonMatchToken();
+                    } else {
+                        // We're handling a real word (We need to check if that word matches)
+                        handleToken(matchedTokens, prefixTokens);
+                    }
+                } while (standardIt.startOffset() < it.startOffset());
             }
 
             if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
