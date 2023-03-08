@@ -64,6 +64,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -258,6 +259,15 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
+    @Nonnull
+    private LuceneQueryComponent tryPushResidual(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
+        if (prefix.isEmpty()) {
+            return luceneQueryComponent;
+        }
+        final var name = String.join("_", prefix);
+        return luceneQueryComponent.withNewFields(luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
+    }
+
     @Nullable
     private LuceneQueryClause getQueryForFilter(@Nonnull LucenePlanState state, @Nonnull QueryComponent filter,
                                                 @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
@@ -281,8 +291,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
         if (!parentFieldPath.isEmpty()) {
-            // TODO: Or should this be an error?
-            return null;
+            // check whether the provided parent path is actually a field in the Lucene index itself.
+            filter = tryPushResidual(filter, parentFieldPath);
         }
         for (String field : filter.getFields()) {
             if (!validateIndexField(state, field)) {
