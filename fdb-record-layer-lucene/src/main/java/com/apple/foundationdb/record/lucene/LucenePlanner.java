@@ -270,7 +270,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             return luceneQueryComponent;
         }
         final var name = String.join("_", prefix);
-        return new LuceneQueryComponent(luceneQueryComponent.getQuery(), luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
+        return luceneQueryComponent.withNewFields(luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
     }
 
     @Nullable
