@@ -39,7 +39,7 @@ public interface SchemaTemplate extends Metadata {
      *
      * @return The version of the schema template.
      */
-    long getVersion();
+    int getVersion();
 
     /**
      * Returns {@code true} if long rows are permitted in tables of this template, else {@code false}.

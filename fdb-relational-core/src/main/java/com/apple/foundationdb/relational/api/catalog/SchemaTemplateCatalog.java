@@ -52,7 +52,7 @@ public interface SchemaTemplateCatalog {
      * @return whether the template exists.
      * @throws RelationalException if there is an exception with error code other than {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE}
      */
-    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;
+    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 
     /**
      * Load the latest version of the schema template.
@@ -76,7 +76,7 @@ public interface SchemaTemplateCatalog {
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
      *                           or other error code if something else goes wrong.
      */@Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 
     /**
      * Update the Schema template in the catalog associated with the templateId.
@@ -108,5 +108,5 @@ public interface SchemaTemplateCatalog {
      * @param version Version to use.
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException;
+    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 }

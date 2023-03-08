@@ -42,7 +42,7 @@ import javax.annotation.Nonnull;
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, long version) {
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) {
         return true;
     }
 
@@ -80,7 +80,7 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
     }
 
 }

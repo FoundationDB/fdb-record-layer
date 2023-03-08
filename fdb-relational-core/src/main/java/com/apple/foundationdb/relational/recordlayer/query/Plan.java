@@ -77,7 +77,7 @@ public interface Plan<T> {
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
                 .build();
-        context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1L));
+        context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         final var ast = AstVisitor.parseQuery(query);
         final var astWalker = new AstVisitor(context, query, planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {

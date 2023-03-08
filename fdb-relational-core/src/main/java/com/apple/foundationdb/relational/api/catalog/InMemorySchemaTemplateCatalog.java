@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * Quick and dirty in-memory implementation of a SchemaTemplate catalog, for use in testing.
  */
 public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
-    private final ConcurrentMap<String, ConcurrentMap<Long, SchemaTemplate>> backingStore = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConcurrentMap<Integer, SchemaTemplate>> backingStore = new ConcurrentHashMap<>();
 
     @Override
     public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
@@ -61,7 +61,7 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
         try {
             loadSchemaTemplate(txn, templateName, version);
             return true;
@@ -89,7 +89,7 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, long version) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
         final var versions = backingStore.get(templateName);
         if (versions == null) {
             throw new RelationalException(String.format("Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
@@ -141,7 +141,7 @@ public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, long version) throws RelationalException {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) throws RelationalException {
         if (doesSchemaTemplateExist(txn, templateId, version)) {
             backingStore.get(templateId).remove(version);
         }

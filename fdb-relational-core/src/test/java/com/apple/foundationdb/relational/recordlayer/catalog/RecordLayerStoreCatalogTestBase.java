@@ -241,13 +241,13 @@ public abstract class RecordLayerStoreCatalogTestBase {
     static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
                                                 @Nonnull final String databaseId,
                                                 @Nonnull final String schemaTemplateName,
-                                                final long schemaTemplateVersion) {
+                                                final int schemaTemplateVersion) {
         final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion);
         return template.generateSchema(databaseId, schemaName);
     }
 
     @Nonnull
-    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, long version) {
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
         return RecordLayerSchemaTemplate
                 .newBuilder()
                 .addTable(

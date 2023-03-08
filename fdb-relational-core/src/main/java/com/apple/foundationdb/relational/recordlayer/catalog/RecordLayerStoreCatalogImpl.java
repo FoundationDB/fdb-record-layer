@@ -102,7 +102,7 @@ import java.util.Objects;
 public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     public static final String TEMPLATE = RelationalKeyspaceProvider.CATALOG + "_TEMPLATE";
-    public static final long TEMPLATE_VERSION = 1L;
+    public static final int TEMPLATE_VERSION = 1;
     private StructMetaData dbTableMetaData;
 
     static {
@@ -390,7 +390,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
         String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
-        long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
+        final var version = (Integer) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
         return new ArrayRow(dbId, schemaName, templateName, version);
     }
 
@@ -406,7 +406,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         String schemaName = (String) m.getField(descriptor.findFieldByName("SCHEMA_NAME"));
         // load metadata from template table
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
-        long version = (Long) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
+        final var version = (Integer) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
         final RecordLayerSchemaTemplate template = (RecordLayerSchemaTemplate) schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
         return template.generateSchema(dbId, schemaName);
     }

@@ -143,7 +143,7 @@ class MessageTupleTest {
 
         final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("testTemplate")
-                .setVersion(1L)
+                .setVersion(1)
                 .addTable(restaurant)
                 .build();
 

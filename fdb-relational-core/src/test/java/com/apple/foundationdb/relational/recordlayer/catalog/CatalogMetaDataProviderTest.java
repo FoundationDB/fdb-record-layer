@@ -102,7 +102,7 @@ class CatalogMetaDataProviderTest {
                                                 .build())
                                 .setName("RESTAURANT")
                                 .build())
-                .setVersion(1L)
+                .setVersion(1)
                 .setName("testTemplate")
                 .build();
     }

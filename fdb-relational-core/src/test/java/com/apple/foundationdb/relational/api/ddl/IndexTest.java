@@ -66,7 +66,7 @@ public class IndexTest {
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
-        final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1L).build();
+        final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1).build();
         final var metadataProto = schemaTemplate.toRecordMetadata();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(metadataProto)

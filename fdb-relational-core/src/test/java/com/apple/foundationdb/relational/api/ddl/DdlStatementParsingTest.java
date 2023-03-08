@@ -84,7 +84,7 @@ public class DdlStatementParsingTest {
         SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable("DATABASES").addDefinition(schemaBuilder);
         RecordMetaDataProto.MetaData md = schemaBuilder
-                .setVersion(1L)
+                .setVersion(1)
                 .setName("CATALOG_TEMPLATE")
                 .build()
                 .toRecordMetadata().toProto();

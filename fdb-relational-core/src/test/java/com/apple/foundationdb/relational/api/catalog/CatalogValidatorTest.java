@@ -102,7 +102,7 @@ public class CatalogValidatorTest {
                                 .setName("test_table")
                                 .addPrimaryKeyPart(List.of("A"))
                                 .build())
-                .setVersion(1L)
+                .setVersion(1)
                 .setName("test_template")
                 .build()
                 .generateSchema("test_db", "test_schema");
@@ -124,7 +124,7 @@ public class CatalogValidatorTest {
                                 .setName("test_table")
                                 .addPrimaryKeyPart(List.of("A"))
                                 .build())
-                .setVersion(-42L)
+                .setVersion(-42)
                 .setName("test_template")
                 .build()
                 .generateSchema("test_db", "test_schema");
@@ -146,7 +146,7 @@ public class CatalogValidatorTest {
                                 .setName("test_table")
                                 .addPrimaryKeyPart(List.of("A"))
                                 .build())
-                .setVersion(1L)
+                .setVersion(1)
                 .setName("")
                 .build()
                 .generateSchema("test_db", "test_schema");

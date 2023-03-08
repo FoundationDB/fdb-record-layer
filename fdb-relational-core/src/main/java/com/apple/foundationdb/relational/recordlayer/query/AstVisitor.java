@@ -1279,7 +1279,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class);
         // schema template version will be set automatically at update operation to lastVersion + 1
-        final var schemaTemplateBuilder = context.asDdl().getMetadataBuilder().setName(schemaTemplateName).setVersion(1L);
+        final var schemaTemplateBuilder = context.asDdl().getMetadataBuilder().setName(schemaTemplateName).setVersion(1);
         // collect all tables, their indices, and custom types definitions.
         ctx.templateClause().forEach(s -> s.accept(this));
         if (ctx.optionsClause() != null) {

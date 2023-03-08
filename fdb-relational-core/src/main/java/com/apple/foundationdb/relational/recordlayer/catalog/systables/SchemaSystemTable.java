@@ -64,7 +64,7 @@ public class SchemaSystemTable implements SystemTable {
                 .addColumn(RecordLayerColumn.newBuilder().setName(DATABASE_ID).setDataType(DataType.Primitives.STRING.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(SCHEMA_NAME).setDataType(DataType.Primitives.STRING.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
-                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.INTEGER.type()).build())
                 .addPrimaryKeyPart(List.of(DATABASE_ID))
                 .addPrimaryKeyPart(List.of(SCHEMA_NAME))
                 .build();

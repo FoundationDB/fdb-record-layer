@@ -55,7 +55,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerTable> tables;
 
-    private final long version;
+    private final int version;
 
     private final boolean enableLongRows;
 
@@ -64,7 +64,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      long version, boolean enableLongRows) {
+                                      int version, boolean enableLongRows) {
         this.name = name;
         this.version = version;
         this.tables = tables;
@@ -74,7 +74,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      long version,
+                                      int version,
                                       boolean enableLongRows,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
@@ -91,7 +91,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Override
-    public long getVersion() {
+    public int getVersion() {
         return version;
     }
 
@@ -142,7 +142,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
                                                                @Nonnull final String templateName,
-                                                               long version) {
+                                                               int version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
         final var builder = deserializer.getSchemaTemplate(templateName, version, metaData.isSplitLongRecords());
         return builder.setCachedMetadata(metaData).build();
@@ -157,7 +157,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     public static final class Builder {
         private String name;
 
-        private long version;
+        private int version;
 
         private boolean enableLongRows;
 
@@ -181,7 +181,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder setVersion(long version) {
+        public Builder setVersion(int version) {
             this.version = version;
             return this;
         }

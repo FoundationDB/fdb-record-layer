@@ -42,7 +42,7 @@ public class RecordMetadataDeserializer {
         this.recordMetaData = recordMetaData;
     }
 
-    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, long version, boolean enableLongRows) {
+    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, int version, boolean enableLongRows) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
