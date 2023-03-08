@@ -128,6 +128,7 @@ public class LuceneHighlighting {
      * - cut snippets
      * - return a list of highlighted positions
      */
+    @SuppressWarnings("PMD.AvoidStringBufferField")
     private static class SearchAllAndHighlightImpl {
         private final TokenIterator it;
         private final TokenIterator standardIt;
