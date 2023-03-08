@@ -77,15 +77,19 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         final IndexScanType scanType = getScanType();
 
+        final int limit = Math.min(executeProperties.getReturnedRowLimitOrMax(),
+                Verify.verifyNotNull(store.getContext().getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION)));
+
         final var indexEntriesFromRecordCursor =
                 findIndexEntriesInRecord(store,
                         index,
-                        nestedContinuation -> super.fetchIndexRecords(store, evaluationContext, entryCursorFunction, nestedContinuation, executeProperties),
+                        nestedContinuation -> super.fetchIndexRecords(store, evaluationContext, entryCursorFunction, nestedContinuation, executeProperties.clearSkipAndLimit()),
                         (LuceneScanAutoCompleteParameters)scanParameters,
                         evaluationContext,
                         continuation);
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         return indexEntriesFromRecordCursor
+                .skipThenLimit(executeProperties.getSkip(), limit)
                 .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
                         LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, scanType), true));
     }
@@ -134,8 +138,13 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
                             // matched terms
                             return null;
                         }
-                        String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
-                                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(autoCompleteScanBounds.isHighlight()), null);
+                        String match;
+                        if (autoCompleteScanBounds.isHighlight()) {
+                            match = LuceneHighlighting.searchAllAndHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
+                                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1), null);
+                        } else {
+                            match = LuceneAutoCompleteResultCursor.findMatch(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens);
+                        }
                         if (match == null) {
                             // Text not found in this field
                             return null;
@@ -144,7 +153,9 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
                         // Found a match with this field!
                         Tuple key = Tuple.from(documentField.getFieldName(), match);
                         key = groupingKey.addAll(key);
-                        key = key.addAll(fetchedRecord.getPrimaryKey());
+                        final List<Object> primaryKey = fetchedRecord.getPrimaryKey().getItems();
+                        index.trimPrimaryKey(primaryKey);
+                        key = key.addAll(primaryKey);
 
                         IndexEntry newIndexEntry = new IndexEntry(index, key, Tuple.from(score), fetchedRecord.getPrimaryKey());
                         if (LOGGER.isTraceEnabled()) {

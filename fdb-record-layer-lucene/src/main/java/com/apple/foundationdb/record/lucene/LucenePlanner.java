@@ -131,7 +131,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
         LuceneScanParameters scanParameters = getSpecialScan(state, filterMask, queryComponent);
-        boolean hasRewrite = false;
         if (scanParameters == null) {
             // Scan by means of normal Lucene search API.
             LuceneQueryClause query = getQueryForFilter(state, filter, new ArrayList<>(), filterMask);
@@ -145,7 +144,6 @@ public class LucenePlanner extends RecordQueryPlanner {
             LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
                     state.sort, state.storedFields, state.storedFieldTypes, highlightParameters);
-            hasRewrite = highlightParameters.isHighlight() && highlightParameters.isRewriteRecords();
         }
 
         // Wrap in plan.
@@ -155,9 +153,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
         if (filterMask.allSatisfied()) {
             filterMask.setSatisfied(true);
-        }
-        if (hasRewrite) {
-            plan = new LuceneHighlightTermsPlan(plan);
         }
         return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), computeSargedComparisons(plan),  11 - filterMask.getUnsatisfiedFilters().size(),
                 state.repeated, null);
@@ -170,19 +165,19 @@ public class LucenePlanner extends RecordQueryPlanner {
         } else if (queryComponent instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
                 LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
-                if (parameters.isHighlight()) {
+                if (parameters != null) {
                     return parameters;
                 }
             }
         } else if (queryComponent instanceof AndComponent) {
             for (QueryComponent child : ((AndComponent) queryComponent).getChildren()) {
                 LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
-                if (parameters.isHighlight()) {
+                if (parameters != null) {
                     return parameters;
                 }
             }
         }
-        return new LuceneScanQueryParameters.LuceneQueryHighlightParameters(false);
+        return null;
     }
 
     static class LucenePlanState {

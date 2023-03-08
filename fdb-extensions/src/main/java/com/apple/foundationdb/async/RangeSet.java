@@ -444,7 +444,7 @@ public class RangeSet {
         checkRange(beginNonNull, endNonNull);
 
         // Return an AsyncIterable with the pertinent information.
-        return new AsyncIterable<Range>() {
+        return new AsyncIterable<>() {
             @Override
             public AsyncIterator<Range> iterator() {
                 return new MissingRangeIterator(tr, beginNonNull, endNonNull, limit);
@@ -513,8 +513,9 @@ public class RangeSet {
 
             byte[] frobnicatedBegin = subspace.pack(beginNonNull);
             byte[] frobnicatedEnd = subspace.pack(endNonNull);
-            before = tr.getRange(subspace.range().begin, keyAfter(frobnicatedBegin), 1, true).iterator();
-            after = tr.getRange(keyAfter(frobnicatedBegin), frobnicatedEnd).iterator();
+            tr.addReadConflictRangeIfNotSnapshot(frobnicatedBegin, frobnicatedEnd);
+            before = tr.snapshot().getRange(subspace.range().begin, keyAfter(frobnicatedBegin), 1, true).iterator();
+            after = tr.snapshot().getRange(keyAfter(frobnicatedBegin), frobnicatedEnd).iterator();
             next = null;
             currBegin = beginNonNull;
             found = false;

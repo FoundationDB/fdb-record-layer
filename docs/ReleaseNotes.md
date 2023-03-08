@@ -39,6 +39,26 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.349.0
+
+* **Bug fix** The `missingRange`s method in `RangeSet`s now adds more precise read conflict ranges to avoid introducing unneccessary conflicts [(Issue #2024)](https://github.com/FoundationDB/fdb-record-layer/issues/2024)
+
+### 3.3.348.0
+
+
+### 3.3.347.0
+
+
+### 3.3.346.0
+
+
+### 3.3.345.0
+
+
+### 3.3.344.0
+
+* **Bug fix** resolves #2035: lucene index auto-complete should adhere to limits as well as should populate primary key info correctly [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)
+
 ### 3.3.343.0
 
 * **Feature** refactor lucene index auto complete and spell check [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)

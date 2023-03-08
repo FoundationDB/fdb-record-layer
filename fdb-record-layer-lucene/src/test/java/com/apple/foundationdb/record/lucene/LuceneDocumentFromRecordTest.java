@@ -67,8 +67,8 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "some" for text field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("some")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
-        assertEquals("<b>some</b> text", builder.build().getText());
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("some text", builder.build().getText());
 
         KeyExpression primaryKey = field("doc_id");
 
@@ -100,8 +100,8 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "text" for text field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
-        assertEquals("more <b>text</b>", builder.build().getText());
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("more text", builder.build().getText());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -138,9 +138,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "text" for text field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text", Set.of("text")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
-        assertEquals("some <b>text</b>", builder.build().getText(0));
-        assertEquals("other <b>text</b>", builder.build().getText(1));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("some text", builder.build().getText(0));
+        assertEquals("other text", builder.build().getText(1));
 
         KeyExpression primaryKey = field("doc_id");
 
@@ -184,9 +184,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "text" for text field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("text2", Set.of("text")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("first text", builder.build().getText());
-        assertEquals("second <b>text</b>", builder.build().getText2());
+        assertEquals("second text", builder.build().getText2());
 
         KeyExpression primaryKey = concat(field("group"), field("header").nest("header_id"), field("doc_id"));
 
@@ -230,9 +230,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "v2" for entry_value field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_value", Set.of("v2")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("v1", builder.build().getEntry(0).getValue());
-        assertEquals("<b>v2</b>", builder.build().getEntry(1).getValue());
+        assertEquals("v2", builder.build().getEntry(1).getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -272,9 +272,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "v2" for k2 field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v2")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("v1", builder.build().getEntry(0).getValue());
-        assertEquals("<b>v2</b>", builder.build().getEntry(1).getValue());
+        assertEquals("v2", builder.build().getEntry(1).getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -317,9 +317,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "v20" for k2 field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("k2", Set.of("v20")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("v10", builder.build().getEntry(0).getValue());
-        assertEquals("<b>v20</b>", builder.build().getEntry(1).getValue());
+        assertEquals("v20", builder.build().getEntry(1).getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -367,9 +367,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "2val" for entry_second_value field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("2val")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("val", builder.build().getEntry(0).getValue());
-        assertEquals("<b>2val</b>", builder.build().getEntry(0).getSecondValue());
+        assertEquals("2val", builder.build().getEntry(0).getSecondValue());
         assertEquals("nval", builder.build().getEntry(1).getValue());
         assertEquals("2nval", builder.build().getEntry(1).getSecondValue());
 
@@ -420,9 +420,9 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "second" for entry_second_value field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_second_value", Set.of("second")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
         assertEquals("first", builder.build().getEntry(0).getValue());
-        assertEquals("<b>second</b>", builder.build().getEntry(0).getSecondValue());
+        assertEquals("second", builder.build().getEntry(0).getSecondValue());
         assertEquals("erste", builder.build().getEntry(1).getValue());
         assertEquals("zweite", builder.build().getEntry(1).getSecondValue());
 
@@ -471,8 +471,8 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "testValue" for entry_k1_value field
         LuceneHighlighting.highlightTermsInMessage(index, builder, Map.of("entry_k1_value", Set.of("testvalue")), analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(true));
-        assertEquals("<b>testValue</b>", builder.build().getEntry(0).getSubEntry().getValue());
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1));
+        assertEquals("testValue", builder.build().getEntry(0).getSubEntry().getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 

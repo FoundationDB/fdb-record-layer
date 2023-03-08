@@ -47,12 +47,6 @@
             <property name="illegalPkgs" value="${bannedImports}"/>
         </module>
 
-        <module name="Regexp">
-            <property name="illegalPattern" value="true"/>
-            <property name="format" value="StringBuffer"/>
-            <property name="message" value="Use StringBuilder instead of StringBuffer."/>
-        </module>
-
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
             <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>

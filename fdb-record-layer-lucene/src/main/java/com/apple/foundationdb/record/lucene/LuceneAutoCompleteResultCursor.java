@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -101,7 +100,6 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final FDBStoreTimer timer;
     private final int limit;
-    private final int skip;
     @Nullable
     private RecordCursor<IndexEntry> lookupResults = null;
     @Nullable
@@ -111,7 +109,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private final Set<String> excludedFieldNames;
 
     public LuceneAutoCompleteResultCursor(@Nonnull String query,
-                                          @Nonnull Executor executor, @Nonnull ScanProperties scanProperties,
+                                          @Nonnull Executor executor,
                                           @Nonnull Analyzer queryAnalyzer, @Nonnull IndexMaintainerState state,
                                           @Nullable Tuple groupingKey) {
         if (query.isEmpty()) {
@@ -122,9 +120,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
         this.query = query;
         this.executor = executor;
-        this.limit = Math.min(scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
-                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION));
-        this.skip = scanProperties.getExecuteProperties().getSkip();
+        this.limit = Verify.verifyNotNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION));
         this.timer = state.context.getTimer();
         this.state = state;
         this.groupingKey = groupingKey;
@@ -181,7 +177,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
         long startTime = System.nanoTime();
 
-        lookupResults = lookup().skip(skip).limitRowsTo(limit);
+        lookupResults = lookup();
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
         }
@@ -213,7 +209,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
 
         IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader, executor);
-        TopDocs topDocs = searcher.search(finalQuery, limit + skip);
+        TopDocs topDocs = searcher.search(finalQuery, limit);
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
@@ -397,5 +393,54 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         return KeyValueLogMessage.build(staticMessage)
                 .addKeyAndValue(LogMessageKeys.INDEX_NAME, state.index.getName())
                 .addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(state.context));
+    }
+
+    @Nullable
+    static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                            @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens) {
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int upto = 0;
+            Set<String> matchedInText = new HashSet<>();
+            Set<String> matchedPrefixes = new HashSet<>();
+            while (ts.incrementToken()) {
+                String token = termAtt.toString();
+                int startOffset = offsetAtt.startOffset();
+                int endOffset = offsetAtt.endOffset();
+                if (upto < startOffset) {
+                    upto = startOffset;
+                } else if (upto > startOffset) {
+                    continue;
+                }
+
+                if (matchedTokens.contains(token)) {
+                    // Token matches.
+                    upto = endOffset;
+                    matchedInText.add(token);
+                } else {
+                    for (String prefixToken : prefixTokens) {
+                        if (token.startsWith(prefixToken)) {
+                            upto = endOffset;
+                            matchedPrefixes.add(prefixToken);
+                            break;
+                        }
+                    }
+                }
+            }
+            ts.end();
+
+            if ((matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
+                // Query text not actually found in document text. Return null
+                return null;
+            }
+
+            // Text was found. Return text
+            return text;
+
+        } catch (IOException e) {
+            return null;
+        }
     }
 }
