@@ -57,26 +57,39 @@ import java.util.Set;
  * Helper class for highlighting search matches.
  */
 public class LuceneHighlighting {
-    private static final int defaultSnippetSize = 7;
-
     private LuceneHighlighting() {
     }
 
+    /**
+     * Iterator that takes a token stream and implement a next function.
+     * This cannot implement the Iterator interface as TokenStream does
+     * not provide a way to do hasNext.
+     */
     private static class TokenIterator implements Closeable {
-        TokenStream ts;
-        CharTermAttribute termAtt;
-        OffsetAttribute offsetAtt;
+        @Nonnull
+        private final TokenStream ts;
+        @Nonnull
+        private final CharTermAttribute termAtt;
+        @Nonnull
+        private final OffsetAttribute offsetAtt;
 
-        TokenIterator(TokenStream ts) throws IOException {
+        TokenIterator(@Nonnull TokenStream ts) throws IOException {
             this.ts = ts;
             termAtt = ts.addAttribute(CharTermAttribute.class);
             offsetAtt = ts.addAttribute(OffsetAttribute.class);
             ts.reset();
         }
 
+        /**
+         * Find next token. Skips over potential synonyms.
+         * @return true if we got a new token
+         * @throws IOException if something goes wrong
+         */
         boolean next() throws IOException {
             int oldStartOffset = startOffset();
             int oldEndOffset = endOffset();
+            // This can only loop if we keep discovering new synonyms. Once we've seen them all, this will either go to
+            // the next valid token and return true, or there won't be any token left in the stream and we'll return false
             while(true) {
                 boolean inc = ts.incrementToken();
                 if (!inc) {
@@ -108,6 +121,13 @@ public class LuceneHighlighting {
         }
     }
 
+    /**
+     * Helper class. Use search() as entry point.
+     * This will iterate over the token stream and :
+     * - find matches
+     * - cut snippets
+     * - return a list of highlighted positions
+     */
     static private class SearchAllAndHighlightImpl {
         private final TokenIterator it;
         private final TokenIterator standardIt;
@@ -136,12 +156,12 @@ public class LuceneHighlighting {
             this.standardIt = standardIt;
             this.text = text;
             this.cutSnippets = cutSnippets;
-            this.snippetSize =  snippetSize;
+            this.snippetSize =  snippetSize <= 0 ? Integer.MAX_VALUE : snippetSize;
             this.highlightedPositions = highlightedPositions;
         }
 
         private int tokenCountBeforeHighlighted() {
-            return snippetSize < 0 ? Integer.MAX_VALUE : (snippetSize - 1) / 2;
+            return (snippetSize - 1) / 2;
         }
 
         private void handleNonMatchToken() {
@@ -189,10 +209,10 @@ public class LuceneHighlighting {
         }
 
         private void addBeforeTokens() {
-            snippetRunningBudget = snippetSize < 0 ? beforeHighlightTokens.size()+1 : snippetSize;
+            snippetRunningBudget = snippetSize;
             if (prefixTextConnector) {
                 addNonMatch(sb, highlightedTextConnector);
-                highlightedTextConnector = " ...";
+                highlightedTextConnector = " ..."; // TODO(alacurie) This probably does not work for RTL languages
                 prefixTextConnector = false;
             }
             for (String token : beforeHighlightTokens) {
@@ -251,7 +271,7 @@ public class LuceneHighlighting {
                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                         @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
         try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
-             StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ;
+             StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
              TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
              TokenIterator it = new TokenIterator(ts);
              TokenIterator standardIt = new TokenIterator(standardTs)
