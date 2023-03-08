@@ -73,8 +73,8 @@ test {
 }
 
 compileJavacc {
-    inputDirectory = file('src/main/java/com/apple/foundationdb/record/lucene/queryparser/classic')
-    outputDirectory = file('src/main/java/com/apple/foundationdb/record/lucene/queryparser/classic')
+    inputDirectory = file('src/main/java/org/apache/lucene/queryparser/classic')
+    outputDirectory = file('src/main/java/org/apache/lucene/queryparser/classic')
 }
 
 publishing {

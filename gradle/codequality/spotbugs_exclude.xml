@@ -9,4 +9,8 @@
     <Match>
         <Source name="~.*/generated/.*" />
     </Match>
+
+    <Match>
+        <Source name="~.*/org/apache/lucene/queryparser/classic/.*" />
+    </Match>
 </FindBugsFilter>

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene.queryparser.classic;
+package org.apache.lucene.queryparser.classic;
 
 import static org.apache.lucene.util.automaton.Operations.DEFAULT_DETERMINIZE_WORK_LIMIT;
 
@@ -61,7 +61,6 @@ import org.apache.lucene.util.automaton.RegExp;
  *
  * (hatyo): undid parts of LUCENE-10431.
  */
-@SuppressWarnings("deprecation")
 public abstract class QueryParserBase extends QueryBuilder implements CommonQueryParserConfiguration {
 
     static final int CONJ_NONE = 0;

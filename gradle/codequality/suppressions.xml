@@ -11,5 +11,7 @@
     <suppress checks="Header"
         files=".*[\\/]org[\\/]apache[\\/]lucene[\\/]codecs[\\/]lucene84[\\/]LuceneOptimizedPostingsReader.java"/>
     <suppress checks=".*"
+        files=".*[\\/]org[\\/]apache[\\/]lucene[\\/]queryparser[\\/]classic[\\/].*"/>
+    <suppress checks=".*"
               files=".*[\\/]generated[\\/].*"/>
 </suppressions>

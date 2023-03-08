@@ -23,7 +23,7 @@ options {
 
 PARSER_BEGIN(QueryParser)
 
-package com.apple.foundationdb.record.lucene.queryparser.classic;
+package org.apache.lucene.queryparser.classic;
 
 import java.io.StringReader;
 import java.util.ArrayList;

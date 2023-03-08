@@ -1,10 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * package-info.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -392,5 +395,7 @@
  * <pre class="code">\(1\+1\)\:2</pre>
  *
  * </div>
+ *
+ * This package is copied from Lucene to get more control
  */
-package com.apple.foundationdb.record.lucene.queryparser.classic;
+package org.apache.lucene.queryparser.classic;

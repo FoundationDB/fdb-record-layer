@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene.queryparser.classic;
+package org.apache.lucene.queryparser.classic;
 
 import java.io.IOException;
 import java.io.Reader;
