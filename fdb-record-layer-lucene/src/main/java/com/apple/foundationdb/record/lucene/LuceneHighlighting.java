@@ -121,7 +121,7 @@ public class LuceneHighlighting {
         Set<String> matchedInText = new HashSet<>();
         Set<String> matchedPrefixes = new HashSet<>();
         boolean prefixTextConnector = false;
-        private static String highlightedTextConnector = "...";
+        private String highlightedTextConnector = "...";
 
         SearchAllAndHighlightImpl(TokenIterator it,
                                   TokenIterator standardIt,
@@ -161,7 +161,7 @@ public class LuceneHighlighting {
                 return false;
             }
 //            if (cutSnippets) {
-            addHighlightTokens();
+            addBeforeTokens();
 //            }
             addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
             addWholeMatch(sb, text.substring(standardIt.startOffset(),standardIt.endOffset()), highlightedPositions);
@@ -191,7 +191,7 @@ public class LuceneHighlighting {
         private boolean handlePrefixMatch(final Set<String> prefixTokens) {
             for (String prefixToken : prefixTokens) {
                 if (it.getToken().startsWith(prefixToken)) {
-                    addHighlightTokens();
+                    addBeforeTokens();
                     addNonMatch(sb, text.substring(upto, it.startOffset()));
                     addPrefixMatch(sb, text.substring(it.startOffset(), it.endOffset()), prefixToken,
                             highlightedPositions);
@@ -204,7 +204,7 @@ public class LuceneHighlighting {
             return false;
         }
 
-        private void addHighlightTokens() {
+        private void addBeforeTokens() {
             snippetRunningBudget = snippetSize < 0 ? beforeHighlightTokens.size()+1 : snippetSize;
             if (prefixTextConnector) {
                 addNonMatch(sb, highlightedTextConnector);
@@ -253,7 +253,7 @@ public class LuceneHighlighting {
 
             // Text was found. Return text
             if (!cutSnippets) {
-                addHighlightTokens();
+                addBeforeTokens();
                 addNonMatch(sb, text.substring(upto));
             }
 

@@ -385,7 +385,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
             assertEquals("text", highlightedTerm.getFieldName());
             assertEquals("... record record layer record record record ... record record layer record record layer record record record record record ...", highlightedTerm.getSnippet());
-            assertEquals(List.of(Pair.of(25, 30), Pair.of(77, 82), Pair.of(97, 102)), highlightedTerm.getHighlightedPositions());
+            assertEquals(List.of(Pair.of(18, 23), Pair.of(63, 68), Pair.of(83, 88)), highlightedTerm.getHighlightedPositions());
             for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
                 assertEquals("layer", highlightedTerm.getSnippet().substring(pos.getLeft(), pos.getRight()));
             }
