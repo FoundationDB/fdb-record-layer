@@ -244,7 +244,6 @@ public class LuceneHighlighting {
         }
     }
 
-    @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
     @Nullable
     static String searchAllAndHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
                                         @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens,
