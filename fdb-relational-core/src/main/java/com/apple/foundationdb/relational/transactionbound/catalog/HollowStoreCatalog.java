@@ -80,24 +80,29 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+    public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
 
     }
 
     @Override
-    public boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException {
+    public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+    public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) {
         // We do not check schema existence in this hollow catalog as it should be checked by the caller
         return true;
     }
 
     @Override
-    public Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException {
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
+        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+    }
+
+    @Override
+    public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 }

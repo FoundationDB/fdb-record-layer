@@ -24,8 +24,12 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
 import javax.annotation.Nonnull;
@@ -38,6 +42,7 @@ import javax.annotation.Nonnull;
  *    1. Membership check always return {@code true}
  *    2. List templates return empty {@link RelationalResultSet}
  *    3. Update and delete templates are noop
+ *    4. Loads the schema template for a given (name, version) by simply asserting the (name, version) and a dummy table.
  */
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
@@ -53,6 +58,22 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override
     public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) {
+    }
+
+    @Nonnull
+    @Override
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
+        return RecordLayerSchemaTemplate.newBuilder()
+                .setName(templateId)
+                .setVersion(version)
+                .addTable(RecordLayerTable.newBuilder()
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("dummy_col")
+                                .setDataType(DataType.Primitives.STRING.type())
+                                .build())
+                        .setName("dummy_table")
+                        .build())
+                .build();
     }
 
     @Override

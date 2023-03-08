@@ -150,11 +150,12 @@ public abstract class RecordLayerStoreCatalogTestBase {
             Assertions.assertTrue(storeCatalog.doesSchemaExist(listTxn, URI.create(schema1.getDatabaseName()), schema1.getName()), "Did not find a schema!");
             Assertions.assertTrue(storeCatalog.doesSchemaExist(listTxn, URI.create(schema2.getDatabaseName()), schema2.getName()), "Did not find a schema!");
         }
+
         //now delete it
-        Continuation continuation;
-        do {
+        boolean operationCompleted = false;
+        while (!operationCompleted) {
             try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-                continuation = storeCatalog.deleteDatabase(txn, URI.create(schema1.getDatabaseName()), Continuation.BEGIN);
+                operationCompleted = storeCatalog.deleteDatabase(txn, URI.create(schema1.getDatabaseName()));
                 try {
                     txn.commit();
                 } catch (RelationalException ex) {
@@ -163,13 +164,63 @@ public abstract class RecordLayerStoreCatalogTestBase {
                     }
                 }
             }
-        } while (!continuation.atEnd());
-
+        }
         //now database and its schemas shouldn't exist
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
             Assertions.assertFalse(storeCatalog.doesDatabaseExist(listTxn, URI.create(schema1.getDatabaseName())), "Did not find a database!");
             Assertions.assertFalse(storeCatalog.doesSchemaExist(listTxn, URI.create(schema1.getDatabaseName()), schema1.getName()), "Did not find a schema!");
             Assertions.assertFalse(storeCatalog.doesSchemaExist(listTxn, URI.create(schema2.getDatabaseName()), schema2.getName()), "Did not find a schema!");
+        }
+    }
+
+    @Test
+    void testDatabaseDeleteWithPrefixWorks() throws RelationalException, SQLException {
+        for (int i = 0; i < 100; i++) {
+            final Schema schema = generateTestSchema("test_schema_name", "/TEST/test_db_prefix" + i, "test_template_name", 1);
+            try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+                storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema.getSchemaTemplate());
+                storeCatalog.createDatabase(txn, URI.create(schema.getDatabaseName()));
+                storeCatalog.saveSchema(txn, schema);
+                txn.commit();
+            }
+        }
+
+        //it should exist
+        for (int i = 0; i < 100; i++) {
+            try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+                Assertions.assertTrue(storeCatalog.doesDatabaseExist(txn, URI.create("/TEST/test_db_prefix" + i)), "Did not find a database!");
+                Assertions.assertTrue(storeCatalog.doesSchemaExist(txn, URI.create("/TEST/test_db_prefix" + i), "test_schema_name"), "Did not find a schema!");
+            }
+        }
+
+        //now delete it
+        boolean operationCompleted = false;
+        while (!operationCompleted) {
+            try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+                operationCompleted = storeCatalog.deleteDatabasesWithPrefix(txn, "/TEST/test_db_prefix1");
+                try {
+                    txn.commit();
+                } catch (RelationalException ex) {
+                    if (ex.getErrorCode() != ErrorCode.TRANSACTION_INACTIVE && ex.getErrorCode() != ErrorCode.TRANSACTION_TIMEOUT) {
+                        throw ex;
+                    }
+                }
+            }
+        }
+
+        //now database and its schemas shouldn't exist
+        final var dbnos = Set.of(1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 100);
+        for (int i = 0; i < 100; i++) {
+            try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+                final var dbPath = "/TEST/test_db_prefix" + i;
+                if (dbnos.contains(i)) {
+                    Assertions.assertFalse(storeCatalog.doesDatabaseExist(txn, URI.create(dbPath)), "Found a database that should have been deleted! dbPath:" + dbPath);
+                    Assertions.assertFalse(storeCatalog.doesSchemaExist(txn, URI.create(dbPath), "test_schema_name"), "Found a schema that should have been deleted! dbPath:" + dbPath);
+                } else {
+                    Assertions.assertTrue(storeCatalog.doesDatabaseExist(txn, URI.create(dbPath)), "Did not find a database! dbPath:" + dbPath);
+                    Assertions.assertTrue(storeCatalog.doesSchemaExist(txn, URI.create(dbPath), "test_schema_name"), "Did not find a schema! dbPath:" + dbPath);
+                }
+            }
         }
     }
 

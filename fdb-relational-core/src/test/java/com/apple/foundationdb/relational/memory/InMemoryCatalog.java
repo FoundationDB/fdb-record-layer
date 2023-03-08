@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
@@ -41,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class InMemoryCatalog implements StoreCatalog {
 
@@ -111,24 +111,38 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) {
-
+    public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) {
+        final var schemas = dbToSchemas.getOrDefault(dbUri, new ArrayList<>());
+        for (var schema: schemas) {
+            if (schema.schema.getName().equals(schemaName)) {
+                schemas.remove(schema);
+                return;
+            }
+        }
     }
 
     @Override
-    public boolean doesDatabaseExist(Transaction txn, URI dbUrl) {
+    public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI dbUrl) {
         return dbToSchemas.containsKey(dbUrl);
     }
 
     @Override
-    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) {
+    public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) {
         return doesDatabaseExist(txn, dbUri) && dbToSchemas.get(dbUri).stream().map(s -> s.schema.getName()).anyMatch(schemaName::equals);
     }
 
     @Override
-    public Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) {
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) {
         dbToSchemas.remove(dbUrl);
-        return Continuation.END;
+        return true;
+    }
+
+    @Override
+    public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) {
+        final var dbsToDelete = dbToSchemas.keySet().stream().filter(key -> key.toString().startsWith(prefix))
+                .collect(Collectors.toSet());
+        dbsToDelete.forEach(key -> dbToSchemas.remove(key));
+        return true;
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {
@@ -162,9 +176,4 @@ public class InMemoryCatalog implements StoreCatalog {
             }
         }
     }
-
-    private static class InMemorySchemaTemplate {
-        private SchemaTemplate schemaTemplate;
-    }
-
 }

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -180,7 +179,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
             @Nonnull
             @Override
             public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-                return txn -> catalog.deleteDatabase(txn, dbUrl, Continuation.BEGIN);
+                return txn -> catalog.deleteDatabase(txn, dbUrl);
             }
         };
     }

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
 
 public interface StoreCatalog {
     /**
@@ -118,21 +119,24 @@ public interface StoreCatalog {
      * @param schemaName the name of the schema to delete
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException;
+    void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException;
 
-    boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException;
+    boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException;
 
-    boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName) throws RelationalException;
+    boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUrl, @Nonnull String schemaName) throws RelationalException;
 
     /**
      * Delete the database from the Catalog.
-     * It deletes all schemas in the database from SCHEMAS table starting from continuation, and deletes the database_id from DATABASE_INFO table
+     * In the process, it first clears out all the related schema for a particular database. In cleaning the schema,
+     * note that this method do not clear the corresponding record store. It should be the responsibility of the
+     * caller to make sure that the record store has been purged already (if needed to do so).
      *
      * @param txn   the transaction to use
      * @param dbUrl the path to the specific database to delete
-     * @param continuation place to start deleting schemas
-     * @return place to start deleting schemas in the next iteration
+     * @return {@code true} if the operation finishes, else returns {@code false} if the transaction expires
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException;
+    boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException;
+
+    boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException, SQLException;
 }

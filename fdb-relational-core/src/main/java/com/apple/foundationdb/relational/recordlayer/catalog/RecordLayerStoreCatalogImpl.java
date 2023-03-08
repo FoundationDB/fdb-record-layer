@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
@@ -56,7 +55,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
@@ -111,14 +109,12 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     private final RelationalKeyspaceProvider.RelationalSchemaPath schemaPath;
-    private final KeySpace keySpace;
 
     private final RecordMetaDataProvider metaDataProvider;
 
     private final SchemaTemplateCatalog schemaTemplateCatalog;
 
     public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace, @Nonnull SchemaTemplateCatalog schemaTemplateCatalog) throws RelationalException {
-        this.keySpace = keySpace;
         schemaPath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/" + RelationalKeyspaceProvider.SYS), keySpace).schemaPath(RelationalKeyspaceProvider.CATALOG);
         metaDataProvider = setupMetadataProvider();
         this.schemaTemplateCatalog = schemaTemplateCatalog;
@@ -271,10 +267,10 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+    public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
         try {
             FDBRecordStore recordStore = openFDBRecordStore(txn);
-            Tuple primaryKey = getSchemaKey(dbUri, schemaName);
+            final var primaryKey = getSchemaKey(dbUri, schemaName);
             Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
@@ -282,7 +278,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public boolean doesDatabaseExist(Transaction txn, URI databaseId) throws RelationalException {
+    public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI databaseId) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         try {
             String dbId = databaseId.getPath();
@@ -293,7 +289,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
+    public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         try {
             Tuple primaryKey = getSchemaKey(dbUri, schemaName);
@@ -304,18 +300,50 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public Continuation deleteDatabase(Transaction txn, URI dbUrl, Continuation continuation) throws RelationalException {
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
         FDBRecordStore recordStore = openFDBRecordStore(txn);
         try {
             String dbId = dbUrl.getPath();
-            RecordCursorContinuation cursorContinuation = deleteSchemas(txn, URI.create(dbId), continuation.getBytes());
-            // when all schemas are deleted, delete the databaseId from DATABASE_INFO table
-            if (cursorContinuation.isEnd()) {
+            final var allSchemasDeleted = deleteSchemas(txn, URI.create(dbId));
+            if (allSchemasDeleted) {
+                // when all schemas are deleted, delete the databaseId from DATABASE_INFO table
                 recordStore.deleteRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId));
+            } else {
+                return false;
             }
-            return ContinuationImpl.fromRecordCursorContinuation(cursorContinuation);
         } catch (RecordCoreException rce) {
+            final var relationalException = ExceptionUtil.toRelationalException(rce);
+            if (relationalException.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || relationalException.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
+                return false;
+            }
             throw ExceptionUtil.toRelationalException(rce);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException, SQLException {
+        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        final var key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, prefix);
+        final var databaseDesc = recordStore.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
+        var resultSet = new RecordLayerResultSet(getMetaData(databaseDesc), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null);
+        try {
+            do {
+                if (!resultSet.next()) {
+                    return resultSet.getContinuation() == Continuation.END;
+                }
+                final var operationCompleted = deleteDatabase(txn, URI.create(resultSet.getString("DATABASE_ID")));
+                if (!operationCompleted) {
+                    return false;
+                }
+            } while (true);
+        } catch (RecordCoreStorageException ex) {
+            final var relationalException = ExceptionUtil.toRelationalException(ex);
+            if (relationalException.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || relationalException.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
+                return false;
+            }
+            throw ExceptionUtil.toRelationalException(ex);
         }
     }
 
@@ -327,11 +355,13 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
-    // delete schemas starting from a continuation, until the transaction is closed
-    private RecordCursorContinuation deleteSchemas(@Nonnull Transaction txn, @Nonnull URI dbUri, byte[] continuation) throws RelationalException {
+    // delete schemas for the matching dbUri.
+    // returns true if the operation completes, false when the operation cannot complete because of txn timeout
+    // throws exception otherwise.
+    private boolean deleteSchemas(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
         FDBRecordStore recordStore = openFDBRecordStore(txn);
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation, ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
         RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
         try {
             do {
@@ -340,19 +370,16 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                     break;
                 }
                 Tuple primaryKey = Objects.requireNonNull(cursorResult.get()).getPrimaryKey();
-                Assert.that(recordStore.deleteRecord(primaryKey), "Schema primaryKey id " + primaryKey.get(1) + "/" + primaryKey.get(2) + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
-                final var schemaPath = RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath((String) primaryKey.get(2));
-                FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), schemaPath);
+                recordStore.deleteRecord(primaryKey);
             } while (cursorResult.hasNext());
         } catch (RecordCoreStorageException ex) {
-            RelationalException vex = ExceptionUtil.toRelationalException(ex);
-            if (vex.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || vex.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
-                return cursorResult.getContinuation();
-            } else {
-                throw ex;
+            final var relationalException = ExceptionUtil.toRelationalException(ex);
+            if (relationalException.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || relationalException.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
+                return false;
             }
+            throw ExceptionUtil.toRelationalException(ex);
         }
-        return cursorResult.getContinuation();
+        return true;
     }
 
     private void saveSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStore recordStore) throws RelationalException {
@@ -424,5 +451,4 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
                 .setVersion(TEMPLATE_VERSION)
                 .build();
     }
-
 }
