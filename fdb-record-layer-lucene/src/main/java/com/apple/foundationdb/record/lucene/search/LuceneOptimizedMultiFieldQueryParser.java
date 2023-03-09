@@ -88,6 +88,10 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
         return attemptConstructFieldQueryWithPointsConfig(field, queryText, quoted);
     }
 
+    @Override
+    protected Query getBitsetQuery(final String field, final Token bitmaskToken) throws ParseException {
+        return attemptConstructBitsetQueryWithPointsConfig(field, bitmaskToken);
+    }
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API

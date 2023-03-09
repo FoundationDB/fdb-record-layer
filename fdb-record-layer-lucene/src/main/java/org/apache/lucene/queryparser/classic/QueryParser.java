@@ -655,7 +655,7 @@ q = handleQuotedTerm(field, term, fuzzySlop);
   final public Query Function(String field) throws ParseException {Token bitmask;
     jj_consume_token(BITSET_CONTAINS);
     jj_consume_token(LPAREN);
-    bitmask = jj_consume_token(NUMBER);
+    bitmask = jj_consume_token(TERM);
     jj_consume_token(RPAREN);
 {if ("" != null) return getBitsetQuery(field, bitmask);}
     throw new Error("Missing return statement in function");

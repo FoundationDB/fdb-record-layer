@@ -379,7 +379,7 @@ Query Function(String field) : {
   Token bitmask;
 }
 {
-  <BITSET_CONTAINS> <LPAREN> bitmask=<NUMBER> <RPAREN>
+  <BITSET_CONTAINS> <LPAREN> bitmask=<TERM> <RPAREN>
   {
     return getBitsetQuery(field, bitmask);
   }

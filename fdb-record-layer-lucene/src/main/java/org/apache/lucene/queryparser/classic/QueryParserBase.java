@@ -631,6 +631,7 @@ public abstract class QueryParserBase extends QueryBuilder implements CommonQuer
      *
      * @return new FuzzyQuery Instance
      */
+    @SuppressWarnings("deprecation")
     protected Query newFuzzyQuery(Term term, float minimumSimilarity, int prefixLength) {
         // FuzzyQuery doesn't yet allow constant score rewrite
         String text = term.text();
