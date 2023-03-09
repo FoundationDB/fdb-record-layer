@@ -81,13 +81,7 @@ public class BitSetQuery extends Query {
         return new ConstantScoreWeight(this, boost) {
 
             private boolean matches(byte[] bitSet) {
-                if (bitMask == 0L) {
-                    //if bitMask is 0, actually applying the mask will always return 0, regardless of the actual value,
-                    // so we just check if any bits are set instead
-                    return NumericUtils.sortableBytesToLong(bitSet, 0) == 0;
-                } else {
-                    return (NumericUtils.sortableBytesToLong(bitSet, 0) & bitMask) == bitMask;
-                }
+                return (NumericUtils.sortableBytesToLong(bitSet, 0) & bitMask) == bitMask;
             }
 
             private PointValues.IntersectVisitor getIntersectVisitor(DocIdSetBuilder result) {
