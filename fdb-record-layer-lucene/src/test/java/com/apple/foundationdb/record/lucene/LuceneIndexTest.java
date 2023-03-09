@@ -605,15 +605,61 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @MethodSource("bitsetParams")
     void bitset(int mask, List<Long> expectedResult) {
         /*
-         * Check that a range query returns empty if you feed it a range that is logically empty (i.e. (Long.MAX_VALUE,...)
+         * Check that a bitset_contains query returns the right result given a certain mask
          */
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 0b11100));
             recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 0b11010));
 
-            assertIndexEntryPrimaryKeys(expectedResult,
-                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND BITSET_CONTAINS(group, " + mask + ")"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:BITSET_CONTAINS(" + mask + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
+
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "group:BITSET_CONTAINS(" + mask + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    private static Stream<Arguments> bitsetOrParams() {
+        return Stream.of(
+                Arguments.of(0b0, 0b0, List.of()),
+                Arguments.of(0b100, 0b1, List.of(1623L)),
+                Arguments.of(0b10, 0b1, List.of(1547L)),
+                Arguments.of(0b1000, 0b1000, List.of(1623L, 1547L)),
+                Arguments.of(0b100, 0b10, List.of(1623L, 1547L)),
+                Arguments.of(0b10000, 0b1000, List.of(1623L, 1547L)),
+                Arguments.of(0b1000, 0b100, List.of(1623L, 1547L))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("bitsetOrParams")
+    void bitsetOr(int mask1, int mask2, List<Long> expectedResult) {
+        /*
+         * Check that a bitset_contains query returns the right result given a certain mask
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 0b11100));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 0b11010));
+
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "group:BITSET_CONTAINS(" + mask1 + ") OR group:BITSET_CONTAINS(" + mask2 + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
         }
     }
 

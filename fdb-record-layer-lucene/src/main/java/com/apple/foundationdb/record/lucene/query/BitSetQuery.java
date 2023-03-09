@@ -78,7 +78,13 @@ public class BitSetQuery extends Query {
         return new ConstantScoreWeight(this, boost) {
 
             private boolean matches(byte[] bitSet) {
-                return (NumericUtils.sortableBytesToLong(bitSet, 0) & bitMask) == bitMask;
+                if (bitMask == 0L) {
+                    //if bitMask is 0, actually applying the mask will always return 0, regardless of the actual value,
+                    // so we just check if any bits are set instead
+                    return NumericUtils.sortableBytesToLong(bitSet, 0) == 0;
+                } else {
+                    return (NumericUtils.sortableBytesToLong(bitSet, 0) & bitMask) == bitMask;
+                }
             }
 
             private PointValues.IntersectVisitor getIntersectVisitor(DocIdSetBuilder result) {
@@ -115,7 +121,7 @@ public class BitSetQuery extends Query {
 
                     @Override
                     public PointValues.Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
-                        return PointValues.Relation.CELL_INSIDE_QUERY;
+                        return PointValues.Relation.CELL_CROSSES_QUERY;
                     }
                 };
             }
@@ -148,7 +154,7 @@ public class BitSetQuery extends Query {
 
                     @Override
                     public PointValues.Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
-                        return PointValues.Relation.CELL_INSIDE_QUERY;
+                        return PointValues.Relation.CELL_CROSSES_QUERY;
                     }
                 };
             }
