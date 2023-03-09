@@ -142,11 +142,8 @@ public class IndexingByIndex extends IndexingBase {
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
-
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE)
-                .setReturnedRowLimit(getLimit() + 1); // respect limit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        boolean isIdempotent = maintainer.isIdempotent();
+        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
 
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(store, index);
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
@@ -165,7 +162,7 @@ public class IndexingByIndex extends IndexingBase {
 
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, maintainer.isIdempotent())
+                    lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)

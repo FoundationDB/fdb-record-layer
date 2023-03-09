@@ -22,9 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.match.PlanMatcherWithChild;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -47,11 +45,6 @@ public class LucenePlanMatchers {
     public static Matcher<IndexScanParameters> group(@Nonnull Matcher<ScanComparisons> boundsMatcher) {
         return new GroupBoundsMatcher(boundsMatcher);
     }
-
-    public static Matcher<RecordQueryPlan> highlight(@Nonnull Matcher<RecordQueryPlan> childMatcher) {
-        return new HighlightMatcher(childMatcher);
-    }
-
 
     /**
      * Match {@link IndexScanParameters}.
@@ -125,26 +118,4 @@ public class LucenePlanMatchers {
             description.appendText(")");
         }
     }
-
-    /**
-     * Match {@link LuceneHighlightTermsPlan}.
-     */
-    public static class HighlightMatcher extends PlanMatcherWithChild {
-        public HighlightMatcher(@Nonnull Matcher<RecordQueryPlan> childMatcher) {
-            super(childMatcher);
-        }
-
-        @Override
-        public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
-            return plan instanceof LuceneHighlightTermsPlan && super.matchesSafely(plan);
-        }
-
-        @Override
-        public void describeTo(Description description) {
-            description.appendText("Highlight(");
-            super.describeTo(description);
-            description.appendText(")");
-        }
-    }
-
 }

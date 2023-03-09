@@ -39,6 +39,55 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.350.0
+
+
+### 3.3.349.0
+
+* **Bug fix** The `missingRange`s method in `RangeSet`s now adds more precise read conflict ranges to avoid introducing unneccessary conflicts [(Issue #2024)](https://github.com/FoundationDB/fdb-record-layer/issues/2024)
+
+### 3.3.348.0
+
+
+### 3.3.347.0
+
+
+### 3.3.346.0
+
+
+### 3.3.345.0
+
+
+### 3.3.344.0
+
+* **Bug fix** resolves #2035: lucene index auto-complete should adhere to limits as well as should populate primary key info correctly [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)
+
+### 3.3.343.0
+
+* **Feature** refactor lucene index auto complete and spell check [(Issue #2035)](https://github.com/FoundationDB/fdb-record-layer/issues/2035)
+
+### 3.3.342.0
+
+
+### 3.3.341.0
+
+
+### 3.3.340.0
+
+* **Bug fix** Cascades planner no longer trips over `VALUE` indexes which contain all fields in the primary key [(Issue #2015)](https://github.com/FoundationDB/fdb-record-layer/issues/2015)
+
+### 3.3.339.0
+
+* **Feature** Make Index.options immutable. This replaces the internal data structure of Index.options with an immutable map so that a user cannot call getOptions().put()[(Issue #2016)](https://github.com/FoundationDB/fdb-record-layer/issues/2016)
+* **Feature** Online Indexing: Add transaction time quota and initial scanned records limit [(Issue #2013)](https://github.com/FoundationDB/fdb-record-layer/issues/2013)
+
+### 3.3.338.0
+
+* **Bug fix** OnlineIndexer: make stamp operations public [(Issue #2027)](https://github.com/FoundationDB/fdb-record-layer/issues/2027)
+
+### 3.3.337.0
+
+
 ### 3.3.336.0
 
 * **Feature** improve logic to push plans through a fetch [(Issue #2020)](https://github.com/FoundationDB/fdb-record-layer/issues/2020)

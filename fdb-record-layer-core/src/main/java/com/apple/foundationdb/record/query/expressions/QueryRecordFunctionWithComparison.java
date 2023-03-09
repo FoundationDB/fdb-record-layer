@@ -86,7 +86,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Override
     public String getName() {
-        return function.toString();
+        return function.getName();
     }
 
     @Override

@@ -902,6 +902,24 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testConfigLoaderInitialLimit() throws Exception {
+        final Index index = new Index("newIndex", field("num_value_unique"));
+        populateData(40);
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index, timer)
+                .setInitialLimit(4)
+                .setIncreaseLimitAfter(100) // high enough to keep the initial limit
+                .setLimit(10000)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+        // Ensure that 40 records were scanned in 10 separate ranges (of 4 records each - the initial limit)
+        assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+    }
+
+    @Test
     public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {
         int numRecords = 127;
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj( val ->

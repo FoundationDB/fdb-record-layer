@@ -58,12 +58,12 @@ class LuceneAutoCompleteResultCursorTest {
 
     // Auto-complete searches for the prefix "qua"
     private static final String[][] QUA_MATCHES = {
-            {"quality", "quality", "<b>qua</b>lity"},
-            {"The basic qualia of objects", "The basic qualia of objects", "The basic <b>qua</b>lia of objects"},
-            {"Quality over quantity!", "Quality over quantity!", "<b>Qua</b>lity over <b>qua</b>ntity!"},
+            {"quality", "quality", "quality"},
+            {"The basic qualia of objects", "The basic qualia of objects", "The basic qualia of objects"},
+            {"Quality over quantity!", "Quality over quantity!", "Quality over quantity!"},
             {"quorum logic", null, null},
             {"square", null, null},
-            {"example qua example", "example qua example", "example <b>qua</b> example"},
+            {"example qua example", "example qua example", "example qua example"},
     };
 
     @SuppressWarnings("unused") // used as argument source for parameterized test
@@ -79,9 +79,9 @@ class LuceneAutoCompleteResultCursorTest {
 
     // Auto-complete searches for the phrase "good mor" (with a prefix search on "mor")
     private static final String[][] GOOD_MOR_MATCHES = {
-            {"Good morning!", "Good morning!", "<b>Good</b> <b>mor</b>ning!"},
-            {"It is all for the good, and I'll see you on the morrow", "It is all for the good, and I'll see you on the morrow", "It is all for the <b>good</b>, and I'll see you on the <b>mor</b>row"},
-            {"The more good we do, the more good we see", "The more good we do, the more good we see", "The <b>mor</b>e <b>good</b> we do, the <b>mor</b>e <b>good</b> we see"},
+            {"Good morning!", "Good morning!", "Good morning!"},
+            {"It is all for the good, and I'll see you on the morrow", "It is all for the good, and I'll see you on the morrow", "It is all for the good, and I'll see you on the morrow"},
+            {"The more good we do, the more good we see", "The more good we do, the more good we see", "The more good we do, the more good we see"},
             {"Good day!", null, null},
             {"Morning!", null, null},
     };
@@ -99,9 +99,9 @@ class LuceneAutoCompleteResultCursorTest {
 
     // Auto-complete searches for the phrase "hello world " (ending space intentional--indicates "world" is not a prefix search)
     private static final String[][] HELLO_WORLD_MATCHES = {
-            {"Hello, world!", "Hello, world!", "<b>Hello</b>, <b>world</b>!"},
+            {"Hello, world!", "Hello, world!", "Hello, world!"},
             {"Hello, worldlings!", null, null},
-            {"World--hello!", "World--hello!", "<b>World</b>--<b>hello</b>!"},
+            {"World--hello!", "World--hello!", "World--hello!"},
             {"Worldly--hello!", null, null},
     };
 
@@ -126,8 +126,13 @@ class LuceneAutoCompleteResultCursorTest {
         assertEquals(expectedPrefixToken, prefixToken);
 
         Set<String> queryTokenSet = new HashSet<>(tokens);
-        @Nullable String match = LuceneHighlighting.searchAllMaybeHighlight("text", analyzer, text, queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken), true,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
+        @Nullable String match;
+        if (highlight) {
+            match = LuceneHighlighting.searchAllAndHighlight("text", analyzer, text, queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken), true,
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1), null);
+        } else {
+            match = LuceneAutoCompleteResultCursor.findMatch("text", analyzer, text, queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken));
+        }
         assertEquals(expectedMatch, match);
     }
 }

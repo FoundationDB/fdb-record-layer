@@ -99,6 +99,25 @@ public class RecordMetaData implements RecordMetaDataProvider {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
+    protected RecordMetaData(@Nonnull RecordMetaData orig) {
+        this(orig.getRecordsDescriptor(),
+                orig.getUnionDescriptor(),
+                Collections.unmodifiableMap(orig.unionFields),
+                Collections.unmodifiableMap(orig.recordTypes),
+                Collections.unmodifiableMap(orig.syntheticRecordTypes),
+                Collections.unmodifiableMap(orig.recordTypeKeyToSyntheticTypeMap),
+                Collections.unmodifiableMap(orig.indexes),
+                Collections.unmodifiableMap(orig.universalIndexes),
+                Collections.unmodifiableList(orig.formerIndexes),
+                orig.splitLongRecords,
+                orig.storeRecordVersions,
+                orig.version,
+                orig.subspaceKeyCounter,
+                orig.usesSubspaceKeyCounter,
+                orig.recordCountKey,
+                orig.usesLocalRecordsDescriptor);
+    }
+
     @SuppressWarnings("squid:S00107") // There is a Builder.
     protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
                              @Nonnull Descriptors.Descriptor unionDescriptor,
@@ -172,7 +191,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public RecordType getRecordType(@Nonnull String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -243,7 +262,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -259,7 +278,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throw new MetaDataException("Unknown record type " + name);
+            throw unknownTypeException(name);
         }
         return recordType;
     }
@@ -721,5 +740,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
                                     throw new IllegalArgumentException("cannot form union type of complex fields");
                                 })));
+    }
+
+    @Nonnull
+    private MetaDataException unknownTypeException(final @Nonnull String name) {
+        return new MetaDataException("Unknown record type " + name);
     }
 }

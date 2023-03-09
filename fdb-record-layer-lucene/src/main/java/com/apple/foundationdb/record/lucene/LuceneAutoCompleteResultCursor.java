@@ -21,26 +21,24 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -83,13 +81,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * This class is a Record Cursor implementation for Lucene auto complete suggestion lookup.
  * Because use cases of auto complete never need to get a big number of suggestions in one call, no scan with continuation support is needed.
  * Suggestion result is populated as an {@link IndexEntry}, the key is in {@link IndexEntry#getKey()}, the field where it is indexed from and the value are in {@link IndexEntry#getValue()}.
  */
+@SuppressWarnings("resource")
 public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteResultCursor.class);
 
@@ -102,20 +100,18 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final FDBStoreTimer timer;
     private final int limit;
-    private final int skip;
     @Nullable
     private RecordCursor<IndexEntry> lookupResults = null;
     @Nullable
     private final Tuple groupingKey;
-    private final boolean highlight;
     private final Analyzer queryAnalyzer;
 
     private final Set<String> excludedFieldNames;
 
     public LuceneAutoCompleteResultCursor(@Nonnull String query,
-                                          @Nonnull Executor executor, @Nonnull ScanProperties scanProperties,
+                                          @Nonnull Executor executor,
                                           @Nonnull Analyzer queryAnalyzer, @Nonnull IndexMaintainerState state,
-                                          @Nullable Tuple groupingKey, boolean highlight) {
+                                          @Nullable Tuple groupingKey) {
         if (query.isEmpty()) {
             throw new RecordCoreArgumentException("Invalid query for auto-complete search")
                     .addLogInfo(LogMessageKeys.QUERY, query)
@@ -124,11 +120,8 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
         this.query = query;
         this.executor = executor;
-        this.limit = Math.min(scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
-                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION));
-        this.skip = scanProperties.getExecuteProperties().getSkip();
+        this.limit = Verify.verifyNotNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION));
         this.timer = state.context.getTimer();
-        this.highlight = highlight;
         this.state = state;
         this.groupingKey = groupingKey;
         this.queryAnalyzer = queryAnalyzer;
@@ -184,7 +177,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
         long startTime = System.nanoTime();
 
-        lookupResults = lookup().skip(skip).limitRowsTo(limit);
+        lookupResults = lookup();
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN, startTime);
         }
@@ -216,7 +209,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
 
         IndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader, executor);
-        TopDocs topDocs = searcher.search(finalQuery, limit + skip);
+        TopDocs topDocs = searcher.search(finalQuery, limit);
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
@@ -352,39 +345,23 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         return spanQuery.build();
     }
 
-    protected RecordCursor<IndexEntry> createResults(IndexSearcher searcher,
-                                                     TopDocs topDocs,
-                                                     Set<String> queryTokens,
-                                                     Set<String> prefixTokens) {
-        return RecordCursor.flatMapPipelined(
-                outerContinuation -> scoreDocsFromLookup(searcher, topDocs),
-                (scoreDocAndRecord, innerContinuation) -> findIndexEntriesInRecord(scoreDocAndRecord, queryTokens, prefixTokens, innerContinuation),
-                scoreDocAndRecord -> scoreDocAndRecord.rec.getPrimaryKey().pack(),
-                null,
-                1 // Use a pipeline size of 1 because the inner cursors don't do I/O and the outer cursor has its own pipelining
-        );
+    protected RecordCursor<IndexEntry> createResults(@Nonnull final IndexSearcher searcher,
+                                                     @Nonnull final TopDocs topDocs,
+                                                     @Nonnull final Set<String> queryTokens,
+                                                     @Nonnull final Set<String> prefixTokens) {
+        return scoreDocsFromLookup(topDocs)
+                .map(scoreDoc -> fakeIndexEntryFromScoreDoc(searcher, scoreDoc, queryTokens, prefixTokens));
     }
 
-    private static final class ScoreDocAndRecord {
-        private final ScoreDoc scoreDoc;
-        private final FDBRecord<?> rec;
-
-        private ScoreDocAndRecord(ScoreDoc scoreDoc, FDBRecord<?> rec) {
-            this.scoreDoc = scoreDoc;
-            this.rec = rec;
-        }
-    }
-
-    private RecordCursor<ScoreDocAndRecord> scoreDocsFromLookup(IndexSearcher searcher, TopDocs topDocs) {
+    private RecordCursor<ScoreDoc> scoreDocsFromLookup(@Nonnull final TopDocs topDocs) {
         return RecordCursor.fromIterator(executor, Arrays.stream(topDocs.scoreDocs).iterator())
-                .mapPipelined(scoreDoc -> loadRecordFromScoreDocAsync(searcher, scoreDoc), state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .filter(Objects::nonNull)
                 .mapResult(result -> {
                     if (result.hasNext()) {
                         // TODO: this cursor does not support real continuations (yet)
                         // However, if we want to use the "searchAfter" to resume this scan, this is the
                         // continuation we'd need for it
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(result.get().scoreDoc);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(Verify.verifyNotNull(result.get()));
                         return RecordCursorResult.withNextValue(result.get(), continuationFromDoc);
                     } else {
                         // TODO: This always overrides the NoNextReason to SOURCE_EXHAUSTED
@@ -396,70 +373,74 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 });
     }
 
-    private CompletableFuture<ScoreDocAndRecord> loadRecordFromScoreDocAsync(IndexSearcher searcher, ScoreDoc scoreDoc) {
+    private IndexEntry fakeIndexEntryFromScoreDoc(@Nonnull final IndexSearcher searcher,
+                                                  @Nonnull final ScoreDoc scoreDoc,
+                                                  @Nonnull final Set<String> queryTokens,
+                                                  @Nonnull final Set<String> prefixTokens) {
         try {
             IndexableField primaryKey = searcher.doc(scoreDoc.doc).getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
             BytesRef pk = primaryKey.binaryValue();
-            return state.store.loadRecordAsync(Tuple.fromBytes(pk.bytes)).thenApply(rec -> new ScoreDocAndRecord(scoreDoc, rec));
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(new RecordCoreException("unable to read document from Lucene", e));
+            final var valueTuple = Tuple.from(scoreDoc.score, queryTokens, prefixTokens);
+            return new IndexEntry(state.index, groupingKey == null ? TupleHelpers.EMPTY : groupingKey, valueTuple, Tuple.fromBytes(pk.bytes));
+        } catch (IOException ioException) {
+            throw new RecordCoreException("unable to read document from Lucene", ioException);
         }
     }
 
-    private RecordCursor<IndexEntry> findIndexEntriesInRecord(ScoreDocAndRecord scoreDocAndRecord, Set<String> queryTokens, Set<String> prefixTokens, @Nullable byte[] continuation) {
-        // Extract the indexed fields from the document again
-        final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), scoreDocAndRecord.rec)
-                .get(groupingKey == null ? TupleHelpers.EMPTY : groupingKey)
-                .stream()
-                .filter(f -> !excludedFieldNames.contains(f.getFieldName()))
-                .collect(Collectors.toList());
-        return RecordCursor.fromList(executor, documentFields, continuation).map(documentField -> {
-            // Search each field to find the first match.
-            final int maxTextLength = Objects.requireNonNull(state.context.getPropertyStorage()
-                    .getPropertyValue(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT));
-            Object fieldValue = documentField.getValue();
-            if (!(fieldValue instanceof String)) {
-                // Only can search through string fields
-                return null;
-            }
-            String text = (String)fieldValue;
-            if (text.length() > maxTextLength) {
-                // Apply the text length filter before searching through the text for the
-                // matched terms
-                return null;
-            }
-            String match = LuceneHighlighting.searchAllMaybeHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(highlight), null);
-            if (match == null) {
-                // Text not found in this field
-                return null;
-            }
-
-            // Found a match with this field!
-            Tuple key = Tuple.from(documentField.getFieldName(), match);
-            if (groupingKey != null) {
-                key = groupingKey.addAll(key);
-            }
-            // TODO: Add the primary key to the index entry
-            // Not having the primary key is fine for auto-complete queries that just want the
-            // text, but queries wanting to do something with both the auto-completed text and the
-            // original record need to do something else
-            IndexEntry indexEntry = new IndexEntry(state.index, key, Tuple.from(scoreDocAndRecord.scoreDoc.score),
-                    scoreDocAndRecord.rec.getPrimaryKey());
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(logMessage("Suggestion read as an index entry")
-                        .addKeyAndValue(LogMessageKeys.INDEX_KEY, key)
-                        .addKeyAndValue(LogMessageKeys.INDEX_VALUE, indexEntry.getValue())
-                        .toString());
-            }
-            return indexEntry;
-        }).filter(Objects::nonNull); // Note: may not return any results if all matches exceed the maxTextLength
-    }
-
+    @SuppressWarnings("SameParameterValue")
     private KeyValueLogMessage logMessage(String staticMessage) {
         final SubspaceProvider subspaceProvider = state.store.getSubspaceProvider();
         return KeyValueLogMessage.build(staticMessage)
                 .addKeyAndValue(LogMessageKeys.INDEX_NAME, state.index.getName())
                 .addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(state.context));
+    }
+
+    @Nullable
+    static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                            @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens) {
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int upto = 0;
+            Set<String> matchedInText = new HashSet<>();
+            Set<String> matchedPrefixes = new HashSet<>();
+            while (ts.incrementToken()) {
+                String token = termAtt.toString();
+                int startOffset = offsetAtt.startOffset();
+                int endOffset = offsetAtt.endOffset();
+                if (upto < startOffset) {
+                    upto = startOffset;
+                } else if (upto > startOffset) {
+                    continue;
+                }
+
+                if (matchedTokens.contains(token)) {
+                    // Token matches.
+                    upto = endOffset;
+                    matchedInText.add(token);
+                } else {
+                    for (String prefixToken : prefixTokens) {
+                        if (token.startsWith(prefixToken)) {
+                            upto = endOffset;
+                            matchedPrefixes.add(prefixToken);
+                            break;
+                        }
+                    }
+                }
+            }
+            ts.end();
+
+            if ((matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
+                // Query text not actually found in document text. Return null
+                return null;
+            }
+
+            // Text was found. Return text
+            return text;
+
+        } catch (IOException e) {
+            return null;
+        }
     }
 }

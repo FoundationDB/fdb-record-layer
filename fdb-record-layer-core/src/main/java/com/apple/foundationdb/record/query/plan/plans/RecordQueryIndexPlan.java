@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -326,15 +325,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
             }
         });
     }
-
-    @Nonnull
-    @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                                   @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
-                                                                                   @Nonnull final ExecuteProperties executeProperties) {
-        return fetchIndexRecords.fetchIndexRecords(store, entryRecordCursor, executeProperties);
-    }
-
+    
     @Nonnull
     @Override
     public String getIndexName() {
