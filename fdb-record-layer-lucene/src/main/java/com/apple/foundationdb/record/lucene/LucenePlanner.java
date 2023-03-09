@@ -126,7 +126,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
 
         LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter);
-        getFieldDerivations(state);
+        state.documentFields = LuceneIndexExpressions.getDocumentFieldDerivations(index, metaData);
 
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
@@ -447,24 +447,6 @@ public class LucenePlanner extends RecordQueryPlanner {
             }
         }
         return comparison;
-    }
-
-    @Nonnull
-    private void getFieldDerivations(@Nonnull LucenePlanState state) {
-        Map<String, LuceneIndexExpressions.DocumentFieldDerivation> combined = null;
-        for (RecordType recordType : getRecordMetaData().recordTypesForIndex(state.index)) {
-            Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields =
-                    LuceneIndexExpressions.getDocumentFieldDerivations(state.index.getRootExpression(), recordType.getDescriptor());
-            if (combined == null) {
-                combined = documentFields;
-            } else {
-                combined.putAll(documentFields);
-            }
-        }
-        if (combined == null) {
-            combined = Collections.emptyMap();
-        }
-        state.documentFields = combined;
     }
 
     @Nullable

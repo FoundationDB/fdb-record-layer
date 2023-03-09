@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -172,6 +173,23 @@ public class LuceneIndexExpressions {
                     return null;
             }
         }
+    }
+
+    @Nonnull
+    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(@Nonnull final Index index, @Nonnull final RecordMetaData metadata) {
+        Map<String, LuceneIndexExpressions.DocumentFieldDerivation> combined = null;
+        for (RecordType recordType : metadata.recordTypesForIndex(index)) {
+            final var documentFields = getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor());
+            if (combined == null) {
+                combined = documentFields;
+            } else {
+                combined.putAll(documentFields);
+            }
+        }
+        if (combined == null) {
+            combined = Collections.emptyMap();
+        }
+        return combined;
     }
 
     /**

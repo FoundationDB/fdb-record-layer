@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 
@@ -46,9 +48,9 @@ public class LuceneAnalyzerRegistryTest {
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         // Assert the synonym analyzer is used for query analyzer for full-text search
         Assertions.assertEquals(SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT).provideQueryAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, Map.of()).provideQueryAnalyzer("").getUniqueIdentifier());
         // Assert the standard analyzer is used for query analyzer for auto-complete suggestions
         Assertions.assertEquals(LuceneAnalyzerWrapper.STANDARD_ANALYZER_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE).provideQueryAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, Map.of()).provideQueryAnalyzer("").getUniqueIdentifier());
     }
 }
