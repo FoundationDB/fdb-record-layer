@@ -30,6 +30,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.Token;
 import org.apache.lucene.queryparser.flexible.core.messages.QueryParserMessages;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
@@ -61,29 +62,6 @@ public interface ConfigAwareQueryParser {
             return constructFieldWithoutPointsConfig(field, queryText, quoted);
         }
 
-        /*
-         * Look for BITSET_CONTAINS function. If it is there, read the mask to get the number,
-         * and then create a BITSET query operator.
-         */
-        boolean isBitset = false;
-        if (queryText.equalsIgnoreCase("BITSET_CONTAINS")) {
-            //look for the next token
-            if (!"(".equals(getNextToken().toString())) {
-                throw new ParseException("Missing ( from BITSET_CONTAINS");
-            }
-            Token nextToken = getNextToken(); //this should be the actual value
-            String bitMaskStr = nextToken.toString();
-            isBitset = true;
-            queryText = bitMaskStr;
-            //check for a ), in order to consume it. If it's not there, throw a Parse Exception
-            if (!")".equals(getNextToken().toString())) {
-                throw new ParseException("Missing ) from BITSET_CONTAINS");
-            }
-
-            if (!Long.class.equals(cfg.getType())) {
-                throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
-            }
-        }
 
         //parse the text as the correct type and convert it to a query
 
@@ -108,11 +86,7 @@ public interface ConfigAwareQueryParser {
         if (Integer.class.equals(cfg.getType())) {
             return IntPoint.newExactQuery(field, point.intValue());
         } else if (Long.class.equals(cfg.getType())) {
-            if (isBitset) {
-                return new BitSetQuery(field, point.longValue());
-            } else {
-                return LongPoint.newExactQuery(field, point.longValue());
-            }
+            return LongPoint.newExactQuery(field, point.longValue());
         } else if (Double.class.equals(cfg.getType())) {
             return DoublePoint.newExactQuery(field, point.doubleValue());
         } else if (Float.class.equals(cfg.getType())) {
@@ -120,6 +94,28 @@ public interface ConfigAwareQueryParser {
         } else {
             throw new ParseException("Unknown numeric type: " + cfg.getType().getCanonicalName());
         }
+    }
+
+    @Nonnull
+    default Query attemptConstructBitsetQueryWithPointsConfig(final String field, final Token bitmaskToken) throws ParseException {
+        long bitmask;
+        try {
+            bitmask = Long.parseLong(bitmaskToken.image);
+        } catch (@SuppressWarnings("unused") Exception ignored) {
+            throw new ParseException("Bitmask provided to BITSET_CONTAINS not of type Long" + bitmaskToken.image);
+        }
+
+        final var pointsConfig = getPointsConfig();
+        PointsConfig cfg = pointsConfig.get(field);
+        if (cfg == null) {
+            throw new ParseException("Cannot parse a BITSET_CONTAINS query without point configs");
+        }
+
+        if (!Long.class.equals(cfg.getType())) {
+            throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
+        }
+
+        return new BitSetQuery(field, bitmask);
     }
 
     @Nonnull

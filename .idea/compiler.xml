@@ -62,7 +62,7 @@
         <processorPath useClasspath="false">
           <entry name="$PROJECT_DIR$/fdb-extensions/.out/libs/fdb-extensions-3.3-SNAPSHOT.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto.service/auto-service/1.0.1/c9779f7372192a96c957a3df1faeeabd07881085/auto-service-1.0.1.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.foundationdb/fdb-java/7.1.14/a5ba547fd768293b9974f224850344c4e703cd72/fdb-java-7.1.14.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.foundationdb/fdb-java/7.1.26/4c9db13fe80d9a99a6cdbaefaa3e6c8c9b1d041e/fdb-java-7.1.26.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup/javapoet/1.12.0/459ae6c796db7dcbc723f9536af2ce49d86c1a80/javapoet-1.12.0.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto/auto-common/1.2/ca270191fd7d2a7297da7c8f29184206df10c67d/auto-common-1.2.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/31.1-jre/60458f877d055d0c9114d9e1a2efb737b4bc282c/guava-31.1-jre.jar" />

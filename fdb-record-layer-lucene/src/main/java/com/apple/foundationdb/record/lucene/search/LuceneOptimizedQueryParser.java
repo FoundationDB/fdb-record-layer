@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.search;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.classic.Token;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.spans.SpanNearQuery;
@@ -55,6 +56,11 @@ public class LuceneOptimizedQueryParser extends QueryParser implements ConfigAwa
     @Override
     protected Query getFieldQuery(final String field, final String queryText, final boolean quoted) throws ParseException {
         return attemptConstructFieldQueryWithPointsConfig(field, queryText, quoted);
+    }
+
+    @Override
+    protected Query getBitsetQuery(final String field, final Token bitmaskToken) throws ParseException {
+        return attemptConstructBitsetQueryWithPointsConfig(field, bitmaskToken);
     }
 
     @Override

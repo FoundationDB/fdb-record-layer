@@ -196,6 +196,7 @@ PARSER_END(QueryParser)
   <AND:           ("AND" | "&&") >
 | <OR:            ("OR" | "||") >
 | <NOT:           ("NOT" | "!") >
+| <BITSET_CONTAINS: ("BITSET_CONTAINS") >
 | <PLUS:          "+" >
 | <MINUS:         "-" >
 | <BAREOPER:      ("+"|"-"|"!") <_WHITESPACE> >
@@ -308,6 +309,8 @@ Query Clause(String field) : {
   ]
   (
     q=Term(field)
+    |
+    q=Function(field)
     | <LPAREN> q=Query(field) <RPAREN> [ <CARAT> boost=<NUMBER> ]
   )
   { return handleBoost(q, boost); }
@@ -370,6 +373,16 @@ Query Term(String field) : {
     { q = handleQuotedTerm(field, term, fuzzySlop); }
   )
   { return handleBoost(q, boost); }
+}
+
+Query Function(String field) : {
+  Token bitmask;
+}
+{
+  <BITSET_CONTAINS> <LPAREN> bitmask=<NUMBER> <RPAREN>
+  {
+    return getBitsetQuery(field, bitmask);
+  }
 }
 
 /** Returns the first query if splitOnWhitespace=true or otherwise the entire produced query */

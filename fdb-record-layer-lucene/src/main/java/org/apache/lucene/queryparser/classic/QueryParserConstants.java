@@ -29,49 +29,51 @@ public interface QueryParserConstants {
   /** RegularExpression Id. */
   int NOT = 10;
   /** RegularExpression Id. */
-  int PLUS = 11;
+  int BITSET_CONTAINS = 11;
   /** RegularExpression Id. */
-  int MINUS = 12;
+  int PLUS = 12;
   /** RegularExpression Id. */
-  int BAREOPER = 13;
+  int MINUS = 13;
   /** RegularExpression Id. */
-  int LPAREN = 14;
+  int BAREOPER = 14;
   /** RegularExpression Id. */
-  int RPAREN = 15;
+  int LPAREN = 15;
   /** RegularExpression Id. */
-  int COLON = 16;
+  int RPAREN = 16;
   /** RegularExpression Id. */
-  int STAR = 17;
+  int COLON = 17;
   /** RegularExpression Id. */
-  int CARAT = 18;
+  int STAR = 18;
   /** RegularExpression Id. */
-  int QUOTED = 19;
+  int CARAT = 19;
   /** RegularExpression Id. */
-  int TERM = 20;
+  int QUOTED = 20;
   /** RegularExpression Id. */
-  int FUZZY_SLOP = 21;
+  int TERM = 21;
   /** RegularExpression Id. */
-  int PREFIXTERM = 22;
+  int FUZZY_SLOP = 22;
   /** RegularExpression Id. */
-  int WILDTERM = 23;
+  int PREFIXTERM = 23;
   /** RegularExpression Id. */
-  int REGEXPTERM = 24;
+  int WILDTERM = 24;
   /** RegularExpression Id. */
-  int RANGEIN_START = 25;
+  int REGEXPTERM = 25;
   /** RegularExpression Id. */
-  int RANGEEX_START = 26;
+  int RANGEIN_START = 26;
   /** RegularExpression Id. */
-  int NUMBER = 27;
+  int RANGEEX_START = 27;
   /** RegularExpression Id. */
-  int RANGE_TO = 28;
+  int NUMBER = 28;
   /** RegularExpression Id. */
-  int RANGEIN_END = 29;
+  int RANGE_TO = 29;
   /** RegularExpression Id. */
-  int RANGEEX_END = 30;
+  int RANGEIN_END = 30;
   /** RegularExpression Id. */
-  int RANGE_QUOTED = 31;
+  int RANGEEX_END = 31;
   /** RegularExpression Id. */
-  int RANGE_GOOP = 32;
+  int RANGE_QUOTED = 32;
+  /** RegularExpression Id. */
+  int RANGE_GOOP = 33;
 
   /** Lexical state. */
   int Boost = 0;
@@ -93,6 +95,7 @@ public interface QueryParserConstants {
     "<AND>",
     "<OR>",
     "<NOT>",
+    "\"BITSET_CONTAINS\"",
     "\"+\"",
     "\"-\"",
     "<BAREOPER>",

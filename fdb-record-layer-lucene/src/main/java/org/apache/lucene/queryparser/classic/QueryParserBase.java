@@ -494,6 +494,11 @@ public abstract class QueryParserBase extends QueryBuilder implements CommonQuer
         return newFieldQuery(getAnalyzer(), field, queryText, quoted);
     }
 
+
+    protected Query getBitsetQuery(final String field, final Token bitmaskToken) throws ParseException {
+        throw new ParseException("getBitsetQuery Not implemented in QueryParserBase");
+    }
+
     /*
      * Base implementation delegates to {@link #getFieldQuery(String, String, boolean)}. This method may
      * be overridden, for example, to return a SpanNearQuery instead of a PhraseQuery.

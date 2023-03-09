@@ -232,6 +232,7 @@ ret = MOD_NOT;
     } else {
       switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
       case NOT:
+      case BITSET_CONTAINS:
       case PLUS:
       case MINUS:
       case BAREOPER:
@@ -265,6 +266,7 @@ addClause(clauses, CONJ_NONE, mods, q);
       case AND:
       case OR:
       case NOT:
+      case BITSET_CONTAINS:
       case PLUS:
       case MINUS:
       case BAREOPER:
@@ -292,6 +294,7 @@ addClause(clauses, CONJ_NONE, mods, q);
         case AND:
         case OR:
         case NOT:
+        case BITSET_CONTAINS:
         case PLUS:
         case MINUS:
         case BAREOPER:
@@ -362,6 +365,10 @@ field="*";
     case RANGEEX_START:
     case NUMBER:{
       q = Term(field);
+      break;
+      }
+    case BITSET_CONTAINS:{
+      q = Function(field);
       break;
       }
     case LPAREN:{
@@ -645,6 +652,15 @@ q = handleQuotedTerm(field, term, fuzzySlop);
     throw new Error("Missing return statement in function");
   }
 
+  final public Query Function(String field) throws ParseException {Token bitmask;
+    jj_consume_token(BITSET_CONTAINS);
+    jj_consume_token(LPAREN);
+    bitmask = jj_consume_token(NUMBER);
+    jj_consume_token(RPAREN);
+{if ("" != null) return getBitsetQuery(field, bitmask);}
+    throw new Error("Missing return statement in function");
+  }
+
 /** Returns the first query if splitOnWhitespace=true or otherwise the entire produced query */
   final public Query MultiTerm(String field, List<BooleanClause> clauses) throws ParseException {Token text, whitespace, followingText;
   Query firstQuery = null;
@@ -706,22 +722,6 @@ if (splitOnWhitespace == false) {
     finally { jj_save(2, xla); }
   }
 
-  private boolean jj_3R_3()
- {
-    if (jj_scan_token(TERM)) return true;
-    jj_lookingAhead = true;
-    jj_semLA = getToken(1).kind == TERM && allowedPostMultiTerm(getToken(2).kind);
-    jj_lookingAhead = false;
-    if (!jj_semLA || jj_3R_6()) return true;
-    Token xsp;
-    if (jj_3R_7()) return true;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_7()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
   private boolean jj_3R_6()
  {
     return false;
@@ -759,6 +759,22 @@ if (splitOnWhitespace == false) {
     return false;
   }
 
+  private boolean jj_3R_3()
+ {
+    if (jj_scan_token(TERM)) return true;
+    jj_lookingAhead = true;
+    jj_semLA = getToken(1).kind == TERM && allowedPostMultiTerm(getToken(2).kind);
+    jj_lookingAhead = false;
+    if (!jj_semLA || jj_3R_6()) return true;
+    Token xsp;
+    if (jj_3R_7()) return true;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_7()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
   private boolean jj_3_3()
  {
     Token xsp;
@@ -791,10 +807,10 @@ if (splitOnWhitespace == false) {
       jj_la1_init_1();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0x300,0x300,0x1c00,0x1c00,0xfda7c00,0xfda7f00,0xfda7f00,0x120000,0x40000,0xfda6000,0x9d22000,0x200000,0x40000,0x240000,0x240000,0x6000000,0x90000000,0x90000000,0x60000000,0x40000,0x200000,0x40000,0x240000,0x240000,0xfda2000,};
+      jj_la1_0 = new int[] {0x300,0x300,0x3400,0x3400,0x1fb4fc00,0x1fb4ff00,0x1fb4ff00,0x240000,0x80000,0x1fb4c800,0x13a44000,0x400000,0x80000,0x480000,0x480000,0xc000000,0x20000000,0x20000000,0xc0000000,0x80000,0x400000,0x80000,0x480000,0x480000,0x1fb44000,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x1,0x0,0x0,0x0,0x0,0x0,0x0,0x0,};
+      jj_la1_1 = new int[] {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0x3,0x0,0x0,0x0,0x0,0x0,0x0,0x0,};
    }
   final private JJCalls[] jj_2_rtns = new JJCalls[3];
   private boolean jj_rescan = false;
@@ -963,7 +979,7 @@ if (splitOnWhitespace == false) {
   /** Generate ParseException. */
   public ParseException generateParseException() {
     jj_expentries.clear();
-    boolean[] la1tokens = new boolean[33];
+    boolean[] la1tokens = new boolean[34];
     if (jj_kind >= 0) {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
@@ -980,7 +996,7 @@ if (splitOnWhitespace == false) {
         }
       }
     }
-    for (int i = 0; i < 33; i++) {
+    for (int i = 0; i < 34; i++) {
       if (la1tokens[i]) {
         jj_expentry = new int[1];
         jj_expentry[0] = i;
