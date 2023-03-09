@@ -78,7 +78,7 @@ public class LuceneOptimizedQueryParser extends QueryParser implements ConfigAwa
     @Nonnull
     @Override
     public Query constructRangeQueryWithoutPointsConfig(final @Nonnull String field, final @Nonnull String part1, final @Nonnull String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
-        return getRangeQuery(field, part1, part2, startInclusive, endInclusive);
+        return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
     }
 
     @Nonnull
