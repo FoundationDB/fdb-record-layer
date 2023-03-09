@@ -66,12 +66,14 @@ public class BitSetQuery extends Query {
     }
 
     private boolean equalsTo(BitSetQuery query) {
-        return Objects.equals(bitMask, query.bitMask);
+        return Objects.equals(bitMask, query.bitMask) && Objects.equals(field, query.field);
     }
 
     @Override
     public int hashCode() {
-        return 31 * classHash() + Long.hashCode(bitMask);
+        int hash = classHash();
+        hash = 31 * hash + field.hashCode();
+        return 31 * hash + Long.hashCode(bitMask);
     }
 
     @Override
