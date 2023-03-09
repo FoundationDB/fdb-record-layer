@@ -38,8 +38,6 @@ import java.util.Map;
  */
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
-    @Nonnull
-    LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index, @Nonnull LuceneAnalyzerType type);
 
     @Nonnull
     LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index,

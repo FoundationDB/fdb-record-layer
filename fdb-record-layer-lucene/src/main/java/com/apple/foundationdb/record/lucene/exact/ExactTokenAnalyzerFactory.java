@@ -36,7 +36,7 @@ import java.util.List;
 @AutoService(LuceneAnalyzerFactory.class)
 public class ExactTokenAnalyzerFactory implements LuceneAnalyzerFactory  {
 
-    public static final String NAME = "QUERY_ONLY_EXACT_ANALYZER_10";
+    public static final String NAME = "QUERY_ONLY_EXACT_ANALYZER";
 
     public static final String UNIQUE_NAME = "query_only_exact_analyzer";
 

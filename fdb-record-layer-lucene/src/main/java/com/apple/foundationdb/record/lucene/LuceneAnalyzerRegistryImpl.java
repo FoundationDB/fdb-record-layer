@@ -89,12 +89,6 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull final Index index, @Nonnull final LuceneAnalyzerType type) {
-        return getLuceneAnalyzerCombinationProvider(index, type, Map.of());
-    }
-
-    @Nonnull
-    @Override
     public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull final Index index,
                                                                                   @Nonnull final LuceneAnalyzerType type,
                                                                                   @Nonnull final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
@@ -114,8 +108,8 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         }
 
         auxiliaryFieldInfo.forEach((fieldName, fieldInfo) -> {
-            addPerFieldAnalyzerIfNecessary(indexAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index);
-            addPerFieldAnalyzerIfNecessary(queryAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index);
+            addPerFieldAnalyzerIfNecessary(indexAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index, type);
+            addPerFieldAnalyzerIfNecessary(queryAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index, type);
         });
 
         return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
@@ -125,25 +119,28 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     private void addPerFieldAnalyzerIfNecessary(@Nonnull final Map<String, AnalyzerChooser> chooserPerFieldOverride,
                                                 @Nonnull final String fieldName,
                                                 @Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo,
-                                                @Nonnull final Index index) {
+                                                @Nonnull final Index index,
+                                                @Nonnull final LuceneAnalyzerType type) {
         if (chooserPerFieldOverride.containsKey(fieldName)) {
-            // do not override already chosen field analyzer.
-            return;
+            return; // do not override already chosen field analyzer.
+        }
+        if (type != LuceneAnalyzerType.FULL_TEXT) {
+            return; // not sure how to deal with other types (i.e. AUTO_COMPLETE) yet.
         }
         if (isEligibleForNoOpAnalyzer(fieldInfo)) {
             if (registry.isEmpty()
-                    || registry.get(LuceneAnalyzerType.FULL_TEXT) == null
-                    || registry.get(LuceneAnalyzerType.FULL_TEXT).get(ExactTokenAnalyzerFactory.NAME) == null) {
+                    || registry.get(type) == null
+                    || registry.get(type).get(ExactTokenAnalyzerFactory.NAME) == null) {
                 throw new MetaDataException("could not retrieve analyzer",
                         LuceneLogMessageKeys.ANALYZER_NAME, ExactTokenAnalyzerFactory.NAME,
-                        LuceneLogMessageKeys.ANALYZER_TYPE, LuceneAnalyzerType.FULL_TEXT);
+                        LuceneLogMessageKeys.ANALYZER_TYPE, type);
             }
-            chooserPerFieldOverride.put(fieldName, registry.get(LuceneAnalyzerType.FULL_TEXT).get(ExactTokenAnalyzerFactory.NAME).getIndexAnalyzerChooser(index));
+            chooserPerFieldOverride.put(fieldName, registry.get(type).get(ExactTokenAnalyzerFactory.NAME).getIndexAnalyzerChooser(index));
         }
     }
 
     private static boolean isEligibleForNoOpAnalyzer(@Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo) {
-        return fieldInfo.isSorted() || fieldInfo.isStored();
+        return fieldInfo.getType() != LuceneIndexExpressions.DocumentFieldType.TEXT;
     }
 
     private Pair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
