@@ -589,7 +589,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static Stream<Arguments> bitsetParams() {
         return Stream.of(
-                Arguments.of(0b0, List.of()),
+                Arguments.of(0b0, List.of(1623L, 1547L)),
                 Arguments.of(0b100, List.of(1623L)),
                 Arguments.of(0b10, List.of(1547L)),
                 Arguments.of(0b1000, List.of(1623L, 1547L)),
@@ -630,7 +630,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static Stream<Arguments> bitsetOrParams() {
         return Stream.of(
-                Arguments.of(0b0, 0b0, List.of()),
+                Arguments.of(0b0, 0b0, List.of(1623L, 1547L)),
                 Arguments.of(0b100, 0b1, List.of(1623L)),
                 Arguments.of(0b10, 0b1, List.of(1547L)),
                 Arguments.of(0b1000, 0b1000, List.of(1623L, 1547L)),
