@@ -605,7 +605,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 0b11010));
 
             assertIndexEntryPrimaryKeys(expectedResult,
-                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND BITSET_CONTAINS(group, " + mask + ")"), null, ScanProperties.FORWARD_SCAN));
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group: BITSET_CONTAINS(" + mask + ")"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 

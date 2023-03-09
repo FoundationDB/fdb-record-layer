@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.DoublePoint;
@@ -28,6 +29,7 @@ import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.Token;
 import org.apache.lucene.queryparser.flexible.core.messages.QueryParserMessages;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BoostQuery;
@@ -89,10 +91,33 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
-    protected Query getFieldQuery(final String field, final String queryText, final boolean quoted) throws ParseException {
+    protected Query getFieldQuery(final String field, String queryText, final boolean quoted) throws ParseException {
         PointsConfig cfg = pointsConfig.get(field);
         if (cfg == null) {
             return super.getFieldQuery(field, queryText, quoted);
+        }
+        /*
+         * Look for BITSET_CONTAINS function. If it is there, read the mask to get the number,
+         * and then create a BITSET query operator.
+         */
+        boolean isBitset = false;
+        if (queryText.equalsIgnoreCase("BITSET_CONTAINS")) {
+            //look for the next token
+            if (!"(".equals(getNextToken().toString())) {
+                throw new ParseException("Missing ( from BITSET_CONTAINS");
+            }
+            Token nextToken = getNextToken(); //this should be the actual value
+            String bitMaskStr = nextToken.toString();
+            isBitset = true;
+            queryText = bitMaskStr;
+            //check for a ), in order to consume it. If it's not there, throw a Parse Exception
+            if (!")".equals(getNextToken().toString())) {
+                throw new ParseException("Missing ) from BITSET_CONTAINS");
+            }
+
+            if (!Long.class.equals(cfg.getType())) {
+                throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
+            }
         }
         //parse the text as the correct type and convert it to a query
 
@@ -117,7 +142,11 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
         if (Integer.class.equals(cfg.getType())) {
             return IntPoint.newExactQuery(field, point.intValue());
         } else if (Long.class.equals(cfg.getType())) {
-            return LongPoint.newExactQuery(field, point.longValue());
+            if (isBitset) {
+                return new BitSetQuery(field, point.longValue());
+            } else {
+                return LongPoint.newExactQuery(field, point.longValue());
+            }
         } else if (Double.class.equals(cfg.getType())) {
             return DoublePoint.newExactQuery(field, point.doubleValue());
         } else if (Float.class.equals(cfg.getType())) {
