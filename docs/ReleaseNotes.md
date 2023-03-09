@@ -39,6 +39,19 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.350.0
+
+
+### 3.3.349.0
+
+* **Bug fix** The `missingRange`s method in `RangeSet`s now adds more precise read conflict ranges to avoid introducing unneccessary conflicts [(Issue #2024)](https://github.com/FoundationDB/fdb-record-layer/issues/2024)
+
+### 3.3.348.0
+
+
+### 3.3.347.0
+
+
 ### 3.3.346.0
 
 

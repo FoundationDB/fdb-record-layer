@@ -384,11 +384,51 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1, highlightedTerms.size());
             LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
             assertEquals("text", highlightedTerm.getFieldName());
-            assertEquals("... record record record layer record record record ... record record record layer record record layer record record record record record record ... ", highlightedTerm.getSnippet());
-            assertEquals(List.of(Pair.of(25, 30), Pair.of(77, 82), Pair.of(97, 102)), highlightedTerm.getHighlightedPositions());
+            assertEquals("... record record layer record record record ... record record layer record record layer record record record record record ...", highlightedTerm.getSnippet());
+            assertEquals(List.of(Pair.of(18, 23), Pair.of(63, 68), Pair.of(83, 88)), highlightedTerm.getHighlightedPositions());
             for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
                 assertEquals("layer", highlightedTerm.getSnippet().substring(pos.getLeft(), pos.getRight()));
             }
+        }
+    }
+
+    @Test
+    void testSynonymHighlight() throws Exception {
+        final String text = "record record record record record record " +
+                            "layer " +
+                            "record record record record record record record record record record " +
+                            "stratum " +
+                            "record record " +
+                            "layer " +
+                            "record record record record record record record record";
+        initializedWithSynonymIndex(text);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithSynonymIndex(context);
+
+            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
+                    "layer", false, Lists.newArrayList(), true,
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter)
+                    .build();
+
+            RecordQueryPlan plan = planner.plan(query);
+
+            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
+            assertEquals(1, queriedRecordList.size());
+            FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
+
+            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord, null);
+            assertEquals(1, highlightedTerms.size());
+            LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
+            assertEquals("text", highlightedTerm.getFieldName());
+            assertEquals("... record record layer record record record ... record record stratum record record layer record record record record record ...", highlightedTerm.getSnippet());
+            assertEquals(List.of(Pair.of(18, 23), Pair.of(63, 70), Pair.of(85, 90)), highlightedTerm.getHighlightedPositions());
+            final List<Pair<Integer, Integer>> positions = highlightedTerm.getHighlightedPositions();
+            assertEquals("layer", highlightedTerm.getSnippet().substring(positions.get(0).getLeft(), positions.get(0).getRight()));
+            assertEquals("stratum", highlightedTerm.getSnippet().substring(positions.get(1).getLeft(), positions.get(1).getRight()));
+            assertEquals("layer", highlightedTerm.getSnippet().substring(positions.get(2).getLeft(), positions.get(2).getRight()));
         }
     }
 

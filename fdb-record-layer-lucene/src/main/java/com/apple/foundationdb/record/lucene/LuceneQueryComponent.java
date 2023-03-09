@@ -151,6 +151,16 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return luceneQueryHighlightParameters;
     }
 
+    /**
+     * Creates an instance of this {@link LuceneQueryComponent} with a new list of fields.
+     * @param fields The new list of fields.
+     * @return a new instance of {@link LuceneQueryComponent}.
+     */
+    @Nonnull
+    public LuceneQueryComponent withNewFields(@Nonnull final List<String> fields) {
+        return new LuceneQueryComponent(type, query, queryIsParameter, fields, multiFieldSearch, luceneQueryHighlightParameters);
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {

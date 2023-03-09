@@ -23,20 +23,25 @@ package com.apple.foundationdb.record.lucene.search;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.MultiPhraseQuery;
-import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.spans.SpanNearQuery;
-import org.apache.lucene.search.spans.SpanQuery;
+
+import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Optimized {@link QueryParser} that adds the slop for {@link SpanNearQuery} as well.
  * So the proximity search based on {@link SpanNearQuery} can also work.
  */
-public class LuceneOptimizedQueryParser extends QueryParser {
+public class LuceneOptimizedQueryParser extends QueryParser implements ConfigAwareQueryParser {
 
-    public LuceneOptimizedQueryParser(String field, Analyzer analyzer) {
+    @Nonnull
+    private final Map<String, PointsConfig> pointsConfig;
+
+    public LuceneOptimizedQueryParser(String field, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
         super(field, analyzer);
+        this.pointsConfig = pointsConfig;
     }
 
     @Override
@@ -44,38 +49,34 @@ public class LuceneOptimizedQueryParser extends QueryParser {
             throws ParseException {
         Query query = getFieldQuery(field, queryText, true);
 
-        if (query instanceof PhraseQuery) {
-            query = addSlopToPhrase((PhraseQuery) query, slop);
-        } else if (query instanceof MultiPhraseQuery) {
-            MultiPhraseQuery mpq = (MultiPhraseQuery)query;
-
-            if (slop != mpq.getSlop()) {
-                query = new MultiPhraseQuery.Builder(mpq).setSlop(slop).build();
-            }
-        } else if (query instanceof SpanNearQuery) {
-            SpanNearQuery snq = (SpanNearQuery) query;
-            if (slop != snq.getSlop()) {
-                SpanNearQuery.Builder builder = new SpanNearQuery.Builder(snq.getField(), snq.isInOrder());
-                for (SpanQuery sq : snq.getClauses()) {
-                    builder.addClause(sq);
-                }
-                builder.setSlop(slop);
-                query = builder.build();
-            }
-        }
-
-        return query;
+        return addSlop(query, slop);
     }
 
-    private PhraseQuery addSlopToPhrase(PhraseQuery query, int slop) {
-        PhraseQuery.Builder builder = new PhraseQuery.Builder();
-        builder.setSlop(slop);
-        org.apache.lucene.index.Term[] terms = query.getTerms();
-        int[] positions = query.getPositions();
-        for (int i = 0; i < terms.length; ++i) {
-            builder.add(terms[i], positions[i]);
-        }
+    @Override
+    protected Query getFieldQuery(final String field, final String queryText, final boolean quoted) throws ParseException {
+        return attemptConstructFieldQueryWithPointsConfig(field, queryText, quoted);
+    }
 
-        return builder.build();
+    @Override
+    protected Query getRangeQuery(final String field, final String part1, final String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
+        return attemptConstructRangeQueryWithPointsConfig(field, part1, part2, startInclusive, endInclusive);
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, PointsConfig> getPointsConfig() {
+        return pointsConfig;
+    }
+
+    @Nonnull
+    @Override
+    public Query constructFieldWithoutPointsConfig(final @Nonnull String field, final @Nonnull String queryText, final boolean quoted) throws ParseException {
+        return super.getFieldQuery(field, queryText, quoted);
+    }
+
+    @Nonnull
+    @Override
+    public Query constructRangeQueryWithoutPointsConfig(final @Nonnull String field, final @Nonnull String part1, final @Nonnull String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
+        return getRangeQuery(field, part1, part2, startInclusive, endInclusive);
     }
 }

@@ -31,9 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Query clause from string using Lucene search syntax.
@@ -75,7 +77,8 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
-        final QueryParser parser = new LuceneOptimizedQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer());
+        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        final QueryParser parser = new LuceneOptimizedQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {

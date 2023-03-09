@@ -27,21 +27,21 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayDeque;
@@ -50,7 +50,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -58,101 +57,195 @@ import java.util.Set;
  * Helper class for highlighting search matches.
  */
 public class LuceneHighlighting {
-    private static final int tokenCountBeforeHighlighted = 3;
-    private static final int tokenCountAfterHighlighted = 3;
-    private static final String highlightedTextConnector = "... ";
-
     private LuceneHighlighting() {
     }
 
-    @SuppressWarnings("squid:S3776") // Cognitive complexity is too high. Candidate for later refactoring
-    @Nullable
-    static String searchAllAndHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
-                                        @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens,
-                                        boolean allMatchingRequired,
-                                        @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
-                                        @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
-        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
-            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
-            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
-            ts.reset();
-            StringBuilder sb = new StringBuilder();
-            int upto = 0;
-            Set<String> matchedInText = new HashSet<>();
-            Set<String> matchedPrefixes = new HashSet<>();
-            ArrayDeque<String> pres = new ArrayDeque<>();
-            ArrayDeque<String> ends = new ArrayDeque<>();
-            int lastMatchPos = -tokenCountAfterHighlighted - 1;
-            int currentPos = 0;
-            while (ts.incrementToken()) {
-                String token = termAtt.toString();
-                int startOffset = offsetAtt.startOffset();
-                int endOffset = offsetAtt.endOffset();
-                if (upto < startOffset) {
-                    if (luceneQueryHighlightParameters.isCutSnippets()) {
-                        if (currentPos - lastMatchPos <= tokenCountAfterHighlighted + 1) {
-                            addNonMatch(sb, text.substring(upto, startOffset));
-                        } else {
-                            pres.add(text.substring(upto, startOffset));
-                            if (pres.size() > tokenCountBeforeHighlighted) {
-                                pres.poll();
-                            }
-                            if (ends.size() < luceneQueryHighlightParameters.getSnippedSize() - tokenCountAfterHighlighted) {
-                                ends.add(text.substring(upto, startOffset));
-                            }
-                        }
-                    } else {
-                        addNonMatch(sb, text.substring(upto, startOffset));
-                    }
-                    upto = startOffset;
-                } else if (upto > startOffset) {
-                    continue;
-                }
+    /**
+     * Iterator that takes a token stream and implement a next function.
+     * This cannot implement the Iterator interface as TokenStream does
+     * not provide a way to do hasNext.
+     */
+    private static class TokenIterator implements Closeable {
+        @Nonnull
+        private final TokenStream ts;
+        @Nonnull
+        private final CharTermAttribute termAtt;
+        @Nonnull
+        private final OffsetAttribute offsetAtt;
 
-                if (matchedTokens.contains(token)) {
-                    // Token matches.
-                    if (luceneQueryHighlightParameters.isCutSnippets() && currentPos - lastMatchPos > tokenCountBeforeHighlighted + tokenCountAfterHighlighted + 1) {
-                        addNonMatch(sb, highlightedTextConnector);
-                    }
-                    while (!pres.isEmpty()) {
-                        addNonMatch(sb, pres.poll());
-                    }
-                    ends.clear();
-                    int start = startOffset;
-                    while (start < endOffset) {
-                        int index = text.toLowerCase(Locale.ROOT).indexOf(token, start);
-                        if (index < 0 || index >= endOffset) {
-                            addNonMatch(sb, text.substring(start, endOffset));
-                            break;
-                        }
-                        int actualEndOffset = index + token.length();
-                        addNonMatch(sb, text.substring(start, index));
-                        String substring = text.substring(index, actualEndOffset);
-                        if (substring.equalsIgnoreCase(token)) {
-                            addWholeMatch(sb, substring,
-                                    highlightedPositions);
-                        } else {
-                            addNonMatch(sb, substring);
-                        }
-                        start = actualEndOffset;
-                    }
-                    upto = endOffset;
-                    matchedInText.add(token);
-                    lastMatchPos = currentPos;
-                } else {
-                    for (String prefixToken : prefixTokens) {
-                        if (token.startsWith(prefixToken)) {
-                            addPrefixMatch(sb, text.substring(startOffset, endOffset), prefixToken,
-                                    highlightedPositions);
-                            upto = endOffset;
-                            matchedPrefixes.add(prefixToken);
-                            break;
-                        }
-                    }
+        TokenIterator(@Nonnull TokenStream ts) throws IOException {
+            this.ts = ts;
+            termAtt = ts.addAttribute(CharTermAttribute.class);
+            offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+        }
+
+        /**
+         * Find next token. Skips over potential synonyms.
+         * @return true if we got a new token
+         * @throws IOException if something goes wrong
+         */
+        boolean next() throws IOException {
+            int oldStartOffset = startOffset();
+            int oldEndOffset = endOffset();
+            // This can only loop if we keep discovering new synonyms. Once we've seen them all, this will either go to
+            // the next valid token and return true, or there won't be any token left in the stream and we'll return false
+            while (true) {
+                boolean inc = ts.incrementToken();
+                if (!inc) {
+                    return false;
                 }
-                currentPos++;
+                if (oldStartOffset != startOffset() || oldEndOffset != endOffset()) {
+                    return true;
+                }
             }
+        }
+
+        String getToken() {
+            return termAtt.toString();
+        }
+
+        int startOffset() {
+            return offsetAtt.startOffset();
+        }
+
+        int endOffset() {
+            return offsetAtt.endOffset();
+        }
+
+        @Override
+        public void close() throws IOException {
             ts.end();
+            ts.close();
+
+        }
+    }
+
+    /**
+     * Helper class. Use search() as entry point.
+     * This will iterate over the token stream and :
+     * - find matches
+     * - cut snippets
+     * - return a list of highlighted positions
+     */
+    @SuppressWarnings("PMD.AvoidStringBufferField")
+    private static class SearchAllAndHighlightImpl {
+        private final TokenIterator it;
+        private final TokenIterator standardIt;
+        private final String text;
+        private final boolean cutSnippets;
+        private final int snippetSize;
+        @Nullable
+        private final List<Pair<Integer, Integer>> highlightedPositions;
+
+        private final StringBuilder sb = new StringBuilder();
+        private int upto = 0;
+        private final ArrayDeque<String> beforeHighlightTokens = new ArrayDeque<>();
+        int snippetRunningBudget = 0;
+        Set<String> matchedInText = new HashSet<>();
+        Set<String> matchedPrefixes = new HashSet<>();
+        boolean prefixTextConnector = false;
+        private String highlightedTextConnector = "...";
+
+        SearchAllAndHighlightImpl(TokenIterator it,
+                                  TokenIterator standardIt,
+                                  String text,
+                                  boolean cutSnippets,
+                                  int snippetSize,
+                                  @Nullable final List<Pair<Integer, Integer>> highlightedPositions) {
+            this.it = it;
+            this.standardIt = standardIt;
+            this.text = text;
+            this.cutSnippets = cutSnippets;
+            this.snippetSize =  snippetSize <= 0 ? Integer.MAX_VALUE : snippetSize;
+            this.highlightedPositions = highlightedPositions;
+        }
+
+        private int tokenCountBeforeHighlighted() {
+            return (snippetSize - 1) / 2;
+        }
+
+        private void handleNonMatchToken() {
+            if (snippetRunningBudget > 0) {
+                addNonMatch(sb, text.substring(upto, standardIt.endOffset()));
+                snippetRunningBudget--;
+            }
+            if (snippetRunningBudget == 0) {
+                beforeHighlightTokens.addLast(text.substring(upto, standardIt.endOffset()));
+                if (beforeHighlightTokens.size() > tokenCountBeforeHighlighted()) {
+                    beforeHighlightTokens.pollFirst();
+                    prefixTextConnector = true;
+                }
+            }
+            upto = standardIt.endOffset();
+        }
+
+        private boolean handleMatchToken(final Set<String> matchedTokens) {
+            if (!matchedTokens.contains(it.getToken())) {
+                return false;
+            }
+            addBeforeTokens();
+            addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
+            addWholeMatch(sb, text.substring(standardIt.startOffset(), standardIt.endOffset()), highlightedPositions);
+            snippetRunningBudget--;
+            upto = it.endOffset();
+            matchedInText.add(standardIt.getToken());
+            return true;
+        }
+
+        private boolean handlePrefixMatch(final Set<String> prefixTokens) {
+            for (String prefixToken : prefixTokens) {
+                if (it.getToken().startsWith(prefixToken)) {
+                    addBeforeTokens();
+                    addNonMatch(sb, text.substring(upto, it.startOffset()));
+                    addPrefixMatch(sb, text.substring(it.startOffset(), it.endOffset()), prefixToken,
+                            highlightedPositions);
+                    upto = it.endOffset();
+                    matchedPrefixes.add(prefixToken);
+                    snippetRunningBudget--;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void addBeforeTokens() {
+            snippetRunningBudget = snippetSize;
+            if (prefixTextConnector) {
+                addNonMatch(sb, highlightedTextConnector);
+                highlightedTextConnector = " ..."; // TODO(alacurie) This probably does not work for RTL languages
+                prefixTextConnector = false;
+            }
+            for (String token : beforeHighlightTokens) {
+                addNonMatch(sb, token);
+                snippetRunningBudget--;
+            }
+            beforeHighlightTokens.clear();
+        }
+
+        private void handleToken(final Set<String> matchedTokens, final Set<String> prefixTokens) {
+            boolean matched = handleMatchToken(matchedTokens);
+            if (!matched) {
+                matched = handlePrefixMatch(prefixTokens);
+            }
+            if (!matched) {
+                handleNonMatchToken();
+            }
+        }
+
+        public String search(final Set<String> matchedTokens, final Set<String> prefixTokens, final boolean allMatchingRequired) throws IOException {
+            while (it.next()) {
+                do {
+                    standardIt.next();
+                    if (standardIt.startOffset() < it.startOffset()) {
+                        // We're handling a stop word (we don't need to check if that word matches)
+                        handleNonMatchToken();
+                    } else {
+                        // We're handling a real word (We need to check if that word matches)
+                        handleToken(matchedTokens, prefixTokens);
+                    }
+                } while (standardIt.startOffset() < it.startOffset());
+            }
 
             if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
                 // Query text not actually found in document text. Return null
@@ -160,17 +253,32 @@ public class LuceneHighlighting {
             }
 
             // Text was found. Return text
-            int endOffset = offsetAtt.endOffset();
-            if (upto < endOffset && !luceneQueryHighlightParameters.isCutSnippets()) {
+            if (!cutSnippets) {
+                addBeforeTokens();
                 addNonMatch(sb, text.substring(upto));
-            } else if (luceneQueryHighlightParameters.isCutSnippets()) {
-                while (!ends.isEmpty()) {
-                    addNonMatch(sb, ends.poll());
-                }
-                addNonMatch(sb, highlightedTextConnector);
+            }
+
+            if (snippetRunningBudget >= 0 && cutSnippets) {
+                addNonMatch(sb, " ...");
             }
             return sb.toString();
+        }
+    }
 
+    @Nullable
+    static String searchAllAndHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                                        @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens,
+                                        boolean allMatchingRequired,
+                                        @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                        @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
+                 StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
+                 TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
+                 TokenIterator it = new TokenIterator(ts);
+                 TokenIterator standardIt = new TokenIterator(standardTs)
+        ) {
+            var impl = new SearchAllAndHighlightImpl(it, standardIt, text, luceneQueryHighlightParameters.isCutSnippets(), luceneQueryHighlightParameters.getSnippedSize(), highlightedPositions);
+            return impl.search(matchedTokens, prefixTokens, allMatchingRequired);
         } catch (IOException e) {
             return null;
         }
@@ -223,33 +331,11 @@ public class LuceneHighlighting {
             return;
         }
         int start = sb.length();
-        sb.append(surface.substring(0, prefixToken.length()));
+        sb.append(surface, 0, prefixToken.length());
         if (highlightedPositions != null) {
             highlightedPositions.add(Pair.of(start, sb.length()));
         }
         sb.append(surface.substring(prefixToken.length()));
-    }
-
-    @Nullable
-    @SuppressWarnings("unchecked")
-    public static <M extends Message> FDBQueriedRecord<M> highlightTermsInRecord(@Nullable FDBQueriedRecord<M> queriedRecord) {
-        if (queriedRecord == null) {
-            return queriedRecord;
-        }
-        IndexEntry indexEntry = queriedRecord.getIndexEntry();
-        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
-            return queriedRecord;
-        }
-        LuceneRecordCursor.ScoreDocIndexEntry docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
-        if (docIndexEntry.getLuceneQueryHighlightParameters() == null) {
-            return queriedRecord;
-        }
-        M message = queriedRecord.getRecord();
-        M.Builder builder = message.toBuilder();
-        highlightTermsInMessage(docIndexEntry.getIndexKey(), builder,
-                docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
-        FDBStoredRecord<M> storedRecord = queriedRecord.getStoredRecord().asBuilder().setRecord((M) builder.build()).build();
-        return FDBQueriedRecord.indexed(new FDBIndexedRecord<>(indexEntry, storedRecord));
     }
 
     // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
@@ -525,7 +611,7 @@ public class LuceneHighlighting {
                     Set<String> prefixes = getPrefixTerms(terms);
                     if (value instanceof String && isMatch((String)value, terms, prefixes)) {
                         List<Pair<Integer, Integer>> highlightedPositions = new ArrayList<>();
-                        String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideIndexAnalyzer((String)value).getAnalyzer(), (String)value, terms, prefixes, false, luceneQueryHighlightParameters, highlightedPositions);
+                        String highlightedText = searchAllAndHighlight(fieldName, analyzerSelector.provideQueryAnalyzer((String)value).getAnalyzer(), (String)value, terms, prefixes, false, luceneQueryHighlightParameters, highlightedPositions);
                         result.add(new HighlightedTerm(fieldName, highlightedText, highlightedPositions));
                     }
                 }, null);
