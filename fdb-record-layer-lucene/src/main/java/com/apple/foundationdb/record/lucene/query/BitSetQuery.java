@@ -108,6 +108,7 @@ public class BitSetQuery extends Query {
                         }
                     }
 
+                    @SuppressWarnings("PMD.AssignmentInOperand")
                     @Override
                     public void visit(DocIdSetIterator iterator, byte[] packedValue) throws IOException {
                         if (matches(packedValue)) {
@@ -142,6 +143,7 @@ public class BitSetQuery extends Query {
                     }
 
                     @Override
+                    @SuppressWarnings("PMD.AssignmentInOperand")
                     public void visit(DocIdSetIterator iterator, byte[] packedValue) throws IOException {
                         if (!matches(packedValue)) {
                             int docID;
@@ -158,6 +160,7 @@ public class BitSetQuery extends Query {
                 };
             }
 
+            @SuppressWarnings("PMD.CloseResource")
             @Override
             public ScorerSupplier scorerSupplier(final LeafReaderContext context) throws IOException {
                 LeafReader reader = context.reader();

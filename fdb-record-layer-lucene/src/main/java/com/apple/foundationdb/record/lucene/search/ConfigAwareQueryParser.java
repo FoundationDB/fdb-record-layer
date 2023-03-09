@@ -69,7 +69,7 @@ public interface ConfigAwareQueryParser {
          * Look for BITSET_CONTAINS function. If it is there, read the mask to get the number,
          * and then create a BITSET query operator.
          */
-        if (queryText.equalsIgnoreCase("BITSET_CONTAINS")) {
+        if ("BITSET_CONTAINS".equalsIgnoreCase(queryText)) {
             return constructBitSetQuery(field);
         }
 
@@ -107,6 +107,7 @@ public interface ConfigAwareQueryParser {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
     private Query constructBitSetQuery(@Nonnull final String field) throws ParseException {
         //look for the next token
         if (!"(".equals(nextToken().toString())) {
