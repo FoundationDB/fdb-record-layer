@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.query;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.PointValues;
@@ -58,6 +59,7 @@ public class BitSetQuery extends Query {
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     public boolean equals(final Object obj) {
         return sameClassAs(obj) &&
                equalsTo(getClass().cast(obj));
