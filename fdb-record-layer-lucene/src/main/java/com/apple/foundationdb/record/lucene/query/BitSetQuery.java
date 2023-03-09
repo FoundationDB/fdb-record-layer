@@ -32,7 +32,6 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
-import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.NumericUtils;
@@ -41,14 +40,14 @@ import java.io.IOException;
 import java.util.Objects;
 
 /**
- * This version assumes longs--want to switch based on Point type (either long or int) as future work
+ * This version assumes longs--want to switch based on Point type (either long or int) as future work.
  */
 public class BitSetQuery extends Query {
 
     private final String field;
     private final long bitMask;
 
-    public BitSetQuery(final String field,final long bitMask) {
+    public BitSetQuery(final String field, long bitMask) {
         this.field = field;
         this.bitMask = bitMask;
     }
@@ -163,19 +162,19 @@ public class BitSetQuery extends Query {
             public ScorerSupplier scorerSupplier(final LeafReaderContext context) throws IOException {
                 LeafReader reader = context.reader();
                 PointValues values = reader.getPointValues(field);
-                if(values == null){
-                    //no docs in this segment
+                if (values == null) {
+                    // no docs in this segment
                     return null;
                 }
                 Weight weight = this;
 
-                //TODO(Bfines) decide if we need to check index dimensions here
-//                        if (values.getNumIndexDimensions() != numDims) {
-//                            throw new IllegalArgumentException("field=\"" + field + "\" was indexed with numIndexDimensions=" + values.getNumIndexDimensions() + " but this query has numDims=" + numDims);
-//                        }
-//                        if (bytesPerDim != values.getBytesPerDimension()) {
-//                            throw new IllegalArgumentException("field=\"" + field + "\" was indexed with bytesPerDim=" + values.getBytesPerDimension() + " but this query has bytesPerDim=" + bytesPerDim);
-//                        }
+                // TODO(Bfines) decide if we need to check index dimensions here
+                // if (values.getNumIndexDimensions() != numDims) {
+                //     throw new IllegalArgumentException("field=\"" + field + "\" was indexed with numIndexDimensions=" + values.getNumIndexDimensions() + " but this query has numDims=" + numDims);
+                // }
+                // if (bytesPerDim != values.getBytesPerDimension()) {
+                //     throw new IllegalArgumentException("field=\"" + field + "\" was indexed with bytesPerDim=" + values.getBytesPerDimension() + " but this query has bytesPerDim=" + bytesPerDim);
+                // }
 
                 return new ScorerSupplier() {
 
