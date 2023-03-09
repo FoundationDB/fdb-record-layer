@@ -58,7 +58,7 @@ import org.apache.lucene.util.automaton.RegExp;
 /**
  * This class is overridden by QueryParser in QueryParser.jj and acts to separate the majority of
  * the Java code from the .jj grammar file.
- *
+ * <br>
  * (hatyo): undid parts of LUCENE-10431.
  */
 public abstract class QueryParserBase extends QueryBuilder implements CommonQueryParserConfiguration {
