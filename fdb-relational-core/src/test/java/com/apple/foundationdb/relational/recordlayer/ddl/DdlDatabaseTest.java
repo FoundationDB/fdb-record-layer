@@ -55,7 +55,7 @@ public class DdlDatabaseTest {
 
     @RegisterExtension
     public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
-            Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
+            null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @AfterEach

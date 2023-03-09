@@ -303,7 +303,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()
@@ -314,7 +314,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
                                 .build())
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()

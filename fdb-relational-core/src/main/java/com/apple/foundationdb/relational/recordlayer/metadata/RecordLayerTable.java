@@ -21,7 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -34,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -203,7 +206,7 @@ public final class RecordLayerTable implements Table {
         private ImmutableList.Builder<RecordLayerColumn> columns;
 
         @Nonnull
-        private KeyExpression primaryKeyParts;
+        private List<KeyExpression> primaryKeyParts;
 
         @Nonnull
         private Map<Integer, DescriptorProtos.FieldOptions> generations;
@@ -215,8 +218,10 @@ public final class RecordLayerTable implements Table {
         private Builder() {
             this.indexes = new HashSet<>();
             this.columns = ImmutableList.builder();
-            this.primaryKeyParts = Key.Expressions.recordType();
+            this.primaryKeyParts = new ArrayList<>();
             this.generations = new HashMap<>();
+
+            this.primaryKeyParts.add(Key.Expressions.recordType());
         }
 
         @Nonnull
@@ -266,13 +271,20 @@ public final class RecordLayerTable implements Table {
 
         @Nonnull
         public Builder setPrimaryKey(@Nonnull final KeyExpression primaryKey) {
-            this.primaryKeyParts = primaryKey;
+            if (primaryKey instanceof ThenKeyExpression) {
+                this.primaryKeyParts = new ArrayList<>(((ThenKeyExpression) primaryKey).getChildren());
+            } else if (primaryKey instanceof EmptyKeyExpression) {
+                this.primaryKeyParts.clear();
+            } else {
+                this.primaryKeyParts.clear();
+                this.primaryKeyParts.add(primaryKey);
+            }
             return this;
         }
 
         @Nonnull
         public Builder addPrimaryKeyPart(@Nonnull final List<String> primaryKeyPart) {
-            primaryKeyParts = Key.Expressions.concat(primaryKeyParts, toKeyExpression(primaryKeyPart));
+            primaryKeyParts.add(toKeyExpression(primaryKeyPart));
             return this;
         }
 
@@ -303,6 +315,16 @@ public final class RecordLayerTable implements Table {
             return Key.Expressions.field(fields.get(i)).nest(toKeyExpression(fields, i + 1));
         }
 
+        private KeyExpression getPrimaryKey() {
+            if (primaryKeyParts.isEmpty()) {
+                return EmptyKeyExpression.EMPTY;
+            } else if (primaryKeyParts.size() == 1) {
+                return primaryKeyParts.get(0);
+            } else {
+                return Key.Expressions.concat(primaryKeyParts);
+            }
+        }
+
         @Nonnull
         public RecordLayerTable build() {
             Assert.notNullUnchecked(name, "table name is not set");
@@ -313,12 +335,12 @@ public final class RecordLayerTable implements Table {
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
 
-            return new RecordLayerTable(name, columnsList, indexesSet, primaryKeyParts, generations, dataType, record);
+            return new RecordLayerTable(name, columnsList, indexesSet, getPrimaryKey(), generations, dataType, record);
         }
 
         @Nonnull
         public static Builder from(@Nonnull final RecordLayerTable table) {
-            return newBuilder()
+            return newBuilder(false)
                     .setName(table.getName())
                     .addColumns(table.getColumns())
                     .setPrimaryKey(table.getPrimaryKey())
@@ -330,7 +352,7 @@ public final class RecordLayerTable implements Table {
 
         @Nonnull
         public static Builder from(@Nonnull final DataType.StructType structType) {
-            return newBuilder()
+            return newBuilder(false)
                     .setName(structType.getName())
                     .addColumns(structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList()))
                     .setDatatype(structType);
@@ -367,7 +389,11 @@ public final class RecordLayerTable implements Table {
     }
 
     @Nonnull
-    public static Builder newBuilder() {
-        return new Builder();
+    public static Builder newBuilder(boolean intermingleTables) {
+        Builder builder = new Builder();
+        if (intermingleTables) {
+            builder.setPrimaryKey(EmptyKeyExpression.EMPTY);
+        }
+        return builder;
     }
 }

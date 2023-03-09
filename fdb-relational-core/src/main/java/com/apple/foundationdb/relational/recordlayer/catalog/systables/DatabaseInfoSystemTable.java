@@ -54,7 +54,7 @@ public class DatabaseInfoSystemTable implements SystemTable {
     @Override
     public RecordLayerTable getType() {
         return RecordLayerTable
-                .newBuilder()
+                .newBuilder(false)
                 .setName(TABLE_NAME)
                 .addColumn(RecordLayerColumn.newBuilder().setName(DATABASE_ID).setDataType(DataType.Primitives.STRING.type()).build())
                 .addPrimaryKeyPart(List.of(DATABASE_ID))

@@ -982,6 +982,7 @@ INET_ATON:                           'INET_ATON';
 INET_NTOA:                           'INET_NTOA';
 INSTR:                               'INSTR';
 INTERIORRINGN:                       'INTERIORRINGN';
+INTERMINGLE_TABLES:                  'INTERMINGLE_TABLES';
 INTERSECTS:                          'INTERSECTS';
 ISCLOSED:                            'ISCLOSED';
 ISEMPTY:                             'ISEMPTY';

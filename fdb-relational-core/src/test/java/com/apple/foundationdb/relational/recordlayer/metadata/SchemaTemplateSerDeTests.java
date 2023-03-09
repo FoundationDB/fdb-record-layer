@@ -45,7 +45,7 @@ public class SchemaTemplateSerDeTests {
     private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
         for (var entry : template.entrySet()) {
-            final var tableBuilder = RecordLayerTable.newBuilder()
+            final var tableBuilder = RecordLayerTable.newBuilder(false)
                     .setName(entry.getKey())
                     .addColumn(RecordLayerColumn.newBuilder()
                             .setName(entry.getKey() + "_C")

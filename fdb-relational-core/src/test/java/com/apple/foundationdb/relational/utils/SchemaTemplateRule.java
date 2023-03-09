@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.Statement;
@@ -41,27 +42,39 @@ import java.util.stream.Collectors;
 public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback {
     private final RelationalExtension relationalExtension;
     private final String templateName;
+    @Nullable
+    private final SchemaTemplateOptions options;
     private final TypeCreator typeCreator;
     private final TypeCreator tableCreator;
 
-    public SchemaTemplateRule(EmbeddedRelationalExtension relationalExtension,
+    private SchemaTemplateRule(RelationalExtension relationalExtension,
                               String templateName,
-                              Collection<TableDefinition> tables,
-                              Collection<TypeDefinition> types) {
+                              @Nullable SchemaTemplateOptions options,
+                              TypeCreator typeCreator,
+                              TypeCreator tableCreator) {
         this.relationalExtension = relationalExtension;
         this.templateName = templateName;
-        this.typeCreator = new CreatorFromDefinition("TYPE AS STRUCT", types);
-        this.tableCreator = new CreatorFromDefinition("TABLE", tables);
+        this.options = options;
+        this.typeCreator = typeCreator;
+        this.tableCreator = tableCreator;
+    }
+
+    public SchemaTemplateRule(EmbeddedRelationalExtension relationalExtension,
+                              String templateName,
+                              SchemaTemplateOptions options,
+                              Collection<TableDefinition> tables,
+                              Collection<TypeDefinition> types) {
+        this(relationalExtension, templateName, options,
+                new CreatorFromDefinition("TYPE AS STRUCT", types),
+                new CreatorFromDefinition("TABLE", tables));
     }
 
     public SchemaTemplateRule(
             RelationalExtension relationalExtension,
             String templateName,
+            @Nullable SchemaTemplateOptions options,
             String templateDefinition) {
-        this.relationalExtension = relationalExtension;
-        this.templateName = templateName;
-        this.typeCreator = new CreatorFromString(templateDefinition);
-        this.tableCreator = () -> "";
+        this(relationalExtension, templateName, options, new CreatorFromString(templateDefinition), () -> "");
     }
 
     public String getTemplateName() {
@@ -86,11 +99,30 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
 
+        if (options != null) {
+            createStatement.append(options.getOptionsString());
+        }
+
         try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(createStatement.toString());
             }
+        }
+    }
+
+    public static final class SchemaTemplateOptions {
+        private final boolean enableLongRows;
+        private final boolean intermingleTables;
+
+        public SchemaTemplateOptions(boolean enableLongRows, boolean intermingleTables) {
+            this.enableLongRows = enableLongRows;
+            this.intermingleTables = intermingleTables;
+        }
+
+        public String getOptionsString() {
+            return String.format(" WITH OPTIONS(ENABLE_LONG_ROWS=%s, INTERMINGLE_TABLES=%s) ",
+                    enableLongRows, intermingleTables);
         }
     }
 

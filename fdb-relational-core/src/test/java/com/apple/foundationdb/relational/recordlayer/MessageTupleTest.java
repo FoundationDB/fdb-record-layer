@@ -107,7 +107,7 @@ class MessageTupleTest {
 
     @Nonnull
     private DynamicMessage.Builder restaurantMessageBuilder(boolean nullableArray) throws Exception {
-        final var location = RecordLayerTable.newBuilder()
+        final var location = RecordLayerTable.newBuilder(false)
                 .setName("LOCATION")
                 .addColumns(List.of(
                         RecordLayerColumn.newBuilder().setName("ADDRESS").setDataType(DataType.Primitives.STRING.type()).build(),
@@ -115,21 +115,21 @@ class MessageTupleTest {
                         RecordLayerColumn.newBuilder().setName("LONGITUDE").setDataType(DataType.Primitives.STRING.type()).build()))
                 .build();
 
-        final var restaurantReview = RecordLayerTable.newBuilder()
+        final var restaurantReview = RecordLayerTable.newBuilder(false)
                 .setName("RESTAURANT_REVIEW")
                 .addColumns(List.of(
                         RecordLayerColumn.newBuilder().setName("REVIEWER").setDataType(DataType.Primitives.LONG.type()).build(),
                         RecordLayerColumn.newBuilder().setName("RATING").setDataType(DataType.Primitives.LONG.type()).build()))
                 .build();
 
-        final var restaurantTag = RecordLayerTable.newBuilder()
+        final var restaurantTag = RecordLayerTable.newBuilder(false)
                 .setName("RESTAURANT_TAG")
                 .addColumns(List.of(
                         RecordLayerColumn.newBuilder().setName("TAG").setDataType(DataType.Primitives.STRING.type()).build(),
                         RecordLayerColumn.newBuilder().setName("WEIGHT").setDataType(DataType.Primitives.LONG.type()).build()))
                 .build();
 
-        final var restaurant = RecordLayerTable.newBuilder()
+        final var restaurant = RecordLayerTable.newBuilder(false)
                 .setName("RESTAURANT")
                 .addColumns(List.of(
                         RecordLayerColumn.newBuilder().setName("REST_NO").setDataType(DataType.Primitives.STRING.type()).build(),

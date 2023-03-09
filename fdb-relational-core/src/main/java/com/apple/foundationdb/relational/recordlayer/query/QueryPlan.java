@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -262,7 +263,9 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
     private static CascadesPlanner createPlanner(PlanContext planContext, Options options) throws RelationalException {
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
+        // TODO: TODO (Expose planner configuration parameters like index scan preference)
         RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
                 .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
                 .build();
         planner.setConfiguration(configuration);

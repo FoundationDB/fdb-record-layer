@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -161,6 +162,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private boolean enableLongRows;
 
+        private boolean intermingleTables;
+
         private final Map<String, RecordLayerTable> tables;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
@@ -193,11 +196,26 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
+        public Builder setIntermingleTables(boolean intermingleTables) {
+            this.intermingleTables = intermingleTables;
+            return this;
+        }
+
+        public boolean isIntermingleTables() {
+            return intermingleTables;
+        }
+
+        @Nonnull
         public Builder addTable(@Nonnull RecordLayerTable table) {
             Assert.thatUnchecked(!tables.containsKey(table.getName()), String.format("table '%s' already exists", table.getName()),
                     ErrorCode.INVALID_SCHEMA_TEMPLATE);
             Assert.thatUnchecked(!auxiliaryTypes.containsKey(table.getName()), String.format("type with name '%s' already exists", table.getName()),
                     ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            if (!intermingleTables) {
+                Assert.thatUnchecked(Key.Expressions.recordType().isPrefixKey(table.getPrimaryKey()),
+                        String.format("table '%s' primary key '%s' is missing record type prefix", table.getName(), table.getPrimaryKey()),
+                        ErrorCode.INTERNAL_ERROR);
+            }
             tables.put(table.getName(), table);
             return this;
         }

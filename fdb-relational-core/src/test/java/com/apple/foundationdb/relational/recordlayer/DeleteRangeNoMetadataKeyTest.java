@@ -26,8 +26,8 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
-import com.apple.foundationdb.relational.utils.NoTypeKeyDdlFactory;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
@@ -43,18 +43,20 @@ import java.util.List;
 
 
 /**
- * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
+ * Basic tests for {@link RelationalStatement#executeDeleteRange(String, KeySet, Options)} when the schema template
+ * has records that share a single primary key extent.
  */
 public class DeleteRangeNoMetadataKeyTest {
-    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
+    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b)) " +
+            "CREATE TABLE t2 (id bigint, a string, b string, e bigint, f boolean, PRIMARY KEY(id, a, b))";
 
     @RegisterExtension
     @Order(0)
-    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension(NoTypeKeyDdlFactory::newBuilder);
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
@@ -81,6 +83,15 @@ public class DeleteRangeNoMetadataKeyTest {
                     .setField("D", i * 100)
                     .build();
             stmt.executeInsert("T1", toInsert);
+
+            Message toInsert2 = stmt.getDataBuilder("T2")
+                    .setField("ID", i % 2)
+                    .setField("A", i % 3)
+                    .setField("B", i % 4 + 100)
+                    .setField("E", i * 10)
+                    .setField("F", i % 2 == 0)
+                    .build();
+            stmt.executeInsert("T2", toInsert2);
         }
     }
 
@@ -109,6 +120,18 @@ public class DeleteRangeNoMetadataKeyTest {
                             new Object[]{1, "2", "3", "110", "1100"}
                     ));
         }
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t2")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .containsRowsExactly(List.of(
+                            new Object[]{1, "1", "101", 10, false},
+                            new Object[]{1, "0", "103", 30, false},
+                            new Object[]{1, "2", "101", 50, false},
+                            new Object[]{1, "1", "103", 70, false},
+                            new Object[]{1, "0", "101", 90, false},
+                            new Object[]{1, "2", "103", 110, false}
+                    ));
+        }
     }
 
     @Test
@@ -131,6 +154,22 @@ public class DeleteRangeNoMetadataKeyTest {
                             new Object[]{1, "0", "1", "90", "900"},
                             new Object[]{0, "1", "2", "100", "1000"},
                             new Object[]{1, "2", "3", "110", "1100"}
+                    ));
+        }
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t2")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .containsRowsExactly(List.of(
+                            new Object[]{1, "1", "101", 10, false},
+                            new Object[]{0, "2", "102", 20, true},
+                            new Object[]{1, "0", "103", 30, false},
+                            new Object[]{0, "1", "100", 40, true},
+                            new Object[]{1, "2", "101", 50, false},
+                            new Object[]{1, "1", "103", 70, false},
+                            new Object[]{0, "2", "100", 80, true},
+                            new Object[]{1, "0", "101", 90, false},
+                            new Object[]{0, "1", "102", 100, true},
+                            new Object[]{1, "2", "103", 110, false}
                     ));
         }
     }
@@ -159,6 +198,24 @@ public class DeleteRangeNoMetadataKeyTest {
                             new Object[]{1, "2", "3", "110", "1100"}
                     ));
         }
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t2")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .containsRowsExactly(List.of(
+                            new Object[]{0, "0", "100", 0, true},
+                            new Object[]{1, "1", "101", 10, false},
+                            new Object[]{0, "2", "102", 20, true},
+                            new Object[]{1, "0", "103", 30, false},
+                            new Object[]{0, "1", "100", 40, true},
+                            new Object[]{1, "2", "101", 50, false},
+                            new Object[]{0, "0", "102", 60, true},
+                            new Object[]{1, "1", "103", 70, false},
+                            new Object[]{0, "2", "100", 80, true},
+                            new Object[]{1, "0", "101", 90, false},
+                            new Object[]{0, "1", "102", 100, true},
+                            new Object[]{1, "2", "103", 110, false}
+                    ));
+        }
     }
 
     @Test
@@ -182,6 +239,24 @@ public class DeleteRangeNoMetadataKeyTest {
                             new Object[]{1, "0", "1", "90", "900"},
                             new Object[]{0, "1", "2", "100", "1000"},
                             new Object[]{1, "2", "3", "110", "1100"}
+                    ));
+        }
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t2")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .containsRowsExactly(List.of(
+                            new Object[]{0, "0", "100", 0, true},
+                            new Object[]{1, "1", "101", 10, false},
+                            new Object[]{0, "2", "102", 20, true},
+                            new Object[]{1, "0", "103", 30, false},
+                            new Object[]{0, "1", "100", 40, true},
+                            new Object[]{1, "2", "101", 50, false},
+                            new Object[]{0, "0", "102", 60, true},
+                            new Object[]{1, "1", "103", 70, false},
+                            new Object[]{0, "2", "100", 80, true},
+                            new Object[]{1, "0", "101", 90, false},
+                            new Object[]{0, "1", "102", 100, true},
+                            new Object[]{1, "2", "103", 110, false}
                     ));
         }
     }
@@ -220,8 +295,9 @@ public class DeleteRangeNoMetadataKeyTest {
 
     @Test
     void testDeleteWithIndexWithSamePrefix() throws Exception {
-        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 as select id, a from t1 order by id, a";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        final String schemaTemplateSuffix = " CREATE INDEX idx1 as select id, a from t1 order by id, a " +
+                "CREATE INDEX idx2 AS SELECT id, a, e, f FROM t2 ORDER BY id, a, e";
+        try (var ddl = getDdl(schemaTemplateSuffix)) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
                 KeySet toDelete = new KeySet()
@@ -242,6 +318,24 @@ public class DeleteRangeNoMetadataKeyTest {
                                     new Object[]{1, "0", "1", "90", "900"},
                                     new Object[]{0, "1", "2", "100", "1000"},
                                     new Object[]{1, "2", "3", "110", "1100"}
+                            ));
+                }
+
+                // Note that because this is able to use deleteRecordsWhere under the hood, the rows from
+                // type t2 that match the delete predicate are deleted
+                try (RelationalResultSet resultSet = stmt.executeQuery("SELECT * FROM t2")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .containsRowsExactly(List.of(
+                                    new Object[]{1, "1", "101", 10, false},
+                                    new Object[]{0, "2", "102", 20, true},
+                                    new Object[]{1, "0", "103", 30, false},
+                                    new Object[]{0, "1", "100", 40, true},
+                                    new Object[]{1, "2", "101", 50, false},
+                                    new Object[]{1, "1", "103", 70, false},
+                                    new Object[]{0, "2", "100", 80, true},
+                                    new Object[]{1, "0", "101", 90, false},
+                                    new Object[]{0, "1", "102", 100, true},
+                                    new Object[]{1, "2", "103", 110, false}
                             ));
                 }
             }
@@ -250,8 +344,8 @@ public class DeleteRangeNoMetadataKeyTest {
 
     @Test
     void testDeleteWithIndexSamePrefixButDeleteGoesBeyondIndex() throws Exception {
-        final String schemaTemplate = SCHEMA_TEMPLATE + " CREATE INDEX idx1 as select id from t1";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+        final String schemaTemplateSuffix = " CREATE INDEX idx1 as select id from t1";
+        try (var ddl = getDdl(schemaTemplateSuffix)) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertData(stmt);
                 KeySet toDelete = new KeySet()
@@ -274,7 +368,36 @@ public class DeleteRangeNoMetadataKeyTest {
                                     new Object[]{1, "2", "3", "110", "1100"}
                             ));
                 }
+
+                // Note that because this is *not* able to use deleteRecordsWhere under the hood, the rows from
+                // type t2 that match the delete predicate are *not* deleted
+                try (RelationalResultSet resultSet = stmt.executeQuery("SELECT * FROM t2")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .containsRowsExactly(List.of(
+                                    new Object[]{0, "0", "100", 0, true},
+                                    new Object[]{1, "1", "101", 10, false},
+                                    new Object[]{0, "2", "102", 20, true},
+                                    new Object[]{1, "0", "103", 30, false},
+                                    new Object[]{0, "1", "100", 40, true},
+                                    new Object[]{1, "2", "101", 50, false},
+                                    new Object[]{0, "0", "102", 60, true},
+                                    new Object[]{1, "1", "103", 70, false},
+                                    new Object[]{0, "2", "100", 80, true},
+                                    new Object[]{1, "0", "101", 90, false},
+                                    new Object[]{0, "1", "102", 100, true},
+                                    new Object[]{1, "2", "103", 110, false}
+                            ));
+                }
             }
         }
+    }
+
+    private Ddl getDdl(String templateSuffix) throws Exception {
+        return Ddl.builder()
+                .database(URI.create("/TEST/QT"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE + templateSuffix)
+                .options(new SchemaTemplateRule.SchemaTemplateOptions(true, true))
+                .build();
     }
 }

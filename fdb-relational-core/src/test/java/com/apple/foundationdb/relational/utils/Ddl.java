@@ -52,11 +52,12 @@ public class Ddl implements AutoCloseable {
                @Nonnull final URI dbPath,
                @Nonnull final String schemaName,
                @Nonnull final String templateDefinition,
+               @Nullable SchemaTemplateRule.SchemaTemplateOptions options,
                @Nullable final ExtensionContext extensionContext) throws Exception {
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
+        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", options, templateDefinition);
         this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
         this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
         this.extensionContext = extensionContext;
@@ -129,6 +130,9 @@ public class Ddl implements AutoCloseable {
         private String templateDefinition;
 
         @Nullable
+        private SchemaTemplateRule.SchemaTemplateOptions options;
+
+        @Nullable
         private String schemaName;
 
         @Nullable
@@ -138,10 +142,6 @@ public class Ddl implements AutoCloseable {
         private ExtensionContext extensionContext;
 
         private Builder() {
-            database = null;
-            templateDefinition = null;
-            schemaName = null;
-            extension = null;
         }
 
         @Nonnull
@@ -153,6 +153,12 @@ public class Ddl implements AutoCloseable {
         @Nonnull
         public Builder schemaTemplate(@Nonnull final String schemaTemplate) {
             this.templateDefinition = schemaTemplate;
+            return this;
+        }
+
+        @Nonnull
+        public Builder options(@Nullable SchemaTemplateRule.SchemaTemplateOptions options) {
+            this.options = options;
             return this;
         }
 
@@ -182,7 +188,7 @@ public class Ddl implements AutoCloseable {
                 schemaName = "testSchema";
             }
             Assert.notNull(extension);
-            return new Ddl(extension, database, schemaName, templateDefinition, extensionContext);
+            return new Ddl(extension, database, schemaName, templateDefinition, options, extensionContext);
         }
     }
 

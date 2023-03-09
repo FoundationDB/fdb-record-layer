@@ -80,7 +80,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
             Assertions.assertEquals("test_template_name", result.getSchemaTemplate().getName());
             Assertions.assertEquals(1, result.getSchemaTemplate().getVersion());
             Assertions.assertEquals(1, result.getTables().size());
-            for (var table: result.getTables()) {
+            for (var table : result.getTables()) {
                 Assertions.assertEquals("dummy_table", table.getName());
             }
         }

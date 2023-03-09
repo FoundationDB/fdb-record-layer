@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 /**
@@ -45,15 +46,22 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
     private final SchemaRule schemaRule;
 
     public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull Class<?> testClass,
-                              @Nonnull String templateDefinition) {
+                              @Nonnull String templateDefinition,
+                              @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
         final String schemaName = "TEST_SCHEMA";
         final var dbPath = URI.create("/TEST/" + testClass.getSimpleName());
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateDefinition);
+        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateOptions, templateDefinition);
         this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
         this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
+    }
+
+    public SimpleDatabaseRule(RelationalExtension relationalExtension,
+                              @Nonnull Class<?> testClass,
+                              @Nonnull String templateDefinition) {
+        this(relationalExtension, testClass, templateDefinition, null);
     }
 
     @Override

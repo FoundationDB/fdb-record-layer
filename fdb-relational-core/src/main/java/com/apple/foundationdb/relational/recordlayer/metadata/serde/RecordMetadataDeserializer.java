@@ -48,7 +48,8 @@ public class RecordMetadataDeserializer {
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
 
         final var registeredTypes = unionDescriptor.getFields();
-        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder();
+        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
+                .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final var nameToTableBuilder = new HashMap<String, RecordLayerTable.Builder>();
         for (final var registeredType : registeredTypes) {
             switch (registeredType.getType()) {

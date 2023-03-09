@@ -113,7 +113,7 @@ public class InMemoryCatalog implements StoreCatalog {
     @Override
     public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) {
         final var schemas = dbToSchemas.getOrDefault(dbUri, new ArrayList<>());
-        for (var schema: schemas) {
+        for (var schema : schemas) {
             if (schema.schema.getName().equals(schemaName)) {
                 schemas.remove(schema);
                 return;

@@ -92,7 +92,7 @@ public class CatalogValidatorTest {
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()
@@ -114,7 +114,7 @@ public class CatalogValidatorTest {
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()
@@ -136,7 +136,7 @@ public class CatalogValidatorTest {
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()

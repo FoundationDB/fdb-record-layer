@@ -53,7 +53,7 @@ public class BasicPlanCacheTest {
     @RegisterExtension
     @Order(1)
     public final SchemaTemplateRule template = new SchemaTemplateRule(relational, "test_plan_cache",
-            TestSchemas.restaurant());
+            null, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)

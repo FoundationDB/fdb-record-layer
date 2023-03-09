@@ -93,7 +93,7 @@ class CatalogMetaDataProviderTest {
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
-                                .newBuilder()
+                                .newBuilder(false)
                                 .addColumn(
                                         RecordLayerColumn
                                                 .newBuilder()

@@ -66,7 +66,7 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
         return RecordLayerSchemaTemplate.newBuilder()
                 .setName(templateId)
                 .setVersion(version)
-                .addTable(RecordLayerTable.newBuilder()
+                .addTable(RecordLayerTable.newBuilder(false)
                         .addColumn(RecordLayerColumn.newBuilder()
                                 .setName("dummy_col")
                                 .setDataType(DataType.Primitives.STRING.type())

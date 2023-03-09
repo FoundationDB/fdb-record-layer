@@ -52,7 +52,7 @@ public class SchemaTemplateSystemTable implements SystemTable {
     @Override
     public RecordLayerTable getType() {
         return RecordLayerTable
-                .newBuilder()
+                .newBuilder(false)
                 .setName(TABLE_NAME)
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())

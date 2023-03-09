@@ -1280,17 +1280,19 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class);
         // schema template version will be set automatically at update operation to lastVersion + 1
         final var schemaTemplateBuilder = context.asDdl().getMetadataBuilder().setName(schemaTemplateName).setVersion(1);
-        // collect all tables, their indices, and custom types definitions.
-        ctx.templateClause().forEach(s -> s.accept(this));
         if (ctx.optionsClause() != null) {
             for (var option : ctx.optionsClause().option()) {
                 if (option.ENABLE_LONG_ROWS() != null) {
                     schemaTemplateBuilder.setEnableLongRows(option.booleanLiteral().TRUE() != null);
+                } else if (option.INTERMINGLE_TABLES() != null) {
+                    schemaTemplateBuilder.setIntermingleTables(option.booleanLiteral().TRUE() != null);
                 } else {
                     Assert.failUnchecked("Encountered unknown options in schema template creation", ErrorCode.SYNTAX_ERROR);
                 }
             }
         }
+        // collect all tables, their indices, and custom types definitions.
+        ctx.templateClause().forEach(s -> s.accept(this));
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateSchemaTemplateConstantAction(schemaTemplateBuilder.build(), Options.NONE));
     }
 
@@ -1312,7 +1314,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var columns = ctx.columnDefinition().stream().map(c -> (RecordLayerColumn) c.accept(this)).collect(Collectors.toList());
         final var isTable = ctx.STRUCT() == null;
 
-        final var typeBuilder = RecordLayerTable.newBuilder();
+        final var typeBuilder = RecordLayerTable.newBuilder(context.asDdl().getMetadataBuilder().isIntermingleTables());
         typeBuilder.setName(name).addColumns(columns);
 
         if (ctx.primaryKeyDefinition() != null) {

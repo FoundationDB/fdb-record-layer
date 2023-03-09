@@ -327,6 +327,7 @@ class JDBCRelationalStatement implements RelationalStatement {
         return this.updateCount;
     }
 
+    @Deprecated
     @Override
     @ExcludeFromJacocoGeneratedReport
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
