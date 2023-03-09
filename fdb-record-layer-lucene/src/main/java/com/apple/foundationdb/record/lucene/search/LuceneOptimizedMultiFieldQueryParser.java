@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.search;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.Token;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.Query;
@@ -113,5 +114,11 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
     @Override
     public Query constructRangeQueryWithoutPointsConfig(final @Nonnull String field, final @Nonnull String part1, final @Nonnull String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
         return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
+    }
+
+    @Nonnull
+    @Override
+    public final Token nextToken() {
+        return getNextToken();
     }
 }

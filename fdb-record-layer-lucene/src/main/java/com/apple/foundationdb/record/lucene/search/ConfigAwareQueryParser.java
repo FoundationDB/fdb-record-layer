@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.Token;
 import org.apache.lucene.queryparser.flexible.core.messages.QueryParserMessages;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.MultiPhraseQuery;
@@ -37,6 +39,7 @@ import org.apache.lucene.search.spans.SpanQuery;
 import javax.annotation.Nonnull;
 import java.text.NumberFormat;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * a mixin interface for common functionality of parsers, it provides the ability to
@@ -50,14 +53,26 @@ public interface ConfigAwareQueryParser {
     @Nonnull
     Query constructFieldWithoutPointsConfig(String field, String queryText, boolean quoted) throws ParseException;
 
+    @Nonnull
+    Token nextToken();
+
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
     @Nonnull
-    default Query attemptConstructFieldQueryWithPointsConfig(final String field, final String queryText, final boolean quoted) throws ParseException {
+    default Query attemptConstructFieldQueryWithPointsConfig(final String field, String queryText, final boolean quoted) throws ParseException {
         final var pointsConfig = getPointsConfig();
         PointsConfig cfg = pointsConfig.get(field);
         if (cfg == null) {
             return constructFieldWithoutPointsConfig(field, queryText, quoted);
         }
+
+        /*
+         * Look for BITSET_CONTAINS function. If it is there, read the mask to get the number,
+         * and then create a BITSET query operator.
+         */
+        if ("BITSET_CONTAINS".equalsIgnoreCase(queryText)) {
+            return constructBitSetQuery(field);
+        }
+
         //parse the text as the correct type and convert it to a query
 
         if (cfg instanceof BooleanPointsConfig) {
@@ -89,6 +104,35 @@ public interface ConfigAwareQueryParser {
         } else {
             throw new ParseException("Unknown numeric type: " + cfg.getType().getCanonicalName());
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
+    private Query constructBitSetQuery(@Nonnull final String field) throws ParseException {
+        //look for the next token
+        if (!"(".equals(nextToken().toString())) {
+            throw new ParseException("Missing ( from BITSET_CONTAINS");
+        }
+        Token nextToken = nextToken(); //this should be the actual value
+        String bitMaskStr = nextToken.toString();
+        //check for a ), in order to consume it. If it's not there, throw a Parse Exception
+        if (!")".equals(nextToken().toString())) {
+            throw new ParseException("Missing ) from BITSET_CONTAINS");
+        }
+
+        final var cfg = Objects.requireNonNull(getPointsConfig()).get(field);
+        if (!Long.class.equals(cfg.getType())) {
+            throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
+        }
+
+        long bitMask = -1;
+        try {
+            bitMask = Long.parseLong(bitMaskStr);
+        } catch (NumberFormatException pe) {
+            throw new ParseException(QueryParserMessages.COULD_NOT_PARSE_NUMBER);
+        }
+
+        return new BitSetQuery(field, bitMask);
     }
 
     @Nonnull

@@ -82,6 +82,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -95,6 +98,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
@@ -580,6 +584,80 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:[" + Long.MIN_VALUE + " TO " + Long.MIN_VALUE + "}"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(TEXT_AND_NUMBER_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    private static Stream<Arguments> bitsetParams() {
+        return Stream.of(
+                Arguments.of(0b0, List.of(1623L, 1547L)),
+                Arguments.of(0b100, List.of(1623L)),
+                Arguments.of(0b10, List.of(1547L)),
+                Arguments.of(0b1000, List.of(1623L, 1547L)),
+                Arguments.of(0b110, List.of()),
+                Arguments.of(0b11000, List.of(1623L, 1547L)),
+                Arguments.of(0b1100, List.of(1623L))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("bitsetParams")
+    void bitset(int mask, List<Long> expectedResult) {
+        /*
+         * Check that a bitset_contains query returns the right result given a certain mask
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 0b11100));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 0b11010));
+
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "\"propose a Vision\" AND group:BITSET_CONTAINS(" + mask + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
+
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "group:BITSET_CONTAINS(" + mask + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    private static Stream<Arguments> bitsetOrParams() {
+        return Stream.of(
+                Arguments.of(0b0, 0b0, List.of(1623L, 1547L)),
+                Arguments.of(0b100, 0b1, List.of(1623L)),
+                Arguments.of(0b10, 0b1, List.of(1547L)),
+                Arguments.of(0b1000, 0b1000, List.of(1623L, 1547L)),
+                Arguments.of(0b100, 0b10, List.of(1623L, 1547L)),
+                Arguments.of(0b10000, 0b1000, List.of(1623L, 1547L)),
+                Arguments.of(0b1000, 0b100, List.of(1623L, 1547L))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("bitsetOrParams")
+    void bitsetOr(int mask1, int mask2, List<Long> expectedResult) {
+        /*
+         * Check that a bitset_contains query returns the right result given a certain mask
+         */
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 0b11100));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 0b11010));
+
+            assertIndexEntryPrimaryKeys(
+                    expectedResult,
+                    recordStore.scanIndex(
+                            TEXT_AND_NUMBER_INDEX,
+                            fullTextSearch(TEXT_AND_NUMBER_INDEX, "group:BITSET_CONTAINS(" + mask1 + ") OR group:BITSET_CONTAINS(" + mask2 + ")"),
+                            null,
+                            ScanProperties.FORWARD_SCAN));
         }
     }
 
