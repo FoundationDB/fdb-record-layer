@@ -120,6 +120,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public IndexMaintainer getIndexMaintainer(@Nonnull final Index index) {
+        return untypedStore.getIndexMaintainer(index);
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
         return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior);
     }

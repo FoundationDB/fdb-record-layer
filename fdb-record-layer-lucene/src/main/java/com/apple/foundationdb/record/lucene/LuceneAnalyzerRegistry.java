@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.metadata.Index;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Registry for {@link AnalyzerChooser}s. This registry allows for full-text indexes to specify
@@ -37,6 +38,9 @@ import javax.annotation.Nonnull;
  */
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
+
     @Nonnull
-    LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index, @Nonnull LuceneAnalyzerType type);
+    LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index,
+                                                                           @Nonnull LuceneAnalyzerType type,
+                                                                           @Nonnull Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo);
 }

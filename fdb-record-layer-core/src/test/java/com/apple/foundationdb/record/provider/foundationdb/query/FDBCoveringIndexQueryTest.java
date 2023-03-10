@@ -873,5 +873,25 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1440154798, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-1095794309, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
-    
+
+    @DualPlannerTest
+    void coveringPrimaryKey() throws Exception {
+        final Index primaryKeyIndex = new Index("primayKeyIndex", keyWithValue(concatenateFields("rec_no", "num_value_2"), 1));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", primaryKeyIndex);
+        complexQuerySetup(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("rec_no").greaterThanOrEquals(1000L))
+                .setRequiredResults(List.of(field("num_value_2")))
+                .build();
+        final RecordQueryPlan plan = planner.plan(query);
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName(primaryKeyIndex.getName())).and(scanComparisons(range("[[1000],>")))));
+        assertMatchesExactly(plan, planMatcher);
+
+        assertEquals(1339142211, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(284123809, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(994460375, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+    }
 }

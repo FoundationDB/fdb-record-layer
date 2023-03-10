@@ -23,9 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
-import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -390,15 +388,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 .collect(Collectors.toList());
 
         final boolean isIdempotent = areTheyAllIdempotent(store, targetIndexes);
-        final IsolationLevel isolationLevel =
-                isIdempotent ?
-                IsolationLevel.SNAPSHOT :
-                IsolationLevel.SERIALIZABLE;
-
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
 
         return targetRangeSets.get(0).firstMissingRangeAsync(thisRange.begin, thisRange.end).thenCompose(range -> {
             if (range == null) {

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.exact.ExactTokenAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import org.apache.commons.lang3.tuple.Pair;
@@ -88,27 +89,58 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index, @Nonnull LuceneAnalyzerType type) {
+    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull final Index index,
+                                                                                  @Nonnull final LuceneAnalyzerType type,
+                                                                                  @Nonnull final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
         final String defaultAnalyzerName = index.getOption(type.getAnalyzerOptionKey());
         final String analyzerPerFieldName = index.getOption(type.getAnalyzerPerFieldOptionKey());
         Pair<AnalyzerChooser, AnalyzerChooser> defaultAnalyzerChooserPair = getAnalyzerChooser(index, defaultAnalyzerName, type);
 
-        if (analyzerPerFieldName == null) {
-            return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
-                    null, null);
-        }
-
         Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride = new TreeMap<>();
         Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride = new TreeMap<>();
 
-        LuceneIndexOptions.parseKeyValuePairOptionValue(analyzerPerFieldName).forEach((fieldName, analyzerName) -> {
-            Pair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, analyzerName, type);
-            indexAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getLeft());
-            queryAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getRight());
+        if (analyzerPerFieldName != null) {
+            LuceneIndexOptions.parseKeyValuePairOptionValue(analyzerPerFieldName).forEach((fieldName, analyzerName) -> {
+                Pair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, analyzerName, type);
+                indexAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getLeft());
+                queryAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getRight());
+            });
+        }
+
+        auxiliaryFieldInfo.forEach((fieldName, fieldInfo) -> {
+            addPerFieldAnalyzerIfNecessary(indexAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index, type);
+            addPerFieldAnalyzerIfNecessary(queryAnalyzerChooserPerFieldOverride, fieldName, fieldInfo, index, type);
         });
 
         return new LuceneAnalyzerCombinationProvider(defaultAnalyzerChooserPair.getLeft(), defaultAnalyzerChooserPair.getRight(),
                 indexAnalyzerChooserPerFieldOverride, queryAnalyzerChooserPerFieldOverride);
+    }
+
+    private void addPerFieldAnalyzerIfNecessary(@Nonnull final Map<String, AnalyzerChooser> chooserPerFieldOverride,
+                                                @Nonnull final String fieldName,
+                                                @Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo,
+                                                @Nonnull final Index index,
+                                                @Nonnull final LuceneAnalyzerType type) {
+        if (chooserPerFieldOverride.containsKey(fieldName)) {
+            return; // do not override already chosen field analyzer.
+        }
+        if (type != LuceneAnalyzerType.FULL_TEXT) {
+            return; // not sure how to deal with other types (i.e. AUTO_COMPLETE) yet.
+        }
+        if (isEligibleForNoOpAnalyzer(fieldInfo)) {
+            if (registry.isEmpty()
+                    || registry.get(type) == null
+                    || registry.get(type).get(ExactTokenAnalyzerFactory.NAME) == null) {
+                throw new MetaDataException("could not retrieve analyzer",
+                        LuceneLogMessageKeys.ANALYZER_NAME, ExactTokenAnalyzerFactory.NAME,
+                        LuceneLogMessageKeys.ANALYZER_TYPE, type);
+            }
+            chooserPerFieldOverride.put(fieldName, registry.get(type).get(ExactTokenAnalyzerFactory.NAME).getIndexAnalyzerChooser(index));
+        }
+    }
+
+    private static boolean isEligibleForNoOpAnalyzer(@Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo) {
+        return fieldInfo.getType() != LuceneIndexExpressions.DocumentFieldType.TEXT;
     }
 
     private Pair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {

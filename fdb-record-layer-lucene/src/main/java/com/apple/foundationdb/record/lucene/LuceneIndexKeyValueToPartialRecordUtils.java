@@ -21,16 +21,24 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import com.google.protobuf.MessageLite;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -201,6 +209,64 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
     }
 
     /**
+     * Get the {@link IndexKeyValueToPartialRecord} instance for an {@link IndexEntry} representing a result of Lucene auto-complete suggestion.
+     * The partial record contains the suggestion in the field where it is indexed from, and the grouping keys if there are any.
+     * @param index the index being scanned
+     * @param recordType the record type for indexed records
+     * @param scanType the type of scan
+     * @return a partial record generator
+     */
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    @VisibleForTesting
+    public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,
+                                                                  @Nonnull RecordType recordType,
+                                                                  @Nonnull IndexScanType scanType) {
+        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+
+        KeyExpression root = index.getRootExpression();
+        int startOrdinalPrimaryKey = 0;
+        final int groupingColumnSize;
+        if (root instanceof GroupingKeyExpression) {
+            KeyExpression groupingKey = ((GroupingKeyExpression) root).getGroupingSubKey();
+            groupingColumnSize = groupingKey.getColumnSize();
+            for (int i = 0; i < groupingKey.getColumnSize(); i++) {
+                AvailableFields.addCoveringField(groupingKey, AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i)), builder);
+            }
+        } else {
+            groupingColumnSize = 0;
+        }
+
+        startOrdinalPrimaryKey += groupingColumnSize;
+
+        // account for a lucene field name, field value pair
+        startOrdinalPrimaryKey += 2;
+
+        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
+            final var constituentToPathMap = AvailableFields.getConstituentToPathMap(recordType, startOrdinalPrimaryKey);
+
+            AvailableFields.getPrimaryKeyFieldMap(recordType, index, recordType.getPrimaryKey(),
+                    startOrdinalPrimaryKey,
+                    ImmutableList.of(),
+                    constituentToPathMap,
+                    builder);
+        }
+
+        builder.addRequiredMessageFields();
+        if (!builder.isValid(true)) {
+            throw new RecordCoreException("Missing required field for result record")
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName())
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, recordType.getName())
+                    .addLogInfo(LogMessageKeys.SCAN_TYPE, scanType);
+        }
+
+        builder.addRegularCopier(
+                new LuceneAutoCompleteAndSpellCheckCopier(groupingColumnSize));
+
+        return builder.build();
+    }
+
+    /**
      * A {@link com.apple.foundationdb.record.lucene.LuceneIndexExpressions.RecordSource} implementation to build the partial record message.
      */
     static class PartialRecordBuildSource implements LuceneIndexExpressions.RecordSource<PartialRecordBuildSource> {
@@ -280,11 +346,25 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             }
 
             if (parent != null) {
+                addRequiredFieldsToBuilder(builder);
                 parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField);
             }
             if (forLuceneField) {
                 this.hasBeenBuilt = true;
             }
+        }
+
+        private static MessageLite.Builder addRequiredFieldsToBuilder(@Nonnull final Message.Builder builder) {
+            final var recordDescriptor = builder.getDescriptorForType();
+            for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
+                if (fieldDescriptor.isRequired() &&
+                        fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE &&
+                        !builder.hasField(fieldDescriptor)) {
+                    final var fieldBuilder = builder.newBuilderForField(fieldDescriptor);
+                    builder.setField(fieldDescriptor, addRequiredFieldsToBuilder(fieldBuilder).build());
+                }
+            }
+            return builder;
         }
 
         private boolean hasBeenBuilt() {
@@ -303,14 +383,11 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * The copier to populate the lucene auto complete suggestion as a value for the field where it is indexed from.
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
-    public static class LuceneAutoCompleteCopier implements IndexKeyValueToPartialRecord.Copier {
-        private boolean primaryKeyNeeded;
-        @Nonnull
-        private KeyExpression primaryKeyExpression;
+    public static class LuceneAutoCompleteAndSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
+        private final int groupingColumnSize;
 
-        public LuceneAutoCompleteCopier(boolean primaryKeyNeeded, @Nonnull KeyExpression primaryKeyExpression) {
-            this.primaryKeyNeeded = primaryKeyNeeded;
-            this.primaryKeyExpression = primaryKeyExpression;
+        public LuceneAutoCompleteAndSpellCheckCopier(final int groupingColumnSize) {
+            this.groupingColumnSize = groupingColumnSize;
         }
 
         @Override
@@ -322,13 +399,10 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                         .addLogInfo(LogMessageKeys.KEY_SIZE, keyTuple.size())
                         .addLogInfo(LogMessageKeys.RECORD_TYPE, recordDescriptor.getName());
             }
-            String fieldName = (String) keyTuple.get(keyTuple.size() - 2);
-            String value = (String) keyTuple.get(keyTuple.size() - 1);
-            Tuple groupingKey = Tuple.fromList(keyTuple.getItems().subList(0, keyTuple.size() - 2));
+            Tuple groupingKey = Tuple.fromList(keyTuple.getItems().subList(0, groupingColumnSize));
+            String fieldName = (String) keyTuple.get(groupingColumnSize);
+            String value = (String) keyTuple.get(groupingColumnSize + 1);
             buildPartialRecord(kv.getIndex().getRootExpression(), recordDescriptor, recordBuilder, fieldName, value, groupingKey);
-            if (primaryKeyNeeded) {
-                populatePrimaryKey(primaryKeyExpression, recordDescriptor, recordBuilder, kv.getPrimaryKey());
-            }
             return true;
         }
     }

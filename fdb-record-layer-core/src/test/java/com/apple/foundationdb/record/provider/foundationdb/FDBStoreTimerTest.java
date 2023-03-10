@@ -334,25 +334,31 @@ public class FDBStoreTimerTest {
         final TestTransactionListener listener = new TestTransactionListener();
 
         final FDBStoreTimer timer = new FDBStoreTimer();
+        final Tuple t = Tuple.from(1L);
         try {
             FDBDatabaseFactory.instance().setTransactionListener(listener);
             for (int i = 0; i < 3; i++) {
                 try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     Transaction tr = context.ensureActive();
-                    tr.set(subspace.pack(Tuple.from(1L)), Tuple.from(1L).pack());
-                    tr.get(subspace.pack(Tuple.from(1L))).join();
-                    tr.get(subspace.pack(Tuple.from(1L))).join();
+                    tr.set(subspace.pack(t), t.pack());
+                    tr.get(subspace.pack(t)).join();
+                    tr.get(subspace.pack(t)).join();
 
                     // Make sure we get metrics even if there is no commit
                     if (i != 1) {
-                        tr.commit().join();
+                        context.commit();
                     }
                 }
             }
             assertThat(listener.transactions, equalTo(3));
             assertThat(listener.reads, equalTo(6));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(listener.reads));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(listener.reads * t.getPackedSize()));
             assertThat(listener.writes, equalTo(2));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(listener.writes));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo((t.getPackedSize() * 2 + subspace.getKey().length) * listener.writes));
             assertThat(listener.commits, equalTo(2));
+            assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
             assertThat(listener.closes, equalTo(3));
         } finally {
             FDBDatabaseFactory.instance().setTransactionListener(null);

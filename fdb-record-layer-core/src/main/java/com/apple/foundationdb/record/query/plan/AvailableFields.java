@@ -109,76 +109,27 @@ public class AvailableFields {
     /**
      * Get the fields that are available from just the index scan part of an index plan.
      */
-    public static AvailableFields fromIndex(@Nonnull RecordType recordType,
-                                            @Nonnull Index index,
-                                            @Nonnull PlannableIndexTypes indexTypes,
-                                            @Nullable KeyExpression commonPrimaryKey,
-                                            @Nonnull RecordQueryPlanWithIndex indexPlan) {
+    public static AvailableFields fromIndex(@Nonnull final RecordType recordType,
+                                            @Nonnull final Index index,
+                                            @Nonnull final PlannableIndexTypes indexTypes,
+                                            @Nullable final KeyExpression commonPrimaryKey,
+                                            @Nonnull final RecordQueryPlanWithIndex indexPlan) {
         final KeyExpression rootExpression = index.getRootExpression();
 
         final List<KeyExpression> keyFields = new ArrayList<>();
         final List<KeyExpression> valueFields = new ArrayList<>();
         final List<KeyExpression> nonStoredFields = new ArrayList<>();
         final List<KeyExpression> otherFields = new ArrayList<>();
-        if (indexTypes.getTextTypes().contains(index.getType())) {
-            // Full text index entries have all of their fields except the tokenized one.
-            keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
-        } else if (indexTypes.getValueTypes().contains(index.getType()) ||
-                   indexTypes.getRankTypes().contains(index.getType())) {
-            keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
-            valueFields.addAll(KeyExpression.getValueFields(rootExpression));
-        } else if (indexTypes.getUnstoredNonPrimaryKeyTypes().contains(index.getType())) {
-            keyFields.addAll(rootExpression.normalizeKeyForPositions());
-            nonStoredFields.addAll(keyFields);
-            nonStoredFields.removeAll(recordType.getPrimaryKey().normalizeKeyForPositions());
-            if (rootExpression instanceof GroupingKeyExpression) {
-                GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression) rootExpression;
-                nonStoredFields.removeAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
-            }
-            if (indexPlan instanceof PlanWithStoredFields) {
-                ((PlanWithStoredFields)indexPlan).getStoredFields(keyFields, nonStoredFields, otherFields);
-            }
-        } else {
-            // Aggregate index
-            if (rootExpression instanceof GroupingKeyExpression) {
-                GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression) rootExpression;
-                keyFields.addAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
-            }
-        }
+        partitionFields(recordType, index, indexTypes, indexPlan,
+                rootExpression, keyFields, valueFields, nonStoredFields, otherFields);
 
         // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
         Map<KeyExpression, FieldData> fields = new HashMap<>();
 
-        final ListMultimap<KeyExpression, FieldData> primaryKeyPartsToTuplePathMap;
-        if (commonPrimaryKey != null) {
-            final BitSet coveredPrimaryKeyPositions = index.getCoveredPrimaryKeyPositions();
-            final ExpressionToTuplePathVisitor expressionToTuplePathVisitor =
-                    new ExpressionToTuplePathVisitor(commonPrimaryKey, IndexKeyValueToPartialRecord.TupleSource.KEY, keyFields.size(), coveredPrimaryKeyPositions);
-            primaryKeyPartsToTuplePathMap = expressionToTuplePathVisitor.compute();
-        } else {
-            primaryKeyPartsToTuplePathMap = ImmutableListMultimap.of();
-        }
-
         final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap;
-        if (recordType.isSynthetic() && commonPrimaryKey != null) {
-            //
-            // We need to only copy parts of the index entry which are not currently producing a null-constituent due to
-            // an outer join.
-            //
-            Verify.verify(recordType instanceof SyntheticRecordType);
-            final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)recordType;
-            final List<? extends SyntheticRecordType.Constituent> constituents = syntheticRecordType.getConstituents();
-            final int startConstituents = keyFields.size() + 1;
-            final ImmutableMap.Builder<String, ImmutableIntArray> constituentNameToPathMapBuilder =
-                    ImmutableMap.builder();
-            for (int i = 0; i < constituents.size(); i++) {
-                final SyntheticRecordType.Constituent constituent = constituents.get(i);
-                constituentNameToPathMapBuilder.put(constituent.getName(), ImmutableIntArray.of(startConstituents + i));
-            }
-            constituentNameToPathMap = constituentNameToPathMapBuilder.build();
-        } else {
-            constituentNameToPathMap = ImmutableMap.of();
-        }
+        constituentNameToPathMap = commonPrimaryKey == null
+                                   ? ImmutableMap.of()
+                                   : getConstituentToPathMap(recordType, keyFields.size());
 
         // KEYs -- from the index's definition
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
@@ -191,14 +142,7 @@ public class AvailableFields {
         }
         if (commonPrimaryKey != null) {
             // KEYs -- from the primary key
-            for (final Map.Entry<KeyExpression, FieldData> entry : primaryKeyPartsToTuplePathMap.entries()) {
-                KeyExpression keyField = entry.getKey();
-                FieldData fieldData = entry.getValue();
-                fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyField, fieldData.getOrdinalPath());
-                if (!nonStoredFields.contains(keyField) && !keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
-                    fields.put(keyField, fieldData);
-                }
-            }
+            fields.putAll(getPrimaryKeyFieldMap(recordType, index, commonPrimaryKey, keyFields.size(), nonStoredFields, constituentNameToPathMap, builder));
         }
         for (int i = 0; i < valueFields.size(); i++) {
             KeyExpression valueField = valueFields.get(i);
@@ -217,6 +161,96 @@ public class AvailableFields {
             return NO_FIELDS;
         }
         return new AvailableFields(fields);
+    }
+
+    @Nonnull
+    public static ImmutableMap<String, ImmutableIntArray> getConstituentToPathMap(final @Nonnull RecordType recordType, final int startPrimaryKey) {
+        if (!recordType.isSynthetic()) {
+            return ImmutableMap.of();
+        }
+
+        //
+        // We need to only copy parts of the index entry which are not currently producing a null-constituent due to
+        // an outer join.
+        //
+        Verify.verify(recordType instanceof SyntheticRecordType);
+        final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)recordType;
+        final List<? extends SyntheticRecordType.Constituent> constituents = syntheticRecordType.getConstituents();
+        final int startConstituents = startPrimaryKey + 1; // record type indicator accounts for one
+        final ImmutableMap.Builder<String, ImmutableIntArray> constituentNameToPathMapBuilder =
+                ImmutableMap.builder();
+        for (int i = 0; i < constituents.size(); i++) {
+            final SyntheticRecordType.Constituent constituent = constituents.get(i);
+            constituentNameToPathMapBuilder.put(constituent.getName(), ImmutableIntArray.of(startConstituents + i));
+        }
+        return constituentNameToPathMapBuilder.build();
+    }
+
+    private static void partitionFields(@Nonnull final RecordType recordType,
+                                        @Nonnull final Index index,
+                                        @Nonnull final PlannableIndexTypes indexTypes,
+                                        @Nonnull final RecordQueryPlanWithIndex indexPlan,
+                                        @Nonnull final KeyExpression rootExpression,
+                                        @Nonnull final List<KeyExpression> keyFields,
+                                        @Nonnull final List<KeyExpression> valueFields,
+                                        @Nonnull final List<KeyExpression> nonStoredFields,
+                                        @Nonnull final List<KeyExpression> otherFields) {
+        if (indexTypes.getTextTypes().contains(index.getType())) {
+            // Full text index entries have all of their fields except the tokenized one.
+            keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
+        } else if (indexTypes.getValueTypes().contains(index.getType()) ||
+                   indexTypes.getRankTypes().contains(index.getType())) {
+            keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
+            valueFields.addAll(KeyExpression.getValueFields(rootExpression));
+        } else if (indexTypes.getUnstoredNonPrimaryKeyTypes().contains(index.getType())) {
+            keyFields.addAll(rootExpression.normalizeKeyForPositions());
+            nonStoredFields.addAll(keyFields);
+            nonStoredFields.removeAll(recordType.getPrimaryKey().normalizeKeyForPositions());
+            if (rootExpression instanceof GroupingKeyExpression) {
+                GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression)rootExpression;
+                nonStoredFields.removeAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
+            }
+            if (indexPlan instanceof PlanWithStoredFields) {
+                ((PlanWithStoredFields)indexPlan).getStoredFields(keyFields, nonStoredFields, otherFields);
+            }
+        } else {
+            // Aggregate index
+            if (rootExpression instanceof GroupingKeyExpression) {
+                GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression)rootExpression;
+                keyFields.addAll(groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions());
+            }
+        }
+    }
+
+    public static Map<KeyExpression, FieldData> getPrimaryKeyFieldMap(@Nonnull final RecordType recordType,
+                                                                      @Nonnull final Index index,
+                                                                      @Nonnull final KeyExpression commonPrimaryKey,
+                                                                      @Nonnull final int primaryKeyStartOrdinal,
+                                                                      @Nonnull final List<KeyExpression> nonStoredFields,
+                                                                      @Nonnull final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
+                                                                      @Nonnull final IndexKeyValueToPartialRecord.Builder builder) {
+        final ListMultimap<KeyExpression, FieldData> primaryKeyPartsToTuplePathMap;
+        if (commonPrimaryKey != null) {
+            final BitSet coveredPrimaryKeyPositions = index.getCoveredPrimaryKeyPositions();
+            final ExpressionToTuplePathVisitor expressionToTuplePathVisitor =
+                    new ExpressionToTuplePathVisitor(commonPrimaryKey,
+                            IndexKeyValueToPartialRecord.TupleSource.KEY,
+                            primaryKeyStartOrdinal, coveredPrimaryKeyPositions);
+            primaryKeyPartsToTuplePathMap = expressionToTuplePathVisitor.compute();
+        } else {
+            primaryKeyPartsToTuplePathMap = ImmutableListMultimap.of();
+        }
+
+        final ImmutableMap.Builder<KeyExpression, FieldData> resultFieldMapBuilder = ImmutableMap.builder();
+        for (final Map.Entry<KeyExpression, FieldData> entry : primaryKeyPartsToTuplePathMap.entries()) {
+            KeyExpression keyField = entry.getKey();
+            FieldData fieldData = entry.getValue();
+            fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyField, fieldData.getOrdinalPath());
+            if (!nonStoredFields.contains(keyField) && !keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
+                resultFieldMapBuilder.put(keyField, fieldData);
+            }
+        }
+        return resultFieldMapBuilder.build();
     }
 
     @Nonnull

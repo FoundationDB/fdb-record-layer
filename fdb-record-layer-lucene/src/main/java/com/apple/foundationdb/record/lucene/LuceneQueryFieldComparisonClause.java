@@ -238,7 +238,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                 case TEXT_CONTAINS_PHRASE:
                     // PhraseQuery will require tokenizing, so may as well just use parser.
                     try {
-                        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT);
+                        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+                        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
                         final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer((String) comparand).getAnalyzer());
                         return parser.parse("\"" + comparand + "\"");
                     } catch (Exception ex) {

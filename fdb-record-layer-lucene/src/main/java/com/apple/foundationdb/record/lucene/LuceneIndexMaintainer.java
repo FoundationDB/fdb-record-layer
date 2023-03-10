@@ -104,9 +104,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         super(state);
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
-        this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT);
-        this.autoCompleteQueryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE);
+        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
+        this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+        this.autoCompleteQueryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
         this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
+    }
+
+    public LuceneAnalyzerCombinationProvider getAutoCompleteQueryAnalyzerSelector() {
+        return autoCompleteQueryAnalyzerSelector;
     }
 
     @Nonnull
@@ -151,7 +156,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
             Analyzer analyzer = autoCompleteQueryAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
             return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, scanProperties, analyzer, state, scanAutoComplete.getGroupKey(), scanAutoComplete.isHighlight());
+                    executor, analyzer, state, scanAutoComplete.getGroupKey());
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {

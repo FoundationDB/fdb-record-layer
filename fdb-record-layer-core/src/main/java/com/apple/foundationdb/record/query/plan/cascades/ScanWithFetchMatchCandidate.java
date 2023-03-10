@@ -34,4 +34,28 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier sourceAlias,
                                           @Nonnull CorrelationIdentifier targetAlias);
+
+    @Nonnull
+    static Optional<Value> pushValueThroughFetch(@Nonnull final Value toBePushedValue,
+                                                 @Nonnull final CorrelationIdentifier baseAlias,
+                                                 @Nonnull final CorrelationIdentifier sourceAlias,
+                                                 @Nonnull final CorrelationIdentifier targetAlias,
+                                                 @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
+        final AliasMap equivalenceMap = AliasMap.of(sourceAlias, baseAlias);
+        final AliasMap toTargetAliasMap = AliasMap.of(sourceAlias, targetAlias);
+
+        final var translatedValueOptional =
+                toBePushedValue.<Value>mapMaybe((value, mappedChildren) -> {
+                    for (final var providedValue : providedValuesFromIndex) {
+                        if (value.semanticEquals(providedValue, equivalenceMap)) {
+                            return value.withChildren(mappedChildren)
+                                    .rebase(toTargetAliasMap);
+                        }
+                    }
+                    return value.withChildren(mappedChildren); // this may be correlated to sourceAlias
+                });
+
+        // the translation was successful if the translated value is not correlated to sourceAlias anymore
+        return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
+    }
 }

@@ -79,7 +79,7 @@ public class IndexingThrottle {
 
     IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
         this.common = common;
-        this.limit = common.config.getMaxLimit();
+        this.limit = common.config.getInitialLimit();
         this.expectedIndexState = expectedIndexState;
     }
 
@@ -112,7 +112,7 @@ public class IndexingThrottle {
             if (limit > maxLimit) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
-                            KeyValueLogMessage.build("Decreasing the limit to the new maxLimit.",
+                            KeyValueLogMessage.build("Decreasing the limit to the new max limit.",
                                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                     LogMessageKeys.LIMIT, limit,
                                     LogMessageKeys.MAX_LIMIT, maxLimit).toString());

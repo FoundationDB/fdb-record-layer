@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelow
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushInJoinThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushMapThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughSelectRule;
@@ -141,6 +142,7 @@ public class PlannerRuleSet {
             new MergeFetchIntoCoveringIndexRule(),
             new PushInJoinThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
             new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
+            new PushMapThroughFetchRule(),
             new PushFilterThroughFetchRule(),
             new PushDistinctThroughFetchRule(),
             new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionOnValuesPlan.class),

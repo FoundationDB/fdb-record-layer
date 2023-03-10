@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedMultiFieldQueryParser;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
@@ -36,8 +35,6 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -66,26 +63,12 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT);
+        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
-        final LuceneOptimizedMultiFieldQueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer());
-        Map<String, PointsConfig> pointsConfigMap = new HashMap<>();
-        final Collection<RecordType> recordTypes = store.getRecordMetaData().recordTypesForIndex(index);
-        for (RecordType type : recordTypes) {
-            LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
-                PointsConfig valueConfig = value.getPointsConfig();
-                if (valueConfig != null) {
-                    PointsConfig oldConfig = pointsConfigMap.get(key);
-                    if (oldConfig == null) {
-                        pointsConfigMap.put(key, valueConfig);
-                    } else if (!oldConfig.equals(valueConfig)) {
-                        throw new RecordCoreException("The same key has two different points config types");
-                    }
-                }
-            });
-        }
-        parser.setPointsConfig(pointsConfigMap);
+        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        final LuceneOptimizedMultiFieldQueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         parser.setDefaultOperator(QueryParser.Operator.OR);
         try {
             return parser.parse(searchString);

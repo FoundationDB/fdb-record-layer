@@ -57,4 +57,12 @@ public class StoreSubTimer extends StoreTimer {
         }
         super.increment(event, amount);
     }
+
+    @Override
+    public void add(final StoreTimer other) {
+        if (underlying != null) {
+            underlying.add(other);
+        }
+        super.add(other);
+    }
 }

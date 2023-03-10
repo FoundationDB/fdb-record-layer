@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ZeroCopyByteString;
@@ -40,11 +41,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -129,7 +128,7 @@ public class Index {
         this.name = name;
         this.rootExpression = rootExpression;
         this.type = type;
-        this.options = options;
+        this.options = ImmutableMap.copyOf(options);
         this.subspaceKey = normalizeSubspaceKey(name, name);
         this.lastModifiedVersion = 0;
         this.predicate = predicate;
@@ -169,7 +168,7 @@ public class Index {
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
-        this(orig.name, orig.rootExpression, orig.type, new HashMap<>(orig.options), orig.predicate);
+        this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(orig.options), orig.predicate);
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
         } else {
@@ -181,7 +180,7 @@ public class Index {
         this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
-    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
+    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776"}) // Old (deprecated) index type needs grouping compatibility
     @SpotBugsSuppressWarnings("NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR")
     public Index(@Nonnull RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
         name = proto.getName();
@@ -245,14 +244,14 @@ public class Index {
         if (optionList.isEmpty() && !addUnique) {
             return IndexOptions.EMPTY_OPTIONS;
         } else {
-            Map<String, String> options = new TreeMap<>();
+            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
             if (addUnique) {
-                options.put(IndexOptions.UNIQUE_OPTION, Boolean.TRUE.toString());
+                builder.put(IndexOptions.UNIQUE_OPTION, Boolean.TRUE.toString());
             }
             for (RecordMetaDataProto.Index.Option option : optionList) {
-                options.put(option.getKey(), option.getValue());
+                builder.put(option.getKey(), option.getValue());
             }
-            return options;
+            return builder.build();
         }
     }
 

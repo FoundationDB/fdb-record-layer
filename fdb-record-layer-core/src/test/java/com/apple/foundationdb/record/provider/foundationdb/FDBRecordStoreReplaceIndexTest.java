@@ -41,7 +41,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -63,21 +65,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
 
     private Index setReplacementIndexes(@Nonnull Index index, Index... replacementIndexes) {
-        final Index newIndex = new Index(index);
-
+        Map<String, String> newOptions = new HashMap<>(index.getOptions());
         // Remove any existing replacement indexes
-        final List<String> optionsToRemove = newIndex.getOptions().keySet().stream()
+        final List<String> optionsToRemove = index.getOptions().keySet().stream()
                 .filter(option -> option.startsWith(IndexOptions.REPLACED_BY_OPTION_PREFIX))
                 .collect(Collectors.toList());
-        optionsToRemove.forEach(option -> newIndex.getOptions().remove(option));
+        optionsToRemove.forEach(newOptions::remove);
 
         // Replace with the new indexes
         final String[] replacementIndexNames = new String[replacementIndexes.length];
         for (int i = 0; i < replacementIndexes.length; i++) {
             final String replacementIndexName = replacementIndexes[i].getName();
-            newIndex.getOptions().put(String.format("%s_%02d", IndexOptions.REPLACED_BY_OPTION_PREFIX, i), replacementIndexName);
+            newOptions.put(String.format("%s_%02d", IndexOptions.REPLACED_BY_OPTION_PREFIX, i), replacementIndexName);
             replacementIndexNames[i] = replacementIndexName;
         }
+        Index newIndex = new IndexWithOptions(index, newOptions, false);
         assertThat(newIndex.getReplacedByIndexNames(), containsInAnyOrder(replacementIndexNames));
         assertEquals(index.getLastModifiedVersion(), newIndex.getLastModifiedVersion());
         assertEquals(index.getSubspaceKey(), newIndex.getSubspaceKey());
