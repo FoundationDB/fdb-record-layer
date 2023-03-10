@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -87,7 +88,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty());
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -108,7 +109,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty()), "Cascades planner could not plan query");
+                EvaluationContext.empty()), "Cascades planner could not plan query");
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -120,7 +121,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty());
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
     }
@@ -134,7 +135,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty());
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -156,7 +157,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty()), "Cascades planner could not plan query");
+                EvaluationContext.empty()), "Cascades planner could not plan query");
     }
 
     @Nonnull

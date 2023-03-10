@@ -193,6 +193,24 @@ public class MetaDataPlanContext implements PlanContext {
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                                final boolean isSortReverse) {
+        return forRootReference(plannerConfiguration,
+                metaData,
+                recordStoreState,
+                rootReference,
+                allowedIndexesOptional,
+                indexQueryabilityFilter,
+                isSortReverse,
+                EvaluationContext.EMPTY);
+    }
+
+    public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                               @Nonnull final RecordMetaData metaData,
+                                               @Nonnull final RecordStoreState recordStoreState,
+                                               @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference,
+                                               @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
+                                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
+                                               final boolean isSortReverse,
+                                               @Nonnull final EvaluationContext evaluationContext) {
         final var queriedRecordTypeNames = RecordTypesProperty.evaluate(rootReference);
 
         if (queriedRecordTypeNames.isEmpty()) {
@@ -233,6 +251,6 @@ public class MetaDataPlanContext implements PlanContext {
                     .ifPresent(matchCandidatesBuilder::add);
         }
 
-        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build(), EvaluationContext.EMPTY);
+        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build(), evaluationContext);
     }
 }

@@ -322,23 +322,6 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull final EvaluationContext evaluationContext) {
-        try {
-            planPartial(() -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(metaData, query)),
-                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query, evaluationContext));
-            final RecordQueryPlan plan = resultOrFail();
-            final QueryPlanInfo info = QueryPlanInfo.newBuilder()
-                    .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
-                    .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
-                    .build();
-            final var constraints = QueryPlanConstraint.collectConstraints(plan);
-            return new QueryPlanResult(plan, info, constraints);
-        } finally {
-            Debugger.withDebugger(Debugger::onDone);
-        }
-    }
-
-    @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         try {
@@ -356,7 +339,7 @@ public class CascadesPlanner implements QueryPlanner {
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      final boolean isSortReverse,
-                                     @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+                                     @Nonnull final EvaluationContext evaluationContext) {
         try {
             planPartial(expressionRefSupplier,
                     rootReference ->
@@ -366,7 +349,8 @@ public class CascadesPlanner implements QueryPlanner {
                                     rootReference,
                                     allowedIndexesOptional,
                                     indexQueryabilityFilter,
-                                    isSortReverse));
+                                    isSortReverse,
+                                    evaluationContext));
             return resultOrFail();
         } finally {
             Debugger.withDebugger(Debugger::onDone);
