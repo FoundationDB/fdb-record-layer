@@ -409,14 +409,14 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var resultValue = flatMapPlan.getResultValue();
 
             final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
-            var maxCardinality = outerCardinalities.getMaxCardinality();
-            if (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L) {
+            final var outerMaxCardinality = outerCardinalities.getMaxCardinality();
+            if (!outerMaxCardinality.isUnknown() && outerMaxCardinality.getCardinality() == 1L) {
+                // outer max cardinality is proven to be 1 row
                 return innerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
-            final var innerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getInnerQuantifier());
-            maxCardinality = innerCardinalities.getMaxCardinality();
-            if (!innerOrdering.isDistinct() || (!maxCardinality.isUnknown() && maxCardinality.getCardinality() == 1L)) {
+            if (!outerOrdering.isDistinct()) {
+                // outer ordering is not distinct
                 return outerOrdering.pullUp(resultValue, AliasMap.of(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
