@@ -207,7 +207,6 @@ subprojects {
             protobufVersion = protobuf2Version
         } else if (protoMajorVersion == "3") {
             protobufVersion = protobuf3Version
-            setProperty('coreNotStrict', 'true')
         } else {
             throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
         }
@@ -260,6 +259,7 @@ subprojects {
     }
 
     apply from: rootProject.file('gradle/check.gradle')
+    apply from: rootProject.file('gradle/strict.gradle')
 
     if(System.getenv("DO_NOT_CHECK") != null) {
         task check(overwrite: true, dependsOn: quickCheck) { }

@@ -69,6 +69,20 @@ protobuf {
                 task.addIncludeDir(files("${projectDir}/src/main/proto"))
                 task.addIncludeDir(files("${projectDir}/.out/extracted-include-protos/main"))
             }
+
+            if (protoMajorVersion == '3') {
+                // When generating from syntax = proto2 files, protoc can generate methods that reference
+                // the deprecated PARSER field. Suppress these warnings on generated code
+                // See: https://github.com/protocolbuffers/protobuf/issues/7271
+                task.doLast {
+                    task.outputs.getFiles().forEach {
+                        ant.replace(dir: it, includes: "**/*.java",
+                                token: "public static final class ",
+                                value: "@SuppressWarnings(\"deprecation\") public static final class ",
+                        )
+                    }
+                }
+            }
         }
     }
 }

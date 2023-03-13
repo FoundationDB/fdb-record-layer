@@ -20,9 +20,6 @@
 
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
-if (!hasProperty('coreNotStrict')) {
-    apply from: rootProject.file('gradle/strict.gradle')
-}
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {

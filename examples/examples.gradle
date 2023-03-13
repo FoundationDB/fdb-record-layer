@@ -19,9 +19,6 @@
  */
 
 apply from: rootProject.file('gradle/proto.gradle')
-if (!hasProperty('coreNotStrict')) {
-    apply from: rootProject.file('gradle/strict.gradle')
-}
 apply plugin: 'application'
 
 def coreProject = ":${ext.coreProjectName}"

@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-apply from: rootProject.file('gradle/strict.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
