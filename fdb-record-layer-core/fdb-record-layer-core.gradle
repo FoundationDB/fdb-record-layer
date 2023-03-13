@@ -21,11 +21,6 @@
 apply plugin: 'com.github.johnrengelman.shadow'
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
-// Necessary until deprecation warnings in generated proto code are fixed
-// See: https://github.com/protocolbuffers/protobuf/issues/7271
-if (!hasProperty('coreNotStrict')) {
-    apply from: rootProject.file('gradle/strict.gradle')
-}
 
 configurations {
     repl.extendsFrom testRuntimeOnly
