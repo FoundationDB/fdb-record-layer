@@ -168,7 +168,7 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
-            final FDBRecordStore store = schema.loadStore();
+            final FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
             final var preparedStatementParameters = new PreparedStatementParameters(parameters, namedParameters);
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store)

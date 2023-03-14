@@ -20,13 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
@@ -34,15 +28,13 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CachedMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
-import com.google.common.base.Throwables;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
+import com.apple.foundationdb.relational.recordlayer.storage.StoreConfig;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,10 +47,8 @@ public class RecordLayerDatabase extends AbstractDatabase {
     private final FdbConnection fdbDb;
     private final RecordMetaDataStore metaDataStore;
     private final StoreCatalog storeCatalog;
-    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final int formatVersion;
+    private final RecordLayerConfig recordLayerConfig;
 
-    private final SerializerRegistry serializerRegistry;
     private final RelationalKeyspaceProvider.RelationalDatabasePath databasePath;
     @Nonnull
     private final Options options;
@@ -94,9 +84,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;
-        this.userVersionChecker = config.getUserVersionChecker();
-        this.formatVersion = config.getFormatVersion();
-        this.serializerRegistry = config.getSerializerRegistry();
+        this.recordLayerConfig = config;
         this.databasePath = databasePath;
         this.defaultSchema = defaultSchema;
         this.options = options;
@@ -136,40 +124,9 @@ public class RecordLayerDatabase extends AbstractDatabase {
         schemas.clear();
     }
 
-    @SuppressWarnings("PMD.PreserveStackTrace")
-    //we actually do, the PMD linter just doesn't seem to be able to tell
-    FDBRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        //TODO(bfines) error handling if this store doesn't exist
-
-        RelationalKeyspaceProvider.RelationalSchemaPath schemaPath;
-        try {
-            schemaPath = databasePath.schemaPath(schemaName);
-        } catch (NoSuchDirectoryException nsde) {
-            throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
-        } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-
-        try {
-            return FDBRecordStore.newBuilder()
-                    .setKeySpacePath(schemaPath)
-                    .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                    //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadMetaData(txn, databasePath.toUri(), schemaName))
-                    .setUserVersionChecker(userVersionChecker)
-                    .setFormatVersion(formatVersion)
-                    .setContext(txn.unwrap(FDBRecordContext.class))
-                    .createOrOpen(existenceCheck);
-        } catch (RecordCoreException rce) {
-            Throwable cause = Throwables.getRootCause(rce);
-            if (cause instanceof RecordStoreDoesNotExistException) {
-                throw new RelationalException("Schema does not exist. Schema: <" + schemaName + ">", ErrorCode.UNDEFINED_SCHEMA, cause);
-            } else {
-                throw ExceptionUtil.toRelationalException(rce);
-            }
-        }
+    BackingRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+        StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn);
+        return BackingRecordStore.load(txn, storeConfig, existenceCheck);
     }
 
     FdbConnection getFDBDatabase() {
@@ -180,7 +137,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     /* private helper methods */
 
     @Override
-    public FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+    public BackingRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         return loadStore(this.connection.transaction, schemaId, existenceCheck);
     }
 

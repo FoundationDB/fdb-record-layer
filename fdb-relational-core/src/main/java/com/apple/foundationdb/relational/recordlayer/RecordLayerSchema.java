@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
@@ -28,6 +27,7 @@ import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -52,7 +52,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     private final FDBRecordStoreBase.StoreExistenceCheck existenceCheck;
 
     //TODO(bfines) destroy this when the connection's transaction ends
-    private FDBRecordStore currentStore;
+    private BackingStore currentStore;
 
     /*
      * Used for reference tracking to make sure that we close all the tables that we open.
@@ -97,7 +97,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     }
 
     @Nonnull
-    public FDBRecordStore loadStore() throws RelationalException {
+    public BackingStore loadStore() throws RelationalException {
         if (!this.conn.inActiveTransaction()) {
             if (this.conn.getAutoCommit()) {
                 try {

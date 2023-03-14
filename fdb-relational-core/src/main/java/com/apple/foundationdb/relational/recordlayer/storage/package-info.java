@@ -1,5 +1,5 @@
 /*
- * TupleUtils.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,25 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
-
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.Row;
-
-public final class TupleUtils {
-
-    public static Tuple toFDBTuple(Row relationalTuple) {
-        if (!(relationalTuple instanceof FDBTuple)) {
-            relationalTuple = new FDBTuple(relationalTuple);
-        }
-
-        return ((FDBTuple) relationalTuple).fdbTuple();
-    }
-
-    public static Row toRelationalTuple(Tuple key) {
-        return new FDBTuple(key);
-    }
-
-    private TupleUtils() {
-    }
-}
+/**
+ * Classes for interfacing with database storage through Record Layer interfaces. This wraps the
+ * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore record store} in
+ * an interface that can then also be backed by other data structures, like a
+ * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}.
+ */
+package com.apple.foundationdb.relational.recordlayer.storage;

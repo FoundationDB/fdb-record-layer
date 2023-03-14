@@ -64,7 +64,7 @@ public class QueryExecutor {
     public ResumableIterator<Row> execute(@Nullable Continuation continuation,
                                           @Nonnull ExecuteProperties executeProperties) throws RelationalException {
         if (!isExplain) {
-            final FDBRecordStore fdbRecordStore = Assert.notNull(schema.loadStore());
+            final FDBRecordStore fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStore.class);
             final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                     evaluationContext,
                     continuation == null ? null : continuation.getBytes(), executeProperties);

@@ -62,7 +62,7 @@ public class TransactionBoundDatabaseTest {
     void simpleSelect() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
         RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStore store = schema.loadStore();
+        FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
         try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 
@@ -96,7 +96,7 @@ public class TransactionBoundDatabaseTest {
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
         RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStore store = schema.loadStore();
+        FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
         try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 

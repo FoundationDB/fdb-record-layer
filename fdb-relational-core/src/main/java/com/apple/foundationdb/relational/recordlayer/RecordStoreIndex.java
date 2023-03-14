@@ -21,20 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorIterator;
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -44,15 +35,13 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements Index {
@@ -97,28 +86,8 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
-        FDBRecordStore store = getSchema().loadStore();
-        ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
-        scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
-        try {
-            final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
-            IndexEntry entry;
-            if (!indexEntryRecordCursor.hasNext()) {
-                return null;
-            }
-            entry = indexEntryRecordCursor.next();
-
-            //TODO(bfines) pull the orphan behavior from the options
-            final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = store.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);
-            //TODO(bfines): add in store timing
-            final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, indexRecord);
-            if (storedRecord == null) {
-                return null;
-            }
-            return new MessageTuple(storedRecord.getRecord());
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        BackingStore store = getSchema().loadStore();
+        return store.getFromIndex(index, key, options);
     }
 
     @Override
@@ -132,16 +101,9 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range,
+    protected RecordCursor<IndexEntry> openScan(BackingStore store, TupleRange range,
                                                 @Nullable Continuation continuation, Options options) throws RelationalException {
-        //TODO(bfines) get scan type from Options and/or ScanProperties
-        assert continuation == null || continuation instanceof ContinuationImpl;
-        try {
-            return store.scanIndex(index, IndexScanType.BY_VALUE, range,
-                    continuation == null ? null : continuation.getBytes(), QueryPropertiesUtils.getScanProperties(options));
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        return store.scanIndex(index, range, continuation, options);
     }
 
     @Override

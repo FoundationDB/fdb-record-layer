@@ -22,17 +22,12 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
-import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -43,6 +38,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -93,16 +89,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
         loadRecordType(options);
-        FDBRecordStore store = schema.loadStore();
-        try {
-            final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
-            if (storedRecord == null) {
-                return null;
-            }
-            return new MessageTuple(storedRecord.getRecord());
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        BackingStore store = schema.loadStore();
+        return store.get(key, options);
     }
 
     @Override
@@ -141,83 +129,40 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public boolean deleteRecord(@Nonnull Row key) throws RelationalException {
-        FDBRecordStore store = schema.loadStore();
-        try {
-            return store.deleteRecord(TupleUtils.toFDBTuple(key));
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        BackingStore store = schema.loadStore();
+        return store.delete(key);
     }
 
     @Override
     public void deleteRange(Map<String, Object> prefix) throws RelationalException {
-        FDBRecordStore store = schema.loadStore();
-        List<QueryComponent> queryFields = prefix.entrySet().stream().map(entry -> Query.field(entry.getKey()).equalsValue(entry.getValue())).collect(Collectors.toList());
+        String tableNameForDelete;
         if (loadRecordType(Options.NONE).primaryKeyHasRecordTypePrefix()) {
-            queryFields.add(new RecordTypeKeyComparison(tableName));
+            tableNameForDelete = tableName;
+        } else {
+            tableNameForDelete = null;
         }
-        QueryComponent query;
-        switch (queryFields.size()) {
-            case 0:
-                throw new RelationalException("Delete range with empty key range is only supported on tables with RecordTypeKeys", ErrorCode.INVALID_PARAMETER);
-            case 1:
-                query = queryFields.get(0);
-                break;
-            default:
-                query = Query.and(queryFields);
-                break;
-        }
-        try {
-            store.deleteRecordsWhere(query);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        BackingStore store = schema.loadStore();
+        store.deleteRange(prefix, tableNameForDelete);
     }
 
     @Override
-    @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
     public boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException {
-        FDBRecordStore store = schema.loadStore();
-        try {
-            if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
-                throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER);
-            }
-            if (replaceOnDuplicate) {
-                store.saveRecord(message);
-            } else {
-                store.insertRecord(message);
-            }
-        } catch (MetaDataException mde) {
-            throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", ErrorCode.INVALID_PARAMETER, mde);
-        } catch (RecordAlreadyExistsException raee) {
-            throw new RelationalException("Duplicate primary key for message (" + message + ") on table <" + tableName + ">", ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        BackingStore store = schema.loadStore();
         //TODO(bfines) maybe this should return something other than boolean?
-        return true;
+        return store.insert(tableName, message, replaceOnDuplicate);
     }
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
     public boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
-        FDBRecordStore store = schema.loadStore();
+        BackingStore store = schema.loadStore();
         try {
             final RecordType recordType = store.getRecordMetaData().getRecordType(this.tableName);
             Message message = toDynamicMessage(insert, recordType.getDescriptor());
-            if (replaceOnDuplicate) {
-                store.saveRecord(message);
-            } else {
-                store.insertRecord(message);
-            }
-        } catch (RecordAlreadyExistsException raee) {
-            throw new RelationalException("Duplicate primary key for " + insert + " on table <" + tableName + ">",
-                    ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+            return insertRecord(message, replaceOnDuplicate);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
-        //TODO(bfines) maybe this should return something other than boolean?
-        return true;
     }
 
     /**
@@ -323,17 +268,11 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range,
+    protected RecordCursor<FDBStoredRecord<Message>> openScan(BackingStore store, TupleRange range,
                                                               @Nullable Continuation continuation,
                                                               Options options) throws RelationalException {
         RecordType type = loadRecordType(options);
-        try {
-            final ScanProperties scanProps = QueryPropertiesUtils.getScanProperties(options);
-            return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), scanProps)
-                    .filter(record -> type.equals(record.getRecordType()));
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
+        return store.scanType(type, range, continuation, options);
     }
 
     @Override
@@ -352,12 +291,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     RecordType loadRecordType(Options options) throws RelationalException {
-        FDBRecordStore store = schema.loadStore();
+        BackingStore store = schema.loadStore();
+        RecordMetaData metaData = store.getRecordMetaData();
         if (currentTypeRef == null) {
             try {
                 //just try to load the store, and see if it fails. If it fails, it's not there
                 currentTypeRef = store.getRecordMetaData().getRecordType(tableName);
-                validateRecordType(currentTypeRef, store, options);
+                validateRecordType(currentTypeRef, metaData, options);
                 //make sure to clear our state if the transaction ends
                 this.conn.addCloseListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
@@ -365,13 +305,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
             }
         } else {
             //make sure that this record type is valid _for the operation we are doing now_.
-            validateRecordType(currentTypeRef, store, options);
+            validateRecordType(currentTypeRef, metaData, options);
         }
 
         return currentTypeRef;
     }
 
-    private void validateRecordType(RecordType recordType, FDBRecordStore store, Options options) throws RelationalException {
+    private void validateRecordType(RecordType recordType, RecordMetaData metaData, Options options) throws RelationalException {
         Integer requiredVersion = options.getOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION);
         if (requiredVersion != null) {
             /*
@@ -385,18 +325,19 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
              * The context fields here are carried over from prior implementations.
              */
             final Integer tableMetaDataVersion = recordType.getSinceVersion();
+            final int metaDataVersion = metaData.getVersion();
             if (tableMetaDataVersion == null) {
                 final String errMsg = String.format("table <%s> is not available, creation version is missing from metadata(version <%s>)",
-                        recordType.getName(), store.getRecordMetaData().getVersion());
+                        recordType.getName(), metaDataVersion);
                 throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
-                        .addContext("metadataVersion", store.getRecordMetaData().getVersion())
+                        .addContext("metadataVersion", metaDataVersion)
                         .addContext("recordType", recordType.getName());
             }
             if (requiredVersion != -1 && requiredVersion < tableMetaDataVersion) {
                 final String errMsg = String.format("table <%s> is not available, creation version is invalid for metadata(version <%s>); Required creation version <%s>",
-                        recordType.getName(), store.getRecordMetaData().getVersion(), requiredVersion);
+                        recordType.getName(), metaDataVersion, requiredVersion);
                 throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
-                        .addContext("metadataVersion", store.getRecordMetaData().getVersion())
+                        .addContext("metadataVersion", metaDataVersion)
                         .addContext("recordType", recordType.getName());
             }
         }

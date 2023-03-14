@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
@@ -33,9 +32,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -70,17 +67,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
-        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
-            final FDBRecordStore store = schema.loadStore();
-            final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).build();
-            final Plan<?> plan = Plan.generate(query, planContext);
-            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
-            if (plan instanceof QueryPlan) {
-                return Optional.of(((QueryPlan) plan).execute(executionContext));
-            } else {
-                plan.execute(executionContext);
-                return Optional.empty();
-            }
+        try (RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+            final BackingStore store = schema.loadStore();
+            return store.executeQuery(conn, query, options);
         }
     }
 

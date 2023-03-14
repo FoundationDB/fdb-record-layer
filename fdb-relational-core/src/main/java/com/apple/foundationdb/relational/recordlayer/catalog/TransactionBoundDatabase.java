@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -35,6 +34,8 @@ import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
 import javax.annotation.Nonnull;
@@ -53,7 +54,7 @@ import java.net.URI;
  * Note: this is only a temporary workaround to finish the first step of integration with customers through direct API.
  */
 public class TransactionBoundDatabase extends AbstractDatabase {
-    FDBRecordStore store;
+    BackingStore store;
     URI uri;
     @Nonnull
     final Options options;
@@ -69,14 +70,14 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         if (!(transaction instanceof RecordStoreAndRecordContextTransaction)) {
             throw new RelationalException("TransactionBoundDatabase.connect expects a RecordStoreAndRecordContextTransaction", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
         }
-        store = ((RecordStoreAndRecordContextTransaction) transaction).getRecordStore();
+        store = BackingRecordStore.fromTransactionWithStore(transaction.unwrap(RecordStoreAndRecordContextTransaction.class));
         EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
         setConnection(connection);
         return connection;
     }
 
     @Override
-    public FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         return store;
     }
 

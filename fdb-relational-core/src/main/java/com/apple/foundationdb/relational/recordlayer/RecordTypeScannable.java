@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +39,7 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
             @Nullable Row keyPrefix,
             @Nonnull Options options) throws RelationalException {
         TupleRange range = TupleRange.allOf(TupleUtils.toFDBTuple(keyPrefix));
-        FDBRecordStore store = getSchema().loadStore();
+        BackingStore store = getSchema().loadStore();
         final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);
         return RecordLayerIterator.create(cursor, keyValueTransform());
     }
@@ -47,7 +47,7 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
     /* ****************************************************************************************************************/
     /* abstract methods */
 
-    protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range,
+    protected abstract RecordCursor<CursorT> openScan(BackingStore store, TupleRange range,
                                                       @Nullable Continuation continuation, Options options) throws RelationalException;
 
     protected abstract RecordLayerSchema getSchema();

@@ -233,7 +233,9 @@ public class TransactionBoundDatabaseWithEnumTest {
     private Transaction createTransaction(RelationalConnectionRule connRule) throws RelationalException {
         EmbeddedRelationalConnection connection = (EmbeddedRelationalConnection) connRule.getUnderlying();
         FDBRecordContext context = connection.frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class);
-        SubspaceProvider subspaceProvider = connection.frl.loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY).getSubspaceProvider();
+        SubspaceProvider subspaceProvider = connection.frl.loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY)
+                .unwrap(FDBRecordStore.class)
+                .getSubspaceProvider();
         FDBRecordStore recordStore = createRecordStore(context, subspaceProvider);
         return new RecordStoreAndRecordContextTransaction(recordStore, context);
     }

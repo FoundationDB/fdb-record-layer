@@ -156,7 +156,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) context.connection;
             final String schemaName = conn.getSchema();
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                final FDBRecordStore store = recordLayerSchema.loadStore();
+                final FDBRecordStore store = recordLayerSchema.loadStore().unwrap(FDBRecordStore.class);
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
                 RecordQueryPlan recordQueryPlan = generatePhysicalPlan(planContext, context.options);
                 if (forExplain) {

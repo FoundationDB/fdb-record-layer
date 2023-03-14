@@ -159,7 +159,7 @@ public class PlanGenerationStackTest {
     void queryTestHarness(final int index, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
-        final FDBRecordStore store = database.loadSchema(schemaName).loadStore();
+        final FDBRecordStore store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStore.class);
         final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
         if (error == null) {
             Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext));
