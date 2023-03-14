@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
-import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
+import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalQuery;
 
@@ -104,17 +103,24 @@ public class ChainedPlanCache implements PlanCache {
     @Nullable
     public RecordQueryPlan getPlan(@Nonnull LogicalQuery query, @Nonnull SchemaState schemaState) {
         stats.reads.incrementAndGet();
-        //get readable indexes, since they are the required indexes for the set.
-        final Map<String, IndexState> indexStates = schemaState.getState().getIndexStates();
-        List<String> readableIndexes = new ArrayList<>();
-        for (Map.Entry<String, IndexState> state : indexStates.entrySet()) {
-            if (state.getValue().isScannable()) {
-                readableIndexes.add(state.getKey());
-            }
-        }
-        Collections.sort(readableIndexes);
+
+        // Construct a list containing the maximum scannable index in the store. Note that CacheKeys are
+        // sorted first by their query and then by their sorted list of used indexes. So, to find all
+        // possible plans, we need to look through the map for entries that (1) have the logical query and
+        // (2) do not require any non-readable indexes. By constructing a list of the max (lexicographically)
+        // readable index, we only exclude plans for this query that contain a non-readable index (as any CacheKey
+        // for this query that is greater must have at least one index that sorts higher than the max readable
+        // index)
+        final RecordStoreState recordStoreState = schemaState.getState();
+        final List<String> maxReadableIndexes = schemaState.getSchemaMetaData().getAllIndexes().stream()
+                .filter(index -> recordStoreState.getState(index).isScannable())
+                .map(Index::getName)
+                .max(String::compareTo)
+                .map(List::of)
+                .orElse(Collections.emptyList());
+
         CacheKey lowKey = new CacheKey(query, List.of());
-        CacheKey highKey = new CacheKey(query, readableIndexes);
+        CacheKey highKey = new CacheKey(query, maxReadableIndexes);
 
         final ConcurrentNavigableMap<CacheKey, CacheValue> possibleEntries = cacheMap.subMap(lowKey, true, highKey, true);
         for (Map.Entry<CacheKey, CacheValue> possibleMatch : possibleEntries.entrySet()) {
@@ -142,8 +148,7 @@ public class ChainedPlanCache implements PlanCache {
         );
 
         //used as the secondary field in the entry
-        // TODO used indexes should not be set here, this is a crux that just puts in all the queried record types
-        List<String> indexFields = new ArrayList<>(RecordTypesProperty.evaluate(GroupExpressionRef.of(plan)));
+        List<String> indexFields = new ArrayList<>(plan.getUsedIndexes());
         Collections.sort(indexFields); //make sure that we have a uniform ordering
         CacheKey key = new CacheKey(query, indexFields);
         cacheMap.put(key, new CacheValue(query, plan, cacheConditions));
