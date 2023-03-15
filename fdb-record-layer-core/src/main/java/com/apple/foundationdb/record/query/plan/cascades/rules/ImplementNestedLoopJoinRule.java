@@ -21,27 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -54,7 +45,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
@@ -155,72 +145,38 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        final Quantifier.Physical newOuterQuantifier;
-        if (outerPredicates.isEmpty()) {
-            // create a new quantifier using the outer alias
-            newOuterQuantifier =
-                    Quantifier.physicalBuilder().withAlias(outerAlias).build(GroupExpressionRef.from(outerPartition.getPlans()));
-        } else {
-            // create a new quantifier using a new alias
-            final var newOuterLowerQuantifier =
-                    Quantifier.physicalBuilder().build(GroupExpressionRef.from(outerPartition.getPlans()));
-            final var newOuterPredicates =
-                    QueryPredicate.translatePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(outerAlias, newOuterLowerQuantifier.getAlias())), outerPredicates);
-            // create the new outer quantifier that uses the original outer alias
-            newOuterQuantifier =
-                    Quantifier.physicalBuilder()
-                            .withAlias(outerAlias)
-                            .build(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, newOuterPredicates)));
+        var outerRef = GroupExpressionRef.from(outerPartition.getPlans());
+
+        if (outerQuantifier instanceof Quantifier.Existential) {
+            outerRef = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
+                    new NullValue(outerQuantifier.getFlowedObjectType())));
         }
 
-        var newInnerQuantifier =
-                Quantifier.physicalBuilder().withAlias(innerAlias).build(GroupExpressionRef.from(innerPartition.getPlans()));
+        if (!outerPredicates.isEmpty()) {
+            // create a new quantifier using a new alias
+            final var newOuterLowerQuantifier = Quantifier.physicalBuilder().build(outerRef);
+            outerRef = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
+        }
+
+        final var newOuterQuantifier =
+                Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
+
+        var innerRef =
+                GroupExpressionRef.from(innerPartition.getPlans());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
-            newInnerQuantifier =
-                    Quantifier.physicalBuilder()
-                            .withAlias(innerAlias)
-                            .build(GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(newInnerQuantifier, new NullValue(innerQuantifier.getFlowedObjectType()))));
+            innerRef = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
+                    new NullValue(innerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerInnerPredicates.isEmpty()) {
-            final var newOuterInnerPredicates =
-                    rewritePredicates(TranslationMap.rebaseWithAliasMap(AliasMap.of(innerAlias, newInnerQuantifier.getAlias())),
-                            innerAlias,
-                            newInnerQuantifier.getFlowedObjectType(),
-                            outerInnerPredicates);
-
-            newInnerQuantifier =
-                    Quantifier.physicalBuilder()
-                            .withAlias(innerAlias)
-                            .build(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerQuantifier, newOuterInnerPredicates)));
+            final var newInnerLowerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
+            innerRef = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
         }
+
+        final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
         call.yield(GroupExpressionRef.of(
                 new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential)));
-    }
-
-    @Nonnull
-    public static List<QueryPredicate> rewritePredicates(@Nonnull final TranslationMap translationMap,
-                                                         @Nonnull final CorrelationIdentifier innerAlias,
-                                                         @Nonnull final Type innerType,
-                                                         @Nonnull final List<QueryPredicate> predicates) {
-        final Supplier<QueryPredicate> rewrittenExistsPredicateSupplier =
-                () -> new ValuePredicate(QuantifiedObjectValue.of(innerAlias, innerType),
-                        new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
-
-        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-        for (final var predicate : predicates) {
-            final var newOuterInnerPredicate =
-                    predicate.replaceLeavesMaybe(leafPredicate -> {
-                        if (leafPredicate instanceof ExistsPredicate &&
-                                ((ExistsPredicate)leafPredicate).getExistentialAlias().equals(innerAlias)) {
-                            leafPredicate = rewrittenExistsPredicateSupplier.get();
-                        }
-                        return leafPredicate.translateLeafPredicate(translationMap);
-                    }).orElseThrow(() -> new RecordCoreException("unable to rewrite predicate"));
-            resultPredicatesBuilder.add(newOuterInnerPredicate);
-        }
-        return resultPredicatesBuilder.build();
     }
 }

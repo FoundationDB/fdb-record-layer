@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -35,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -88,6 +91,13 @@ public class ExistsPredicate implements LeafQueryPredicate {
         } else {
             return this;
         }
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate toResidualPredicate() {
+        return new ValuePredicate(QuantifiedObjectValue.of(existentialAlias, new Type.Any()),
+                new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

@@ -101,8 +101,7 @@ public class PartialMatch {
 
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
-
-
+    
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,

@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -340,14 +340,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 ParameterRelationshipGraph.empty());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                descendantPlans(
-                        flatMapPlan(
-                                descendantPlans(
-                                        indexPlan()
-                                                .where(indexName("RestaurantRecord$name"))
-                                                .and(scanComparisons(range("[[name],[name]]")))),
-                                descendantPlans(typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
-                                        .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))))));
+                flatMapPlan(
+                        typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))),
+                        descendantPlans(
+                                indexPlan()
+                                        .where(indexName("RestaurantRecord$name"))
+                                        .and(scanComparisons(range("[[name],[name]]")))));
 
         assertMatchesExactly(plan, planMatcher);
     }
@@ -411,7 +410,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var outerReviewerIdValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "reviewer"));
                     final var innerReviewerIdValue = FieldValue.ofFieldName(innerQuantifiedValue, "id");
 
-                    //graphExpansionBuilder.addPredicate(new ValuePredicate(outerReviewerIdValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, innerReviewerIdValue)));
                     graphExpansionBuilder.addPredicate(new ValuePredicate(innerReviewerIdValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, outerReviewerIdValue)));
 
                     final var reviewerNameValue = FieldValue.ofFieldName(innerQuantifiedValue, "name");
@@ -428,14 +426,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 ParameterRelationshipGraph.empty());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                descendantPlans(
-                        flatMapPlan(
-                                descendantPlans(
-                                        indexPlan()
-                                                .where(indexName("RestaurantRecord$name"))
-                                                .and(scanComparisons(range("[[name],[name]]")))),
-                                descendantPlans(typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
-                                        .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))))));
+                flatMapPlan(
+                        descendantPlans(
+                                indexPlan()
+                                        .where(indexName("RestaurantRecord$name"))
+                                        .and(scanComparisons(range("[[name],[name]]")))),
+                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS $q6.review.reviewer]"))))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
         assertMatchesExactly(plan, planMatcher);
     }
@@ -444,109 +441,108 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testMediumJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
-        while(true) {
-            // find restaurants that where at least reviewed by two common reviewers
-            final var plan = cascadesPlanner.planGraph(
-                    () -> {
-                        final var allRecordTypes =
-                                ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plan = cascadesPlanner.planGraph(
+                () -> {
+                    final var allRecordTypes =
+                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
 
-                        var graphExpansionBuilder = GraphExpansion.builder();
+                    var graphExpansionBuilder = GraphExpansion.builder();
 
-                        var reviewer1Qun =
-                                Quantifier.forEach(GroupExpressionRef.of(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
-                                                new AccessHints())));
+                    var reviewer1Qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
 
-                        reviewer1Qun = Quantifier.forEach(GroupExpressionRef.of(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
-                                        reviewer1Qun,
-                                        Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReviewer.getDescriptor()))));
-                        graphExpansionBuilder.addQuantifier(reviewer1Qun);
+                    reviewer1Qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
+                                    reviewer1Qun,
+                                    Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReviewer.getDescriptor()))));
+                    graphExpansionBuilder.addQuantifier(reviewer1Qun);
 
-                        var reviewer2Qun =
-                                Quantifier.forEach(GroupExpressionRef.of(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
-                                                new AccessHints())));
+                    var reviewer2Qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
 
-                        reviewer2Qun = Quantifier.forEach(GroupExpressionRef.of(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
-                                        reviewer2Qun,
-                                        Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReviewer.getDescriptor()))));
-                        graphExpansionBuilder.addQuantifier(reviewer2Qun);
+                    reviewer2Qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
+                                    reviewer2Qun,
+                                    Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReviewer.getDescriptor()))));
+                    graphExpansionBuilder.addQuantifier(reviewer2Qun);
 
-                        var restaurantQun =
-                                Quantifier.forEach(GroupExpressionRef.of(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
-                                                new AccessHints())));
+                    var restaurantQun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
 
-                        restaurantQun = Quantifier.forEach(GroupExpressionRef.of(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
-                                        restaurantQun,
-                                        Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
-                        graphExpansionBuilder.addQuantifier(restaurantQun);
+                    restaurantQun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                    restaurantQun,
+                                    Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
+                    graphExpansionBuilder.addQuantifier(restaurantQun);
 
-                        var reviewsGraphExpansionBuilder = GraphExpansion.builder();
+                    var reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
-                        var explodeReviewsQun =
-                                Quantifier.forEach(GroupExpressionRef.of(
-                                        new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
+                    var explodeReviewsQun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
-                        reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
-                        reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
-                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), "id"))));
+                    reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
+                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType()), "id"))));
 
-                        var explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
-                        reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
-                        final var existential1Quantifier = Quantifier.existential(GroupExpressionRef.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    var explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
+                    reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
+                    final var existential1Quantifier = Quantifier.existential(GroupExpressionRef.of(reviewsGraphExpansionBuilder.build().buildSelect()));
 
-                        graphExpansionBuilder.addQuantifier(existential1Quantifier);
-                        graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
+                    graphExpansionBuilder.addQuantifier(existential1Quantifier);
+                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
 
-                        reviewsGraphExpansionBuilder = GraphExpansion.builder();
+                    reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
-                        explodeReviewsQun =
-                                Quantifier.forEach(GroupExpressionRef.of(
-                                        new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
+                    explodeReviewsQun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
-                        reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
-                        reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
-                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType()), "id"))));
+                    reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
+                    reviewsGraphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType()), "reviewer"),
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType()), "id"))));
 
-                        explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
-                        reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
-                        var existential2Quantifier = Quantifier.existential(GroupExpressionRef.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
+                    reviewsGraphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(explodeResultValue.getResultType(), Optional.of("review")), explodeResultValue));
+                    var existential2Quantifier = Quantifier.existential(GroupExpressionRef.of(reviewsGraphExpansionBuilder.build().buildSelect()));
 
-                        graphExpansionBuilder.addQuantifier(existential2Quantifier);
-                        graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
+                    graphExpansionBuilder.addQuantifier(existential2Quantifier);
+                    graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
 
-                        final var reviewer1QuantifiedValue = QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType());
-                        final var reviewer2QuantifiedValue = QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType());
-                        final var restaurantQuantifiedValue = QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType());
+                    final var reviewer1QuantifiedValue = QuantifiedObjectValue.of(reviewer1Qun.getAlias(), reviewer1Qun.getFlowedObjectType());
+                    final var reviewer2QuantifiedValue = QuantifiedObjectValue.of(reviewer2Qun.getAlias(), reviewer2Qun.getFlowedObjectType());
+                    final var restaurantQuantifiedValue = QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType());
 
-                        final var reviewer1NameValue = FieldValue.ofFieldName(reviewer1QuantifiedValue, "name");
-                        final var reviewer2NameValue = FieldValue.ofFieldName(reviewer2QuantifiedValue, "name");
-                        final var restaurantNameValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "name");
-                        final var restaurantNoValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "rest_no");
+                    final var reviewer1NameValue = FieldValue.ofFieldName(reviewer1QuantifiedValue, "name");
+                    final var reviewer2NameValue = FieldValue.ofFieldName(reviewer2QuantifiedValue, "name");
+                    final var restaurantNameValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "name");
+                    final var restaurantNoValue = FieldValue.ofFieldName(restaurantQuantifiedValue, "rest_no");
 
-                        graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer1NameValue.getResultType(), Optional.of("reviewer1Name")), reviewer1NameValue));
-                        graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer2NameValue.getResultType(), Optional.of("reviewer2Name")), reviewer2NameValue));
-                        graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restaurantNameValue.getResultType(), Optional.of("restaurantName")), restaurantNameValue));
-                        graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restaurantNoValue.getResultType(), Optional.of("restaurantNo")), restaurantNameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer1NameValue.getResultType(), Optional.of("reviewer1Name")), reviewer1NameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(reviewer2NameValue.getResultType(), Optional.of("reviewer2Name")), reviewer2NameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restaurantNameValue.getResultType(), Optional.of("restaurantName")), restaurantNameValue));
+                    graphExpansionBuilder.addResultColumn(Column.of(Type.Record.Field.of(restaurantNoValue.getResultType(), Optional.of("restaurantNo")), restaurantNameValue));
 
-                        final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
-                        return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                    },
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    false,
-                    ParameterRelationshipGraph.empty());
-        }
+                    final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                false,
+                ParameterRelationshipGraph.empty());
+
         // TODO write a matcher when this plan becomes more stable
-        //Assertions.assertTrue(plan instanceof RecordQueryMapPlan);
+        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -654,7 +650,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 ParameterRelationshipGraph.empty());
 
         // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plan instanceof RecordQueryMapPlan);
+        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

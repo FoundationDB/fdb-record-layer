@@ -53,7 +53,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -68,7 +67,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
@@ -84,10 +82,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -365,17 +361,18 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
                             flatMapPlan(
-                                    typeFilterPlan(scanPlan())
-                                            .where(recordTypes(containsAll(ImmutableSet.of("RestaurantRecord")))),
+                                    indexPlan()
+                                            .where(indexName("review_rating"))
+                                            .and(scanComparisons(range("[[5],[5]]"))),
                                     descendantPlans(
                                             predicatesFilterPlan(anyPlan())
                                                     .where(predicates(
                                                             SetMatcher.exactlyInAnyOrder(
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("rating"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)),
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("reviewer"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1L)))))))));
-            assertEquals(1754499087, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1559664645, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-575113657, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(421777963, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1395511816, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(416417069, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> TestHelpers.assertDiscardedAtMost(5, context)));

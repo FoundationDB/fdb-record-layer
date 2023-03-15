@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -129,6 +130,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             equalityBoundValueMapBuilder.put(normalizedValue, comparison);
         }
 
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just a.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
         final var result = ImmutableList.<OrderingPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
@@ -147,7 +151,10 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            result.add(OrderingPart.of(normalizedValue, isReverse));
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                result.add(OrderingPart.of(normalizedValue, isReverse));
+            }
         }
 
         return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);

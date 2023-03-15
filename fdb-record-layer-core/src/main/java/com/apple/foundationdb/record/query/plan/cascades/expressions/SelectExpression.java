@@ -483,14 +483,17 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Optional.empty();
         }
 
-        final var isAnyCandidatePredicateFiltering =
-                getPredicates()
-                        .stream()
-                        .anyMatch(predicate -> !(predicate instanceof Placeholder) && !predicate.isTautology());
-        if (isAnyCandidatePredicateFiltering) {
-            return Optional.empty();
+        for (final var predicate : getPredicates()) {
+            if (predicate instanceof Placeholder) {
+                if (!((Placeholder)predicate).getRanges().isEmpty()) {
+                    // placeholder with a constraint, we need to bail
+                    return Optional.empty();
+                }
+            } else if (!predicate.isTautology()) {
+                // predicate that is not a tautology
+                return Optional.empty();
+            }
         }
-
         return Optional.of(childMatchInfo);
     }
 

@@ -156,7 +156,6 @@ public class PlannerRuleSet {
             new ImplementSimpleSelectRule(),
             new ImplementExplodeRule(),
             new ImplementNestedLoopJoinRule(),
-//            new ImplementExistentialNestedLoopJoinRule(),
             new PartitionSelectRule(),
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
