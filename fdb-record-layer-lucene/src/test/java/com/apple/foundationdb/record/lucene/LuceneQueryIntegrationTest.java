@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -149,4 +151,31 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void notLucene() throws Exception {
+        useRewritePlanner = false;
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaData -> {
+                metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex.toProto()));
+                metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex2.toProto()));
+            });
+            setupPlanner(null);
+
+            QueryComponent filter = new LuceneQueryComponent("text2:test", List.of("text2"));
+            RecordQuery rq = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
+                    .setFilter(filter)
+                    .build();
+
+            RecordQuery notQuery = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
+                    .setFilter(new NotComponent(filter))
+                    .build();
+
+            final RecordQueryPlan plan = planner.plan(rq);
+            final RecordQueryPlan notPlan = planner.plan(notQuery);
+            Assertions.assertEquals(-174217685, plan.planHash());
+            Assertions.assertEquals(-173294164, notPlan.planHash());
+        }
+    }
 }

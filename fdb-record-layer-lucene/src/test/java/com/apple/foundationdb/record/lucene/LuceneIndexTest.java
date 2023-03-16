@@ -843,6 +843,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(-35583570, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null,
                                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build())
@@ -876,6 +877,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(-35583570, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null,
                                     ExecuteProperties.newBuilder().setSkip(10).setReturnedRowLimit(50).build())
@@ -909,6 +911,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(-35583570, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null,
                                     ExecuteProperties.newBuilder().setSkip(10).setReturnedRowLimit(50).build())
@@ -942,6 +945,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(-35583570, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null,
                                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build())
@@ -1432,24 +1436,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void searchForAutoComplete() throws Exception {
-        searchForAutoCompleteAndAssert("good", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+        searchForAutoCompleteAndAssert("good", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, -643052811);
     }
 
     @Test
     void searchForAutoCompleteWithoutFieldWithoutTerm() {
         assertThrows(RecordCoreArgumentException.class,
-                () -> searchForAutoCompleteAndAssert("", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT),
+                () -> searchForAutoCompleteAndAssert("", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, -741592046),
                 "Invalid query for auto-complete search");
     }
 
     @Test
     void searchForAutoCompleteWithPrefix() throws Exception {
-        searchForAutoCompleteAndAssert("goo", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+        searchForAutoCompleteAndAssert("goo", true, false, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, -738413461);
     }
 
     @Test
     void searchForAutoCompleteWithHighlight() throws Exception {
-        searchForAutoCompleteAndAssert("good", true, true, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT);
+        searchForAutoCompleteAndAssert("good", true, true, DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT, -643052811);
     }
 
     @Test
@@ -1506,6 +1510,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(1465887402, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1565,6 +1570,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD));
+            assertEquals(577096837, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1605,6 +1611,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             MAP_ON_VALUE_INDEX_STORED_FIELDS);
+            assertEquals(481282751, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1821,6 +1828,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS);
+            assertEquals(1634876274, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -2527,7 +2535,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void searchForAutoCompleteAndAssert(String query, boolean matches, boolean highlight, int textSizeLimit) throws Exception {
+    private void searchForAutoCompleteAndAssert(String query, boolean matches, boolean highlight, int textSizeLimit, int planHash) throws Exception {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT, textSizeLimit);
         try (FDBRecordContext context = openContext(storageBuilder)) {
@@ -2540,6 +2548,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD));
+            assertEquals(planHash, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -2608,6 +2617,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD));
+            assertEquals(-392797110, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
