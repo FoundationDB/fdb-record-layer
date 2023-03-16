@@ -91,7 +91,7 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return super.planHash() - PlanHashable.iterablePlanHash(hashKind, negatedChildren);
+        return super.planHash(hashKind) - PlanHashable.iterablePlanHash(hashKind, negatedChildren);
     }
 
     @Override
