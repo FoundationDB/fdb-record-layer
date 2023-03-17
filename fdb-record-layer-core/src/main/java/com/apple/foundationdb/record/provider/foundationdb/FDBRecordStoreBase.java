@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.FallbackCursor;
@@ -168,6 +169,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nullable
     SubspaceProvider getSubspaceProvider();
+
+    /**
+     * Get the {@link RecordStoreState} for this store.
+     * This represents the indexes that are disabled or in the process of being rebuilt.
+     * If the state is not already loaded, it is loaded synchronously.
+     * @return the store state for this store
+     */
+    @Nonnull
+    RecordStoreState getRecordStoreState();
 
     /**
      * Get the serializer used to convert records into byte arrays.
