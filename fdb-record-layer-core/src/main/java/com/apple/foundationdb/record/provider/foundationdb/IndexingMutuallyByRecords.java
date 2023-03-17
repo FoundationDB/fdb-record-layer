@@ -373,7 +373,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             }
             if (rangeToBuild != null) {
                 infiniteLoopProtection(rangeToBuild, missingRanges);
-                final List<Object> additionalLogMessageKeyValues = new ArrayList<>(Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex"));
+                final List<Object> additionalLogMessageKeyValues = new ArrayList<>(
+                        Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
+                                LogMessageKeys.RANGE, rangeToBuild,
+                                LogMessageKeys.ORIGINAL_RANGE, fragmentRange));
                 additionalLogMessageKeyValues.addAll(fragmentLogMessageKeyValues());
                 return iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, rangeToBuild),
