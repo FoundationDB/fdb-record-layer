@@ -74,7 +74,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
-        if (selectExpression.getQuantifiers().size() < 2) {
+        if (selectExpression.getQuantifiers().size() < 3) {
             return;
         }
 

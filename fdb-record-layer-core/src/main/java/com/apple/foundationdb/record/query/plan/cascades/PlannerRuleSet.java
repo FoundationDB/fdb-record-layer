@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.MergeFetchIntoCov
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeProjectionAndFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicatesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.OrToLogicalUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
@@ -157,6 +158,7 @@ public class PlannerRuleSet {
             new ImplementExplodeRule(),
             new ImplementNestedLoopJoinRule(),
             new PartitionSelectRule(),
+            new PartitionBinarySelectRule(),
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),

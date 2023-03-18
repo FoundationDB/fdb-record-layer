@@ -122,6 +122,7 @@ public class PredicateMultiMap {
             this.parameterAliasOptional = parameterAlias;
         }
 
+        // TODO remove this as everything has a mapping
         public boolean hasMapping() {
             return candidatePredicateOptional.isPresent();
         }

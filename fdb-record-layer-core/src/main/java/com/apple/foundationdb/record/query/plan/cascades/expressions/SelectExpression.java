@@ -340,47 +340,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        //
-        // Go through each predicate on the query side in an attempt to find predicates on the candidate side that
-        // can subsume the current predicate. For instance, `x < 5` on the query side can be subsumed by a placeholder
-        // for x in the candidate. A predicate `x < 5' is not subsumed by 'x = 10' as the set of records retained by
-        // applying 'x = 10' does not contain all of those retained after applying 'x < 5'.
-        // Predicates on the query side can at least be subsumed by a tautology 'true' which should always be possible.
-        // Whenever the pairing is lossy, for instance `x < 5' is subsumed by 'x < 10', the query side predicate needs
-        // to be compensated if and when the match is realized. Compensating a predicate usually means its reapplication
-        // as a residual filter. If a predicate is matched to a placeholder, the match is considered lossless as the
-        // placeholder can be morphed into the right lossless pairing.
-        //
-        // Join predicates: Join predicates are matched the same way as local predicates with a complication.
-        // If a join come across a join predicate we need to consider the potential other application of this predicate
-        // in another match and/or match candidate.
-        //
-        // Example:
-        //
-        // SELECT *
-        // FROM R r, S s
-        // WHERE r.a < 5 AND s.b = 10 AND r.x = s.y
-        //
-        // The predicate 'r.x = s.y' can be used as a predicate for matching an index on R(x, a) or for
-        // matching an index on S(b, y). In fact the predicate needs to be shared in some way such that the planner
-        // can later on make the right decision based on cost, etc.
-        //
-        // The way this is implemented is to create two matches one where the predicate is repossessed to the match
-        // at hand. When we match R(x, a) we repossess r.x = r.y to be subsumed by r.x = ? on
-        // the candidate side. Vice versa, when we match S(b, y) we repossess s.y = r.x to be subsumed by s.y = ? on the
-        // candidate side.
-        //
-        // Using this approach we create a problem that these two matches can coexist in a way that they cannot
-        // be realized, that is planned together at all as both matches provide the other's placeholder value. In fact,
-        // we have forced the match to (if it were to be planned) become the inner of a join. It would be beneficial,
-        // however, to also create a version of the match that does not consider the join predicate at all.
-        // This would allow a match on S(b, y) to only consider the s.b = 10 predicate and would allow us to use the
-        // same index but plan its access as the outer. This match is then planned together with the match using the
-        // repossessed predicate:
-        //
-        // FLATMAP(INDEXSCAN(S(b, y, [10, -inf], [10, inf]) s, INDEXSCAN(R(x, a) [s.y, -inf], [s.y, 5]))
-        //
-
         final var correlationOrder = getCorrelationOrder();
         final var localAliases = correlationOrder.getSet();
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
@@ -396,6 +355,19 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             for (final var correlatedAlias : predicateCorrelatedTo) {
                 if (!aliasMap.containsSource(correlatedAlias)) {
+                    //
+                    // The reason for the following if is tricky. An EXISTS() over an existential can be matched
+                    // even though the existential quantifier itself is not matched. This can happen even if the candidate
+                    // does not have a quantifier counterpart for the existential quantifier.
+                    // This means that is impossible for the match to apply the existential as part of the sargables
+                    // itself. It is, however, possible that another match (presumably using a different candidate) is
+                    // created independently of this one that can actually use the existential in its own match. Then,
+                    // the data access rule may intersect the two matches (and their intersections) and get rid of the
+                    // need of compensating for this existential altogether.
+                    // TODO Figure out if we can go ahead with a match that creates an impossible compensation. In that
+                    //      way the match cannot be used by itself but can participate in an intersection that may
+                    //      eliminate that impossible compensation
+                    //
                     if (aliasToQuantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
                         final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
                         for (final var dependsOnAlias : correlatedDependsOn) {
@@ -644,6 +616,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Compensation.impossibleCompensation();
         }
 
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
+        final var unmatchedQuantifierAliases = unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
+        boolean isImpossible = false;
+
         //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
         // predicate MUST have a mapping to the other side (which may just be a tautology). If something needs to be
@@ -655,6 +631,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             if (predicateMappingOptional.isPresent()) {
                 final var predicateMapping = predicateMappingOptional.get();
 
+                final var queryPredicate = predicateMapping.getQueryPredicate();
+                if (queryPredicate.getCorrelatedTo().stream().anyMatch(unmatchedQuantifierAliases::contains)) {
+                    isImpossible = true;
+                }
+
                 final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
                         predicateMapping
                                 .compensatePredicateFunction()
@@ -664,7 +645,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
         final var isCompensationNeeded =
                 !unmatchedQuantifiers.isEmpty() || !predicateCompensationMap.isEmpty() || matchInfo.getRemainingComputationValueOptional().isPresent();
 
@@ -685,7 +665,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Compensation.impossibleCompensation();
         }
 
-        return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
+        return Compensation.ofChildCompensationAndPredicateMap(isImpossible,
+                childCompensation,
                 predicateCompensationMap,
                 getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
