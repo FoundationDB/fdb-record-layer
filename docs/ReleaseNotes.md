@@ -15,8 +15,6 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Feature** Pull up getRecordState to the FDBRecordStoreBase [(Issue #2065)](https://github.com/FoundationDB/fdb-record-layer/issues/2065)
-
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +38,11 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.356.0
+
+* **Feature** Pull up getRecordState to the FDBRecordStoreBase [(Issue #2065)](https://github.com/FoundationDB/fdb-record-layer/issues/2065)
+
 
 ### 3.3.355.0
 
