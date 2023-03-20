@@ -62,39 +62,27 @@ dmlStatement
 transactionStatement
     : startTransaction
     | beginWork | commitWork | rollbackWork
-    | savepointStatement | rollbackStatement
-    | releaseStatement
+    | rollbackStatement
     ;
 
 preparedStatement
     : prepareStatement | executeStatement | deallocatePrepare
     ;
 
-// remark: NOT INCLUDED IN sqlStatement, but include in body
-//  of routine's statements
-compoundStatement
-    : blockStatement
-    | caseStatement | ifStatement | leaveStatement
-    | loopStatement | repeatStatement | whileStatement
-    | iterateStatement | returnStatement | cursorStatement
-    ;
-
 administrationStatement
     : alterUser | createUser | dropUser | grantStatement
-    | grantProxy | renameUser | revokeStatement
-    | revokeProxy | analyzeTable | checkTable
+    | renameUser | revokeStatement
+    | analyzeTable | checkTable
     | checksumTable | optimizeTable | repairTable
-    | createUdfunction | installPlugin | uninstallPlugin
-    | setStatement | showStatement | binlogStatement
-    | cacheIndexStatement | killStatement
-    | loadIndexIntoCache | resetStatement
-    | shutdownStatement
+    | setStatement | showStatement 
+    | killStatement
+    | resetStatement
     ;
 
 utilityStatement
     : simpleDescribeStatement | fullDescribeStatement
-    | helpStatement | useStatement | signalStatement
-    | resignalStatement | diagnosticsStatement
+    | helpStatement | useStatement 
+    | diagnosticsStatement
     ;
 
 
@@ -472,16 +460,8 @@ rollbackWork
       (norelease=NO? RELEASE)?
     ;
 
-savepointStatement
-    : SAVEPOINT uid
-    ;
-
 rollbackStatement
     : ROLLBACK WORK? TO SAVEPOINT? uid
-    ;
-
-releaseStatement
-    : RELEASE SAVEPOINT uid
     ;
 
 // details
@@ -536,101 +516,6 @@ deallocatePrepare
     : dropFormat=(DEALLOCATE | DROP) PREPARE uid
     ;
 
-
-// Compound Statements
-
-routineBody
-    : blockStatement | sqlStatement
-    ;
-
-// details
-
-blockStatement
-    : (uid ':')? BEGIN
-      (
-        (declareVariable SEMI)*
-        (declareCondition SEMI)*
-        (declareCursor SEMI)*
-        (declareHandler SEMI)*
-        procedureSqlStatement*
-      )?
-      END uid?
-    ;
-
-caseStatement
-    : CASE (uid | expression)? caseAlternative+
-      (ELSE procedureSqlStatement+)?
-      END CASE
-    ;
-
-ifStatement
-    : IF expression
-      THEN thenStatements+=procedureSqlStatement+
-      elifAlternative*
-      (ELSE elseStatements+=procedureSqlStatement+ )?
-      END IF
-    ;
-
-iterateStatement
-    : ITERATE uid
-    ;
-
-leaveStatement
-    : LEAVE uid
-    ;
-
-loopStatement
-    : (uid ':')?
-      LOOP procedureSqlStatement+
-      END LOOP uid?
-    ;
-
-repeatStatement
-    : (uid ':')?
-      REPEAT procedureSqlStatement+
-      UNTIL expression
-      END REPEAT uid?
-    ;
-
-returnStatement
-    : RETURN expression
-    ;
-
-whileStatement
-    : (uid ':')?
-      WHILE expression
-      DO procedureSqlStatement+
-      END WHILE uid?
-    ;
-
-cursorStatement
-    : CLOSE uid                                                     #CloseCursor
-    | FETCH (NEXT? FROM)? uid INTO uidList                          #FetchCursor
-    | OPEN uid                                                      #OpenCursor
-    ;
-
-// details
-
-declareVariable
-    : DECLARE uidList dataType (DEFAULT expression)?
-    ;
-
-declareCondition
-    : DECLARE uid CONDITION FOR
-      ( decimalLiteral | SQLSTATE VALUE? STRING_LITERAL)
-    ;
-
-declareCursor
-    : DECLARE uid CURSOR FOR selectStatement
-    ;
-
-declareHandler
-    : DECLARE handlerAction=(CONTINUE | EXIT | UNDO)
-      HANDLER FOR
-      handlerConditionValue (',' handlerConditionValue)*
-      routineBody
-    ;
-
 handlerConditionValue
     : decimalLiteral                                                #handlerConditionCode
     | SQLSTATE VALUE? STRING_LITERAL                                #handlerConditionState
@@ -641,17 +526,7 @@ handlerConditionValue
     ;
 
 procedureSqlStatement
-    : (compoundStatement | sqlStatement) SEMI
-    ;
-
-caseAlternative
-    : WHEN (constant | expression)
-      THEN procedureSqlStatement+
-    ;
-
-elifAlternative
-    : ELSEIF expression
-      THEN procedureSqlStatement+
+    : (sqlStatement) SEMI
     ;
 
 // Administration Statements
@@ -711,11 +586,6 @@ roleOption
     | userName (',' userName)*
     ;
 
-grantProxy
-    : GRANT PROXY ON fromFirst=userName
-      TO toFirst=userName (',' toOther+=userName)*
-      (WITH GRANT OPTION)?
-    ;
 
 renameUser
     : RENAME USER
@@ -734,10 +604,6 @@ revokeStatement
       FROM (userName | uid) (',' (userName | uid))*                 #roleRevoke
     ;
 
-revokeProxy
-    : REVOKE PROXY ON onUser=userName
-      FROM fromFirst=userName (',' fromOther+=userName)*
-    ;
 
 setPasswordStatement
     : SET PASSWORD (FOR userName)?
@@ -860,25 +726,10 @@ checkTableOption
     ;
 
 
-//    Plugin and udf statements
-
-createUdfunction
-    : CREATE AGGREGATE? FUNCTION uid
-      RETURNS returnType=(STRING | INTEGER | REAL | DECIMAL)
-      SONAME STRING_LITERAL
-    ;
-
-installPlugin
-    : INSTALL PLUGIN uid SONAME STRING_LITERAL
-    ;
-
-uninstallPlugin
-    : UNINSTALL PLUGIN uid
-    ;
-
 
 //    Set and show statements
 
+//show databases and schema templates
 showStatement
     : SHOW DATABASES (WITH PREFIX path)? #showDatabasesStatement
     | SHOW SCHEMA TEMPLATES              #showSchemaTemplatesStatement
@@ -906,34 +757,15 @@ variableClause
 
 //    Other administrative statements
 
-binlogStatement
-    : BINLOG STRING_LITERAL
-    ;
-
-cacheIndexStatement
-    : CACHE INDEX tableIndexes (',' tableIndexes)*
-      ( PARTITION '(' (uidList | ALL) ')' )?
-      IN schema=uid
-    ;
-
 killStatement
     : KILL connectionFormat=(CONNECTION | QUERY)?
       decimalLiteral+
-    ;
-
-loadIndexIntoCache
-    : LOAD INDEX INTO CACHE
-      loadedTableIndexes (',' loadedTableIndexes)*
     ;
 
 // remark reset (maser | slave) describe in replication's
 //  statements section
 resetStatement
     : RESET QUERY CACHE
-    ;
-
-shutdownStatement
-    : SHUTDOWN
     ;
 
 // details
@@ -975,32 +807,6 @@ helpStatement
 
 useStatement
     : USE uid
-    ;
-
-signalStatement
-    : SIGNAL ( ( SQLSTATE VALUE? stringLiteral ) | ID | REVERSE_QUOTE_ID )
-        ( SET signalConditionInformation ( ',' signalConditionInformation)* )?
-    ;
-
-resignalStatement
-    : RESIGNAL ( ( SQLSTATE VALUE? stringLiteral ) | ID | REVERSE_QUOTE_ID )?
-        ( SET signalConditionInformation ( ',' signalConditionInformation)* )?
-    ;
-
-signalConditionInformation
-    : ( CLASS_ORIGIN
-          | SUBCLASS_ORIGIN
-          | MESSAGE_TEXT
-          | MYSQL_ERRNO
-          | CONSTRAINT_CATALOG
-          | CONSTRAINT_SCHEMA
-          | CONSTRAINT_NAME
-          | CATALOG_NAME
-          | SCHEMA_NAME
-          | TABLE_NAME
-          | COLUMN_NAME
-          | CURSOR_NAME
-        ) '=' ( stringLiteral | DECIMAL_LITERAL | mysqlVariable | simpleId )
     ;
 
 diagnosticsStatement
