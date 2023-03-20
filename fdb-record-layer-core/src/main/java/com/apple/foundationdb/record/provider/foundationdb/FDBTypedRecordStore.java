@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -110,6 +111,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public SubspaceProvider getSubspaceProvider() {
         return untypedStore.getSubspaceProvider();
+    }
+
+    @Nonnull
+    @Override
+    public RecordStoreState getRecordStoreState() {
+        return untypedStore.getRecordStoreState();
     }
 
     @Nonnull

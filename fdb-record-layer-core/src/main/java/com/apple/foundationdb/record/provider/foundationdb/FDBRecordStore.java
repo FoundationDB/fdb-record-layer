@@ -377,6 +377,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * If the state is not already loaded, it is loaded synchronously.
      * @return the store state for this store
      */
+    @Override
     @Nonnull
     public RecordStoreState getRecordStoreState() {
         if (recordStoreStateRef.get() == null) {
