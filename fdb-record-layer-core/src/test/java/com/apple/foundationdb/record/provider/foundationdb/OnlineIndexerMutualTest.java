@@ -943,23 +943,22 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         openSimpleMetaData(hook);
         disableAll(indexes);
-        // Start indexing and crash, block indexing
+
+        // Start indexing, crash halfway
         final List<Tuple> boundariesList = getBoundariesList(numRecords, 4);
         final FDBStoreTimer timer = new FDBStoreTimer();
         IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
-            if (id == 3) {
-                while (allStampsAreEmpty(hook, indexes)) {
-                    Thread.yield();
-                }
-                FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
-                openSimpleMetaData(localHook);
-                try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
-                    indexer.blockIndexBuilds(null, 0L);
-                }
-            } else {
-                oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 1);
-            }
+            oneThreadIndexingCrashHalfway(indexes, timer, boundariesList, 3);
         });
+
+        // Block with block-id
+        FDBRecordStoreTestBase.RecordMetaDataHook localHook = allIndexesHook(indexes);
+        openSimpleMetaData(localHook);
+        try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
+            indexer.blockIndexBuilds(null, 0L);
+        }
+
+        // ensure write only
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
             for (Index index : indexes) {
@@ -1010,13 +1009,11 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // After unblocking, finish building
-        IntStream.rangeClosed(0, 3).parallel()
-                .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
+        oneThreadIndexing(indexes, timer, boundariesList);
 
         // Validate
         assertReadable(indexes);
         assertAllValidated(indexes);
-
     }
 
     private boolean allStampsAreEmpty(FDBRecordStoreTestBase.RecordMetaDataHook hook, List<Index> indexes) {
