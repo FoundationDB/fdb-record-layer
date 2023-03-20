@@ -251,7 +251,9 @@ public class RecordQueryPlannerConfiguration {
      * exploration and over-enumeration.
      * <br>
      * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
-     * join in a query.
+     * join in a query. For instance, in star-like schemas, the dimension table cross products are usually of a low
+     * cardinality due to some highly-selective predicates and can be joined upfront before joining the result with
+     * the fact table.
      * @return {@code true} if the planner should defer cross products or {@code false}, if the planner should plan
      *         them like other joins.
      */

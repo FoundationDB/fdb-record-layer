@@ -223,6 +223,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
 
+    /**
+     * Returns the partitioning of independent {@link Quantifier}s (via their aliases). A set of quantifiers is
+     * independent of another set of {@link Quantifier}s if no elements in these two sets are correlated to one another
+     * or are connected by join predicates.
+     * @return a set of sets of aliases where each element is a set of aliases that is only correlated or connected to
+     *         other elements of the same set. Any element (alias) from two different partitions are independent.
+     */
     @Nonnull
     public Set<Set<CorrelationIdentifier>> getIndependentQuantifiersPartitioning() {
         return independentQuantifiersPartitioningSupplier.get();
