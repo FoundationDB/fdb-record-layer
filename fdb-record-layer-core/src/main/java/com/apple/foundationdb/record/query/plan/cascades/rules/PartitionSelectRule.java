@@ -47,6 +47,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -93,10 +94,26 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                 upperAliasesBuilder.add(alias);
             }
         }
-
         final var upperAliases = upperAliasesBuilder.build();
         if (upperAliases.isEmpty()) {
             return;
+        }
+
+        final var independentQuantifiersPartitioning = selectExpression.getIndependentQuantifiersPartitioning();
+        if (independentQuantifiersPartitioning.size() > 1) {
+            final var plannerConfiguration = call.getContext().getPlannerConfiguration();
+            if (plannerConfiguration.shouldDeferCrossProducts()) {
+                //
+                // If we are here it means that this select expression has at least one partitioning that falls along
+                // with the partitioning of independent quantifiers. We allow only that partitioning which will become
+                // a cross product. The partitions themselves will then have fewer independent quantifier partitions
+                // (most likely a number that is close to one or one) which then won't trigger this if branch and will
+                // use normal select partitioning.
+                //
+                if (!isCrossProduct(independentQuantifiersPartitioning, lowerAliases, upperAliases)) {
+                    return;
+                }
+            }
         }
 
         final var aliasToQuantifierMap = selectExpression.getAliasToQuantifierMap();
@@ -288,5 +305,27 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         }
         
         call.yield(GroupExpressionRef.of(upperSelectExpression));
+    }
+
+    private boolean isCrossProduct(@Nonnull final Set<Set<CorrelationIdentifier>> independentQuantifiersPartitioning,
+                                   @Nonnull final Set<CorrelationIdentifier> lowerAliases,
+                                   @Nonnull final Set<CorrelationIdentifier> upperAliases) {
+        // Check if any independent partitioning has members that are in both lower and upper, if so, this break
+        // into lower and upper is NOT a cross-product.
+        for (final var independentPartition : independentQuantifiersPartitioning) {
+            boolean isInLower = false;
+            boolean isInUpper = false;
+            for (final var alias : independentPartition) {
+                if (lowerAliases.contains(alias)) {
+                    isInLower = true;
+                } else if (upperAliases.contains(alias)) {
+                    isInUpper = true;
+                }
+                if (isInLower && isInUpper) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

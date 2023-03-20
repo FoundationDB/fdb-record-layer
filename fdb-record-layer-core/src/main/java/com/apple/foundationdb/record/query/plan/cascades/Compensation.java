@@ -386,7 +386,7 @@ public interface Compensation {
          * @return a new compensation
          */
         @Nonnull
-        WithSelectCompensation derivedWithPredicateCompensationMap(final boolean isImpossible,
+        WithSelectCompensation derivedWithPredicateCompensationMap(boolean isImpossible,
                                                                    @Nonnull Compensation childCompensation,
                                                                    @Nonnull IdentityHashMap<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                                    @Nonnull Collection<? extends Quantifier> matchedQuantifiers,
@@ -743,14 +743,13 @@ public interface Compensation {
             final var compensationExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
             final var injectCompensationFunctions = predicateCompensationMap.values();
-            if (!injectCompensationFunctions.isEmpty()) {
-                for (final var injectCompensationFunction : injectCompensationFunctions) {
-                    compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(TranslationMap.empty()));
-                }
+            for (final var injectCompensationFunction : injectCompensationFunctions) {
+                compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(TranslationMap.empty()));
             }
 
             final var compensatedPredicatesExpansion =
                     GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
+            Verify.verify(compensatedPredicatesExpansion.getQuantifiers().isEmpty());
             Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
 
             final var compensatedPredicatesCorrelatedTo =
@@ -770,15 +769,29 @@ public interface Compensation {
                             .filter(quantifier -> compensatedPredicatesCorrelatedTo.contains(quantifier.getAlias()))
                             .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-            compensationExpansionsBuilder.add(
-                    GraphExpansion.builder().addAllQuantifiers(toBePulledUpQuantifiers).build());
+            //
+            // TODO In the vast majority of cases the then branch is taken where the compensation does not create
+            //      a join. If the compensation, however, has to reapply the predicate, then in addition to using
+            //      part of the predicate as a sargable we may actually enter the else branch here. This happens for the
+            //      reapplication of EXISTS(). The to-do is Try to find a solution that allows us to create a select
+            //      here without triggering a whole round of explorations for the newly-formed join. As this really
+            //      only happens for existential predicates, we could just introduce a binary join expression that does
+            //      not undergo e.g. or-to-union. Note that this is not a problem for the then case as the predicates
+            //      in the logical filter expression are left alone by other rules.
+            //
+            if (toBePulledUpQuantifiers.isEmpty()) {
+                return new LogicalFilterExpression(compensatedPredicatesExpansion.getPredicates(), newBaseQuantifier);
+            } else {
+                compensationExpansionsBuilder.add(
+                        GraphExpansion.builder().addAllQuantifiers(toBePulledUpQuantifiers).build());
 
-            // add base quantifier
-            compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
+                // add base quantifier
+                compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
 
-            final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
+                final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
 
-            return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
+                return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
+            }
         }
     }
 }

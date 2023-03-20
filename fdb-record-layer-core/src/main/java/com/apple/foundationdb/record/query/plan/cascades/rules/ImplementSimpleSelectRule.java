@@ -106,25 +106,29 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                     new NullValue(quantifier.getFlowedObjectType())));
         }
 
-        if (predicates.isEmpty() &&
+        final var nonTautologyPredicates =
+                predicates.stream()
+                        .filter(predicate -> !predicate.isTautology())
+                        .collect(ImmutableList.toImmutableList());
+        if (nonTautologyPredicates.isEmpty() &&
                 isSimpleResultValue) {
             call.yield(reference);
             return;
         }
 
-        if (!predicates.isEmpty()) {
+        if (!nonTautologyPredicates.isEmpty()) {
             reference = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(
                     Quantifier.physicalBuilder()
                             .withAlias(quantifier.getAlias())
                             .build(reference),
-                    predicates.stream()
+                    nonTautologyPredicates.stream()
                             .map(QueryPredicate::toResidualPredicate)
                             .collect(ImmutableList.toImmutableList())));
         }
 
         if (!isSimpleResultValue) {
             final Quantifier.Physical beforeMapQuantifier;
-            if (!predicates.isEmpty()) {
+            if (!nonTautologyPredicates.isEmpty()) {
                 final var lowerAlias = quantifier.getAlias();
                 beforeMapQuantifier = Quantifier.physical(reference);
                 resultValue = resultValue.rebase(AliasMap.of(lowerAlias, beforeMapQuantifier.getAlias()));

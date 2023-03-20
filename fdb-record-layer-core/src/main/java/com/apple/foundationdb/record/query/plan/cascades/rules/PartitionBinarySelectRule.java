@@ -40,7 +40,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
 
 /**
- * A rule that splits a {@link SelectExpression} into two {@link SelectExpression}s .
+ * A rule that splits a {@link SelectExpression} into a new upper and two lower {@link SelectExpression}
+ * that can absorb predicates which may prove advantageous for the implementation rules. This rule represents
+ * the special case of {@link PartitionSelectRule} for two {@link Quantifier}s. Unlike that rule, this one does not
+ * reduce the number of quantifiers participating in the join, but rearranges all predicates in a way that they would
+ * be evaluated in their leftmost possible place. As the rule enumerates {@code (q1, q2)} as well as {@code (q2, q1)}
+ * even if {@code q2} and {@code q1} may be in their respective correlation dependencies predicates will
+ * be moved towards {@code q1} and {@code q2} (as tolerated by the existing correlations). The newly created binary
+ * {@link SelectExpression} does not have any predicates anymore.
+ * <br>
+ * Current thinking on future extensions: At first glance, leaving the resulting {@link SelectExpression} without any
+ * predicates, but potentially correlating one side to the other seems to only be beneficial for nested-loop joins.
+ * However, the pre-transformation {@link SelectExpression} does contain all those predicates, which therefore can
+ * still be utilized to e.g. implement a hash join.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

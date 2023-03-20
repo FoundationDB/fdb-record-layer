@@ -693,10 +693,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 ParameterRelationshipGraph.empty());
 
         assertMatchesExactly(plan,
-                mapPlan(predicatesFilterPlan(
-                        typeFilterPlan(
+                mapPlan(typeFilterPlan(
                                 scanPlan()
-                                        .where(scanComparisons(range("([1],>"))))))
+                                        .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
     }
 

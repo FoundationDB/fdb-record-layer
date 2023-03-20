@@ -40,8 +40,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -64,6 +66,7 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,6 +95,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
+    @Nonnull
+    private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -105,6 +110,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
+        this.independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
     }
 
     @Nonnull
@@ -215,6 +221,67 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
+    }
+
+    @Nonnull
+    public Set<Set<CorrelationIdentifier>> getIndependentQuantifiersPartitioning() {
+        return independentQuantifiersPartitioningSupplier.get();
+    }
+
+    @Nonnull
+    private Set<Set<CorrelationIdentifier>> computeIndependentQuantifiersPartitioning() {
+        final var fullCorrelationOrder = getCorrelationOrder().getTransitiveClosure();
+
+        final var partitioning = Sets.<Set<CorrelationIdentifier>>newHashSet();
+
+        // initially create one-partitions
+        final var quantifiers = getQuantifiers();
+        quantifiers.forEach(quantifier -> partitioning.add(Sets.newHashSet(quantifier.getAlias())));
+
+        // compute a map from each predicate to all local aliases this predicate is transitively correlated to
+        final var predicateTransitivelyCorrelatedToMap = new IdentityHashMap<QueryPredicate, Set<CorrelationIdentifier>>();
+        for (final var predicate : getPredicates()) {
+            final var transitivelyCorrelatedTo = predicate.getCorrelatedTo()
+                    .stream()
+                    .flatMap(alias -> fullCorrelationOrder.get(alias).stream())
+                    .collect(ImmutableSet.toImmutableSet());
+            predicateTransitivelyCorrelatedToMap.put(predicate, transitivelyCorrelatedTo);
+        }
+
+        // got through all quantifiers and use both correlation order among them and connecting predicates
+        // to establish the partitioning
+        for (final var quantifier : getQuantifiers()) {
+            final var alias = quantifier.getAlias();
+
+            final var connectedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+            connectedAliasesBuilder.add(alias);
+            connectedAliasesBuilder.addAll(fullCorrelationOrder.get(alias));
+
+            predicateTransitivelyCorrelatedToMap.forEach((predicate, transitivelyCorrelatedTo) -> {
+                if (transitivelyCorrelatedTo.contains(alias)) {
+                    connectedAliasesBuilder.addAll(transitivelyCorrelatedTo);
+                }
+            });
+            final var connectedAliases = connectedAliasesBuilder.build();
+
+            final var newPartition = Sets.<CorrelationIdentifier>newHashSet();
+            final var partitioningIterator = partitioning.iterator();
+            while (partitioningIterator.hasNext()) {
+                final var partition = partitioningIterator.next();
+                if (connectedAliases.stream().anyMatch(partition::contains)) {
+                    newPartition.addAll(partition);
+                    partitioningIterator.remove();
+                }
+            }
+
+            partitioning.add(newPartition);
+
+            // everything is connected -- we can early out
+            if (partitioning.size() == 1) {
+                return partitioning;
+            }
+        }
+        return partitioning;
     }
 
     @Nonnull
@@ -493,7 +560,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates) {
         final var flattenedAndPredicates =
                 predicates.stream()
-                        .flatMap(predicate -> flattenAndPredicate(predicate).stream())
+                        .flatMap(predicate -> flattenPredicate(AndPredicate.class, predicate).stream())
                         .collect(ImmutableList.toImmutableList());
 
         final var predicateWithValuesBuilder = ImmutableList.<PredicateWithValue>builder();
@@ -569,22 +636,33 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     /**
-     * Flattens a {@link QueryPredicate} (potentially a tree) of {@link AndPredicate}s into an equivalent linear
-     * structure of these {@link AndPredicate}s.
+     * Flattens a {@link QueryPredicate} (potentially a tree) of predicates into an equivalent linear
+     * structure of predicates.
+     * @param classToLift a class of at least type {@link AndOrPredicate}.
      * @param predicate The {@link QueryPredicate}.
      * @return an equivalent, linear, {@link QueryPredicate}.
      */
     @Nonnull
-    private static List<QueryPredicate> flattenAndPredicate(final QueryPredicate predicate) {
+    private static List<QueryPredicate> flattenPredicate(@Nonnull final Class<? extends AndOrPredicate> classToLift,
+                                                         @Nonnull final QueryPredicate predicate) {
         final var result = ImmutableList.<QueryPredicate>builder();
 
-        if (predicate instanceof AndPredicate) {
-            for (final var child : ((AndPredicate)predicate).getChildren()) {
-                result.addAll(flattenAndPredicate(child));
+        if (classToLift.isInstance(predicate)) {
+            for (final var child : ((AndOrPredicate)predicate).getChildren()) {
+                result.addAll(flattenPredicate(classToLift, child));
             }
-            return result.build();
+        } else {
+            final QueryPredicate flattenedChildPredicate;
+            if (predicate instanceof AndPredicate) {
+                flattenedChildPredicate = AndPredicate.and(flattenPredicate(AndPredicate.class, predicate));
+            } else if (predicate instanceof OrPredicate) {
+                flattenedChildPredicate = OrPredicate.or(flattenPredicate(OrPredicate.class, predicate));
+            } else {
+                flattenedChildPredicate = predicate;
+            }
+            result.add(flattenedChildPredicate);
         }
-        return result.add(predicate).build();
+        return result.build();
     }
 
     @Override

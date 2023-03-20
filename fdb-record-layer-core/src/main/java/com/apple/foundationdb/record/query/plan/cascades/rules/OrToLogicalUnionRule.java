@@ -112,7 +112,6 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         final var quantifiers = bindings.getAll(qunMatcher);
         final var orTermPredicates = bindings.getAll(orTermPredicateMatcher);
 
-
         final var ownedForEachAliases =
                 quantifiers.stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
@@ -123,10 +122,17 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
                                         (ownedForEachAliases.contains(((QuantifiedObjectValue)resultValue).getAlias()));
 
         final var resultValueCorrelatedTo = resultValue.getCorrelatedTo();
+        final var referredOwnedForEachAliases =
+                Sets.intersection(resultValueCorrelatedTo, ownedForEachAliases);
+
+        if (referredOwnedForEachAliases.isEmpty()) {
+            // There is no point in creating a union as the or terms are somehow correlated and cannot be used for
+            // index matching and other good stuff.
+            return;
+        }
+        
         final Optional<CorrelationIdentifier> referredAliasOptional;
         if (!isSimpleResultValue) {
-            final var referredOwnedForEachAliases =
-                    Sets.intersection(resultValueCorrelatedTo, ownedForEachAliases);
             if (referredOwnedForEachAliases.size() > 1) {
                 return;
             }
