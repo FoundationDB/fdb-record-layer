@@ -35,18 +35,14 @@ root
     ;
 
 sqlStatements
-    : (sqlStatement (MINUS MINUS)? SEMI? | emptyStatement_)*
-    (sqlStatement ((MINUS MINUS)? SEMI)? | emptyStatement_)
+    : (sqlStatement (MINUS MINUS)? SEMI? | SEMI)*
+    (sqlStatement ((MINUS MINUS)? SEMI)? | SEMI)
     ;
 
 sqlStatement
     : ddlStatement | dmlStatement | transactionStatement
     | preparedStatement
     | administrationStatement | utilityStatement
-    ;
-
-emptyStatement_
-    : SEMI
     ;
 
 ddlStatement
@@ -61,28 +57,25 @@ dmlStatement
 
 transactionStatement
     : startTransaction
-    | beginWork | commitWork | rollbackWork
+    | commitStatement
     | rollbackStatement
     ;
 
 preparedStatement
-    : prepareStatement | executeStatement | deallocatePrepare
+    : prepareStatement | executeStatement 
     ;
 
 administrationStatement
-    : alterUser | createUser | dropUser | grantStatement
-    | renameUser | revokeStatement
-    | analyzeTable | checkTable
-    | checksumTable | optimizeTable | repairTable
-    | setStatement | showStatement 
+    : setStatement 
+    | showStatement 
     | killStatement
     | resetStatement
     ;
 
 utilityStatement
-    : simpleDescribeStatement | fullDescribeStatement
-    | helpStatement | useStatement 
-    | diagnosticsStatement
+    : simpleDescribeStatement 
+    | fullDescribeStatement
+    | helpStatement 
     ;
 
 
@@ -94,7 +87,7 @@ templateClause
     ;
 
 createStatement
-   : CREATE SCHEMA schemaId WITH TEMPLATE templateId                                                  #createSchemaStatement
+   : CREATE SCHEMA schemaId WITH TEMPLATE schemaTemplateId                                                  #createSchemaStatement
    | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+ optionsClause?                          #createSchemaTemplateStatement
    | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
@@ -147,15 +140,6 @@ indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS querySpecification
     ;
 
-idxField
-
-    : uid
-    ;
-
-incField
-    : uid
-    ;
-
 charSet
     : CHARACTER SET
     | CHARSET
@@ -176,23 +160,12 @@ schemaId:
 path:
    uid; // matching happens in parser
 
-templateId:
-   uid;
-
 schemaTemplateId:
    uid;
-
-//    Alter statements
-
-//    Drop statements
-
-//    Other DDL statements
-
 
 // Data Manipulation Language
 
 //    Primary DML Statements
-
 
 deleteStatement
     : singleDeleteStatement | multipleDeleteStatement
@@ -200,9 +173,7 @@ deleteStatement
 
 insertStatement
     : INSERT
-      priority=(LOW_PRIORITY | DELAYED | HIGH_PRIORITY)?
       IGNORE? INTO? tableName
-      (PARTITION '(' partitions=uidList? ')' )?
       (
         (columns=uidListWithNestingsInParens)? insertStatementValue
         | SET
@@ -263,15 +234,14 @@ assignmentField
 //    Detailed DML Statements
 
 singleDeleteStatement
-    : DELETE priority=LOW_PRIORITY? QUICK? IGNORE?
+    : DELETE 
     FROM tableName
-      (PARTITION '(' uidList ')' )?
       (WHERE expression)?
       orderByClause? (LIMIT limitClause)?
     ;
 
 multipleDeleteStatement
-    : DELETE priority=LOW_PRIORITY? QUICK? IGNORE?
+    : DELETE 
       (
         tableName ('.' '*')? ( ',' tableName ('.' '*')? )*
             FROM tableSources
@@ -280,28 +250,6 @@ multipleDeleteStatement
             USING tableSources
       )
       (WHERE expression)?
-    ;
-
-handlerOpenStatement
-    : HANDLER tableName OPEN (AS? uid)?
-    ;
-
-handlerReadIndexStatement
-    : HANDLER tableName READ index=uid
-      (
-        comparisonOperator '(' constants ')'
-        | moveOrder=(FIRST | NEXT | PREV | LAST)
-      )
-      (WHERE expression)? (LIMIT limitClause)?
-    ;
-
-handlerReadStatement
-    : HANDLER tableName READ moveOrder=(FIRST | NEXT)
-      (WHERE expression)? (LIMIT limitClause)?
-    ;
-
-handlerCloseStatement
-    : HANDLER tableName CLOSE
     ;
 
 updateStatement
@@ -374,8 +322,8 @@ queryExpression
 
 // done
 querySpecification
-    : SELECT selectSpec* selectElements
-      fromClause? groupByClause? havingClause? windowClause? orderByClause? limitClause?
+    : SELECT DISTINCT? selectElements
+      fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause?
     ;
 
 unionParenthesis
@@ -388,10 +336,6 @@ unionStatement
     ;
 
 // details
-
-selectSpec
-    : ALL | DISTINCT | DISTINCTROW
-    ;
 
 selectElements // done
     : (STAR | selectElement ) (',' selectElement)*
@@ -419,9 +363,10 @@ havingClause
     :  HAVING havingExpr=expression
     ;
 
-windowClause
-    :  WINDOW windowName AS '(' windowSpec ')' (',' windowName AS '(' windowSpec ')')*
-    ;
+//commenting out Windows, because we'll want them eventually, but don't want to deal with them now
+// windowClause
+//     :  WINDOW windowName AS '(' windowSpec ')' (',' windowName AS '(' windowSpec ')')*
+//     ;
 
 groupByItem
     : expression (AS? uid)? order=(ASC | DESC)? // in Relational we support named grouping columns.
@@ -441,27 +386,16 @@ limitClauseAtom
 // Transaction's Statements
 
 startTransaction
-    : START TRANSACTION (transactionMode (',' transactionMode)* )?
+    : START TRANSACTION 
     ;
 
-beginWork
-    : BEGIN WORK?
-    ;
 
-commitWork
-    : COMMIT WORK?
-      (AND nochain=NO? CHAIN)?
-      (norelease=NO? RELEASE)?
-    ;
-
-rollbackWork
-    : ROLLBACK WORK?
-      (AND nochain=NO? CHAIN)?
-      (norelease=NO? RELEASE)?
+commitStatement
+    : COMMIT 
     ;
 
 rollbackStatement
-    : ROLLBACK WORK? TO SAVEPOINT? uid
+    : ROLLBACK 
     ;
 
 // details
@@ -475,30 +409,13 @@ setTransactionStatement
       transactionOption (',' transactionOption)*
     ;
 
-transactionMode
-    : WITH CONSISTENT SNAPSHOT
-    | READ WRITE
-    | READ ONLY
-    ;
-
 transactionOption
     : ISOLATION LEVEL transactionLevel
-    | READ WRITE
-    | READ ONLY
     ;
 
 transactionLevel
-    : REPEATABLE READ
-    | READ COMMITTED
-    | READ UNCOMMITTED
+    : READ COMMITTED
     | SERIALIZABLE
-    ;
-
-
-// Replication's Statements
-
-channelOption
-    : FOR CHANNEL STRING_LITERAL
     ;
 
 // Prepared Statements
@@ -511,220 +428,6 @@ prepareStatement
 executeStatement
     : EXECUTE uid (USING userVariables)?
     ;
-
-deallocatePrepare
-    : dropFormat=(DEALLOCATE | DROP) PREPARE uid
-    ;
-
-handlerConditionValue
-    : decimalLiteral                                                #handlerConditionCode
-    | SQLSTATE VALUE? STRING_LITERAL                                #handlerConditionState
-    | uid                                                           #handlerConditionName
-    | SQLWARNING                                                    #handlerConditionWarning
-    | NOT FOUND                                                     #handlerConditionNotfound
-    | SQLEXCEPTION                                                  #handlerConditionException
-    ;
-
-procedureSqlStatement
-    : (sqlStatement) SEMI
-    ;
-
-// Administration Statements
-
-//    Account management statements
-
-alterUser
-    : ALTER USER
-      userSpecification (',' userSpecification)*                    #alterUserMysqlV56
-    | ALTER USER ifExists?
-        userAuthOption (',' userAuthOption)*
-        (
-          REQUIRE
-          (tlsNone=NONE | tlsOption (AND? tlsOption)* )
-        )?
-        (WITH userResourceOption+)?
-        (userPasswordOption | userLockOption)*                      #alterUserMysqlV57
-    ;
-
-createUser
-    : CREATE USER userAuthOption (',' userAuthOption)*              #createUserMysqlV56
-    | CREATE USER ifNotExists?
-        userAuthOption (',' userAuthOption)*
-        (
-          REQUIRE
-          (tlsNone=NONE | tlsOption (AND? tlsOption)* )
-        )?
-        (WITH userResourceOption+)?
-        (userPasswordOption | userLockOption)*                      #createUserMysqlV57
-    ;
-
-dropUser
-    : DROP USER ifExists? userName (',' userName)*
-    ;
-
-grantStatement
-    : GRANT privelegeClause (',' privelegeClause)*
-      ON
-      privilegeObject=(TABLE | FUNCTION | PROCEDURE)?
-      privilegeLevel
-      TO userAuthOption (',' userAuthOption)*
-      (
-          REQUIRE
-          (tlsNone=NONE | tlsOption (AND? tlsOption)* )
-        )?
-      (WITH (GRANT OPTION | userResourceOption)* )?
-      (AS userName WITH ROLE roleOption)?
-    | GRANT (userName | uid ) (',' (userName | uid))*
-      TO (userName | uid) (',' (userName | uid))*
-      (WITH ADMIN OPTION)?
-    ;
-
-roleOption
-    : DEFAULT
-    | NONE
-    | ALL (EXCEPT userName (',' userName)*)?
-    | userName (',' userName)*
-    ;
-
-
-renameUser
-    : RENAME USER
-      renameUserClause (',' renameUserClause)*
-    ;
-
-revokeStatement
-    : REVOKE privelegeClause (',' privelegeClause)*
-      ON
-      privilegeObject=(TABLE | FUNCTION | PROCEDURE)?
-      privilegeLevel
-      FROM userName (',' userName)*                                 #detailRevoke
-    | REVOKE ALL PRIVILEGES? ',' GRANT OPTION
-      FROM userName (',' userName)*                                 #shortRevoke
-    | REVOKE uid (',' uid)*
-      FROM (userName | uid) (',' (userName | uid))*                 #roleRevoke
-    ;
-
-
-setPasswordStatement
-    : SET PASSWORD (FOR userName)?
-      '=' ( passwordFunctionClause | STRING_LITERAL)
-    ;
-
-// details
-
-userSpecification
-    : userName userPasswordOption
-    ;
-
-userAuthOption
-    : userName IDENTIFIED BY PASSWORD hashed=STRING_LITERAL         #passwordAuthOption
-    | userName
-      IDENTIFIED (WITH authPlugin)? BY STRING_LITERAL
-      (RETAIN CURRENT PASSWORD)?                                    #stringAuthOption
-    | userName
-      IDENTIFIED WITH authPlugin
-      (AS STRING_LITERAL)?                                          #hashAuthOption
-    | userName                                                      #simpleAuthOption
-    ;
-
-tlsOption
-    : SSL
-    | X509
-    | CIPHER STRING_LITERAL
-    | ISSUER STRING_LITERAL
-    | SUBJECT STRING_LITERAL
-    ;
-
-userResourceOption
-    : MAX_QUERIES_PER_HOUR decimalLiteral
-    | MAX_UPDATES_PER_HOUR decimalLiteral
-    | MAX_CONNECTIONS_PER_HOUR decimalLiteral
-    | MAX_USER_CONNECTIONS decimalLiteral
-    ;
-
-userPasswordOption
-    : PASSWORD EXPIRE
-      (expireType=DEFAULT
-      | expireType=NEVER
-      | expireType=INTERVAL decimalLiteral DAY
-      )?
-    ;
-
-userLockOption
-    : ACCOUNT lockType=(LOCK | UNLOCK)
-    ;
-
-privelegeClause
-    : privilege ( '(' uidList ')' )?
-    ;
-
-privilege
-    : ALL PRIVILEGES?
-    | ALTER ROUTINE?
-    | CREATE
-      (TEMPORARY TABLES | ROUTINE | VIEW | USER | TABLESPACE | ROLE)?
-    | DELETE | DROP (ROLE)? | EVENT | EXECUTE | FILE | GRANT OPTION
-    | INDEX | INSERT | LOCK TABLES | PROCESS | PROXY
-    | REFERENCES | RELOAD
-    | REPLICATION (CLIENT | SLAVE)
-    | SELECT
-    | SHOW (VIEW | DATABASES)
-    | SHUTDOWN | SUPER | TRIGGER | UPDATE | USAGE
-    | APPLICATION_PASSWORD_ADMIN | AUDIT_ADMIN | BACKUP_ADMIN | BINLOG_ADMIN | BINLOG_ENCRYPTION_ADMIN | CLONE_ADMIN
-    | CONNECTION_ADMIN | ENCRYPTION_KEY_ADMIN | FIREWALL_ADMIN | FIREWALL_USER | FLUSH_OPTIMIZER_COSTS
-    | FLUSH_STATUS | FLUSH_TABLES | FLUSH_USER_RESOURCES | GROUP_REPLICATION_ADMIN
-    | INNODB_REDO_LOG_ARCHIVE | INNODB_REDO_LOG_ENABLE | NDB_STORED_USER | PERSIST_RO_VARIABLES_ADMIN | REPLICATION_APPLIER
-    | REPLICATION_SLAVE_ADMIN | RESOURCE_GROUP_ADMIN | RESOURCE_GROUP_USER | ROLE_ADMIN
-    | SERVICE_CONNECTION_ADMIN
-    | SESSION_VARIABLES_ADMIN | SET_USER_ID | SHOW_ROUTINE | SYSTEM_USER | SYSTEM_VARIABLES_ADMIN
-    | TABLE_ENCRYPTION_ADMIN | VERSION_TOKEN_ADMIN | XA_RECOVER_ADMIN
-    ;
-
-privilegeLevel
-    : '*'                                                           #currentSchemaPriviLevel
-    | '*' '.' '*'                                                   #globalPrivLevel
-    | uid '.' '*'                                                   #definiteSchemaPrivLevel
-    | fullId                                                        #definiteFullTable
-    ;
-
-renameUserClause
-    : fromFirst=userName TO toFirst=userName
-    ;
-
-//    Table maintenance statements
-
-analyzeTable
-    : ANALYZE actionOption=(NO_WRITE_TO_BINLOG | LOCAL)?
-       (TABLE | TABLES) tables
-       ( UPDATE HISTOGRAM ON fullColumnName (',' fullColumnName)* (WITH decimalLiteral BUCKETS)? )?
-       ( DROP HISTOGRAM ON fullColumnName (',' fullColumnName)* )?
-    ;
-
-checkTable
-    : CHECK TABLE tables checkTableOption*
-    ;
-
-checksumTable
-    : CHECKSUM TABLE tables actionOption=(QUICK | EXTENDED)?
-    ;
-
-optimizeTable
-    : OPTIMIZE actionOption=(NO_WRITE_TO_BINLOG | LOCAL)?
-      (TABLE | TABLES) tables
-    ;
-
-repairTable
-    : REPAIR actionOption=(NO_WRITE_TO_BINLOG | LOCAL)?
-      TABLE tables
-      QUICK? EXTENDED? USE_FRM?
-    ;
-
-// details
-
-checkTableOption
-    : FOR UPGRADE | QUICK | FAST | MEDIUM | EXTENDED | CHANGED
-    ;
-
 
 
 //    Set and show statements
@@ -741,7 +444,6 @@ setStatement
     | SET charSet (charsetName | DEFAULT)          #setCharset
     | SET NAMES
         (charsetName (COLLATE collationName)? | DEFAULT)                        #setNames
-    | setPasswordStatement                                                      #setPassword
     | setTransactionStatement                                                   #setTransaction
     | setAutocommitStatement                                                    #setAutocommit
     | SET fullId ('=' | ':=') expression
@@ -762,8 +464,6 @@ killStatement
       decimalLiteral+
     ;
 
-// remark reset (maser | slave) describe in replication's
-//  statements section
 resetStatement
     : RESET QUERY CACHE
     ;
@@ -805,33 +505,6 @@ helpStatement
     : HELP STRING_LITERAL
     ;
 
-useStatement
-    : USE uid
-    ;
-
-diagnosticsStatement
-    : GET ( CURRENT | STACKED )? DIAGNOSTICS (
-          ( variableClause '=' ( NUMBER | ROW_COUNT ) ( ',' variableClause '=' ( NUMBER | ROW_COUNT ) )* )
-        | ( CONDITION  ( decimalLiteral | variableClause ) variableClause '=' diagnosticsConditionInformationName ( ',' variableClause '=' diagnosticsConditionInformationName )* )
-      )
-    ;
-
-diagnosticsConditionInformationName
-    : CLASS_ORIGIN
-    | SUBCLASS_ORIGIN
-    | RETURNED_SQLSTATE
-    | MESSAGE_TEXT
-    | MYSQL_ERRNO
-    | CONSTRAINT_CATALOG
-    | CONSTRAINT_SCHEMA
-    | CONSTRAINT_NAME
-    | CATALOG_NAME
-    | SCHEMA_NAME
-    | TABLE_NAME
-    | COLUMN_NAME
-    | CURSOR_NAME
-    ;
-
 // details
 
 describeObjectClause
@@ -841,11 +514,6 @@ describeObjectClause
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
     ;
-
-
-// Common Clauses
-
-//    DB Objects
 
 // done
 fullId
@@ -868,15 +536,6 @@ indexColumnName
     ;
 
 // done (unsupported)
-userName
-    : STRING_USER_NAME | ID | STRING_LITERAL | ADMIN;
-
-// done (unsupported)
-mysqlVariable
-    : LOCAL_ID
-    ;
-
-// done (unsupported)
 charsetName
     : BINARY
     | charsetNameBase
@@ -888,34 +547,6 @@ charsetName
 collationName
     : uid | STRING_LITERAL;
 
-// done (unsupported)
-uuidSet
-    : decimalLiteral '-' decimalLiteral '-' decimalLiteral
-      '-' decimalLiteral '-' decimalLiteral
-      (':' decimalLiteral '-' decimalLiteral)+
-    ;
-
-// done (unsupported)
-xid
-    : globalTableUid=xuidStringId
-      (
-        ',' qualifier=xuidStringId
-        (',' idFormat=decimalLiteral)?
-      )?
-    ;
-
-// done (unsupported)
-xuidStringId
-    : STRING_LITERAL
-    | BIT_STRING
-    | HEXADECIMAL_LITERAL+
-    ;
-
-// done (unsupported)
-authPlugin
-    : uid | STRING_LITERAL
-    ;
-
 // done
 uid
     : simpleId
@@ -926,8 +557,6 @@ uid
 simpleId
     : ID
     | charsetNameBase
-    | transactionLevelBase
-    | privilegesBase
     | intervalTypeBase
     | dataTypeBase
     | keywordsCanBeId
@@ -944,10 +573,6 @@ nullNotnull
 decimalLiteral
     : DECIMAL_LITERAL | ZERO_DECIMAL | ONE_DECIMAL | TWO_DECIMAL | REAL_LITERAL
     ;
-
-// done (unsupported)
-fileSizeLiteral
-    : FILESIZE_LITERAL | decimalLiteral;
 
 // done
 stringLiteral
@@ -1120,10 +745,6 @@ recordConstructorMultiple
     : LR_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RR_BRACKET
     ;
 
-constants
-    : constant (',' constant)*
-    ;
-
 simpleStrings
     : STRING_LITERAL (',' STRING_LITERAL)*
     ;
@@ -1174,7 +795,6 @@ functionCall
     | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done (unsupported)
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
     | fullId '(' functionArgs? ')'                                  #udfFunctionCall // done (unsupported)
-    | passwordFunctionClause                                        #passwordFunctionCall // done (unsupported)
     ;
 
 specificFunction
@@ -1266,13 +886,6 @@ specificFunction
         datetimeFormat=(DATE | TIME | DATETIME)
         ',' stringLiteral
       ')'                                                           #getFormatFunctionCall
-    | JSON_VALUE
-      '(' expression
-       ',' expression
-         (RETURNING convertedDataType)?
-         ((NULL_LITERAL | ERROR | (DEFAULT defaultValue)) ON EMPTY)?
-         ((NULL_LITERAL | ERROR | (DEFAULT defaultValue)) ON ERROR)?
-       ')'                                                          #jsonValueFunctionCall
     ;
 
 caseFuncAlternative
@@ -1316,16 +929,19 @@ nonAggregateWindowedFunction
     ;
 
 overClause
-    : OVER ('(' windowSpec? ')' | windowName)
-    ;
-
-windowSpec
-    : windowName? partitionClause? orderByClause? frameClause?
+    : OVER (/* '(' windowSpec? ')' |*/ windowName)
     ;
 
 windowName
     : uid
     ;
+
+//commented out until we want to support window functions
+/* 
+windowSpec
+    : windowName? partitionClause? orderByClause? frameClause?
+    ;
+
 
 frameClause
     : frameUnits frameExtent
@@ -1354,6 +970,7 @@ frameRange
 partitionClause
     : PARTITION BY expression (',' expression)*
     ;
+*/
 
 scalarFunctionName
     : functionNameBase
@@ -1364,22 +981,13 @@ scalarFunctionName
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     ;
 
-passwordFunctionClause
-    : functionName=(PASSWORD | OLD_PASSWORD) '(' functionArg ')'
-    ;
-
 functionArgs
-    : (constant | fullColumnName | functionCall | expression)
-    (
-      ','
-      (constant | fullColumnName | functionCall | expression)
-    )*
+    : functionArg ( ',' functionArg)*
     ;
 
 functionArg
     : constant | fullColumnName | functionCall | expression
     ;
-
 
 //    Expressions, predicates
 
@@ -1460,15 +1068,6 @@ charsetNameBase
     | UTF16LE | UTF32 | UTF8 | UTF8MB3 | UTF8MB4
     ;
 
-transactionLevelBase
-    : REPEATABLE | COMMITTED | UNCOMMITTED | SERIALIZABLE
-    ;
-
-privilegesBase
-    : TABLES | ROUTINE | EXECUTE | FILE | PROCESS
-    | RELOAD | SHUTDOWN | SUPER | PRIVILEGES
-    ;
-
 intervalTypeBase
     : QUARTER | MONTH | DAY | HOUR
     | MINUTE | WEEK | SECOND | MICROSECOND
@@ -1491,14 +1090,14 @@ keywordsCanBeId
     | CONSTRAINT_SCHEMA | CONTAINS | CONTEXT
     | CONTRIBUTORS | COPY | COUNT | CPU | CURRENT | CURSOR_NAME
     | DATA | DATAFILE | DATABASES | DEALLOCATE
-    | DEFAULT_AUTH | DEFINER | DELAY_KEY_WRITE | DES_KEY_FILE | DIAGNOSTICS | DIRECTORY
+    | DEFAULT_AUTH | DEFINER | DELAY_KEY_WRITE | DES_KEY_FILE | DIRECTORY
     | DISABLE | DISCARD | DISK | DO | DUMPFILE | DUPLICATE
     | DYNAMIC | ENABLE | ENCRYPTION | ENCRYPTION_KEY_ADMIN | END | ENDS | ENGINE | ENGINE_ATTRIBUTE | ENGINES
     | ERROR | ERRORS | ESCAPE | EUR | EVEN | EVENT | EVENTS | EVERY | EXCEPT
     | EXCHANGE | EXCLUSIVE | EXIT | EXPIRE | EXPORT | EXTENDED | EXTENT_SIZE | FAST | FAULTS
     | FIELDS | FILE_BLOCK_SIZE | FILTER | FIREWALL_ADMIN | FIREWALL_USER | FIRST | FIXED | FLUSH
     | FOLLOWS | FOUND | FULL | FUNCTION | GENERAL | GLOBAL | GRANTS | GROUP | GROUP_CONCAT
-    | GROUP_REPLICATION | GROUP_REPLICATION_ADMIN | HANDLER | HASH | HELP | HOST | HOSTS | IDENTIFIED
+    |  HANDLER | HASH | HELP | HOST | HOSTS | IDENTIFIED
     | IGNORED | IGNORE_SERVER_IDS | IMPORT | INDEX | INDEXES | INITIAL_SIZE | INNODB_REDO_LOG_ARCHIVE
     | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
     | IO_THREAD | IPC | ISO | ISOLATION | ISSUER | JIS | JSON | KEY | KEY_BLOCK_SIZE
@@ -1524,10 +1123,8 @@ keywordsCanBeId
     | PROCESSLIST | PROFILE | PROFILES | PROXY | QUERY | QUICK
     | REBUILD | RECOVER | REDO_BUFFER_SIZE | REDUNDANT
     | RELAY | RELAYLOG | RELAY_LOG_FILE | RELAY_LOG_POS | REMOVE
-    | REORGANIZE | REPAIR | REPLICATE_DO_DB | REPLICATE_DO_TABLE
-    | REPLICATE_IGNORE_DB | REPLICATE_IGNORE_TABLE
-    | REPLICATE_REWRITE_DB | REPLICATE_WILD_DO_TABLE
-    | REPLICATE_WILD_IGNORE_TABLE | REPLICATION | REPLICATION_APPLIER | REPLICATION_SLAVE_ADMIN | RESET
+    | REORGANIZE | REPAIR 
+    | RESET
     | RESOURCE_GROUP_ADMIN | RESOURCE_GROUP_USER | RESUME
     | RETURNED_SQLSTATE | RETURNS | ROLE | ROLE_ADMIN | ROLLBACK | ROLLUP | ROTATE | ROW | ROWS
     | ROW_FORMAT | RTREE | SAVEPOINT | SCHEDULE | SCHEMA | SCHEMAS | SCHEMA_NAME | SECURITY | SECONDARY_ENGINE_ATTRIBUTE | SERIAL | SERVER
@@ -1543,7 +1140,7 @@ keywordsCanBeId
     | TRANSACTION | TRANSACTIONAL | TRIGGERS | TRUNCATE | UNDEFINED | UNDOFILE
     | UNDO_BUFFER_SIZE | UNINSTALL | UNKNOWN | UNTIL | UPGRADE | USA | USER | USE_FRM | USER_RESOURCES
     | VALIDATION | VALUE | VALUES | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
-    | WORK | WRAPPER | X509 | XA | XA_RECOVER_ADMIN | XML
+    | WRAPPER | X509 | XA | XA_RECOVER_ADMIN | XML
     ;
 
 functionNameBase

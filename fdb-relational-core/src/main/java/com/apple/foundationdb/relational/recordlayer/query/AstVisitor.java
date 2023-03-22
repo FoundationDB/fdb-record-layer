@@ -102,7 +102,7 @@ import java.util.stream.Stream;
 public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
-    private PlanGenerationContext context;
+    private final PlanGenerationContext context;
 
     @Nonnull
     private final String query;
@@ -226,8 +226,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public RelationalExpression visitQuerySpecification(RelationalParser.QuerySpecificationContext ctx) {
-        Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
+        //        Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
+//        Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
         return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.havingClause(), ctx.orderByClause(), ctx.limitClause());
@@ -272,7 +272,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         */
         final var groupByQunAlias = CorrelationIdentifier.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()));
 
-        Quantifier underlyingSelectQun = null;
+        Quantifier underlyingSelectQun;
         // 1. create a new SELECT expression projecting all underlying quantifiers.
         {
             final var builder = GraphExpansion.builder();
@@ -290,7 +290,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                         quantifiedValue);
             });
 
-            RecordConstructorValue groupingColumnsValue = null;
+            RecordConstructorValue groupingColumnsValue;
             // add everything in the group by clause to the result set.
             if (groupByClause != null) {
                 groupByClause.accept(this);
@@ -315,8 +315,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         // 2. handle group by expression.
-        Quantifier groupByQuantifier = null;
-        Type groupByExpressionType = null;
+        Quantifier groupByQuantifier;
+        Type groupByExpressionType;
         Optional<List<Column<? extends Value>>> orderByColumns = Optional.empty();
         {
             final var scope = scopes.getCurrentScope();
@@ -812,8 +812,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitFullId(RelationalParser.FullIdContext ctx) {
         Assert.thatUnchecked(!ctx.uid().isEmpty());
         Assert.thatUnchecked(ctx.uid().size() > 0);
-        final List<String> ids = ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).map(Assert::notNullUnchecked).collect(Collectors.toList());
-        return QualifiedIdentifierValue.of(ids.toArray(new String[0]));
+        return QualifiedIdentifierValue.of(ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).map(Assert::notNullUnchecked).toArray(String[]::new));
     }
 
     @Override
@@ -855,20 +854,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
-    public Value visitUserName(RelationalParser.UserNameContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitMysqlVariable(RelationalParser.MysqlVariableContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
     public Value visitCharsetName(RelationalParser.CharsetNameContext ctx) {
         Assert.failUnchecked(UNSUPPORTED_QUERY);
         return null;
@@ -877,34 +862,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Value visitCollationName(RelationalParser.CollationNameContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitUuidSet(RelationalParser.UuidSetContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitXid(RelationalParser.XidContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitXuidStringId(RelationalParser.XuidStringIdContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitAuthPlugin(RelationalParser.AuthPluginContext ctx) {
         Assert.failUnchecked(UNSUPPORTED_QUERY);
         return null;
     }
@@ -924,14 +881,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     //// Literals ////
-
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Value visitFileSizeLiteral(RelationalParser.FileSizeLiteralContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
 
     @Override
     public Value visitNegativeDecimalConstant(RelationalParser.NegativeDecimalConstantContext ctx) {
@@ -1192,13 +1141,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Object visitPasswordFunctionCall(RelationalParser.PasswordFunctionCallContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
     @Override
     public Value visitAggregateWindowedFunction(RelationalParser.AggregateWindowedFunctionContext ctx) {
         Assert.isNullUnchecked(ctx.BIT_AND(), UNSUPPORTED_QUERY);
@@ -1258,7 +1200,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
         final String schemaId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.schemaId()), String.class));
         final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
-        final String templateId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.templateId()), String.class));
+        final String templateId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class));
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
                 dbAndSchema.getRight(), templateId, Options.NONE));
     }
@@ -1431,7 +1373,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var lookahead = ctx.insertStatementValue().start.getType();
         final var isInsertFromSelect = lookahead == RelationalLexer.SELECT;
         Assert.thatUnchecked(!isInsertFromSelect || ctx.columns == null, "setting column ordering for insert with select is not supported", ErrorCode.UNSUPPORTED_OPERATION);
-        RelationalExpression fromExpression = null;
+        RelationalExpression fromExpression;
 
         if (isInsertFromSelect) {
             fromExpression = (RelationalExpression) ctx.insertStatementValue().accept(this);
