@@ -300,6 +300,9 @@ public class TypeConversion {
     }
 
     public static ResultSet toProtobuf(RelationalResultSet relationalResultSet) throws SQLException {
+        if (relationalResultSet == null) {
+            return null;
+        }
         var resultSetBuilder = ResultSet.newBuilder();
         var metadata = relationalResultSet.getMetaData();
         while (relationalResultSet.next()) {

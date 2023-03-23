@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
@@ -58,8 +60,10 @@ import com.google.protobuf.Parser;
 
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -130,11 +134,13 @@ public class FRL implements AutoCloseable {
      * @param database Database to run the <code>sql</code> against.
      * @param schema Schema to use on <code>database</code>
      * @param sql SQL to execute.
+     * @param parameters If non-null, then these are parameters and 'sql' is text of a prepared statement.
      * @return Returns ResultSet or null.
      * @throws SQLException For all sorts of reasons.
      */
     @Nullable
-    public ResultSet execute(String database, String schema, String sql) throws SQLException {
+    public ResultSet execute(String database, String schema, String sql, List<Parameter> parameters)
+            throws SQLException {
         // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
         // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
         // We used to explicitly set schema up here but this was provoking a new, separate, transaction; just let
@@ -144,18 +150,59 @@ public class FRL implements AutoCloseable {
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
         // TODO: Transaction handling.
         try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
-            try (Statement statement = connection.createStatement()) {
-                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                    ResultSet resultSet = null;
-                    if (relationalStatement.execute(sql)) {
-                        resultSet = TypeConversion.toProtobuf(relationalStatement.getResultSet());
-                        relationalStatement.getResultSet().close();
+            ResultSet resultSet = null;
+            if (parameters != null) {
+                // If parameters, it's a prepared statement.
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    try (RelationalPreparedStatement relationalStatement =
+                            statement.unwrap(RelationalPreparedStatement.class)) {
+                        int index = 1; // Parameter position is one-based.
+                        for (Parameter parameter : parameters) {
+                            addPreparedStatementParameter(relationalStatement, parameter, index++);
+                        }
+                        try (RelationalResultSet rrs = relationalStatement.executeQuery()) {
+                            resultSet = TypeConversion.toProtobuf(rrs);
+                        }
+                        return resultSet;
                     }
-                    return resultSet;
+                }
+            } else {
+                try (Statement statement = connection.createStatement()) {
+                    try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                        if (relationalStatement.execute(sql)) {
+                            resultSet = TypeConversion.toProtobuf(relationalStatement.getResultSet());
+                            relationalStatement.getResultSet().close();
+                        }
+                        return resultSet;
+                    }
                 }
             }
         } catch (RelationalException e) {
             throw e.toSqlException();
+        }
+    }
+
+    private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
+                                                      Parameter parameter, int index) throws SQLException {
+        int type = parameter.getJavaSqlTypesCode();
+        switch (type) {
+            case Types.VARCHAR:
+                relationalPreparedStatement.setString(index, parameter.getParameter().getString());
+                break;
+            case Types.BIGINT:
+                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                break;
+            case Types.DOUBLE:
+                relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
+                break;
+            case Types.BOOLEAN:
+                relationalPreparedStatement.setBoolean(index, parameter.getParameter().getBoolean());
+                break;
+            case Types.BINARY:
+                relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
+                break;
+            default:
+                throw new SQLException("Unsupported type " + type);
         }
     }
 

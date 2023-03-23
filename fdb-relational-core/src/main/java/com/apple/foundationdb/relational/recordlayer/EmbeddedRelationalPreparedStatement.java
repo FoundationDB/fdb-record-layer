@@ -192,4 +192,14 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     public void close() throws SQLException {
         closed = true;
     }
+
+    @Override
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        return iface.cast(this);
+    }
+
+    @Override
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        return iface.isInstance(this);
+    }
 }

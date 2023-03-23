@@ -58,7 +58,7 @@ message Array {
 // list of columns. A producer of column is expected to set one of these
 // variants. Absence of any variant indicates an error.
 message Column {
-  // The kind of column.
+  // The kind/type of column.
   oneof kind {
     // Represents a null column.
     NullColumn null = 1;
@@ -76,6 +76,8 @@ message Column {
     Struct struct = 7;
     Array array = 8;
     bytes binary = 9;
+
+    float float = 10;
   }
 }
 

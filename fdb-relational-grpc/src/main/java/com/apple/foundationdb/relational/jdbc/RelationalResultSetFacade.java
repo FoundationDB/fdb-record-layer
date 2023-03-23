@@ -59,6 +59,8 @@ class RelationalResultSetFacade implements RelationalResultSet {
      */
     private static final int NUMERIC_VALUE_WHEN_NULL = -1;
 
+    static final RelationalResultSet EMPTY = new RelationalResultSetFacade(ResultSet.newBuilder().build());
+
     RelationalResultSetFacade(ResultSet delegate) {
         this.delegate = delegate;
         this.rows = delegate.getRowCount();

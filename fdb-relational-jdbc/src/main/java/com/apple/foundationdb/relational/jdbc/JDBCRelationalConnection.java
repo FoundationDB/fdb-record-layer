@@ -194,7 +194,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        return new JDBCRelationalPreparedStatement(sql, this);
     }
 
     @Override

@@ -32,6 +32,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ListBytes;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
@@ -45,10 +47,10 @@ import io.grpc.StatusRuntimeException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -69,15 +71,16 @@ class JDBCRelationalStatement implements RelationalStatement {
     private int updateCount = STATEMENT_NO_RESULT;
 
     /**
-     * Special value that is used to indicate that a statement returned a {@link ResultSet}. The
-     * method {@link Statement#getUpdateCount()} will return this value if the previous statement that
-     * was executed with {@link Statement#execute(String)} returned a {@link ResultSet}.
+     * Special value that is used to indicate that a statement returned a {@link java.sql.ResultSet}. The
+     * method #getUpdateCount() will return this value if the previous statement that
+     * was executed with {@link Statement#execute(String)} returned a {@link java.sql.ResultSet}.
      */
     public static final int STATEMENT_RESULT_SET = -1;
+
     /**
-     * Special value that is used to indicate that a statement had no result. The method {@link
-     * Statement#getUpdateCount()} will return this value if the previous statement that was executed
-     * with {@link Statement#execute(String)}, such as DDL statements.
+     * Special value that is used to indicate that a statement had no result. The method #getUpdateCount() will return
+     * this value if the previous statement that was executed
+     * with #execute(String), such as DDL statements.
      */
     public static final int STATEMENT_NO_RESULT = -2;
 
@@ -99,64 +102,76 @@ class JDBCRelationalStatement implements RelationalStatement {
         return this.updateCount;
     }
 
-    @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
-    private RelationalResultSet execute(@Nonnull String sql, @Nonnull Options options)
-            throws SQLException {
-        checkOpen();
-        // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse = null;
-        try {
-            statementResponse = this.connection.getStub().execute(StatementRequest.newBuilder()
-                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
-                    .build());
-        } catch (StatusRuntimeException statusRuntimeException) {
-            // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
-            if (sqlException == null) {
-                throw statusRuntimeException;
-            }
-            throw sqlException;
-        }
-        this.updateCount = STATEMENT_RESULT_SET;
-        return statementResponse.hasResultSet() ? new RelationalResultSetFacade(statementResponse.getResultSet()) : null;
-    }
-
-    @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
-    private int update(@Nonnull String sql, @Nonnull Options options)
-            throws SQLException {
-        checkOpen();
-        // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse = null;
-        try {
-            statementResponse = this.connection.getStub().execute(StatementRequest.newBuilder()
-                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema())
-                    .build());
-        } catch (StatusRuntimeException statusRuntimeException) {
-            // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
-            if (sqlException == null) {
-                throw statusRuntimeException;
-            }
-            throw sqlException;
-        }
-        if (statementResponse.hasResultSet()) {
-            throw new SQLException(String.format("Query '%s' returns a ResultSet; use JDBC executeQuery instead", sql));
-        }
-        this.updateCount = statementResponse.getRowCount();
-        return this.updateCount;
-    }
-
     @Override
-    public RelationalResultSet executeQuery(String sql) throws SQLException {
-        checkOpen();
-        this.currentResultSet = execute(sql, Options.NONE);
+    public RelationalResultSet executeQuery(@Nonnull String sql) throws SQLException {
+        return executeQuery(sql, (Collection<Parameter>) null);
+    }
+
+    /**
+     * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
+     *                   (and non-null if preparedstatement).
+     * @return ResultSet object that contains the data produced by the given query; never null
+     * @throws SQLException if a database access error occurs or this method is called on a closed Statement
+     */
+    RelationalResultSet executeQuery(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+        StatementResponse statementResponse = execute(sql, Options.NONE, parameters);
+        this.updateCount = STATEMENT_RESULT_SET;
+        this.currentResultSet = statementResponse.hasResultSet() ?
+                new RelationalResultSetFacade(statementResponse.getResultSet()) : RelationalResultSetFacade.EMPTY;
         return this.currentResultSet;
     }
 
     @Override
-    public int executeUpdate(String sql) throws SQLException {
+    public int executeUpdate(@Nonnull String sql) throws SQLException {
+        return executeUpdate(sql, (Collection<Parameter>) null);
+    }
+
+    /**
+     * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
+     *                   (and non-null if preparedstatement).
+     * @return either (1) the row count for SQL Data Manipulation Language (DML) statements or (2) 0 for SQL statements
+     *  that return nothing
+     * @throws SQLException if a database access error occurs or this method is called on a closed Statement
+     */
+    int executeUpdate(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+        StatementResponse statementResponse = execute(sql, Options.NONE, parameters);
+        this.updateCount = statementResponse.getRowCount();
+        return this.updateCount;
+    }
+
+    /**
+     * Engine to run sql for both updates and executes.
+     * @param sql SQL to execute.
+     * @param options Options to use executing <code>sql</code>
+     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
+     *                   (and non-null if preparedstatement).
+     * @return StatementResponse.
+     * @throws SQLException if a database access error occurs or this method is called on a closed Statement
+     */
+    @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
+    private StatementResponse execute(@Nonnull String sql, @Nonnull Options options, Collection<Parameter> parameters)
+            throws SQLException {
         checkOpen();
-        return update(sql, Options.NONE);
+        // Punt on transaction/autocommit consideration for now (autocommit==true).
+        StatementResponse statementResponse = null;
+        try {
+            StatementRequest.Builder builder = StatementRequest.newBuilder()
+                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema());
+            if (parameters != null) {
+                builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
+            }
+            statementResponse = this.connection.getStub().execute(builder.build());
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
+        return statementResponse;
     }
 
     @Override
@@ -182,9 +197,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        checkOpen();
-        this.currentResultSet = this.execute(sql, Options.NONE);
-        return this.currentResultSet != null;
+        return this.executeQuery(sql) != RelationalResultSetFacade.EMPTY;
     }
 
     @Override
@@ -203,16 +216,9 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
+    @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        checkOpen();
-        RelationalResultSet resultSet = execute(sql, Options.NONE);
-        if (resultSet != null) {
-            this.currentResultSet = resultSet;
-            return true;
-        } else {
-            this.currentResultSet = null;
-            return false;
-        }
+        return execute(sql);
     }
 
     @Override

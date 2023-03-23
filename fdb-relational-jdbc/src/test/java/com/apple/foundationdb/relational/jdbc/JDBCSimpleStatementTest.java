@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
@@ -90,28 +91,28 @@ public class JDBCSimpleStatementTest {
                 statement.cancel();
                 Assertions.assertFalse(statement.isClosed());
                 try (RelationalResultSet resultSet = statement.executeQuery("select * from databases;")) {
-                    Assertions.assertNotNull(resultSet);
-                    Assertions.assertEquals(resultSet, statement.getResultSet());
-                    Assertions.assertTrue(resultSet.isWrapperFor(RelationalResultSetFacade.class));
-                    // Exercise some metadata methods to get our jacoco coverage up.
-                    Assertions.assertEquals(1, resultSet.getMetaData().getColumnCount());
-                    String columnName = "DATABASE_ID";
-                    Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnName(1));
-                    // Label == name for now.
-                    Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnLabel(1));
-                    Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
-                    Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(TESTDB, resultSet.getString(1));
-                    Assertions.assertEquals(TESTDB, resultSet.getString(TESTDB));
-                    Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(SYSDBPATH, resultSet.getString(1));
-                    Assertions.assertEquals(SYSDBPATH, resultSet.getString(SYSDBPATH));
-                    Assertions.assertFalse(resultSet.next());
-                    Assertions.assertEquals(0,
-                            statement.executeUpdate("Drop database \"" + TESTDB + "\""));
-                    resultSet.clearWarnings(); // Does nothing.
-                    // For now they are empty.
-                    Assertions.assertNull(resultSet.getWarnings());
+                    checkSelectStarFromDatabasesResultSet(resultSet);
+                }
+                try (RelationalPreparedStatement preparedStatement =
+                        connection.prepareStatement("select * from databases;")) {
+                    try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
+                        checkSelectStarFromDatabasesResultSet(resultSet);
+                    }
+                }
+                // Simple test of parameters in prepared statement.
+                String columnName = "DATABASE_ID";
+                String columnValue = "/__SYS";
+                try (RelationalPreparedStatement preparedStatement =
+                        connection.prepareStatement("select * from databases where " + columnName + " = ?;")) {
+                    preparedStatement.setString(1, columnValue);
+                    try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
+                        // Should return one column only in a one row resultset.
+                        Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnName(1));
+                        Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
+                        Assertions.assertTrue(resultSet.next());
+                        Assertions.assertEquals(columnValue, resultSet.getString(1));
+                        Assertions.assertFalse(resultSet.next());
+                    }
                 }
             } finally {
                 try (RelationalStatement statement = connection.createStatement()) {
@@ -119,5 +120,27 @@ public class JDBCSimpleStatementTest {
                 }
             }
         }
+    }
+
+    private void checkSelectStarFromDatabasesResultSet(RelationalResultSet resultSet) throws SQLException {
+        Assertions.assertNotNull(resultSet);
+        Assertions.assertTrue(resultSet.isWrapperFor(RelationalResultSetFacade.class));
+        // Exercise some metadata methods to get our jacoco coverage up.
+        Assertions.assertEquals(1, resultSet.getMetaData().getColumnCount());
+        String columnName = "DATABASE_ID";
+        Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnName(1));
+        // Label == name for now.
+        Assertions.assertEquals(columnName, resultSet.getMetaData().getColumnLabel(1));
+        Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertEquals(TESTDB, resultSet.getString(1));
+        Assertions.assertEquals(TESTDB, resultSet.getString(TESTDB));
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertEquals(SYSDBPATH, resultSet.getString(1));
+        Assertions.assertEquals(SYSDBPATH, resultSet.getString(SYSDBPATH));
+        Assertions.assertFalse(resultSet.next());
+        resultSet.clearWarnings(); // Does nothing.
+        // For now they are empty.
+        Assertions.assertNull(resultSet.getWarnings());
     }
 }
