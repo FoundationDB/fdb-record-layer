@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -62,11 +62,11 @@ public class TransactionBoundDatabaseTest {
     void simpleSelect() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
         RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
+        FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
         try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 
-                // Then, once we have a transaction that contains both an FDBRecordStore and an FDBRecordContext,
+                // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
                 EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine();
                 EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
@@ -96,11 +96,11 @@ public class TransactionBoundDatabaseTest {
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
         // First create a transaction object out of the connection and the statement
         RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
+        FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
         try (FDBRecordContext context = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
             try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context)) {
 
-                // Then, once we have a transaction that contains both an FDBRecordStore and an FDBRecordContext,
+                // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
                 TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.builder().withOption(Options.Name.PLAN_CACHE_MAX_ENTRIES, 1).build());
                 Assertions.assertThat(engine.getPlanCache()).isNotNull()

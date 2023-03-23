@@ -20,13 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -159,7 +160,7 @@ public class PlanGenerationStackTest {
     void queryTestHarness(final int index, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
-        final FDBRecordStore store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStore.class);
+        final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
         if (error == null) {
             Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext));

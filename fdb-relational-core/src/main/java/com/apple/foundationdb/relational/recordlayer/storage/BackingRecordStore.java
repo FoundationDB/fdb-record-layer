@@ -76,16 +76,16 @@ import java.util.stream.Collectors;
 
 public final class BackingRecordStore implements BackingStore {
     private final Transaction transaction;
-    private final FDBRecordStore recordStore;
+    private final FDBRecordStoreBase<Message> recordStore;
 
-    private BackingRecordStore(Transaction transaction, FDBRecordStore recordStore) {
+    private BackingRecordStore(Transaction transaction, FDBRecordStoreBase<Message> recordStore) {
         this.transaction = transaction;
         this.recordStore = recordStore;
     }
 
     @Override
     public <T> T unwrap(Class<T> type) throws InternalErrorException {
-        if (FDBRecordStore.class.isAssignableFrom(type)) {
+        if (FDBRecordStoreBase.class.isAssignableFrom(type)) {
             return type.cast(recordStore);
         }
         return BackingStore.super.unwrap(type);
@@ -243,7 +243,7 @@ public final class BackingRecordStore implements BackingStore {
     public static BackingRecordStore load(@Nonnull Transaction txn, @Nonnull StoreConfig config, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
         try {
-            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
+            FDBRecordStoreBase<Message> recordStore = FDBRecordStore.newBuilder()
                     .setKeySpacePath(config.getStorePath())
                     .setSerializer(config.getSerializer())
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath

@@ -21,10 +21,12 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.protobuf.Message;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -33,10 +35,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
  */
 @ConnectionScoped
 public class RecordStoreAndRecordContextTransaction implements Transaction {
-    FDBRecordStore store;
+    FDBRecordStoreBase<Message> store;
     RecordContextTransaction transaction;
 
-    public RecordStoreAndRecordContextTransaction(FDBRecordStore store, FDBRecordContext context) {
+    public RecordStoreAndRecordContextTransaction(FDBRecordStoreBase<Message> store, FDBRecordContext context) {
         this.store = store;
         this.transaction = new RecordContextTransaction(context);
     }
@@ -60,7 +62,7 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
         return transaction;
     }
 
-    public FDBRecordStore getRecordStore() {
+    public FDBRecordStoreBase<Message> getRecordStore() {
         return store;
     }
 }

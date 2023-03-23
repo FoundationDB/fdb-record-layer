@@ -20,7 +20,7 @@
 
 /**
  * Classes for interfacing with database storage through Record Layer interfaces. This wraps the
- * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore record store} in
+ * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase record store} in
  * an interface that can then also be backed by other data structures, like a
  * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}.
  */

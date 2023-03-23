@@ -48,7 +48,7 @@ import java.net.URI;
  * This database cannot create new transaction and its transaction manager will throw {@link com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException}
  * if any of its methods are called.
  * A {@link RecordStoreAndRecordContextTransaction} object needs to be passed to {@link com.apple.foundationdb.relational.api.catalog.RelationalDatabase#connect(Transaction)}.
- * This object should contain a valid FDBRecordStore and a FDBRecordContext whose scope is larger than the scope of this class.
+ * This object should contain a valid FDBRecordStoreBase and a FDBRecordContext whose scope is larger than the scope of this class.
  *
  * Note: this database doesn't support DDL statements.
  * Note: this is only a temporary workaround to finish the first step of integration with customers through direct API.

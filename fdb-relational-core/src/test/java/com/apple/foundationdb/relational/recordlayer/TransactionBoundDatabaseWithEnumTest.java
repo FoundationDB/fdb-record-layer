@@ -221,7 +221,7 @@ public class TransactionBoundDatabaseWithEnumTest {
         return metaDataBuilder.build();
     }
 
-    private FDBRecordStore createRecordStore(FDBRecordContext context, SubspaceProvider subspaceProvider) {
+    private FDBRecordStoreBase<Message> createRecordStore(FDBRecordContext context, SubspaceProvider subspaceProvider) {
         return FDBRecordStore.newBuilder()
                 .setContext(context)
                 .setMetaDataProvider(createRecordMetaData())
@@ -234,9 +234,9 @@ public class TransactionBoundDatabaseWithEnumTest {
         EmbeddedRelationalConnection connection = (EmbeddedRelationalConnection) connRule.getUnderlying();
         FDBRecordContext context = connection.frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class);
         SubspaceProvider subspaceProvider = connection.frl.loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY)
-                .unwrap(FDBRecordStore.class)
+                .unwrap(FDBRecordStoreBase.class)
                 .getSubspaceProvider();
-        FDBRecordStore recordStore = createRecordStore(context, subspaceProvider);
+        FDBRecordStoreBase<Message> recordStore = createRecordStore(context, subspaceProvider);
         return new RecordStoreAndRecordContextTransaction(recordStore, context);
     }
 }

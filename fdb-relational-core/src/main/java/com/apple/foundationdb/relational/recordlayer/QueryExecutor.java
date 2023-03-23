@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -32,6 +32,8 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,7 +66,7 @@ public class QueryExecutor {
     public ResumableIterator<Row> execute(@Nullable Continuation continuation,
                                           @Nonnull ExecuteProperties executeProperties) throws RelationalException {
         if (!isExplain) {
-            final FDBRecordStore fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStore.class);
+            final FDBRecordStoreBase<Message> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
             final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                     evaluationContext,
                     continuation == null ? null : continuation.getBytes(), executeProperties);

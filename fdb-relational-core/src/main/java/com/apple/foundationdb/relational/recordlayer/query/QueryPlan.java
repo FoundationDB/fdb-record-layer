@@ -24,7 +24,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexFetchMethod;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -61,6 +61,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -156,7 +157,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) context.connection;
             final String schemaName = conn.getSchema();
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                final FDBRecordStore store = recordLayerSchema.loadStore().unwrap(FDBRecordStore.class);
+                final FDBRecordStoreBase<Message> store = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
                 final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
                 RecordQueryPlan recordQueryPlan = generatePhysicalPlan(planContext, context.options);
                 if (forExplain) {

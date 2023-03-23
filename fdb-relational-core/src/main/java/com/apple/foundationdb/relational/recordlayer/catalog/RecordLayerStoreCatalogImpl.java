@@ -182,7 +182,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     @Nonnull
     public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
-        final FDBRecordStore recordStore = openFDBRecordStore(txn);
+        final FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Assert.notNull(recordStore);
         final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
@@ -230,7 +230,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     public void createDatabase(@Nonnull Transaction txn, URI dbUri) throws RelationalException {
         try {
-            FDBRecordStore recordStore = openFDBRecordStore(txn);
+            FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
             ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
             Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
             recordStore.saveRecord(m);
@@ -241,7 +241,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
         return new RecordLayerResultSet(dbTableMetaData, RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
@@ -249,7 +249,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
@@ -259,7 +259,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
@@ -269,7 +269,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
         try {
-            FDBRecordStore recordStore = openFDBRecordStore(txn);
+            FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
             final var primaryKey = getSchemaKey(dbUri, schemaName);
             Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
         } catch (RecordCoreException rce) {
@@ -279,7 +279,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI databaseId) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         try {
             String dbId = databaseId.getPath();
             return recordStore.loadRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId)) != null;
@@ -290,7 +290,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         try {
             Tuple primaryKey = getSchemaKey(dbUri, schemaName);
             return recordStore.loadRecord(primaryKey) != null;
@@ -301,7 +301,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         try {
             String dbId = dbUrl.getPath();
             final var allSchemasDeleted = deleteSchemas(txn, URI.create(dbId));
@@ -323,7 +323,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException, SQLException {
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         final var key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, prefix);
         final var databaseDesc = recordStore.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
@@ -347,7 +347,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
-    private FDBRecordStore openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
+    private FDBRecordStoreBase<Message> openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
         try {
             return FDBRecordStore.newBuilder().setKeySpacePath(schemaPath).setContext(txn.unwrap(FDBRecordContext.class)).setMetaDataProvider(metaDataProvider).open();
         } catch (RecordCoreException ex) {
@@ -360,7 +360,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     // throws exception otherwise.
     private boolean deleteSchemas(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
-        FDBRecordStore recordStore = openFDBRecordStore(txn);
+        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
         RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
         try {
@@ -382,7 +382,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return true;
     }
 
-    private void saveSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStore recordStore) throws RelationalException {
+    private void saveSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         try {
             @Nonnull final ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
             @Nonnull final Message m = pmd.setField("DATABASE_ID", schema.getDatabaseName())

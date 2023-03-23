@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.cache.SchemaState;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -185,7 +187,7 @@ public final class PlanContext implements SchemaState {
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull final FDBRecordStore recordStore) {
+        public Builder fromRecordStore(@Nonnull final FDBRecordStoreBase<Message> recordStore) {
             return withStoreState(recordStore.getRecordStoreState()).withMetadata(recordStore.getRecordMetaData());
         }
 

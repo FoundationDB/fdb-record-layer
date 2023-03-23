@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -31,6 +31,8 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -168,7 +170,7 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
-            final FDBRecordStore store = schema.loadStore().unwrap(FDBRecordStore.class);
+            final FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
             final var preparedStatementParameters = new PreparedStatementParameters(parameters, namedParameters);
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store)

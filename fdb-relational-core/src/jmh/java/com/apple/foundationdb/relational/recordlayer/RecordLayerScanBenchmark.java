@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.ByteString;
@@ -68,7 +69,7 @@ public class RecordLayerScanBenchmark extends RelationalScanBenchmark {
         FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext ctx = fdbDb.openContext()) {
             final var path = RelationalKeyspaceProvider.toDatabasePath(dbUri, driver.keySpace).schemaPath(schema);
-            FDBRecordStore store = FDBRecordStore.newBuilder()
+            FDBRecordStoreBase<Message> store = FDBRecordStore.newBuilder()
                     .setKeySpacePath(path)
                     .setMetaDataProvider(accessor.getProvider(new RecordContextTransaction(ctx)))
                     .setSerializer(DynamicMessageRecordSerializer.instance())
