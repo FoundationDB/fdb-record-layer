@@ -81,6 +81,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * This class is a Record Cursor implementation for Lucene auto complete suggestion lookup.
@@ -217,11 +218,14 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     }
 
     private Set<String> getAllIndexedFieldNames(IndexReader indexReader) {
+        final var excludedDocumentFieldNames = excludedFieldNames.stream()
+                .map(excluded -> excluded.replace('.', '_'))
+                .collect(Collectors.toSet());
         Set<String> fieldNames = new HashSet<>();
         indexReader.leaves().forEach(leaf -> leaf.reader().getFieldInfos().forEach(fieldInfo -> {
             // Exclude the fields where the field's IndexOptions indicate that the field data is not indexed,
             // and the ones which are excluded by the index's options in the schema
-            if (fieldInfo.getIndexOptions() != IndexOptions.NONE && !excludedFieldNames.contains(fieldInfo.name)) {
+            if (fieldInfo.getIndexOptions() != IndexOptions.NONE && !excludedDocumentFieldNames.contains(fieldInfo.name)) {
                 fieldNames.add(fieldInfo.name);
             }
         }));

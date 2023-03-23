@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -44,55 +47,70 @@ public class LuceneIndexValidatorTest {
     void testInvalidIndexOptions() {
         // valid options
         final Map<String, String> options = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, " text1 :NGRAM,text2: SYNONYM",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2, text3");
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2, text");
         assertDoesNotThrow(() -> validateIndexOptions(options), "Whitespaces should be stripped out they are valid option values");
         Map<String, String> parsedMap = LuceneIndexOptions.parseKeyValuePairOptionValue(" text1 :NGRAM,text2:SYNONYM");
         Set<String> parsedSet = LuceneIndexOptions.parseMultipleElementsOptionValue("text2, text3");
         assertEquals(parsedMap, Map.of("text1", "NGRAM", "text2", "SYNONYM"));
         assertEquals(parsedSet, Set.of("text2", "text3"));
 
-        // invalid options
-        final Map<String, String> options2 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2:SYNONYM,",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
+        // invalid options - option value ends with delimiter
+        final Map<String, String> options2 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2:SYNONYM,",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options2));
 
-        // invalid options
-        final Map<String, String> options3 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,,text2:SYNONYM",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
+        // invalid options - option value not of the form of key-value
+        final Map<String, String> options3 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,,text2:SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options3));
 
-        // invalid options
-        final Map<String, String> options4 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
+        // invalid options - option value not of the form of key-value
+        final Map<String, String> options4 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options4));
 
-        // invalid options
-        final Map<String, String> options5 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2:SYNONYM",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2:text3");
+        // invalid options - invalid delimiter
+        final Map<String, String> options5 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2:SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2:text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options5));
 
-        // invalid options
-        final Map<String, String> options6 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1:NGRAM,text2:SYNONYM",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, ",text2,text3");
+        // invalid options - option value starts with delimiter
+        final Map<String, String> options6 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2:SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, ",text2,text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options6));
 
-        // invalid options
-        final Map<String, String> options7 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text1,text2",
-                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
+        // invalid options - option value not of the form of key-value
+        final Map<String, String> options7 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text,text2",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text");
         assertThrows(MetaDataException.class,
                 () -> validateIndexOptions(options7));
+
+        // invalid options - excluded field is not a valid field
+        final Map<String, String> options8 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2:SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2,text3");
+        assertThrows(MetaDataException.class,
+                () -> validateIndexOptions(options8));
+
+        // invalid options - option value is empty
+        final Map<String, String> options9 = ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text:NGRAM,text2:SYNONYM",
+                LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "");
+        assertThrows(MetaDataException.class,
+                () -> validateIndexOptions(options9));
     }
 
     void validateIndexOptions(@Nonnull Map<String, String> indexOptions) {
-        Index index = new Index("Complex$multiple_analyzer_autocomplete",
+        Index index = new Index("Complex$text_index",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
                 LuceneIndexTypes.LUCENE,
                 indexOptions);
-        LuceneIndexValidator.validateIndexOptions(index);
+        final var metadataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
+        metadataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(field("doc_id"));
+        metadataBuilder.addIndex(TextIndexTestUtils.COMPLEX_DOC, index);
+        LuceneIndexValidator.validateIndexOptions(index, metadataBuilder.getRecordMetaData());
     }
 }

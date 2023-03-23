@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -43,18 +44,19 @@ public class LuceneIndexValidator extends IndexValidator {
     public void validate(@Nonnull MetaDataValidator metaDataValidator) {
         super.validate(metaDataValidator);
         validateNotVersion();
-        for (RecordType recordType : metaDataValidator.getRecordMetaData().recordTypesForIndex(index)) {
+        final var recordMetadata = metaDataValidator.getRecordMetaData();
+        for (RecordType recordType : recordMetadata.recordTypesForIndex(index)) {
             LuceneIndexExpressions.validate(index.getRootExpression(), recordType.getDescriptor());
         }
 
-        validateIndexOptions(index);
+        validateIndexOptions(index, recordMetadata);
     }
 
     @VisibleForTesting
-    public static void validateIndexOptions(@Nonnull Index index) {
+    public static void validateIndexOptions(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
-        validateAutoCompleteExcludedFields(index);
+        validateAutoCompleteExcludedFields(index, recordMetaData);
     }
 
     private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {
@@ -65,11 +67,19 @@ public class LuceneIndexValidator extends IndexValidator {
         }
     }
 
-    private static void validateAutoCompleteExcludedFields(@Nonnull Index index) {
+    private static void validateAutoCompleteExcludedFields(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
         String autoCompleteExcludedFieldsOption = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
         if (autoCompleteExcludedFieldsOption != null) {
             LuceneIndexOptions.validateMultipleElementsOptionValue(autoCompleteExcludedFieldsOption,
                     new MetaDataException("Index " + index.getName() + " has invalid option value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + autoCompleteExcludedFieldsOption));
+            final var excludedFieldNames = LuceneIndexOptions.parseMultipleElementsOptionValue(autoCompleteExcludedFieldsOption);
+            final var documentFields = LuceneIndexExpressions.getDocumentFieldDerivations(index, recordMetaData);
+            excludedFieldNames.forEach(excluded  -> {
+                final var excludedDocumentField = excluded.replace('.', '_');
+                if (!documentFields.containsKey(excludedDocumentField)) {
+                    throw new MetaDataException("Index " + index.getName() + " has invalid field name value for " + LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS + ": " + excluded);
+                }
+            });
         }
     }
 }
