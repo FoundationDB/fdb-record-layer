@@ -183,4 +183,84 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
     }
+
+    @Override
+    public String getSQLKeywords() throws SQLException {
+        return "";
+    }
+
+    @Override
+    public String getCatalogTerm() throws SQLException {
+        return "CATALOG";
+    }
+
+    @Override
+    public String getExtraNameCharacters() throws SQLException {
+        return "";
+    }
+
+    /**
+     * What is the string used to quote SQL identifiers? This returns a space if identifier quoting
+     * isn't supported. A JDBC Compliant driver will always use a double quote character.
+     * 
+     *
+     * @return the quoting string
+     * @throws SQLException if a database access error occurs
+     */
+    @Override
+    public String getIdentifierQuoteString() throws SQLException {
+        return "\"";
+    }
+
+    /**
+     * Does this driver support the ANSI-92 entry level SQL grammar? All JDBC Compliant drivers must
+     * return true. We currently don't I'm sure.
+     *
+     * @return true which is a lie for now at least.
+     * @throws SQLException if a database access error occurs
+     */
+    @Override
+    public boolean supportsANSI92EntryLevelSQL() throws SQLException {
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return false
+     */
+    @Override
+    public boolean supportsANSI92IntermediateSQL() throws SQLException {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return false
+     */
+    @Override
+    public boolean supportsANSI92FullSQL() throws SQLException {
+        return false;
+    }
+
+    @Override
+    public String getNumericFunctions() throws SQLException {
+        return "";
+    }
+
+    @Override
+    public String getStringFunctions() throws SQLException {
+        return "";
+    }
+
+    @Override
+    public String getSystemFunctions() throws SQLException {
+        return "";
+    }
+
+    @Override
+    public String getTimeDateFunctions() throws SQLException {
+        return "";
+    }
 }
