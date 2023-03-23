@@ -169,13 +169,6 @@ public class LucenePlanner extends RecordQueryPlanner {
                     return parameters;
                 }
             }
-        } else if (queryComponent instanceof AndComponent) {
-            for (QueryComponent child : ((AndComponent) queryComponent).getChildren()) {
-                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
-                if (parameters != null) {
-                    return parameters;
-                }
-            }
         }
         return null;
     }
@@ -233,9 +226,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             LuceneScanParameters scanParameters;
             switch (luceneQueryComponent.getType()) {
                 case AUTO_COMPLETE:
-                    scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), false);
-                    break;
+                    return null;
                 case AUTO_COMPLETE_HIGHLIGHT:
                     scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
                             luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), true);
@@ -260,7 +251,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nonnull
-    private LuceneQueryComponent tryPushResidual(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
+    private LuceneQueryComponent prefixFieldNames(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
         if (prefix.isEmpty()) {
             return luceneQueryComponent;
         }
@@ -290,10 +281,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
-        if (!parentFieldPath.isEmpty()) {
-            // check whether the provided parent path is actually a field in the Lucene index itself.
-            filter = tryPushResidual(filter, parentFieldPath);
-        }
+        filter = prefixFieldNames(filter, parentFieldPath);
+
         for (String field : filter.getFields()) {
             if (!validateIndexField(state, field)) {
                 return null;
@@ -303,10 +292,16 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterMask.setSatisfied(true);
         }
 
-        if (filter.isMultiFieldSearch()) {
-            return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
-        } else {
-            return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+        switch (filter.getType()) {
+            case AUTO_COMPLETE:
+            case AUTO_COMPLETE_HIGHLIGHT:
+                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter());
+            default:
+                if (filter.isMultiFieldSearch()) {
+                    return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                } else {
+                    return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                }
         }
     }
 

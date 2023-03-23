@@ -287,9 +287,9 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     }
 
     @Nullable
-    private Query buildQueryForPhraseMatching(@Nonnull Collection<String> fieldNames,
-                                              @Nonnull List<String> matchedTokens,
-                                              @Nullable String prefixToken) {
+    public Query buildQueryForPhraseMatching(@Nonnull Collection<String> fieldNames,
+                                             @Nonnull List<String> matchedTokens,
+                                             @Nullable String prefixToken) {
         // Construct a query that is essentially:
         //  - in any field,
         //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
@@ -314,9 +314,9 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     }
 
     @Nullable
-    private Query buildQueryForTermsMatching(@Nonnull Collection<String> fieldNames,
-                                             @Nonnull Set<String> tokenSet,
-                                             @Nullable String prefixToken) {
+    private static Query buildQueryForTermsMatching(@Nonnull Collection<String> fieldNames,
+                                                    @Nonnull Set<String> tokenSet,
+                                                    @Nullable String prefixToken) {
         // Construct a query that is essentially:
         //  - in any field,
         //  - all of the tokens must occur (with the last one as a prefix)
@@ -336,7 +336,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         return queryBuilder.build();
     }
 
-    private Query getPhrasePrefixQuery(@Nonnull String fieldName, @Nonnull PhraseQuery phraseQuery, @Nonnull String lastToken) {
+    private static Query getPhrasePrefixQuery(@Nonnull String fieldName, @Nonnull PhraseQuery phraseQuery, @Nonnull String lastToken) {
         Term[] terms = phraseQuery.getTerms();
         SpanNearQuery.Builder spanQuery = new SpanNearQuery.Builder(fieldName, true); // field
         for (Term term : terms) {
