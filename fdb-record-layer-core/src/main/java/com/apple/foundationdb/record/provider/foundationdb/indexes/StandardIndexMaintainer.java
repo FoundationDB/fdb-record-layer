@@ -776,11 +776,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             return false;
         }
         /*
-         * Synthetic Record Types have an extra header in the grouping key, which is the name of the leftConsituent.
+         * Synthetic Record Types have an extra header in the grouping key, which is the name of the leftConstituent.
          * We want to strip that out for comparison here, so first we determine if this is an index on a synthetic
          * type. If it is, then we strip the field out of the top. If not, then we don't worry about it. But
          * this only happens for NestingKeyExpressions, so we go ahead and do that check first before iterating
          * over synthetic types.
+         *
+         * There's a risk here that, if you created a synthetic record type and attempted to group by it,
+         * you could end up going through the same code path here, but in that case we are relying on the higher-level
+         * logic in QueryToKeyMatcher to require that _all_ indexes are able to group by the same key entry.
          */
         GroupingKeyExpression gke = (GroupingKeyExpression)rootExpression;
         try {
