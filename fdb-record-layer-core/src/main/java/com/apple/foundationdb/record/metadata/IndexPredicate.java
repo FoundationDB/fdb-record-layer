@@ -21,19 +21,32 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -44,6 +57,37 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class IndexPredicate {
+
+    private final Map<String, QueryPredicate> queryPredicateMap = new ConcurrentHashMap<>();
+
+    /**
+     * Check if a given record should be indexed.
+     * @param store record store
+     * @param savedRecord the updated record
+     * @return true if this index should generate index entries for this record
+     *
+     * Note that for now, IndexPredicate does not support filtering of certain index entries.
+     */
+    public <M extends Message> boolean shouldIndexThisRecord(@Nonnull FDBRecordStore store, @Nonnull final FDBIndexableRecord<M> savedRecord) {
+        CorrelationIdentifier objectQuantifier = Quantifier.current();
+        QueryPredicate queryPredicate = getQueryPredicate(store.getRecordMetaData(), savedRecord.getRecordType(), objectQuantifier);
+
+        String bindingName = Bindings.Internal.CORRELATION.bindingName(objectQuantifier.getId());
+        Bindings bindings = Bindings.newBuilder().set(bindingName, QueryResult.ofComputed(savedRecord.getRecord())).build();
+
+        return Boolean.TRUE.equals(queryPredicate.eval(store, EvaluationContext.forBindings(bindings)));
+    }
+
+    private QueryPredicate getQueryPredicate(RecordMetaData metaData, RecordType type, CorrelationIdentifier objectQuantifier) {
+        final String typeName = type.getName();
+        final String keyName = typeName + "#" + objectQuantifier.getId();
+        return queryPredicateMap.computeIfAbsent(keyName, ignored -> {
+            final RecordType recordType = metaData.getRecordType(typeName);
+            Type.Record typeRecord = Type.Record.fromDescriptor(recordType.getDescriptor());
+            Value recordValue = QuantifiedObjectValue.of(objectQuantifier, typeRecord);
+            return toPredicate(recordValue);
+        });
+    }
 
     /**
      * Parses a proto message into a corresponding predicate.
