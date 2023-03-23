@@ -760,7 +760,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull
-    default Set<Quantifier> computeMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+    default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
         return ImmutableSet.of();
     }
 

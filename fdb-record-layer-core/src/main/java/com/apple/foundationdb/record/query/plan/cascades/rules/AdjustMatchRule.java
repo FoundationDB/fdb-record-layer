@@ -92,8 +92,8 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private Optional<MatchInfo> matchWithCandidate(@Nonnull PartialMatch partialMatch,
-                                                   @Nonnull RelationalExpression candidateExpression) {
+    private Optional<MatchInfo> matchWithCandidate(@Nonnull final PartialMatch partialMatch,
+                                                   @Nonnull final RelationalExpression candidateExpression) {
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
 
         if (candidateExpression.getQuantifiers().size() > 1) {

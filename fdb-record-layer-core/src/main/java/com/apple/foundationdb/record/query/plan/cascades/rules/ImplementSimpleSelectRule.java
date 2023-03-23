@@ -32,7 +32,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -43,7 +45,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
@@ -64,7 +66,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
             planPartitions(any(innerPlanPartitionMatcher));
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
     private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
@@ -92,25 +94,41 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                 resultValue instanceof QuantifiedObjectValue &&
                 ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
 
-        if (predicates.isEmpty() &&
+        if (quantifier instanceof Quantifier.ForEach &&
+                predicates.isEmpty() &&
                 isSimpleResultValue) {
             call.yield(reference);
             return;
         }
 
-        if (!predicates.isEmpty()) {
+        if (quantifier instanceof Quantifier.Existential) {
+            reference = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(reference),
+                    new NullValue(quantifier.getFlowedObjectType())));
+        }
+
+        final var nonTautologyPredicates =
+                predicates.stream()
+                        .filter(predicate -> !predicate.isTautology())
+                        .collect(ImmutableList.toImmutableList());
+        if (nonTautologyPredicates.isEmpty() &&
+                isSimpleResultValue) {
+            call.yield(reference);
+            return;
+        }
+
+        if (!nonTautologyPredicates.isEmpty()) {
             reference = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(
                     Quantifier.physicalBuilder()
                             .withAlias(quantifier.getAlias())
                             .build(reference),
-                    predicates.stream()
+                    nonTautologyPredicates.stream()
                             .map(QueryPredicate::toResidualPredicate)
                             .collect(ImmutableList.toImmutableList())));
         }
 
         if (!isSimpleResultValue) {
             final Quantifier.Physical beforeMapQuantifier;
-            if (!predicates.isEmpty()) {
+            if (!nonTautologyPredicates.isEmpty()) {
                 final var lowerAlias = quantifier.getAlias();
                 beforeMapQuantifier = Quantifier.physical(reference);
                 resultValue = resultValue.rebase(AliasMap.of(lowerAlias, beforeMapQuantifier.getAlias()));

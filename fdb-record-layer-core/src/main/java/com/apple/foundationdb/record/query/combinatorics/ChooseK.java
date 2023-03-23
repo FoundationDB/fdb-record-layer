@@ -26,15 +26,17 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import org.apache.commons.lang3.tuple.MutablePair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
- * Utility class to provide helpers related to enumeration of cross products.
+ * Utility class to provide helpers related to enumeration of {@code n choose k}.
  *
  */
 @API(API.Status.EXPERIMENTAL)
@@ -256,8 +258,8 @@ public class ChooseK {
     }
 
     /**
-     * Create a {@link EnumeratingIterable} based on a set and a function describing
-     * the depends-on relationships between items in the given set.
+     * Create an {@link EnumeratingIterable} of the choose-K sets for a given number of elements based on a set and
+     * a function describing the depends-on relationships between items in the given set.
      * @param elements the list of collections to create the iterable over
      * @param numberOfElementsToChoose number {@code k} of elements to choose
      * @param <T> type
@@ -275,6 +277,32 @@ public class ChooseK {
         }
 
         return new ComplexIterable<>(elements, numberOfElementsToChoose);
+    }
+
+    /**
+     * Create an {@link Iterable} of the choose-K sets for a given number range of elements based on a set and
+     * a function describing the depends-on relationships between items in the given set.
+     * @param elements the list of collections to create the iterable over
+     * @param startInclusive starting number of elements to choose (inclusive)
+     * @param endExclusive ending number of elements to choose (exclusive)
+     * @param <T> type
+     * @return a new {@link Iterable} that obeys the constraints as expressed in
+     *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
+     *         orderings that violate the given depends-on constraints
+     */
+    public static <T> Iterable<List<T>> chooseK(@Nonnull final Collection<T> elements, final int startInclusive, final int endExclusive) {
+        Preconditions.checkArgument(startInclusive >= 0 && startInclusive <= elements.size());
+        Preconditions.checkArgument(endExclusive >= startInclusive && endExclusive - 1 <= elements.size());
+
+        if (startInclusive == endExclusive) {
+            return EnumeratingIterable.emptyIterable();
+        }
+
+        final var elementsAsList = ImmutableList.copyOf(elements);
+        return () -> IntStream.range(startInclusive, endExclusive)
+                .boxed()
+                .flatMap(index -> Streams.stream(chooseK(elementsAsList, index)))
+                .iterator();
     }
 
     @Nullable

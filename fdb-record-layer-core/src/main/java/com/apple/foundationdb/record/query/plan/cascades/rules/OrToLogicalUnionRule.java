@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Quer
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +47,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -110,25 +112,33 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         final var quantifiers = bindings.getAll(qunMatcher);
         final var orTermPredicates = bindings.getAll(orTermPredicateMatcher);
 
-        final var isSimpleResultValue = (resultValue instanceof QuantifiedObjectValue);
-
         final var ownedForEachAliases =
                 quantifiers.stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                         .map(Quantifier::getAlias)
                         .collect(ImmutableSet.toImmutableSet());
 
+        final var isSimpleResultValue = (resultValue instanceof QuantifiedObjectValue) &&
+                                        (ownedForEachAliases.contains(((QuantifiedObjectValue)resultValue).getAlias()));
+
         final var resultValueCorrelatedTo = resultValue.getCorrelatedTo();
-        final CorrelationIdentifier referredAlias;
+        final var referredOwnedForEachAliases =
+                Sets.intersection(resultValueCorrelatedTo, ownedForEachAliases);
+
+        if (referredOwnedForEachAliases.isEmpty()) {
+            // There is no point in creating a union as the or terms are somehow correlated and cannot be used for
+            // index matching and other good stuff.
+            return;
+        }
+        
+        final Optional<CorrelationIdentifier> referredAliasOptional;
         if (!isSimpleResultValue) {
-            final var referredOwnedForEachAliases =
-                    Sets.intersection(resultValueCorrelatedTo, ownedForEachAliases);
             if (referredOwnedForEachAliases.size() > 1) {
                 return;
             }
-            referredAlias = Iterables.getOnlyElement(referredOwnedForEachAliases);
+            referredAliasOptional = referredOwnedForEachAliases.stream().findFirst();
         } else {
-            referredAlias = ((QuantifiedObjectValue)resultValue).getAlias();
+            referredAliasOptional = Optional.of(((QuantifiedObjectValue)resultValue).getAlias());
         }
 
         final var relationalExpressionReferences = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
@@ -141,7 +151,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             // and existential quantifiers that are predicated by means of an exists() predicate. As existential
             // quantifier by itself just creates a true or false but never removes a record or contributes in a meaningful
             // way to the result set.
-            // TODO This optimization can done for all quantifiers that are not referred to by the term that also have a
+            // TODO This optimization can be done for all quantifiers that are not referred to by the term that also have a
             //      cardinality of one.
             //
             final ImmutableList<? extends Quantifier> neededQuantifiers =
@@ -158,8 +168,12 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
                     // that need to be preserved without introducing additional ones
                     return;
                 }
-                final var onlyNeededQuantifier = Iterables.getOnlyElement(neededQuantifiers);
-                lowerResultValue = onlyNeededQuantifier.getFlowedObjectValue();
+
+                lowerResultValue = neededQuantifiers
+                        .stream()
+                        .findFirst()
+                        .map(onlyNeededQuantifier -> (Value)Iterables.getOnlyElement(neededQuantifiers).getFlowedObjectValue())
+                        .orElseGet(() -> new LiteralValue<>(1));
             } else {
                 lowerResultValue = resultValue;
             }
@@ -171,7 +185,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
 
         if (!isSimpleResultValue) {
             final var unionQuantifier = Quantifier.forEach(resultReference);
-            final var rebasedResultValue = resultValue.rebase(AliasMap.of(referredAlias, unionQuantifier.getAlias()));
+            final var rebasedResultValue = referredAliasOptional.map(referredAlias -> resultValue.rebase(AliasMap.of(referredAlias, unionQuantifier.getAlias()))).orElse(resultValue);
             resultReference = GroupExpressionRef.of(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
         }
 

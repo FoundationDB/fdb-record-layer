@@ -21,9 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -73,5 +78,39 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
                 return matcher.explainMatcher(atLeastType, boundId, indentation);
             }
         };
+    }
+
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    static <E> CollectionMatcher<E> choose(@Nonnull final BindingMatcher<? extends E> downstream0,
+                                           @Nonnull final BindingMatcher<? extends E> downstream1,
+                                           @Nonnull final BindingMatcher<? extends E>... downstreamTail) {
+        return choose(ImmutableList.<BindingMatcher<? extends E>>builder()
+                .add(downstream0)
+                .add(downstream1)
+                .addAll(Arrays.asList(downstreamTail))
+                .build());
+    }
+
+    @SuppressWarnings("unchecked")
+    static <E> CollectionMatcher<E> choose(@Nonnull final List<? extends BindingMatcher<? extends E>> downstreams) {
+        return CollectionMatcher.fromBindingMatcher(
+                TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
+                        Extractor.of(element -> ChooseK.chooseK(element, Math.min(element.size(), downstreams.size())), name -> "choose(" + name + ", " + downstreams.size() + ")"),
+                        AnyMatcher.anyInIterable(SetMatcher.exactlyInAnyOrder(downstreams))));
+    }
+
+    static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream) {
+        return combinations(downstream, collection -> 0, Collection::size);
+    }
+
+    @SuppressWarnings("unchecked")
+    static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream,
+                                                 @Nonnull final Function<Collection<E>, Integer> startInclusiveFunction,
+                                                 @Nonnull final Function<Collection<E>, Integer> endExclusiveFunction) {
+        return CollectionMatcher.fromBindingMatcher(
+                TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
+                        Extractor.of(collection -> ChooseK.chooseK(collection, startInclusiveFunction.apply(collection), endExclusiveFunction.apply(collection)), name -> "combinations(" + name + ")"),
+                        AnyMatcher.anyInIterable(downstream)));
     }
 }

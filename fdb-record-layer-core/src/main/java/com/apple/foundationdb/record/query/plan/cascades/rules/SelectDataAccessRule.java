@@ -46,6 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -94,32 +95,35 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
 
         final var requestedOrderings = requestedOrderingsOptional.get();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
+        final var aliases = aliasToQuantifierMap.keySet();
 
         // group all successful matches by their sets of compensated aliases
-        final var matchPartitionsByAliasesMap =
+        final var matchPartitionByMatchAliasMap =
                 completeMatches
                         .stream()
-                        .map(match -> {
-                            final var matchedAliases =
-                                    expression.computeMatchedQuantifiers(match).stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+                        .flatMap(match -> {
+                            final var compensatedAliases = match.getCompensatedAliases();
+                            if (!compensatedAliases.containsAll(aliases)) {
+                                return Stream.empty();
+                            }
                             final Set<CorrelationIdentifier> matchedForEachAliases =
-                                    matchedAliases.stream()
+                                    compensatedAliases.stream()
                                             .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
                                             .collect(ImmutableSet.toImmutableSet());
-                            return Pair.of(match, matchedForEachAliases);
+                            if (matchedForEachAliases.size() == 1) {
+                                return Stream.of(Pair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
+                            }
+                            return Stream.empty();
                         })
-                        .filter(pair -> pair.getRight().size() == 1)
                         .collect(Collectors.groupingBy(
-                                pair -> Pair.of(pair.getLeft().getCompensatedAliases(), Iterables.getOnlyElement(pair.getRight())),
+                                Pair::getLeft,
                                 LinkedHashMap::new,
-                                Collectors.mapping(Pair::getLeft, ImmutableList.toImmutableList())));
+                                Collectors.mapping(Pair::getRight, ImmutableList.toImmutableList())));
 
         // loop through all compensated alias sets and their associated match partitions
-        for (final var matchPartitionByAliasesEntry : matchPartitionsByAliasesMap.entrySet()) {
-            final var entryKey = matchPartitionByAliasesEntry.getKey();
-            final var compensatedAliases = entryKey.getLeft();
-            final var matchedAlias = entryKey.getRight();
-            final var matchPartitionForAliases = matchPartitionByAliasesEntry.getValue();
+        for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
+            final var matchedAlias = matchPartitionByMatchAliasEntry.getKey();
+            final var matchPartitionForMatchedAlias = matchPartitionByMatchAliasEntry.getValue();
 
             //
             // Pull down the requested orderings along the matchedAlias
@@ -130,26 +134,15 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                             .collect(ImmutableSet.toImmutableSet());
 
             //
-            // Compute the set of quantifiers that needs to be pulled up to the new expression. These are the quantifiers
-            // that the match partition does not cover. This set is constant for the inner loop and can be computed
-            // outside it.
-            //
-            final var toBePulledUpQuantifiers =
-                    expression
-                            .getQuantifiers()
-                            .stream()
-                            .filter(quantifier -> !compensatedAliases.contains(quantifier.getAlias()))
-                            .collect(LinkedIdentitySet.toLinkedIdentitySet());
-
-            //
             // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
             // are definitely handled by the logic expressed by the partial matches of the current match partition.
             // Join predicates are different in a sense that there will be matches that handle those predicates and
             // there will be matches where these predicates will not be handled. We further need to sub-partition the
             // current match partition, by the predicates that are being handled by the matches.
             //
+            // TODO this should just be exactly one key
             final var matchPartitionsForAliasesByPredicates =
-                    matchPartitionForAliases
+                    matchPartitionForMatchedAlias
                             .stream()
                             .collect(Collectors.groupingBy(match -> new LinkedIdentitySet<>(match.getMatchInfo().getPredicateMap().keySet()),
                                     HashMap::new,
@@ -163,7 +156,6 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             // existential quantifiers.
             //
             for (final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
-                final var matchedPredicates = matchPartitionEntry.getKey();
                 final var matchPartition = matchPartitionEntry.getValue();
 
                 //
@@ -183,18 +175,10 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
                         .build(dataAccessReference);
-
-                final var toBePulledUpPredicates =
-                        expression.getPredicates()
-                                .stream()
-                                .filter(predicate -> !matchedPredicates.contains(predicate))
-                                .collect(LinkedIdentitySet.toLinkedIdentitySet());
-
+                
                 final var compensatedDataAccessExpression =
                         GraphExpansion.builder()
                                 .addQuantifier(dataAccessQuantifier)
-                                .addAllQuantifiers(toBePulledUpQuantifiers)
-                                .addAllPredicates(toBePulledUpPredicates)
                                 .build()
                                 .buildSelectWithResultValue(expression.getResultValue());
                 call.yield(GroupExpressionRef.of(compensatedDataAccessExpression));

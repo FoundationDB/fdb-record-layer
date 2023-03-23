@@ -57,6 +57,7 @@ public class RecordQueryPlannerConfiguration {
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
     private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
+    private final boolean deferCrossProducts;
     private final IndexFetchMethod indexFetchMethod;
     private final int maxNumReplansForInToJoin;
 
@@ -80,6 +81,7 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules,
+                                            final boolean deferCrossProducts,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
                                             boolean planOtherAttemptWholeFilter,
@@ -97,6 +99,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
+        this.deferCrossProducts = deferCrossProducts;
         this.indexFetchMethod = indexFetchMethod;
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
         this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
@@ -239,6 +242,26 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
+     * Return whether the query planner should defer cross products during join enumeration.
+     * <br>
+     * Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
+     * are not <em>connected</em> via a join predicate, nor is one correlated to the other. It is usually better to
+     * plan a cross product as the last join in a join tree as a cross product tends to increase the cardinality.
+     * Thus, such a join does not need to be planned among all the other joins and can therefore avoid useless
+     * exploration and over-enumeration.
+     * <br>
+     * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
+     * join in a query. For instance, in star-like schemas, the dimension table cross products are usually of a low
+     * cardinality due to some highly-selective predicates and can be joined upfront before joining the result with
+     * the fact table.
+     * @return {@code true} if the planner should defer cross products or {@code false}, if the planner should plan
+     *         them like other joins.
+     */
+    public boolean shouldDeferCrossProducts() {
+        return deferCrossProducts;
+    }
+
+    /**
      * Whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
      * use the DB's API to fetch records from the index, rather than return the index entries, followed
      * by record fetches.
@@ -289,6 +312,7 @@ public class RecordQueryPlannerConfiguration {
         private int maxNumMatchesPerRuleCall = 0;
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
+        private boolean deferCrossProducts = true;
         @Nonnull
         private Set<Class<? extends CascadesRule<?>>> disabledTransformationRules = Sets.newHashSet();
         @Nonnull
@@ -461,6 +485,24 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set whether the query planner should defer cross products during join enumeration.
+         * <br>
+         * Cross products are joins of data sources that are completely independent of one another, i.e., the data sources
+         * are not <em>connected</em> via a join predicate, nor is one correlated to the other. It is usually better to
+         * plan a cross product as the last join in a join tree as a cross product tends to increase the cardinality.
+         * Thus, such a join does not need to be planned among all the other joins and can therefore avoid useless
+         * exploration and over-enumeration.
+         * <br>
+         * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
+         * join in a query.
+         * @param deferCrossProducts indicator if the planner should defer cross products
+         * @return whether the planner will defer cross products or plan them like other joins
+         */
+        public Builder setDeferCrossProducts(final boolean deferCrossProducts) {
+            this.deferCrossProducts = deferCrossProducts;
+            return this;
+        }
 
         /**
          * Set whether the planner should use FDB remote fetch operations for the index scan plans. Remote fetch operations
@@ -518,6 +560,7 @@ public class RecordQueryPlannerConfiguration {
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
                     disabledTransformationRules,
+                    deferCrossProducts,
                     indexFetchMethod,
                     valueIndexesOverScanNeeded,
                     planOtherAttemptWholeFilter,

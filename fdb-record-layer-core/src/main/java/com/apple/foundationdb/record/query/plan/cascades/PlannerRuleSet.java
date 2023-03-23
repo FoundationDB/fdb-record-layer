@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExistentialNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExplodeRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
@@ -50,6 +49,8 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.MergeFetchIntoCov
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeProjectionAndFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicatesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.OrToLogicalUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
@@ -156,7 +157,8 @@ public class PlannerRuleSet {
             new ImplementSimpleSelectRule(),
             new ImplementExplodeRule(),
             new ImplementNestedLoopJoinRule(),
-            new ImplementExistentialNestedLoopJoinRule(),
+            new PartitionSelectRule(),
+            new PartitionBinarySelectRule(),
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),

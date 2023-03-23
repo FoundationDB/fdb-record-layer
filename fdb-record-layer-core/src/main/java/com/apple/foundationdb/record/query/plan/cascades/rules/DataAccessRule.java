@@ -102,7 +102,7 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
                         .stream()
                         .filter(match -> {
                             final var matchedQuantifiers =
-                                    expression.computeMatchedQuantifiers(match);
+                                    expression.getMatchedQuantifiers(match);
                             return matchedQuantifiers.size() == 1;
                         })
                         .collect(ImmutableList.toImmutableList());
