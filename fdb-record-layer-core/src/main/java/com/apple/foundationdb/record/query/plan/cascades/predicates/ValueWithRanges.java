@@ -111,6 +111,11 @@ public class ValueWithRanges implements PredicateWithValue {
         return new ValueWithRanges(value, ranges);
     }
 
+    @Nonnull
+    public ValueWithRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+        return new ValueWithRanges(value, ranges);
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
@@ -369,13 +374,15 @@ public class ValueWithRanges implements PredicateWithValue {
 
     @Nonnull
     private QueryPlanConstraint captureConstraint(@Nonnull final ValueWithRanges candidatePredicate) {
-        return evaluationContext ->
-                dereference(evaluationContext)
-                        .getRanges()
-                        .stream()
-                        .allMatch(range -> candidatePredicate
-                                .getRanges()
-                                .stream()
-                                .anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()));
+        return evaluationContext -> {
+            final var dereferencedCandidatePredicate = candidatePredicate.dereference(evaluationContext);
+            return dereference(evaluationContext)
+                    .getRanges()
+                    .stream()
+                    .allMatch(range -> dereferencedCandidatePredicate
+                            .getRanges()
+                            .stream()
+                            .anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()));
+        };
     }
 }

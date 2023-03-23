@@ -88,7 +88,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -121,7 +121,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
     }
@@ -135,7 +135,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
                 mapPlan(

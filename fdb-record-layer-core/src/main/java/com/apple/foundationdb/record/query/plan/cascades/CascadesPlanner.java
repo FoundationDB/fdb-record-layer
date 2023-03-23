@@ -318,7 +318,8 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .build();
-        return new QueryPlanResult(plan, info);
+        final var constraints = QueryPlanConstraint.collectConstraints(plan);
+        return new QueryPlanResult(plan, info, constraints);
     }
 
     @Nonnull
@@ -335,7 +336,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
+    public QueryPlanResult planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      final boolean isSortReverse,
@@ -351,7 +352,8 @@ public class CascadesPlanner implements QueryPlanner {
                                     indexQueryabilityFilter,
                                     isSortReverse,
                                     evaluationContext));
-            return resultOrFail();
+            final var plan = resultOrFail();
+            return new QueryPlanResult(plan, QueryPlanInfo.empty(), QueryPlanConstraint.collectConstraints(plan));
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }

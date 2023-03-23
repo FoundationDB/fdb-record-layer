@@ -689,6 +689,11 @@ public class Comparisons {
         @Nullable
         Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
 
+        @Nonnull
+        default Comparisons.Comparison withComparand(@Nonnull final Object comparand) {
+            throw new UnsupportedOperationException(String.format("creating new instance of %s with new comparand is not supported", this));
+        }
+
         /**
          * Get whether the comparison is with the result of a multi-column key.
          * If so, {@link #getComparand} will return a {@link com.apple.foundationdb.tuple.Tuple}.
@@ -814,7 +819,19 @@ public class Comparisons {
         @Nonnull
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            return comparand;
+            // maybe we should call eval on the operand
+            if (comparand instanceof Value) {
+                // todo: handle null here. Note that the call below (evalComparison) accepts null-comparand.
+                return ((Value)comparand).eval(store, context);
+            } else {
+                return comparand;
+            }
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withComparand(@Nonnull final Object comparand) {
+            return new SimpleComparison(type, comparand);
         }
 
         @Nonnull
@@ -1208,6 +1225,15 @@ public class Comparisons {
         @Nonnull
         public Value getComparandValue() {
             return comparandValue;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withComparand(@Nonnull final Object comparand) {
+            if (!(comparand instanceof Value)) {
+                throw new RecordCoreException("Unexpected non-value comparand %s", comparand);
+            }
+            return new ValueComparison(type, (Value)comparand);
         }
 
         @Nullable
@@ -2141,6 +2167,13 @@ public class Comparisons {
         public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
             return inner.getComparand(store, context);
         }
+
+        @Nonnull
+        @Override
+        public Comparison withComparand(@Nonnull final Object comparand) {
+            return new MultiColumnComparison(inner.withComparand(comparand));
+        }
+
 
         @Override
         public boolean hasMultiColumnComparand() {

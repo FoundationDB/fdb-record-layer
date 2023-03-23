@@ -47,6 +47,17 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
         this.parameterAlias = alias;
     }
 
+    @Nonnull
+    @Override
+    public ValueWithRanges withValue(@Nonnull final Value value) {
+        return new Placeholder(value, getRanges(), parameterAlias);
+    }
+
+    @Nonnull
+    public ValueWithRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+        return new Placeholder(getValue(), ranges, parameterAlias);
+    }
+
     @Override
     public boolean isSargable() {
         return false;

@@ -187,6 +187,6 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan();
     }
 }
