@@ -539,9 +539,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public void addComparison(Comparisons.Comparison comparison) {
             Object comparand = comparison.getComparand(store, context);
-            if (comparand instanceof ConstantObjectValue) {
-                comparand = ((ConstantObjectValue)comparand).eval(store, context);
-            }
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {
                 return;
             }

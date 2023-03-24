@@ -273,7 +273,7 @@ public class ImplementExistentialNestedLoopJoinRule extends CascadesRule<SelectE
 
         final var resultValue = selectExpression.getResultValue();
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(resultValue, newQuantifiers, otherPredicates)));
+        call.yield(GroupExpressionRef.of(new SelectExpression(resultValue, newQuantifiers, otherPredicates, call.getContext().getEvaluationContext())));
     }
 
     @Nonnull

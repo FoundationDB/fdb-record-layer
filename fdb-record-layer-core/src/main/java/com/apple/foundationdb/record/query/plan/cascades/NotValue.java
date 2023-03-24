@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -68,10 +69,10 @@ public class NotValue implements BooleanValue {
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(child instanceof BooleanValue);
-        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(evaluationContext, innermostAlias);
+        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(typeRepository, innermostAlias);
         if (predicateOptional.isPresent()) {
             QueryPredicate queryPredicate = predicateOptional.get();
             if (queryPredicate.equals(ConstantPredicate.FALSE)) {

@@ -362,6 +362,25 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
         return new PredicateWithValueAndRanges(value, newRanges.build());
     }
 
+    /**
+     * Captures a given candidate predicate into a plan constraint that is added to the corresponding physical plan operator.
+     * This is important to make sure a logical expression's eligibility of using a physical plan containing this candidate
+     * predicate.
+     * <br>
+     * The construction is done by pulling _each_ stripped literal on the query predicate (i.e. a {@link ConstantObjectValue})
+     * and construct, for each one of them, a {@link PredicateWithValueAndRanges} having it on LHS, and the candidate predicate
+     * ranges on the RHS.
+     * The logical grouping of the {@link ConstantObjectValue} is preserved. Here is an example:
+     * <br>
+     * Query Predicate: (Value1, ( ((GT,#COV1) AND (LT,#COV4)) OR ((EQ,#COV5)) ) (note that the ranges in {@link PredicateWithValueAndRanges} is in DNF format).
+     * <br>
+     * Candidate Predicate: (Value1, ((LTE,1000) AND (LTE,2000)))
+     * <br>
+     * The resulting constraint: ((#COV1, ((LTE,1000) AND (LTE,2000))) AND (#COV4, ((LTE,1000) AND (LTE,2000))) OR (#COV5,((LTE,1000) AND (LTE,2000)))
+     *
+     * @param candidatePredicate The candidate predicate to capture as a {@link QueryPlanConstraint}.
+     * @return The resulting {@link QueryPlanConstraint}.
+     */
     @Nonnull
     private QueryPlanConstraint captureConstraint(@Nonnull final PredicateWithValueAndRanges candidatePredicate) {
         // todo: add another constraint for semantic equality of the plans maybe, although semantic hashcode should do this for us I think.
@@ -370,13 +389,13 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
         for (final var queryRange : getRanges()) {
             conjunctions.add(AndPredicate.and(queryRange.getComparisons()
                     .stream()
-                    .map(Comparisons.Comparison::getComparand)
+                    .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
+                    .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
                     .filter(comparand -> comparand instanceof ConstantObjectValue)
-                    //.map(c -> PromoteValue.inject(c, ((ConstantObjectValue)c).getResultType())) // check.
                     .map(constant -> PredicateWithValueAndRanges.constraint((ConstantObjectValue)constant, candidateRanges))
                     .collect(Collectors.toList())));
 
-
+            // TODO
             // conjunctions.add(AndPredicate.and(queryRange.getComparisons()
             //         .stream()
             //         .filter(comparison -> comparison instanceof Comparisons.ValueComparison)

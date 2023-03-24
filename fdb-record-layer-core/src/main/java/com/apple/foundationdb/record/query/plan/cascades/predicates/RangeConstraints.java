@@ -61,8 +61,14 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlationsCalculator;
 
+    /**
+     * Amortised checker which checks whether any of the underlying range {@link Comparisons.Comparison}
+     * is a {@link com.apple.foundationdb.record.query.expressions.Comparisons.ValueComparison} with a
+     * {@link ConstantObjectValue} comparand. This check is needed for situations where we want to compile-time
+     * evaluate this {@link RangeConstraints}.
+     */
     @Nonnull
-    private final Supplier<Boolean> compileTimeChecker;
+    private final Supplier<Boolean> constantValueComparandsChecker;
 
     @Nullable
     private final Range<Boundary> evaluableRange; // null = entire range (if no deferred ranges are defined).
@@ -82,21 +88,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         this.deferredRanges = ImmutableSet.copyOf(deferredRanges);
         this.comparisonsCalculator = Suppliers.memoize(this::computeComparisons);
         this.correlationsCalculator = Suppliers.memoize(this::computeCorrelations);
-        this.compileTimeChecker = () -> {
-            boolean foundConstantValue = false;
-            for (final var comparison : getComparisons()) {
-                if (comparison.getComparand() instanceof ConstantObjectValue) {
-                    foundConstantValue = true;
-                    break;
-                }
-                if (comparison instanceof Comparisons.ValueComparison &&
-                        ((Comparisons.ValueComparison)comparison).getComparandValue() instanceof ConstantObjectValue) {
-                    foundConstantValue = true;
-                    break;
-                }
-            }
-            return foundConstantValue;
-        };
+        this.constantValueComparandsChecker = Suppliers.memoize(this::checkConstantValueComparands);
     }
 
     /**
@@ -118,7 +110,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         if (isEquality() == Proposition.TRUE) {
             return List.of(Objects.requireNonNull(evaluableRange).upperEndpoint().comparison);
         }
-        ImmutableList.Builder<Comparisons.Comparison> result = ImmutableList.builder();
+        final ImmutableList.Builder<Comparisons.Comparison> result = ImmutableList.builder();
         result.addAll(deferredRanges);
         if (evaluableRange != null) {
             if (evaluableRange.hasUpperBound()) {
@@ -168,7 +160,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Nonnull
     public RangeConstraints compileTimeEval(@Nonnull final EvaluationContext context) {
-        if (compileTimeChecker.get()) {
+        if (constantValueComparandsChecker.get()) {
             return this;
         }
 
@@ -190,7 +182,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     public boolean isCompileTime() {
-        return compileTimeChecker.get();
+        return constantValueComparandsChecker.get();
     }
 
     @Nonnull
@@ -206,6 +198,18 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
         }
         return result.build();
+    }
+
+    private boolean checkConstantValueComparands() {
+        boolean foundConstantValue = false;
+        for (final var comparison : getComparisons()) {
+            if (comparison instanceof Comparisons.ValueComparison &&
+                    ((Comparisons.ValueComparison)comparison).getComparandValue() instanceof ConstantObjectValue) {
+                foundConstantValue = true;
+                break;
+            }
+        }
+        return foundConstantValue;
     }
 
     @Nonnull
@@ -562,9 +566,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
             var comparand = comparison.getComparand(null, evaluationContext);
-            if (comparand instanceof ConstantObjectValue) {
-                comparand = ((ConstantObjectValue)comparand).eval(null, evaluationContext);
-            }
             if (comparison.hasMultiColumnComparand()) {
                 items.addAll(((Tuple)comparand).getItems());
             } else {
@@ -673,12 +674,12 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             if (!isCompileTime(comparison)) {
                 nonCompilableComparisons.add(comparison);
             } else {
-                addRange(toRange(comparison, evaluationContext), evaluationContext);
+                addRange(toRange(comparison, evaluationContext));
             }
             return true;
         }
 
-        private void addRange(@Nonnull final Range<Boundary> range, @Nonnull final EvaluationContext evaluationContext) {
+        private void addRange(@Nonnull final Range<Boundary> range) {
             if (this.range == null) {
                 this.range = range;
             } else {

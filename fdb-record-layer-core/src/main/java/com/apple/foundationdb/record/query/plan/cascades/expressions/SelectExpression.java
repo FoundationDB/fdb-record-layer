@@ -96,11 +96,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
 
-    public SelectExpression(@Nonnull Value resultValue,
-                            @Nonnull List<? extends Quantifier> children,
-                            @Nonnull List<? extends QueryPredicate> predicates) {
-        this(resultValue, children, predicates, null); // fixme
-    }
+    @Nonnull
+    private final EvaluationContext evaluationContext;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -111,6 +108,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates, evaluationContext);
+        this.evaluationContext = evaluationContext;
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
@@ -168,7 +166,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
-        return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
+        return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates, evaluationContext);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

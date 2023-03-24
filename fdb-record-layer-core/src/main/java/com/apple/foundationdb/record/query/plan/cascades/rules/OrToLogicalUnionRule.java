@@ -164,7 +164,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
                 lowerResultValue = resultValue;
             }
 
-            relationalExpressionReferences.add(GroupExpressionRef.of(new SelectExpression(lowerResultValue, neededQuantifiers, ImmutableList.of(orPredicate))));
+            relationalExpressionReferences.add(GroupExpressionRef.of(new SelectExpression(lowerResultValue, neededQuantifiers, ImmutableList.of(orPredicate), call.getContext().getEvaluationContext())));
         }
 
         var resultReference = GroupExpressionRef.<RelationalExpression>of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
@@ -172,7 +172,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         if (!isSimpleResultValue) {
             final var unionQuantifier = Quantifier.forEach(resultReference);
             final var rebasedResultValue = resultValue.rebase(AliasMap.of(referredAlias, unionQuantifier.getAlias()));
-            resultReference = GroupExpressionRef.of(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
+            resultReference = GroupExpressionRef.of(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of(), call.getContext().getEvaluationContext()));
         }
 
         call.yield(resultReference);

@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
@@ -107,26 +108,26 @@ public class InOpValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
-                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
         // we fail if the right side is not evaluable as we cannot create the comparison
 
+        typeRepository = Verify.verifyNotNull(typeRepository);
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
         if (leftChildCorrelatedTo.isEmpty()) {
-            return compileTimeEvalMaybe(Verify.verifyNotNull(evaluationContext));
+            return compileTimeEvalMaybe(typeRepository);
         }
 
         final var isLiteralList = inArrayValue.getCorrelatedTo().isEmpty();
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
-        final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(evaluationContext));
+        final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)));
         return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
     }
 
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
-    private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull final EvaluationContext evaluationContext) {
-        Object constantValue = this.compileTimeEval(evaluationContext);
+    private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull TypeRepository typeRepository) {
+        Object constantValue = this.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean) constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);

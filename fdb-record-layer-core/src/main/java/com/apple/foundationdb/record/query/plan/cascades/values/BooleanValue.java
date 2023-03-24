@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,10 +42,10 @@ public interface BooleanValue extends Value {
     /**
      * Translates the {@link BooleanValue} into a {@link QueryPredicate}.
      *
-     * @param evaluationContext an evaluation context that can be passed to e.g. compile-time evaluable functions
+     * @param typeRepository a type repository that can be passed to e.g. compile-time evaluable functions
      * @param innermostAlias An alias immediately visible to the expression.
      * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
-    Optional<QueryPredicate> toQueryPredicate(@Nullable final EvaluationContext evaluationContext,
+    Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
                                               @Nonnull CorrelationIdentifier innermostAlias);
 }

@@ -251,7 +251,13 @@ public class GraphExpansion {
 
     @Nonnull
     public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
-        return seal(null).buildSimpleSelectOverQuantifier(overQuantifier);
+        return buildSimpleSelectOverQuantifier(overQuantifier, null);
+    }
+
+    @Nonnull
+    public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier,
+                                                            @Nonnull final EvaluationContext evaluationContext) {
+        return seal(evaluationContext).buildSimpleSelectOverQuantifier(overQuantifier);
     }
 
     @Nonnull

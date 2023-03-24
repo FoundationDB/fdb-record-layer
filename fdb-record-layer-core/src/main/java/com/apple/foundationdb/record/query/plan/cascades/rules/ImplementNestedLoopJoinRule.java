@@ -339,7 +339,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final var newResultValue =
                 resultValue.translateCorrelations(translationMap);
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates)));
+        call.yield(GroupExpressionRef.of(new SelectExpression(newResultValue, newQuantifiers, newPredicates, call.getContext().getEvaluationContext())));
     }
 
     @Nonnull
