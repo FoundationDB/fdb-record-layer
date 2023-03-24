@@ -1690,7 +1690,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             MAP_ON_VALUE_INDEX_STORED_FIELDS);
-            assertEquals(481282751, luceneIndexPlan.planHash());
+            assertEquals(-1272847666, luceneIndexPlan.planHash());
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1705,7 +1705,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final var e = assertThrows(MetaDataException.class, () ->
                     rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX_WITH_WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS));
-            assertEquals("Index Map_with_auto_complete$entry-value has invalid field name value for autoCompleteExcludedFields: foo.bar",
+            assertEquals("Index Map_with_auto_complete_excluded_fields$entry-value has invalid field name value for autoCompleteExcludedFields: foo.bar",
                     e.getMessage());
         }
     }
@@ -2332,7 +2332,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final var e = assertThrows(MetaDataException.class, () ->
                     rebuildIndexMetaData(context, COMPLEX_DOC, WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX));
-            assertEquals("Index Complex$multiple_analyzer_autocomplete has invalid field name value for autoCompleteExcludedFields: text3",
+            assertEquals("Index Complex$multiple_analyzer_autocomplete has invalid field name value for autoCompleteExcludedFields: e",
                     e.getMessage());
         }
     }
