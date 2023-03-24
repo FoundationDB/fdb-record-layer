@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -227,9 +228,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final List<KeyExpression> keys = ImmutableList.copyOf(Iterables.concat(List.of(field("key")), lucene_keys));
 
-    private static final Index MAP_ON_VALUE_INDEX =
-            new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3), LuceneIndexTypes.LUCENE);
-
     private static final Index TEXT_AND_NUMBER_INDEX = new Index(
             "text_and_number_idx",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("group"))),
@@ -242,11 +240,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
-    private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE = new Index("Map_with_auto_complete$entry-value",
-            new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true"));
-
     private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                     LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
@@ -255,10 +248,21 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text2:" + NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, "text2:" + NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME));
+
+    private static final Index AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX = new Index("Complex$multiple_analyzer_autocomplete",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
                     LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "text2",
                     LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
                     LuceneIndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
+
+    private static final Index WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX = new Index("Complex$multiple_analyzer_autocomplete",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "e"));
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
             "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -268,6 +272,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
 
     private static final int DEFAULT_AUTO_COMPLETE_TEXT_SIZE_LIMIT = Verify.verifyNotNull(LuceneRecordContextProperties.LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT.getDefaultValue());
+
+    private static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
+        return new Index(
+                name,
+                new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
+                LuceneIndexTypes.LUCENE,
+                options);
+    }
+
+    private static final Index MAP_ON_VALUE_INDEX = getMapOnValueIndexWithOption("Map$entry-value", ImmutableMap.of());
+
+    private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE =
+            getMapOnValueIndexWithOption("Map_with_auto_complete$entry-value", ImmutableMap.of(
+                    LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true"));
+
+    private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS =
+            getMapOnValueIndexWithOption("Map_with_auto_complete_excluded_fields$entry-value", ImmutableMap.of(
+                    LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "entry.value"));
+
+    private static final Index MAP_ON_VALUE_INDEX_WITH_WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS =
+            getMapOnValueIndexWithOption("Map_with_auto_complete_excluded_fields$entry-value", ImmutableMap.of(
+                    LuceneIndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, "foo.bar"));
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
@@ -1646,6 +1674,43 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void searchForAutoCompleteExcludedFieldsForGroupedRecord() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS);
+            });
+            recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
+
+            final RecordQueryPlan luceneIndexPlan =
+                    LuceneIndexQueryPlan.of(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS.getName(),
+                            groupedAutoCompleteScanParams("Vision", "sampleTextPhrase", false),
+                            RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                            false,
+                            null,
+                            MAP_ON_VALUE_INDEX_STORED_FIELDS);
+            assertEquals(-1272847666, luceneIndexPlan.planHash());
+            final List<FDBQueriedRecord<Message>> results =
+                    recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
+                            .asList().get();
+
+            assertEquals(0, results.size());
+            commit(context);
+        }
+    }
+
+    @Test
+    void wrongAutoCompleteExcludedFieldsForGroupedRecord()  {
+        try (FDBRecordContext context = openContext()) {
+            final var e = assertThrows(MetaDataException.class, () ->
+                    rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX_WITH_WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS));
+            assertEquals("Index Map_with_auto_complete_excluded_fields$entry-value has invalid field name value for autoCompleteExcludedFields: foo.bar",
+                    e.getMessage());
+        }
+    }
+
+    @Test
     void testAutoCompleteSearchForPhrase() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
@@ -2229,7 +2294,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void analyzerPerFieldWithAutoCompleteExcludedList() {
+    void analyzerPerField() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, MULTIPLE_ANALYZER_LUCENE_INDEX);
             recordStore.saveRecord(createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
@@ -2245,12 +2310,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // text2 field has NGRAM analyzer override, so "orkin" should have match
             assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1L, 1623L)),
                     recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text2:orkin"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void autoCompleteExcludedList() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, MULTIPLE_ANALYZER_LUCENE_INDEX);
+            recordStore.saveRecord(createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
             // text field has auto-complete enabled, so the auto-complete query for "record layer" should have match
             assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1L, 1623L)),
-                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, autoComplete(MULTIPLE_ANALYZER_LUCENE_INDEX, "record layer", false), null, ScanProperties.FORWARD_SCAN));
+                    recordStore.scanIndex(AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX, autoComplete(AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX, "record layer", false), null, ScanProperties.FORWARD_SCAN));
             // text2 field is excluded for auto-complete, so the auto-complete query for "FoundationDB" should not have match
             assertIndexEntryPrimaryKeyTuples(Collections.emptyList(),
-                    recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, autoComplete(MULTIPLE_ANALYZER_LUCENE_INDEX, "FoundationDB", false), null, ScanProperties.FORWARD_SCAN));
+                    recordStore.scanIndex(AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX, autoComplete(AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX, "FoundationDB", false), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void wrongAutoCompleteExcludedFieldName() {
+        try (FDBRecordContext context = openContext()) {
+            final var e = assertThrows(MetaDataException.class, () ->
+                    rebuildIndexMetaData(context, COMPLEX_DOC, WRONG_AUTO_COMPLETE_EXCLUDED_FIELDS_LUCENE_INDEX));
+            assertEquals("Index Complex$multiple_analyzer_autocomplete has invalid field name value for autoCompleteExcludedFields: e",
+                    e.getMessage());
         }
     }
 
