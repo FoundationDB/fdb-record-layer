@@ -240,6 +240,7 @@ public class PromoteValue implements ValueWithChild {
             return inValue;
         }
         final var promotionTrie = computePromotionsTrie(promoteToType, inType, null);
+        // TODO maybe check if null return inValue
         return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 

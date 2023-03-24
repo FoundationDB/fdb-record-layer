@@ -101,7 +101,8 @@ public class IndexScanComparisons implements IndexScanParameters {
     @Nonnull
     @Override
     public String getScanDetails() {
-        return scanComparisons.toString();
+        @Nullable final TupleRange tupleRange = scanComparisons.toTupleRangeWithoutContext();
+        return tupleRange == null ? scanComparisons.toString() : tupleRange.toString();
     }
 
     @Override

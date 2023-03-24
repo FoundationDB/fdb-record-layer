@@ -217,9 +217,10 @@ public class OrPredicate extends AndOrPredicate {
             boolean termRequiresCompensation = true;
             boolean foundMatch = false;
             for (final var rightRange : rightValueWithRanges.getRanges()) {
-                if (rightRange.encloses(leftRange) == Proposition.TRUE) {
+                final var evaledLeft = leftRange.compileTimeEval(evaluationContext);
+                if (rightRange.encloses(evaledLeft) == Proposition.TRUE) {
                     foundMatch = true;
-                    if (leftRange.encloses(rightRange) == Proposition.TRUE) {
+                    if (evaledLeft.encloses(rightRange) == Proposition.TRUE) {
                         termRequiresCompensation = false;
                         break;
                     }

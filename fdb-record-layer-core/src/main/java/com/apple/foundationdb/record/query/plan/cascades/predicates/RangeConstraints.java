@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -166,9 +167,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
         final var builder = newBuilder();
         for (final var comparison : getComparisons()) {
-            if (comparison.getComparand() instanceof ConstantObjectValue) {
-                final var newComparand = ((ConstantObjectValue)comparison.getComparand()).compileTimeEval(context);
-                if (comparison instanceof Comparisons.ValueComparison) {
+            if (comparison instanceof Comparisons.ValueComparison || comparison.getComparand() instanceof ConstantObjectValue) {
+                final var newComparand = comparison instanceof Comparisons.ValueComparison
+                                         ? ((Comparisons.ValueComparison)comparison).getComparandValue().compileTimeEval(context)
+                                         : ((ConstantObjectValue)comparison.getComparand()).compileTimeEval(context);
+                if (newComparand == null) {
+                    builder.addComparisonMaybe(new Comparisons.NullComparison(Comparisons.Type.IS_NULL), context);
+                } else if (!(newComparand instanceof Value)) {
                     builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand), context);
                 } else {
                     builder.addComparisonMaybe(comparison.withComparand(newComparand), context);
