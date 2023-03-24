@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexComparison;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -59,6 +61,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlationsCalculator;
 
+    @Nonnull
+    private final Supplier<Boolean> compileTimeChecker;
+
     @Nullable
     private final Range<Boundary> evaluableRange; // null = entire range (if no deferred ranges are defined).
 
@@ -72,11 +77,26 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * @param deferredRanges a list of none compile-time evaluable ranges but can still be used in a scan prefix.
      */
     private RangeConstraints(@Nullable final Range<Boundary> evaluableRange,
-                     @Nonnull final Set<Comparisons.Comparison> deferredRanges) {
+                             @Nonnull final Set<Comparisons.Comparison> deferredRanges) {
         this.evaluableRange = evaluableRange;
         this.deferredRanges = ImmutableSet.copyOf(deferredRanges);
         this.comparisonsCalculator = Suppliers.memoize(this::computeComparisons);
         this.correlationsCalculator = Suppliers.memoize(this::computeCorrelations);
+        this.compileTimeChecker = () -> {
+            boolean foundConstantValue = false;
+            for (final var comparison : getComparisons()) {
+                if (comparison.getComparand() instanceof ConstantObjectValue) {
+                    foundConstantValue = true;
+                    break;
+                }
+                if (comparison instanceof Comparisons.ValueComparison &&
+                        ((Comparisons.ValueComparison)comparison).getComparandValue() instanceof ConstantObjectValue) {
+                    foundConstantValue = true;
+                    break;
+                }
+            }
+            return foundConstantValue;
+        };
     }
 
     /**
@@ -144,6 +164,33 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             resultRange = resultRange.merge(comparison).getComparisonRange();
         }
         return resultRange;
+    }
+
+    @Nonnull
+    public RangeConstraints compileTimeEval(@Nonnull final EvaluationContext context) {
+        if (compileTimeChecker.get()) {
+            return this;
+        }
+
+        final var builder = newBuilder();
+        for (final var comparison : getComparisons()) {
+            if (comparison.getComparand() instanceof ConstantObjectValue) {
+                final var newComparand = ((ConstantObjectValue)comparison.getComparand()).compileTimeEval(context);
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand), context);
+                } else {
+                    builder.addComparisonMaybe(comparison.withComparand(newComparand), context);
+                }
+            } else {
+                builder.addComparisonMaybe(comparison, context);
+            }
+        }
+
+        return builder.build().orElseThrow(() -> new RecordCoreException("could not build compile-time range constraint"));
+    }
+
+    public boolean isCompileTime() {
+        return compileTimeChecker.get();
     }
 
     @Nonnull
@@ -325,13 +372,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
             final var resultBuilder = RangeConstraints.newBuilder();
             if (hasNewLowerComparison) {
-                resultBuilder.addComparisonMaybe(lower);
+                resultBuilder.addComparisonMaybe(lower, null);
             }
             if (hasNewUpperComparison) {
-                resultBuilder.addComparisonMaybe(upper);
+                resultBuilder.addComparisonMaybe(upper, null);
             }
             for (final var nonCompilableComparison : deferredRanges) {
-                resultBuilder.addComparisonMaybe(nonCompilableComparison);
+                resultBuilder.addComparisonMaybe(nonCompilableComparison, null);
             }
             return resultBuilder.build().orElseThrow();
         }
@@ -377,13 +424,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
             final var resultBuilder = RangeConstraints.newBuilder();
             if (hasNewLowerComparison) {
-                resultBuilder.addComparisonMaybe(lower);
+                resultBuilder.addComparisonMaybe(lower, null);
             }
             if (hasNewUpperComparison) {
-                resultBuilder.addComparisonMaybe(upper);
+                resultBuilder.addComparisonMaybe(upper, null);
             }
             for (final var nonCompilableComparison : deferredRanges) {
-                resultBuilder.addComparisonMaybe(nonCompilableComparison);
+                resultBuilder.addComparisonMaybe(nonCompilableComparison, null);
             }
             return resultBuilder.build().orElseThrow();
         }
@@ -450,7 +497,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     /**
      * Represents a range boundary.
      */
-    private static class Boundary implements Comparable<Boundary> {
+    static class Boundary implements Comparable<Boundary> {
 
         @Nonnull
         private final Tuple tuple;
@@ -496,8 +543,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         @Nonnull
-        private static Boundary from(@Nonnull final Comparisons.Comparison comparison) {
-            return from(toTuple(comparison), comparison);
+        private static Boundary from(@Nonnull final Comparisons.Comparison comparison, @Nullable final EvaluationContext evaluationContext) {
+            return from(toTuple(comparison, evaluationContext), comparison);
         }
 
         @Nonnull
@@ -512,12 +559,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
          * @return the comparison's comparand.
          */
         @Nonnull
-        private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison) {
+        private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
+            var comparand = comparison.getComparand(null, evaluationContext);
+            if (comparand instanceof ConstantObjectValue) {
+                comparand = ((ConstantObjectValue)comparand).eval(null, evaluationContext);
+            }
             if (comparison.hasMultiColumnComparand()) {
-                items.addAll(((Tuple)comparison.getComparand(null, null)).getItems());
+                items.addAll(((Tuple)comparand).getItems());
             } else {
-                items.add(ScanComparisons.toTupleItem(comparison.getComparand(null, null)));
+                items.add(ScanComparisons.toTupleItem(comparand));
             }
             return Tuple.fromList(items);
         }
@@ -539,8 +590,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
         @Nonnull
         private static final RangeConstraints emptyRange = new RangeConstraints(Range.closedOpen(
-                Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0)),
-                Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0))));
+                Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0), null),
+                Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0), null)));
 
         static {
             allowedComparisonTypes.add(Comparisons.Type.GREATER_THAN);
@@ -615,19 +666,19 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
         }
 
-        public boolean addComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public boolean addComparisonMaybe(@Nonnull final Comparisons.Comparison comparison, @Nullable final EvaluationContext evaluationContext) {
             if (!canBeUsedInScanPrefix(comparison)) {
                 return false;
             }
             if (!isCompileTime(comparison)) {
                 nonCompilableComparisons.add(comparison);
             } else {
-                addRange(toRange(comparison));
+                addRange(toRange(comparison, evaluationContext), evaluationContext);
             }
             return true;
         }
 
-        private void addRange(@Nonnull final Range<Boundary> range) {
+        private void addRange(@Nonnull final Range<Boundary> range, @Nonnull final EvaluationContext evaluationContext) {
             if (this.range == null) {
                 this.range = range;
             } else {
@@ -645,8 +696,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         @Nonnull
-        public Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison) {
-            final var boundary = Boundary.from(comparison);
+        public Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison, @Nullable final EvaluationContext evaluationContext) {
+            final var boundary = Boundary.from(comparison, evaluationContext);
             switch (comparison.getType()) {
                 case GREATER_THAN: // fallthrough
                 case NOT_NULL:

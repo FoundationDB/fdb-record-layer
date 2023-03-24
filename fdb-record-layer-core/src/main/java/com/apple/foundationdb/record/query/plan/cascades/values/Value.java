@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
@@ -174,11 +174,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
-     * Method to create a {@link ValueWithRanges} placeholder that is based on this value. A placeholder is also a {@link QueryPredicate}
+     * Method to create a {@link PredicateWithValueAndRanges} placeholder that is based on this value. A placeholder is also a {@link QueryPredicate}
      * that is used solely for matching query predicates against.
      * @param parameterAlias alias to uniquely identify the parameter in the
      *        {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} this placeholder will be a part of.
-     * @return a new {@link ValueWithRanges} that has {@code parameterAlias} alias.
+     * @return a new {@link PredicateWithValueAndRanges} that has {@code parameterAlias} alias.
      */
     @Nonnull
     default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {

@@ -91,10 +91,10 @@ public class RangeConstraintsTest {
     @Test
     public void testRangeNullIsSmallerThanOtherValues() {
         final var isNullRangeBuilder = RangeConstraints.newBuilder();
-        isNullRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(IS_NULL));
+        isNullRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(IS_NULL), null);
         final var isNullRange = isNullRangeBuilder.build().orElseThrow();
         final var isNotNullRangeBuilder = RangeConstraints.newBuilder();
-        isNotNullRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(NOT_NULL));
+        isNotNullRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(NOT_NULL), null);
         final var isNotNullRange = isNotNullRangeBuilder.build().orElseThrow();
         Assertions.assertEquals(Proposition.FALSE, isNullRange.encloses(isNotNullRange));
         Assertions.assertEquals(Proposition.FALSE, isNotNullRange.encloses(isNullRange));
@@ -103,14 +103,14 @@ public class RangeConstraintsTest {
     @Test
     public void creatingInvalidRangesEndUpWithEmptyRange() {
         final var invalidRange = RangeConstraints.newBuilder();
-        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 30));
-        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 20));
+        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 30), null);
+        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 20), null);
         Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
 
-        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
+        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10), null);
         Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
 
-        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
+        invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10), null);
         Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
     }
 
@@ -118,7 +118,7 @@ public class RangeConstraintsTest {
     private static RangeConstraints range(@Nonnull Pair<Comparisons.Type, Object>... comparisons) {
         final var result = RangeConstraints.newBuilder();
         for (final var comparison : comparisons) {
-            Assertions.assertTrue(result.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getKey(), comparison.getValue())));
+            Assertions.assertTrue(result.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getKey(), comparison.getValue()), null));
         }
         return result.build().orElseThrow();
     }

@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitorWithDefaults;
@@ -28,24 +31,49 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithConstra
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * Represents a query plan constraint.
  */
-@FunctionalInterface
-public interface QueryPlanConstraint {
+public class QueryPlanConstraint {
     @Nonnull
-    QueryPlanConstraint TAUTOLOGY = ignored -> true;
-
-    boolean satisfiesConstraint(@Nonnull final EvaluationContext context);
+    private static final QueryPlanConstraint TAUTOLOGY = new QueryPlanConstraint(ConstantPredicate.TRUE);
 
     @Nonnull
-    static QueryPlanConstraint tautology() {
+    private final QueryPredicate predicate;
+
+    private QueryPlanConstraint(@Nonnull final QueryPredicate predicate) {
+        this.predicate = predicate;
+    }
+
+    public boolean compileTimeEval(@Nonnull final EvaluationContext context) {
+        return Boolean.TRUE.equals(predicate.compileTimeEval(context));
+    }
+
+    @Nonnull
+    public QueryPredicate getPredicate() {
+        return predicate;
+    }
+
+    @Nonnull
+    public static QueryPlanConstraint of(@Nonnull final QueryPredicate predicate) {
+        return new QueryPlanConstraint(predicate);
+    }
+
+    @Nonnull
+    public static QueryPlanConstraint of(@Nonnull final Collection<QueryPlanConstraint> constraints) {
+        return new QueryPlanConstraint(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+    }
+
+    @Nonnull
+    public static QueryPlanConstraint tautology() {
         return TAUTOLOGY;
     }
 
     @Nonnull
-    static QueryPlanConstraint collectConstraints(@Nonnull final RecordQueryPlan plan) {
+    public static QueryPlanConstraint collectConstraints(@Nonnull final RecordQueryPlan plan) {
         final var collector = new QueryPlanConstraintsCollector();
         return collector.getConstraint(plan);
     }
@@ -53,7 +81,7 @@ public interface QueryPlanConstraint {
     /**
      * Visits a plan and collects all the {@link QueryPlanConstraint}s from it.
      */
-    class QueryPlanConstraintsCollector implements RecordQueryPlanVisitorWithDefaults<Void> {
+    static class QueryPlanConstraintsCollector implements RecordQueryPlanVisitorWithDefaults<Void> {
 
         @Nonnull
         private final ImmutableList.Builder<QueryPlanConstraint> builder = ImmutableList.builder();
@@ -77,16 +105,11 @@ public interface QueryPlanConstraint {
             return null;
         }
 
+        @Nonnull
         public QueryPlanConstraint getConstraint(@Nonnull final RecordQueryPlan plan) {
             visit(plan);
             final var constraints = builder.build();
-            if (constraints.isEmpty()) {
-                return tautology();
-            } else if (constraints.size() == 1) {
-                return constraints.get(0);
-            } else {
-                return evaluationContext -> constraints.stream().allMatch(constraint -> constraint.satisfiesConstraint(evaluationContext));
-            }
+            return QueryPlanConstraint.of(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
         }
     }
 }

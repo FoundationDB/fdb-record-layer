@@ -47,7 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstra
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -99,11 +99,18 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
                             @Nonnull List<? extends QueryPredicate> predicates) {
+        this(resultValue, children, predicates, null); // fixme
+    }
+
+    public SelectExpression(@Nonnull Value resultValue,
+                            @Nonnull List<? extends Quantifier> children,
+                            @Nonnull List<? extends QueryPredicate> predicates,
+                            @Nonnull final EvaluationContext evaluationContext) {
         this.resultValue = resultValue;
         this.children = ImmutableList.copyOf(children);
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
-                          : partitionPredicates(predicates);
+                          : partitionPredicates(predicates, evaluationContext);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
@@ -332,7 +339,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (getPredicates().isEmpty()) {
             final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
-                    .allMatch(queryPredicate -> queryPredicate instanceof ValueWithRanges || queryPredicate.isTautology());
+                    .allMatch(queryPredicate -> queryPredicate instanceof PredicateWithValueAndRanges || queryPredicate.isTautology());
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
@@ -605,7 +612,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
      * @param predicates The predicates to partition.
      * @return a list of sargables and value predicates.
      */
-    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates) {
+    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates,
+                                                                      @Nonnull final EvaluationContext evaluationContext) {
         final var flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenAndPredicate(predicate).stream())
@@ -641,7 +649,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .asMap()
                 .forEach((valueWrapper, predicatesOnValue) -> {
                     final var value = Objects.requireNonNull(valueWrapper.get());
-                    final var simplifiedConjunction = simplifyConjunction(value, predicatesOnValue);
+                    final var simplifiedConjunction = simplifyConjunction(value, predicatesOnValue, evaluationContext);
                     resultPredicatesBuilder.addAll(simplifiedConjunction);
                 });
 
@@ -658,18 +666,20 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
      * @return a simplified list of predicates.
      */
     @Nonnull
-    private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value, @Nonnull final Collection<PredicateWithValue> predicates) {
+    private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value,
+                                                            @Nonnull final Collection<PredicateWithValue> predicates,
+                                                            @Nonnull final EvaluationContext evaluationContext) {
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
             if (predicate instanceof ValuePredicate) {
                 final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
+                if (!rangeBuilder.addComparisonMaybe(predicateRange, evaluationContext)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
-            } else if (predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).isSargable()) {
-                final var predicateRange = Iterables.getOnlyElement(((ValueWithRanges)predicate).getRanges());
+            } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {
+                final var predicateRange = Iterables.getOnlyElement(((PredicateWithValueAndRanges)predicate).getRanges());
                 rangeBuilder.add(predicateRange);
             } else {
                 result.add(predicate);
@@ -678,7 +688,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         // If the compile-time range is defined, create a sargable from it.
         final var rangeMaybe = rangeBuilder.build();
-        rangeMaybe.ifPresent(compileTimeRange -> result.add(ValueWithRanges.sargable(value, compileTimeRange)));
+        rangeMaybe.ifPresent(compileTimeRange -> result.add(PredicateWithValueAndRanges.sargable(value, compileTimeRange)));
 
         return result.build();
     }

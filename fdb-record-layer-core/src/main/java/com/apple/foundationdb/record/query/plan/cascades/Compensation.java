@@ -724,7 +724,7 @@ public interface Compensation {
             }
 
             final var compensatedPredicatesExpansion =
-                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
+                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal(null);
             Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
 
             final var compensatedPredicatesCorrelatedTo =

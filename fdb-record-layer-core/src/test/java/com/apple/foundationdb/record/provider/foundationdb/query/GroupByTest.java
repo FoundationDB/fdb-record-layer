@@ -199,7 +199,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
             }
 
-            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
+            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect(null)));
         }
 
         CorrelationIdentifier groupingExprAlias;
@@ -227,7 +227,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     FieldValue.ofFieldNames(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of(groupingExprAlias.getId(), "num_value_2")));
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
-            final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect();
+            final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect(null);
             qun = Quantifier.forEach(GroupExpressionRef.of(result));
             return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
         }

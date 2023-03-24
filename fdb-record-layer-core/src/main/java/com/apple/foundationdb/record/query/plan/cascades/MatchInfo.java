@@ -99,7 +99,7 @@ public class MatchInfo {
             if (constraints.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(evaluationContext -> constraints.stream().allMatch(constraint -> constraint.satisfiesConstraint(evaluationContext)));
+            return Optional.of(QueryPlanConstraint.of(constraints));
         }
         );
         this.predicateMap = predicateMap;

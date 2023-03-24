@@ -132,7 +132,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             expansionVisitor.push(VisitorState.forQueries(Lists.newArrayList(),
                                     innerBaseQuantifier,
                                     fieldNamePrefix)));
-            final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
+            final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal(null);
 
             // construct a select expression that uses a windowed value to express the rank
             final var partitioningSize = groupingKeyExpression.getGroupingCount();
@@ -145,7 +145,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             .addQuantifier(innerBaseQuantifier)
                             .addResultValue(rankValue)
                             .build();
-            final var rankSelectExpression = rankExpansion.buildSelect();
+            final var rankSelectExpression = rankExpansion.buildSelect(null);
             final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
             //
@@ -169,7 +169,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
 
             final var rankAndJoiningPredicateSelectExpression =
-                    GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect();
+                    GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect(null);
             final var rankComparisonQuantifier =
                     Quantifier.existential(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
 

@@ -142,7 +142,7 @@ public class RelOpValue implements BooleanValue {
                 return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
             } else if (evaluationContext != null) {
                 // it seems this is a constant expression, try to evaluate it.
-                return tryBoxSelfAsConstantPredicate(evaluationContext);
+                return Optional.empty();
             }
         } else if (childrenCount == 2) {
             // only binary comparison functions are commutative.
@@ -154,7 +154,7 @@ public class RelOpValue implements BooleanValue {
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
 
             if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && evaluationContext != null) {
-                return tryBoxSelfAsConstantPredicate(evaluationContext);
+                return Optional.empty();
             }
             if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
                 // the operands are swapped inside this if branch
@@ -189,26 +189,10 @@ public class RelOpValue implements BooleanValue {
             final Object comparand = rightChild.compileTimeEval(evaluationContext);
             return comparand == null
                    ? Optional.of(new ConstantPredicate(false))
-                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+                   : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, rightChild instanceof ConstantObjectValue ? rightChild : comparand)));
         } else {
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.ValueComparison(comparisonType, rightChild)));
         }
-    }
-
-    @Nonnull
-    @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
-    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull final EvaluationContext evaluationContext) {
-        final Object constantValue = compileTimeEval(evaluationContext);
-        if (constantValue instanceof Boolean) {
-            if ((boolean)constantValue) {
-                return Optional.of(ConstantPredicate.TRUE);
-            } else {
-                return Optional.of(ConstantPredicate.FALSE);
-            }
-        } else if (constantValue == null) {
-            return Optional.of(ConstantPredicate.NULL);
-        }
-        return Optional.empty();
     }
 
     @Override

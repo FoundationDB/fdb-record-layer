@@ -32,8 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -66,12 +64,8 @@ import java.util.stream.Collectors;
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
-    @Nonnull
-    private final Supplier<Optional<ValueWithRanges>> valueWithRangesSupplier;
-
     public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
-        this.valueWithRangesSupplier = Suppliers.memoize(this::computeToValueWithRangesMaybe);
     }
 
     @Nullable
@@ -120,12 +114,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nonnull
     @Override
-    public Optional<ValueWithRanges> toValueWithRangesMaybe() {
-        return valueWithRangesSupplier.get();
-    }
-
-    @Nonnull
-    public Optional<ValueWithRanges> computeToValueWithRangesMaybe() {
+    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final @Nonnull EvaluationContext evaluationContext) {
         // expression hierarchy must be of a single level, all children must be simple .
         if (!getChildren().stream().allMatch(child -> child instanceof PredicateWithValue)) {
             return Optional.empty();
@@ -142,11 +131,11 @@ public class OrPredicate extends AndOrPredicate {
             final var rangesBuilder = RangeConstraints.newBuilder();
             if (child instanceof ValuePredicate) {
                 final var valuePredicate = (ValuePredicate)child;
-                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
+                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison(), evaluationContext)) {
                     return Optional.empty();
                 }
-            } else if (child instanceof ValueWithRanges) {
-                rangesSet.addAll(((ValueWithRanges)child).getRanges());
+            } else if (child instanceof PredicateWithValueAndRanges) {
+                rangesSet.addAll(((PredicateWithValueAndRanges)child).getRanges());
             } else {
                 // unknown child type.
                 return Optional.empty();
@@ -159,7 +148,7 @@ public class OrPredicate extends AndOrPredicate {
             rangesSet.add(range.get());
         }
 
-        return Optional.of(ValueWithRanges.constraint(value, rangesSet.build()));
+        return Optional.of(PredicateWithValueAndRanges.constraint(value, rangesSet.build()));
     }
 
     /**
@@ -202,14 +191,16 @@ public class OrPredicate extends AndOrPredicate {
      */
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate, final @Nonnull EvaluationContext evaluationContext) {
-        final var valueWithRangesMaybe = toValueWithRangesMaybe();
+    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
+                                                                                  @Nonnull final QueryPredicate candidatePredicate,
+                                                                                  @Nonnull final EvaluationContext evaluationContext) {
+        final var valueWithRangesMaybe = toValueWithRangesMaybe(evaluationContext);
         if (valueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
         }
         final var leftValueWithRanges = valueWithRangesMaybe.get();
 
-        final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe();
+        final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe(evaluationContext);
         if (candidateValueWithRangesMaybe.isEmpty()) {
             return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
         }

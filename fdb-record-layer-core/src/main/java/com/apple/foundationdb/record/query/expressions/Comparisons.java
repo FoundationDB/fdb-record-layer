@@ -819,13 +819,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            // maybe we should call eval on the operand
-            if (comparand instanceof Value) {
-                // todo: handle null here. Note that the call below (evalComparison) accepts null-comparand.
-                return ((Value)comparand).eval(store, context);
-            } else {
-                return comparand;
-            }
+            return comparand;
         }
 
         @Nonnull

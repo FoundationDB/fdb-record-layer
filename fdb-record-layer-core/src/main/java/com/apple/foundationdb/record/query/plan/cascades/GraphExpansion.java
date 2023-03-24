@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -156,7 +157,7 @@ public class GraphExpansion {
      * @return a sealed graph expansion
      */
     @Nonnull
-    public Sealed seal() {
+    public Sealed seal(@Nonnull final EvaluationContext evaluationContext) {
         final GraphExpansion graphExpansion;
 
         final var seenFieldNames = Sets.<String>newHashSet();
@@ -194,7 +195,7 @@ public class GraphExpansion {
 
             // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
             // order of parameters determines their sargability.
-            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
+            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(PredicateWithValueAndRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
@@ -204,8 +205,8 @@ public class GraphExpansion {
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
                             .filter(placeholderWithIndex -> localPredicates.stream()
-                                    .filter(localPredicate -> localPredicate instanceof ValueWithRanges)
-                                    .map(localPredicate -> (ValueWithRanges)localPredicate)
+                                    .filter(localPredicate -> localPredicate instanceof PredicateWithValueAndRanges)
+                                    .map(localPredicate -> (PredicateWithValueAndRanges)localPredicate)
                                     .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 
@@ -238,24 +239,24 @@ public class GraphExpansion {
         } else {
             graphExpansion = new GraphExpansion(normalizedResultColumns, predicates, quantifiers, ImmutableList.of());
         }
-        return graphExpansion.new Sealed();
+        return graphExpansion.new Sealed(evaluationContext);
     }
 
 
 
     @Nonnull
-    public SelectExpression buildSelect() {
-        return seal().buildSelect();
+    public SelectExpression buildSelect(@Nonnull final EvaluationContext evaluationContext) {
+        return seal(evaluationContext).buildSelect();
     }
 
     @Nonnull
     public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
-        return seal().buildSimpleSelectOverQuantifier(overQuantifier);
+        return seal(null).buildSimpleSelectOverQuantifier(overQuantifier);
     }
 
     @Nonnull
     public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
-        return seal().buildSelectWithResultValue(resultValue);
+        return seal(null).buildSelectWithResultValue(resultValue);
     }
 
     @Nonnull
@@ -338,9 +339,17 @@ public class GraphExpansion {
      * A sealed version of {@link GraphExpansion} that has already reconciled duplicate placeholders.
      */
     public class Sealed {
+
+        @Nonnull
+        private final EvaluationContext evaluationContext;
+
+        public Sealed(@Nonnull final EvaluationContext evaluationContext) {
+            this.evaluationContext = evaluationContext;
+        }
+
         @Nonnull
         public SelectExpression buildSelect() {
-            return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());
+            return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates(), evaluationContext);
         }
 
         @Nonnull
@@ -351,7 +360,7 @@ public class GraphExpansion {
         @Nonnull
         public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
             Verify.verify(resultColumns.isEmpty());
-            return new SelectExpression(resultValue, quantifiers, getPredicates());
+            return new SelectExpression(resultValue, quantifiers, getPredicates(), evaluationContext);
         }
 
         @Nonnull

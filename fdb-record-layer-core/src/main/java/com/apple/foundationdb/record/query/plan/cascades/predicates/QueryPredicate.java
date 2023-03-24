@@ -104,7 +104,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is
      * bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueWithRanges}) on the query side.
+     * ({@link PredicateWithValueAndRanges}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -248,6 +248,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
+    default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
+    }
+
+    @Nullable
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
@@ -356,7 +361,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default Optional<ValueWithRanges> toValueWithRangesMaybe() {
+    default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
         return Optional.empty();
     }
 

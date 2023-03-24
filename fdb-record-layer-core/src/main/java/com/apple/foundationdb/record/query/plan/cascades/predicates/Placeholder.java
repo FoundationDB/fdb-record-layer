@@ -33,9 +33,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * A Placeholder is basically a {@link ValueWithRanges} with an alias that is used solely used for index matching.
+ * A Placeholder is basically a {@link PredicateWithValueAndRanges} with an alias that is used solely used for index matching.
  */
-public class Placeholder extends ValueWithRanges implements WithAlias {
+public class Placeholder extends PredicateWithValueAndRanges implements WithAlias {
 
     @Nonnull
     private final CorrelationIdentifier parameterAlias;
@@ -49,12 +49,12 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
 
     @Nonnull
     @Override
-    public ValueWithRanges withValue(@Nonnull final Value value) {
+    public PredicateWithValueAndRanges withValue(@Nonnull final Value value) {
         return new Placeholder(value, getRanges(), parameterAlias);
     }
 
     @Nonnull
-    public ValueWithRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+    public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
         return new Placeholder(getValue(), ranges, parameterAlias);
     }
 

@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -135,10 +135,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final SelectExpression selectExpression =
                         childExpansion
                                 .withBase(childBase)
-                                .buildSelect();
+                                .buildSelect(null);
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
                 final GraphExpansion.Sealed sealedChildExpansion =
-                        childExpansion.seal();
+                        childExpansion.seal(null);
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
@@ -204,7 +204,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBase).withFieldNamePrefix(ImmutableList.of()))));
                 final GraphExpansion baseAndChildExpansion = childExpansion.withBase(childBase);
-                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
+                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal(null);
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
@@ -245,7 +245,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *         a unique alias based on an increasing number that is human-readable otherwise.
      */
     protected static CorrelationIdentifier newParameterAlias() {
-        return CorrelationIdentifier.uniqueID(ValueWithRanges.class);
+        return CorrelationIdentifier.uniqueID(PredicateWithValueAndRanges.class);
     }
 
     /**

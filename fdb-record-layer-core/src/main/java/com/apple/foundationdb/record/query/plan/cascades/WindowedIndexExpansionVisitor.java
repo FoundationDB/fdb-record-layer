@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
@@ -100,7 +100,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         var rootExpression = index.getRootExpression();
         Verify.verify(rootExpression instanceof GroupingKeyExpression);
 
-        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
+        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         final var baseQuantifier = baseQuantifierSupplier.get();
@@ -119,7 +119,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
         final var rankGroupingsAndArgumentsExpansion =
                 expandGroupingsAndArguments(innerBaseQuantifier, groupingKeyExpression, groupingAndArgumentValues);
-        final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect();
+        final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect(null);
         final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
         //
@@ -131,7 +131,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseQuantifier, rankQuantifier, rankColumnValue);
         Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
-        final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
+        final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect(null);
         final var rankComparisonQuantifier =
                 Quantifier.forEach(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
 
@@ -170,7 +170,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var groupingAndArgumentAliases = rankGroupingsAndArgumentsExpansion.getPlaceholderAliases();
         final var groupingAliases = groupingAndArgumentAliases.subList(0, groupingKeyExpression.getGroupingCount());
         final var scoreAlias = groupingAndArgumentAliases.get(groupingAndArgumentAliases.size() - 1);
-        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
+        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect(null));
 
         return new WindowedIndexScanMatchCandidate(
                 index,
@@ -229,7 +229,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 continue;
             }
 
-            final var placeholder = (ValueWithRanges)predicate;
+            final var placeholder = (PredicateWithValueAndRanges)predicate;
 
             if (!groupingPlaceholders.contains(placeholder)) {
                 continue;
@@ -288,7 +288,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var partitioningAndArgumentExpansion =
                 pop(wholeKeyExpression.expand(push(initialState)));
-        final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
+        final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal(null);
 
         //
         // Construct a select expression that uses a windowed value to express the rank.

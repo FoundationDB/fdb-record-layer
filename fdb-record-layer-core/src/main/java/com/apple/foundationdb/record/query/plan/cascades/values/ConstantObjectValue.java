@@ -32,12 +32,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Represents a constant value that correlates to a value of a constant binding.
  */
-public class ConstantObjectValue implements QuantifiedValue {
+public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeValue {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Object-Value");

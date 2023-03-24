@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -47,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstra
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -99,9 +98,9 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {
         final var compileTimeRange = RangeConstraints.newBuilder();
-        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42), null);
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
@@ -115,9 +114,9 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsNotUsedWhenItsPredicateIsNotImplied() throws Exception {
         final var compileTimeRange = RangeConstraints.newBuilder();
-        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100), null);
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
@@ -167,7 +166,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         queryBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 50)));
         queryBuilder.addQuantifier(qun);
         queryBuilder.addResultColumn(Column.unnamedOf(num2Value));
-        final var query = queryBuilder.build().buildSelect();
+        final var query = queryBuilder.build().buildSelect(null);
 
         qun = Quantifier.forEach(GroupExpressionRef.of(query));
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
