@@ -32,13 +32,18 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -70,7 +75,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,6 +85,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -187,21 +192,19 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> lookup() throws IOException {
         // Determine the tokens from the query key
-        final boolean phraseQueryNeeded = query.startsWith("\"") && query.endsWith("\"");
-        final String searchKey = phraseQueryNeeded ? query.substring(1, query.length() - 1) : query;
-        List<String> tokens = new ArrayList<>();
-        final String prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
+        final boolean phraseQueryNeeded = isPhraseSearch(query);
+        final String searchKey = searchKeyFromSearchArgument(query, phraseQueryNeeded);
+        final AutoCompleteTokens autoCompleteTokens = getQueryTokens(queryAnalyzer, searchKey);
 
         IndexReader indexReader = getIndexReader();
         Set<String> fieldNames = getAllIndexedFieldNames(indexReader);
 
-        final Set<String> tokenSet = new HashSet<>(tokens);
         // Note: phrase matching needs to know token order, so we pass the *list* of tokens to the phrase
         // matching query, but if we don't need the phrase query, we pass the *set* because order doesn't
         // matter and we want to remove duplicates
         Query finalQuery = phraseQueryNeeded
-                             ? buildQueryForPhraseMatching(fieldNames, tokens, prefixToken)
-                             : buildQueryForTermsMatching(fieldNames, tokenSet, prefixToken);
+                             ? buildQueryForPhraseMatching(fieldNames, autoCompleteTokens.getQueryTokens(), autoCompleteTokens.getPrefixTokenOrNull())
+                             : buildQueryForTermsMatching(fieldNames, autoCompleteTokens.getQueryTokensAsSet(), autoCompleteTokens.getPrefixTokenOrNull());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(logMessage("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.QUERY, query.replace("\"", "\\\""))
@@ -214,7 +217,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS, topDocs.scoreDocs.length);
         }
-        return createResults(searcher, topDocs, tokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken));
+        return createResults(searcher, topDocs, autoCompleteTokens);
     }
 
     private Set<String> getAllIndexedFieldNames(IndexReader indexReader) {
@@ -240,14 +243,14 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
      * to the {@code tokens} list. The final token will be returned by this method if and only if we are in
      * the former case.
      *
+     * @param queryAnalyzer a query analyzer
      * @param searchKey the phrase to find completions of
-     * @param tokens the list to insert all complete tokens extracted from the query phrase
-     * @return the final token if it needs to be added as a "prefix" component to the final query
-     * @throws IOException from the analyzer attempting to tokenize the query
+     * @return the token info comprised of query tokens and a final token if it needs to be added as a "prefix" component
+     *         to the final query
      */
-    @Nullable
-    @VisibleForTesting
-    static String getQueryTokens(Analyzer queryAnalyzer, String searchKey, @Nonnull List<String> tokens) throws IOException {
+    @Nonnull
+    public static AutoCompleteTokens getQueryTokens(Analyzer queryAnalyzer, String searchKey) {
+        final ImmutableList.Builder<String> tokensBuilder = ImmutableList.builder();
         String prefixToken = null;
         try (TokenStream ts = queryAnalyzer.tokenStream("", new StringReader(searchKey))) {
             ts.reset();
@@ -257,7 +260,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
             int maxEndOffset = -1;
             while (ts.incrementToken()) {
                 if (lastToken != null) {
-                    tokens.add(lastToken);
+                    tokensBuilder.add(lastToken);
                 }
                 lastToken = termAtt.toString();
                 if (lastToken != null) {
@@ -279,11 +282,13 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                     // trailing discarded chars (e.g. whitespace), so
                     // that if query ends with a space we only show
                     // exact matches for that term:
-                    tokens.add(lastToken);
+                    tokensBuilder.add(lastToken);
                 }
             }
+        } catch (final IOException ioException) {
+            throw new RecordCoreException("string reader throw IOException", ioException);
         }
-        return prefixToken;
+        return new AutoCompleteTokens(tokensBuilder.build(), prefixToken == null ? ImmutableSet.of() : ImmutableSet.of(prefixToken));
     }
 
     @Nullable
@@ -351,10 +356,9 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     protected RecordCursor<IndexEntry> createResults(@Nonnull final IndexSearcher searcher,
                                                      @Nonnull final TopDocs topDocs,
-                                                     @Nonnull final Set<String> queryTokens,
-                                                     @Nonnull final Set<String> prefixTokens) {
+                                                     @Nonnull final AutoCompleteTokens autoCompleteTokens) {
         return scoreDocsFromLookup(topDocs)
-                .map(scoreDoc -> fakeIndexEntryFromScoreDoc(searcher, scoreDoc, queryTokens, prefixTokens));
+                .map(scoreDoc -> fakeIndexEntryFromScoreDoc(searcher, scoreDoc, autoCompleteTokens));
     }
 
     private RecordCursor<ScoreDoc> scoreDocsFromLookup(@Nonnull final TopDocs topDocs) {
@@ -379,12 +383,11 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
     private IndexEntry fakeIndexEntryFromScoreDoc(@Nonnull final IndexSearcher searcher,
                                                   @Nonnull final ScoreDoc scoreDoc,
-                                                  @Nonnull final Set<String> queryTokens,
-                                                  @Nonnull final Set<String> prefixTokens) {
+                                                  @Nonnull final AutoCompleteTokens autoCompleteTokens) {
         try {
             IndexableField primaryKey = searcher.doc(scoreDoc.doc).getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
             BytesRef pk = primaryKey.binaryValue();
-            final var valueTuple = Tuple.from(scoreDoc.score, queryTokens, prefixTokens);
+            final var valueTuple = Tuple.from(scoreDoc.score, autoCompleteTokens);
             return new IndexEntry(state.index, groupingKey == null ? TupleHelpers.EMPTY : groupingKey, valueTuple, Tuple.fromBytes(pk.bytes));
         } catch (IOException ioException) {
             throw new RecordCoreException("unable to read document from Lucene", ioException);
@@ -400,8 +403,10 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     }
 
     @Nullable
-    static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
-                            @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens) {
+    public static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                                   @Nonnull AutoCompleteTokens tokens) {
+        final var matchedTokens = tokens.getQueryTokensAsSet();
+        final var prefixTokens = tokens.getPrefixTokens();
         try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
             CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
             OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
@@ -445,6 +450,76 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
 
         } catch (IOException e) {
             return null;
+        }
+    }
+
+    public static boolean isPhraseSearch(@Nonnull final String search) {
+        return search.startsWith("\"") && search.endsWith("\"");
+    }
+
+    @Nonnull
+    public static String searchKeyFromSearchArgument(@Nonnull final String search) {
+        return searchKeyFromSearchArgument(search, isPhraseSearch(search));
+    }
+
+    @Nonnull
+    private static String searchKeyFromSearchArgument(@Nonnull final String search, final boolean isPhraseSearch) {
+        return isPhraseSearch ? search.substring(1, search.length() - 1) : search;
+    }
+
+    @Nullable
+    public static <M extends Message> LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector(@Nullable FDBQueriedRecord<M> queriedRecord) {
+        if (queriedRecord == null) {
+            return null;
+        }
+        final var indexEntry = queriedRecord.getIndexEntry();
+        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
+            return null;
+        }
+        final var docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
+        final var autoCompleteAnalyzerSelector = docIndexEntry.getAutoCompleteAnalyzerSelector();
+        if (autoCompleteAnalyzerSelector == null) {
+            return null;
+        }
+        return autoCompleteAnalyzerSelector;
+    }
+
+    /**
+     * Helper class to capture token information synthesized from a search key.
+     */
+    public static class AutoCompleteTokens {
+        @Nonnull
+        private final List<String> queryTokens;
+        @Nonnull
+        private final Set<String> prefixTokens;
+
+        @Nonnull
+        private final Supplier<Set<String>> queryTokensAsSetSupplier;
+
+        public AutoCompleteTokens(@Nonnull final Collection<String> queryTokens, @Nonnull final Set<String> prefixTokens) {
+            this.queryTokens = ImmutableList.copyOf(queryTokens);
+            this.prefixTokens = ImmutableSet.copyOf(prefixTokens);
+            this.queryTokensAsSetSupplier = Suppliers.memoize(() -> ImmutableSet.copyOf(queryTokens));
+        }
+
+        @Nonnull
+        public List<String> getQueryTokens() {
+            return queryTokens;
+        }
+
+        @Nonnull
+        public Set<String> getQueryTokensAsSet() {
+            return queryTokensAsSetSupplier.get();
+        }
+
+        @Nonnull
+        public Set<String> getPrefixTokens() {
+            return prefixTokens;
+        }
+
+        @Nullable
+        public String getPrefixTokenOrNull() {
+            return prefixTokens.isEmpty() ? null : Iterables.getOnlyElement(prefixTokens);
         }
     }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.google.common.collect.Iterables;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,10 +29,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -120,18 +119,17 @@ class LuceneAutoCompleteResultCursorTest {
                                             boolean highlight, String text, @Nullable String expectedMatch) throws IOException {
         final Analyzer analyzer = getTestAnalyzer();
 
-        List<String> tokens = new ArrayList<>();
-        String prefixToken = LuceneAutoCompleteResultCursor.getQueryTokens(analyzer, queryString, tokens);
-        assertEquals(expectedTokens, tokens);
-        assertEquals(expectedPrefixToken, prefixToken);
-
-        Set<String> queryTokenSet = new HashSet<>(tokens);
+        LuceneAutoCompleteResultCursor.AutoCompleteTokens tokens = LuceneAutoCompleteResultCursor.getQueryTokens(analyzer, queryString);
+        assertEquals(expectedTokens, tokens.getQueryTokens());
+        assertEquals(expectedPrefixToken, Iterables.getOnlyElement(tokens.getPrefixTokens()));
+        String prefixToken = Iterables.getOnlyElement(tokens.getPrefixTokens());
+        Set<String> queryTokenSet = tokens.getQueryTokensAsSet();
         @Nullable String match;
         if (highlight) {
             match = LuceneHighlighting.searchAllAndHighlight("text", analyzer, text, queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken), true,
                     new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1), null);
         } else {
-            match = LuceneAutoCompleteResultCursor.findMatch("text", analyzer, text, queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken));
+            match = LuceneAutoCompleteResultCursor.findMatch("text", analyzer, text, new LuceneAutoCompleteResultCursor.AutoCompleteTokens(queryTokenSet, prefixToken == null ? Collections.emptySet() : Collections.singleton(prefixToken)));
         }
         assertEquals(expectedMatch, match);
     }

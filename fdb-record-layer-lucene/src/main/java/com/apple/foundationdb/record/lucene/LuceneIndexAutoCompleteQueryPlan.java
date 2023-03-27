@@ -50,7 +50,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -108,7 +107,7 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
         final var excludedFieldNames = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
         final var indexMaintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(index);
         final var autoCompleteScanBounds = autoCompleteScanParameters.bind(store, index, evaluationContext);
-        final var queryAnalyzer = indexMaintainer.getAutoCompleteQueryAnalyzerSelector().provideQueryAnalyzer(autoCompleteScanBounds.getKeyToComplete()).getAnalyzer();
+        final var queryAnalyzer = indexMaintainer.getAutoCompleteAnalyzerSelector().provideQueryAnalyzer(autoCompleteScanBounds.getKeyToComplete()).getAnalyzer();
 
         return RecordCursor.flatMapPipelined(recordCursorFunction,
                 (fetchedRecord, innerContinuation) -> {
@@ -116,8 +115,7 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
                     final var groupingKey = indexEntry.getKey();
                     final var valueTuple = indexEntry.getValue();
                     final var score = valueTuple.getFloat(0);
-                    final var queryTokens = (Set<String>)valueTuple.get(1);
-                    final var prefixTokens = (Set<String>)valueTuple.get(2);
+                    final var autoCompleteTokens = (LuceneAutoCompleteResultCursor.AutoCompleteTokens)valueTuple.get(1);
 
                     // Extract the indexed fields from the document again
                     final List<LuceneDocumentFromRecord.DocumentField> documentFields = LuceneDocumentFromRecord.getRecordFields(index.getRootExpression(), fetchedRecord)
@@ -140,10 +138,11 @@ public class LuceneIndexAutoCompleteQueryPlan extends LuceneIndexQueryPlan {
                         }
                         String match;
                         if (autoCompleteScanBounds.isHighlight()) {
-                            match = LuceneHighlighting.searchAllAndHighlight(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens, true,
+                            match = LuceneHighlighting.searchAllAndHighlight(documentField.getFieldName(), queryAnalyzer, text,
+                                    autoCompleteTokens.getQueryTokensAsSet(), autoCompleteTokens.getPrefixTokens(), true,
                                     new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1), null);
                         } else {
-                            match = LuceneAutoCompleteResultCursor.findMatch(documentField.getFieldName(), queryAnalyzer, text, queryTokens, prefixTokens);
+                            match = LuceneAutoCompleteResultCursor.findMatch(documentField.getFieldName(), queryAnalyzer, text, autoCompleteTokens);
                         }
                         if (match == null) {
                             // Text not found in this field

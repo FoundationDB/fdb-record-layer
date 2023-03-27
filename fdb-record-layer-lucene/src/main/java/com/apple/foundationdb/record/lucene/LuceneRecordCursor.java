@@ -136,6 +136,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
+    @Nonnull
+    private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -152,7 +154,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable final List<String> storedFields,
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                       @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
+                       @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                       @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
         this.state = state;
         this.executor = executor;
         this.pageSize = pageSize;
@@ -178,6 +181,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.groupingKey = groupingKey;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.analyzerSelector = analyzerSelector;
+        this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
     }
 
     @Nonnull
@@ -380,7 +384,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                 }
 
-                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, query, analyzerSelector);
+                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, query, analyzerSelector, autoCompleteAnalyzerSelector);
             } catch (Exception e) {
                 throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
             }
@@ -452,6 +456,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
         private final Map<String, Set<String>> termMap;
         private final LuceneAnalyzerCombinationProvider analyzerSelector;
+        private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
         private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
         private final KeyExpression indexKey;
 
@@ -467,6 +472,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return analyzerSelector;
         }
 
+        public LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector() {
+            return autoCompleteAnalyzerSelector;
+        }
+
         public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
             return luceneQueryHighlightParameters;
         }
@@ -477,12 +486,14 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
         private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
                                    @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
-                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector) {
+                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                                   @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
             this.termMap = new HashMap<>();
             this.analyzerSelector = analyzerSelector;
+            this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
             this.indexKey = index.getRootExpression();
             if (luceneQueryHighlightParameters != null) {
                 getTerms(query, this.termMap);
