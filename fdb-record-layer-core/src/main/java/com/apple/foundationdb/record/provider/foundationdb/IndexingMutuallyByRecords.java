@@ -94,6 +94,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private int fragmentFirst;
     private int fragmentCurrent;
     private FragmentIterationType fragmentIterationType;
+    private final boolean mainIndexer;
     private int loopProtectionCounter;
     private String loopProtectionToken = "";
 
@@ -104,9 +105,11 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     public IndexingMutuallyByRecords(@Nonnull final IndexingCommon common, @Nonnull final OnlineIndexer.IndexingPolicy policy,
-                                     @Nullable List<Tuple> fragmentBoundaries) {
+                                     @Nullable List<Tuple> fragmentBoundaries, boolean mainIndexer) {
         super(common, policy);
         this.fragmentBoundaries = fragmentBoundaries;
+        this.mainIndexer = mainIndexer;
+        System.out.printf("mainIndexer: %b\n", mainIndexer);
     }
 
     @Override
@@ -257,6 +260,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     private void fragmentIterationTypePlusPlus() {
+        validateOrThrowEx(mainIndexer, "To reduce conflicts, this indexer aborts at this stage");
         if (fragmentIterationType == FragmentIterationType.ANY) {
             fragmentIterationType = FragmentIterationType.RECOVER;
         }

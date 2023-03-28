@@ -660,11 +660,12 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         disableAll(indexes);
         final List<Tuple> boundaries = getBoundariesList(numRecords, boundarySize);
         IntStream range = IntStream.rangeClosed(0, numThreads);
-        range.parallel().forEach(ignore -> {
+        range.parallel().forEach(i -> {
             openSimpleMetaData(allIndexesHook(indexes));
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(indexes)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setMutualIndexing(true, i > 2 )
                             .setMutualIndexingBoundaries(boundaries)
                             .allowUniquePendingState(allowUniquePending))
                     .build()) {
@@ -812,12 +813,13 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         buildIndexAndCrashHalfway(indexes.subList(0, 1), null, indexes); // null do no imply mutual indexing
 
         // 3. assert mismatch type stamp
-        IntStream.rangeClosed(0, 10).parallel().forEach(ignore -> {
+        IntStream.rangeClosed(0, 10).parallel().forEach(i -> {
             openSimpleMetaData(allIndexesHook(indexes));
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(indexes)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                            .setMutualIndexing(true, i < 5)
                             .setMutualIndexingBoundaries(boundaries))
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
@@ -851,12 +853,13 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         indexes.remove(1);
 
         // 3. assert mismatch type stamp
-        IntStream.rangeClosed(0, 12).parallel().forEach(ignore -> {
+        IntStream.rangeClosed(0, 12).parallel().forEach(i -> {
             openSimpleMetaData(allIndexesHook(indexes));
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(indexes)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                            .setMutualIndexing(true, i < 3)
                             .setMutualIndexingBoundaries(boundaries))
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
