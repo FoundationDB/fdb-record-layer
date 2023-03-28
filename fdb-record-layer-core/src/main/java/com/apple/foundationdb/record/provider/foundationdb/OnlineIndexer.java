@@ -2567,13 +2567,12 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Call {@link #setMutualIndexing(boolean)} with default true.
+             * Call {@link #setMutualIndexing(boolean, boolean)} with default (true, true).
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
             public Builder setMutualIndexing() {
-                this.useMutualIndexing = true;
-                return this;
+                return setMutualIndexing(true, true);
             }
 
             /**
@@ -2588,22 +2587,19 @@ public class OnlineIndexer implements AutoCloseable {
              *  </ol>
              * The caller may use any number of concurrent indexers as desired. By default, the fragments are
              * split by approximate FDB shard boundaries (the boundaries can also be preset by {@link #setMutualIndexingBoundaries(List)}).
+             * If mutual indexing is set and many processes run concurrently, the final stage of the indexing may cause lots of conflicts. Some callers may
+             * benefit from declaring only few indexers (but at least one) as "mainIndexer" that continue to this stage.
              *
              * @param useMutualIndexing if true, allow this state.
+             * @param mainIndexer if false, abort indexing at the last stages - when conflicts are frequent.
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
-            public Builder setMutualIndexing(boolean useMutualIndexing) {
+            public Builder setMutualIndexing(boolean useMutualIndexing, boolean mainIndexer) {
                 this.useMutualIndexing = useMutualIndexing;
                 if (!useMutualIndexing) {
                     useMutualIndexingBoundaries = null;
                 }
-                return this;
-            }
-
-            @API(API.Status.EXPERIMENTAL)
-            public Builder setMutualIndexing(boolean useMutualIndexing, boolean mainIndexer) {
-                setMutualIndexing(useMutualIndexing);
                 this.useMutualIndexingMainIndexer = mainIndexer;
                 return this;
             }

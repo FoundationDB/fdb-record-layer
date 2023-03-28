@@ -109,7 +109,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         super(common, policy);
         this.fragmentBoundaries = fragmentBoundaries;
         this.mainIndexer = mainIndexer;
-        System.out.printf("mainIndexer: %b\n", mainIndexer);
     }
 
     @Override
