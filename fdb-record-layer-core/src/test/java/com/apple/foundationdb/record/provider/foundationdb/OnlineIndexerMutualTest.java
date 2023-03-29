@@ -1332,4 +1332,64 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertReadable(indexes);
         assertAllValidated(indexes);
     }
+
+    @Test
+    void testMutualIndexingNonMainIndexer() {
+        // Partly build a single partition, then fail to fully build the index with a non mainIndexer.
+        // This test runs as a single thread to ensure expected failures.
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+
+        int numRecords = 399;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        int boundarySize = 200;
+        final List<Tuple> boundaries = getBoundariesList(numRecords, boundarySize);
+        final AtomicLong counter = new AtomicLong(0);
+        final String testThrowMsg = "Intentionally crash during test";
+
+        // Crash in a way that will cause a partly built partition
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setLimit(7)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries)
+                        .build())
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 2) {
+                        throw new RecordCoreException(testThrowMsg);
+                    }
+                    return old;
+                })
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+
+        // Try to finish building as a non-mainIndexer, fail to finalize
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setLimit(7)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing(true, false)
+                        .setMutualIndexingBoundaries(boundaries)
+                        .build())
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("this indexer aborts at this stage"));
+        }
+
+        // Finish indexing
+        oneThreadIndexing(indexes, null, boundaries);
+
+        // validate
+        assertReadable(indexes);
+        assertAllValidated(indexes);
+    }
 }
