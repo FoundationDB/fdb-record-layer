@@ -139,7 +139,7 @@ public class LuceneHighlighting {
             @Nullable List<Pair<Integer, Integer>> highlightedPositions,
             int snippetSize) throws IOException {
         try (StandardAnalyzer analyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
-             TokenStream ts = analyzer.tokenStream(fieldName, new StringReader(text))) {
+                TokenStream ts = analyzer.tokenStream(fieldName, new StringReader(text))) {
             StringBuilder sb = new StringBuilder();
             final ArrayDeque<String> beforeHighlightTokens = new ArrayDeque<>();
             final OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
