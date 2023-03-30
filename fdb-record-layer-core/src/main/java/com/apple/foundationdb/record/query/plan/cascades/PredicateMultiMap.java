@@ -121,7 +121,7 @@ public class PredicateMultiMap {
                                 @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                 @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
                                 @Nonnull final Optional<QueryPlanConstraint> constraint) {
-            this(Kind.MAPPING, queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias, constraint);
+            this(queryPredicate, Optional.of(candidatePredicate), compensatePredicateFunction, parameterAlias, constraint);
         }
 
         private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
