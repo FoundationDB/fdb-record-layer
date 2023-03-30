@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
@@ -121,8 +122,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         // unsatisfied filters (i.e. both plans use the same number of filters as search arguments), we break the tie
         // by using a planning flag
         final OptionalInt primaryScanVsIndexScanCompareOptional =
-                flipFlop(() -> comparePrimaryScanToIndexScan(planCountMapA, planCountMapB, typeFilterCountA),
-                        () -> comparePrimaryScanToIndexScan(planCountMapB, planCountMapA, typeFilterCountB));
+                flipFlop(() -> comparePrimaryScanToIndexScan(a, b, planCountMapA, planCountMapB, typeFilterCountA, typeFilterCountB),
+                        () -> comparePrimaryScanToIndexScan(b, a, planCountMapB, planCountMapA, typeFilterCountB, typeFilterCountA));
         if (primaryScanVsIndexScanCompareOptional.isPresent() && primaryScanVsIndexScanCompareOptional.getAsInt() != 0) {
             return primaryScanVsIndexScanCompareOptional.getAsInt();
         }
@@ -228,22 +229,49 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
      * @return an {@link OptionalInt} that is the result of the comparison between a primary scan plan and an index
      *         scan plan, or {@code OptionalInt.empty()}.
      */
-    private OptionalInt comparePrimaryScanToIndexScan(@Nonnull Map<Class<? extends RelationalExpression>, Integer> planCountMapPrimaryScan,
+    private OptionalInt comparePrimaryScanToIndexScan(@Nonnull RelationalExpression primaryScan,
+                                                      @Nonnull RelationalExpression indexScan,
+                                                      @Nonnull Map<Class<? extends RelationalExpression>, Integer> planCountMapPrimaryScan,
                                                       @Nonnull Map<Class<? extends RelationalExpression>, Integer> planCountMapIndexScan,
-                                                      final int typeFilterCountPrimaryScan) {
+                                                      final int typeFilterCountPrimaryScan,
+                                                      final int typeFilterCountIndexScan) {
         if (planCountMapPrimaryScan.getOrDefault(RecordQueryScanPlan.class, 0) == 1 &&
                 planCountMapPrimaryScan.getOrDefault(RecordQueryPlanWithIndex.class, 0) == 0 &&
                 planCountMapIndexScan.getOrDefault(RecordQueryScanPlan.class, 0) == 0 &&
                 isSingularIndexScanWithFetch(planCountMapIndexScan)) {
-            if (typeFilterCountPrimaryScan > 0) {
-                if (configuration.getIndexScanPreference() == IndexScanPreference.PREFER_SCAN) {
-                    return OptionalInt.of(-1);
-                } else {
-                    return OptionalInt.of(1);
+
+            if (typeFilterCountPrimaryScan > 0 && typeFilterCountIndexScan == 0) {
+                final var primaryScanComparisons = ComparisonsProperty.evaluate(primaryScan);
+                final var indexScanComparisons = ComparisonsProperty.evaluate(indexScan);
+
+                //
+                // The primary scan side has a type filter in it, the index scan side does not. The primary side
+                // does not need a fetch, though. We need to weigh the additional type filter on the primary side
+                // and a potentially high discard rate against the cost of an additional fetch. If the index scan
+                // has any additional comparisons that the primary scan does not have, we'll side in favor of the
+                // index scan.
+                //
+                final var primaryMinusIndex = Sets.difference(primaryScanComparisons, indexScanComparisons);
+                if (primaryMinusIndex.isEmpty()) {
+                    final var indexMinusPrimary =
+                            Sets.difference(indexScanComparisons, primaryScanComparisons);
+                    //
+                    // Note that we don't need to worry about the index scan using a comparison on the record type key.
+                    // If that is the case, the primary scan must also use that same comparison (or we wouldn't be in
+                    // this if branch). If the primary uses this comparison, then there is no need for that side
+                    // to also use a type filter.
+                    //
+                    if (!indexMinusPrimary.isEmpty()) {
+                        return OptionalInt.of(1);
+                    }
                 }
             }
 
-            return OptionalInt.of(1);
+            if (configuration.getIndexScanPreference() == IndexScanPreference.PREFER_SCAN) {
+                return OptionalInt.of(-1);
+            } else {
+                return OptionalInt.of(1);
+            }
         }
         return OptionalInt.empty();
     }

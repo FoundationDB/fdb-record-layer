@@ -136,10 +136,12 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
     @Override
     List<Object> indexingLogMessageKeyValues() {
-        return Arrays.asList(
+        List<Object> list = new ArrayList<>();
+        list.addAll(Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, "mutual multi target by records",
-                LogMessageKeys.TARGET_INDEX_NAME, common.getTargetIndexesNames()
-        );
+                LogMessageKeys.TARGET_INDEX_NAME, common.getTargetIndexesNames()));
+        list.addAll(fragmentLogMessageKeyValues());
+        return list;
     }
 
     private List<Tuple> getPrimaryKeyBoundaries(@Nonnull FDBRecordStore store) {
@@ -310,7 +312,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                             .thenApply(ignore -> null);
                 }, false, null);
 
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper",
                 LogMessageKeys.RANGE_START, rangeStart,
                 LogMessageKeys.RANGE_END, rangeEnd);
 
@@ -371,7 +373,12 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             }
             if (rangeToBuild != null) {
                 infiniteLoopProtection(rangeToBuild, missingRanges);
-                return iterateAllRanges(null,
+                final List<Object> additionalLogMessageKeyValues = new ArrayList<>(
+                        Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
+                                LogMessageKeys.RANGE, rangeToBuild,
+                                LogMessageKeys.ORIGINAL_RANGE, fragmentRange));
+                additionalLogMessageKeyValues.addAll(fragmentLogMessageKeyValues());
+                return iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, rangeToBuild),
                         subspaceProvider, subspace).thenCompose(ignore -> AsyncUtil.READY_TRUE);
             }

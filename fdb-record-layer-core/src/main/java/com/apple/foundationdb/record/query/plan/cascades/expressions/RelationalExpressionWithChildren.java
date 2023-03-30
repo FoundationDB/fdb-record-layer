@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -73,15 +72,8 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
 
     @Nonnull
     @Override
-    default Set<Quantifier> computeMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
-        final var matchInfo = partialMatch.getMatchInfo();
-        final var mappedForEachQuantifiers = new LinkedIdentitySet<Quantifier>();
-        for (final Quantifier quantifier : getQuantifiers()) {
-            if (matchInfo.getChildPartialMatch(quantifier.getAlias()).isPresent()) {
-                mappedForEachQuantifiers.add(quantifier);
-            }
-        }
-        return mappedForEachQuantifiers;
+    default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+        return partialMatch.getMatchedQuantifiers();
     }
 
     @Nonnull

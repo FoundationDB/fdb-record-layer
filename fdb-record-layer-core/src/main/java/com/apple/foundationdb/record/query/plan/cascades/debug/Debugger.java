@@ -215,7 +215,9 @@ public interface Debugger {
         MATCH_PRE,
         YIELD,
         FAILURE,
-        COUNT
+        COUNT,
+        NEW,
+        REUSED
     }
 
     /**
@@ -530,7 +532,7 @@ public interface Debugger {
     /**
      * Events of this class are generated when the planner calls a transformation rule.
      */
-    class TransformRuleCallEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
+    class TransformRuleCallEvent extends AbstractEventWithState implements EventWithCurrentGroupReference, EventWithRule {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
@@ -578,6 +580,7 @@ public interface Debugger {
         }
 
         @Nonnull
+        @Override
         public CascadesRule<?> getRule() {
             return rule;
         }

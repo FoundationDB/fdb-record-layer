@@ -260,7 +260,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .stream()
                         .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
                         .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
-                        .filter(partialMatchWithCompensation -> !partialMatchWithCompensation.getCompensation().isImpossible())
                         .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredicates().size()).reversed())
                         .collect(ImmutableList.toImmutableList());
 
@@ -416,11 +415,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                        @Nonnull final RelationalExpression scanExpression,
                                                                                        @Nonnull final EvaluationContext evaluationContext) {
         final var compensation = partialMatchWithCompensation.getCompensation();
-        Verify.verify(!compensation.isImpossible());
-
-        return Optional.of(compensation.isNeeded()
-                           ? compensation.apply(scanExpression, evaluationContext)
-                           : scanExpression);
+        return compensation.isImpossible()
+               ? Optional.empty()
+               : Optional.of(compensation.isNeeded()
+                             ? compensation.apply(scanExpression, evaluationContext)
+                             : scanExpression);
     }
     
     /**

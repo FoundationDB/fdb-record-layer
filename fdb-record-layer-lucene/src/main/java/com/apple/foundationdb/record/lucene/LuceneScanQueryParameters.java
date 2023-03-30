@@ -101,7 +101,15 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
     @Override
     public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, scanType, groupComparisons, query, sort, storedFields, storedFieldTypes);
+        return PlanHashable.objectsPlanHash(
+                hashKind,
+                BASE_HASH,
+                scanType,
+                groupComparisons,
+                query,
+                sort == null ? null : sort.toString(), // `Sort.hashCode` ends up hashing an enum so the hash would not be stable
+                storedFields,
+                storedFieldTypes);
     }
 
     @Nonnull

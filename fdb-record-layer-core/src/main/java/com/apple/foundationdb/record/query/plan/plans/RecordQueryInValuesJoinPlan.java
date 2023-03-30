@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -42,7 +41,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
@@ -107,12 +105,6 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         str.append(" WHERE ").append(inSource.getBindingName())
                 .append(" IN ").append(getInListValues());
         return str.toString();
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
     }
 
     @Nonnull

@@ -18,8 +18,6 @@
  * limitations under the License.
  */
 
-apply from: rootProject.file('gradle/strict.gradle')
-
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)

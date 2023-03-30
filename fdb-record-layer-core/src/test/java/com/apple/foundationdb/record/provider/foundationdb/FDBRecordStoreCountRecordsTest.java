@@ -42,12 +42,16 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -583,6 +587,68 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
 
         checkRecordUpdateCounts(expectedCountBuckets, hook, key);
+    }
+
+    @Test
+    void countKeyOnNewStore() throws ExecutionException, InterruptedException {
+        final KeyExpression countKey = field("num_value_2");
+        RecordMetaDataHook origHook = countKeyHook(countKey, false, 0);
+
+        Map<Integer, Long> countByNumValue2 = new HashMap<>();
+        long totalCount;
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, origHook);
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS));
+
+            assertEquals(0, recordStore.getSnapshotRecordCount().get());
+
+            for (int i = 0; i < 10; i++) {
+                assertEquals(0L, recordStore.getSnapshotRecordCount(countKey, Key.Evaluated.scalar(i)).get());
+            }
+
+            Random r = new Random();
+            for (int i = 0; i < 50; i++) {
+                int numValue2 = r.nextInt(10);
+                Message rec;
+                if (r.nextBoolean()) {
+                    rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setNumValue2(numValue2)
+                            .setRecNo(r.nextLong())
+                            .build();
+                } else {
+                    rec = TestRecords1Proto.MyOtherRecord.newBuilder()
+                            .setNumValue2(numValue2)
+                            .setRecNo(r.nextLong())
+                            .build();
+                }
+                recordStore.saveRecord(rec);
+                countByNumValue2.compute(numValue2, (k, count) -> count == null ? 1L : count + 1L);
+            }
+
+            totalCount = countByNumValue2.values().stream()
+                    .mapToLong(Long::longValue)
+                    .sum();
+
+            assertEquals(totalCount, recordStore.getSnapshotRecordCount().get());
+            for (int i = 0; i < 10; i++) {
+                assertEquals(countByNumValue2.getOrDefault(i, 0L),
+                        recordStore.getSnapshotRecordCount(countKey, Key.Evaluated.scalar(i)).get());
+            }
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, origHook);
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS));
+
+            assertEquals(totalCount, recordStore.getSnapshotRecordCount().get());
+            for (int i = 0; i < 10; i++) {
+                assertEquals(countByNumValue2.getOrDefault(i, 0L),
+                        recordStore.getSnapshotRecordCount(countKey, Key.Evaluated.scalar(i)).get());
+            }
+        }
     }
 
     private TestRecords1Proto.MySimpleRecord makeRecord(long recordNo, int numValue2, int numValue3Indexed) {

@@ -201,7 +201,7 @@ subprojects {
         if (System.getenv('PROTO_VERSION') != null) {
             protoMajorVersion = System.getenv('PROTO_VERSION')
         } else {
-            protoMajorVersion = '2'
+            protoMajorVersion = '3'
         }
         if (protoMajorVersion == "2") {
             protobufVersion = protobuf2Version
@@ -259,6 +259,7 @@ subprojects {
     }
 
     apply from: rootProject.file('gradle/check.gradle')
+    apply from: rootProject.file('gradle/strict.gradle')
 
     if(System.getenv("DO_NOT_CHECK") != null) {
         task check(overwrite: true, dependsOn: quickCheck) { }

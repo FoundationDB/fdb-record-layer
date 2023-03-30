@@ -39,6 +39,34 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.360.0
+
+* **Feature** Feature 1 [(Issue #2071)](https://github.com/FoundationDB/fdb-record-layer/issues/2071)
+
+### 3.3.359.0
+
+
+### 3.3.358.0
+
+* **Feature** improve join enumeration and plan memoization [(Issue #2061)](https://github.com/FoundationDB/fdb-record-layer/issues/2061)
+
+### 3.3.357.0
+
+* **Bug fix** Make testMutualIndexingBlocker less volatile [(Issue #2066)](https://github.com/FoundationDB/fdb-record-layer/issues/2066)
+* **Feature** mutual indexing - add fragment information to throttle logs [(Issue #2059)](https://github.com/FoundationDB/fdb-record-layer/issues/2059)
+
+### 3.3.356.0
+
+* **Feature** Pull up getRecordState to the FDBRecordStoreBase [(Issue #2065)](https://github.com/FoundationDB/fdb-record-layer/issues/2065)
+
+
+### 3.3.355.0
+
+* **Performance** An unnecessary recount of records on new stores with a record count key has been removed [(Issue #2052)](https://github.com/FoundationDB/fdb-record-layer/issues/2052)
+
+### 3.3.353.0
+
+
 ### 3.3.352.0
 
 

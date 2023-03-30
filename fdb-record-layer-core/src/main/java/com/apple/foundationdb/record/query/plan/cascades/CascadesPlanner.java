@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
@@ -93,7 +92,7 @@ import java.util.function.Supplier;
  *         of the current planner expression, the current partial match, or the current match partition.
  *     </li>
  *     <li>
- *         A {@link CascadesRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
+ *         A {@link CascadesRule#onMatch(CascadesRuleCall)} method that is run for each successful match, producing zero
  *         or more new expressions and/or zero or more new partial matches.
  *     </li>
  * </ul>
@@ -165,7 +164,7 @@ import java.util.function.Supplier;
  * </pre>
  *
  * Note: Enqueued tasks are executed in typical stack machine order, that is LIFO.
- *
+ * <br>
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
@@ -210,7 +209,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private GroupExpressionRef<RelationalExpression> currentRoot;
     @Nonnull
-    private AliasResolver aliasResolver;
+    private ExpressionRefTraversal traversal;
     @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
     // total tasks executed for the current plan
@@ -229,7 +228,7 @@ public class CascadesPlanner implements QueryPlanner {
         this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = GroupExpressionRef.empty();
-        this.aliasResolver = AliasResolver.withRoot(currentRoot);
+        this.traversal = ExpressionRefTraversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
     }
 
@@ -381,7 +380,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
-        aliasResolver = AliasResolver.withRoot(currentRoot);
+        traversal = ExpressionRefTraversal.withRoot(currentRoot);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         taskCount = 0;
@@ -462,9 +461,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Optimize Group task.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link OptimizeGroup}
      *     if (not explored)
      *         enqueues
@@ -537,9 +536,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Group Task.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link ExploreGroup}
      *     enqueues
      *         {@link ExploreExpression} for each group member
@@ -627,9 +626,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link ExploreExpression}
      *     enqueues
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
@@ -699,9 +698,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link ExploreExpression}
      *     enqueues
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
@@ -730,9 +729,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link ExploreExpression}
      *     enqueues
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
@@ -816,9 +815,9 @@ public class CascadesPlanner implements QueryPlanner {
 
         /**
          * Method that calls the actual rule and reacts to new constructs the rule yielded.
-         *
+         * <br>
          * Simplified enqueue/execute overview:
-         *
+         * <br>
          * executes rule
          * enqueues
          *     {@link AdjustMatch} for each yielded {@link PartialMatch}
@@ -838,7 +837,7 @@ public class CascadesPlanner implements QueryPlanner {
 
             rule.getMatcher()
                     .bindMatches(initialBindings, getBindable())
-                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
+                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, bindings))
                     .forEach(ruleCall -> {
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
                             throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");
@@ -980,9 +979,9 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Adjust Match Task. Attempts to improve an existing partial match on a (group, expression) pair
      * to a better one by enqueuing rules defined on {@link PartialMatch}.
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link AdjustMatch}
      *     enqueues
      *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
@@ -1021,9 +1020,9 @@ public class CascadesPlanner implements QueryPlanner {
      * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
      * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
      * is done and we can optimize the children (that is we can now prune the plan space of the children).
-     *
+     * <br>
      * Simplified enqueue/execute overview:
-     *
+     * <br>
      * {@link OptimizeInputs}
      *     enqueues
      *         {@link OptimizeGroup} for all ranged over groups

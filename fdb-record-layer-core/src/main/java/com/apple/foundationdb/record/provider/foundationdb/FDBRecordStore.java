@@ -377,6 +377,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * If the state is not already loaded, it is loaded synchronously.
      * @return the store state for this store
      */
+    @Override
     @Nonnull
     public RecordStoreState getRecordStoreState() {
         if (recordStoreStateRef.get() == null) {
@@ -4323,15 +4324,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                        @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
                                                        @Nonnull List<CompletableFuture<Void>> work,
                                                        int oldFormatVersion) {
+        boolean existingStore = oldFormatVersion > 0;
         KeyExpression countKeyExpression = metaData.getRecordCountKey();
+
         boolean rebuildRecordCounts =
-                (oldFormatVersion > 0 && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION) ||
-                        (countKeyExpression != null && formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION &&
-                                (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)));
+                (existingStore && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION)
+                || (countKeyExpression != null && formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION &&
+                        (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)))
+                || (countKeyExpression == null && info.hasRecordCountKey());
+
         if (rebuildRecordCounts) {
             // We want to clear all record counts.
-            final Transaction tr = ensureContextActive();
-            tr.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
+            if (existingStore) {
+                final Transaction tr = ensureContextActive();
+                tr.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
+            }
 
             // Set the new record count key if we have one.
             if (formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
@@ -4343,7 +4350,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             // Add the record rebuild job.
-            addRebuildRecordCountsJob(work);
+            if (existingStore) {
+                addRebuildRecordCountsJob(work);
+            }
         }
         return rebuildRecordCounts;
     }
