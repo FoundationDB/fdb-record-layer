@@ -204,8 +204,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
                                           @Nullable final PlanOrderingKey planOrderingKey, @Nullable final List<KeyExpression> storedFields) {
         if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE)) {
             return new LuceneIndexQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
-        } else if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
-            return new LuceneIndexAutoCompleteQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
         } else if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
             return new LuceneIndexSpellCheckQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
         }

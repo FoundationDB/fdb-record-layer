@@ -55,7 +55,6 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     public enum Type {
         QUERY,
         QUERY_HIGHLIGHT,
-        AUTO_COMPLETE_HIGHLIGHT,
         AUTO_COMPLETE,
         SPELL_CHECK,
     }

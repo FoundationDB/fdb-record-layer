@@ -401,6 +401,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
                 .addKeyAndValue(LogMessageKeys.INDEX_NAME, state.index.getName())
                 .addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(state.context));
     }
+    // TODO delete
 
     @Nullable
     public static String findMatch(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
@@ -453,6 +454,49 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
         }
     }
 
+    @Nullable
+    public static List<String> computeAllMatches(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
+                                                 @Nonnull AutoCompleteTokens tokens) {
+        final var resultBuilder = ImmutableList.<String>builder();
+        final var matchedTokens = tokens.getQueryTokensAsSet();
+        final var prefixTokens = tokens.getPrefixTokens();
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int upto = 0;
+            while (ts.incrementToken()) {
+                String token = termAtt.toString();
+                int startOffset = offsetAtt.startOffset();
+                int endOffset = offsetAtt.endOffset();
+                if (upto < startOffset) {
+                    upto = startOffset;
+                } else if (upto > startOffset) {
+                    continue;
+                }
+
+                if (matchedTokens.contains(token)) {
+                    // Token matches.
+                    upto = endOffset;
+                } else {
+                    for (String prefixToken : prefixTokens) {
+                        if (token.startsWith(prefixToken)) {
+                            upto = endOffset;
+                            resultBuilder.add(token);
+                            break;
+                        }
+                    }
+                }
+            }
+            ts.end();
+
+            return resultBuilder.build();
+
+        } catch (IOException ioException) {
+            throw new RecordCoreException("token stream threw an io exception", ioException);
+        }
+    }
+
     public static boolean isPhraseSearch(@Nonnull final String search) {
         return search.startsWith("\"") && search.endsWith("\"");
     }
@@ -463,7 +507,7 @@ public class LuceneAutoCompleteResultCursor implements BaseCursor<IndexEntry> {
     }
 
     @Nonnull
-    private static String searchKeyFromSearchArgument(@Nonnull final String search, final boolean isPhraseSearch) {
+    public static String searchKeyFromSearchArgument(@Nonnull final String search, final boolean isPhraseSearch) {
         return isPhraseSearch ? search.substring(1, search.length() - 1) : search;
     }
 

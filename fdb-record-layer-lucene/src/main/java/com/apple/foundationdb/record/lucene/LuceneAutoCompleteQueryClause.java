@@ -62,7 +62,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -75,10 +74,13 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     @Nonnull
     private final String search;
     private final boolean isParameter;
+    @Nonnull
+    private final Set<String> fields;
 
-    public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter) {
+    public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter, @Nonnull Iterable<String> fields) {
         this.search = search;
         this.isParameter = isParameter;
+        this.fields = ImmutableSet.copyOf(fields);
     }
 
     @Nonnull
@@ -97,13 +99,13 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
                 excludedFields == null
                 ? Collections.emptySet()
                 : LuceneIndexOptions.parseMultipleElementsOptionValue(excludedFields);
-        final String searchString =
+        final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
                 : search;
 
-        final boolean phraseQueryNeeded = searchString.startsWith("\"") && searchString.endsWith("\"");
-        final String searchKey = phraseQueryNeeded ? searchString.substring(1, searchString.length() - 1) : searchString;
+        final boolean phraseQueryNeeded = LuceneAutoCompleteResultCursor.isPhraseSearch(searchArgument);
+        final String searchKey = LuceneAutoCompleteResultCursor.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
 
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final var analyzerSelector =
@@ -116,13 +118,14 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final var prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
         final Set<String> tokenSet = Sets.newHashSet(tokens);
 
-        final var fieldNames = fieldInfos.entrySet()
+        final var fieldNames = fieldInfos.keySet()
                 .stream()
-                .filter(entry -> {
-                    final var name = entry.getKey();
-                    return !excludedFieldNames.contains(name);
+                .filter(name -> {
+                    if (excludedFieldNames.contains(name)) {
+                        return false;
+                    }
+                    return fields.contains(name);
                 })
-                .map(Map.Entry::getKey)
                 .collect(ImmutableSet.toImmutableSet());
         final var finalQuery = phraseQueryNeeded
                                ? buildQueryForPhraseMatching(fieldNames, tokens, prefixToken)

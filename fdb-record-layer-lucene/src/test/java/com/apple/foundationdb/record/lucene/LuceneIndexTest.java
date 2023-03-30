@@ -413,9 +413,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanParameters autoCompleteScanParams(String search, boolean highlight) {
-        return new LuceneScanAutoCompleteParameters(
-                ScanComparisons.EMPTY,
-                search, false, highlight);
+        return null;
     }
 
     private LuceneScanBounds autoComplete(Index index, String search, boolean highlight) {
@@ -423,9 +421,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanParameters groupedAutoCompleteScanParams(String search, Object group, boolean highlight) {
-        return new LuceneScanAutoCompleteParameters(
-                Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
-                search, false, highlight);
+        return null;
     }
 
     private LuceneScanBounds spellCheck(Index index, String search) {

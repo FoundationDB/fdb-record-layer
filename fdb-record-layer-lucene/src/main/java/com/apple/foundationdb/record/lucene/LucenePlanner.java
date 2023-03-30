@@ -215,39 +215,30 @@ public class LucenePlanner extends RecordQueryPlanner {
         final var prefixComponents = prefixComponentsBuilder.build();
         final String prefix = prefixComponents.isEmpty() ? null : String.join("_", prefixComponents);
 
-        if (component instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)component;
-            for (String field : luceneQueryComponent.getFields()) {
-                final String fullyPrefixedField = prefix == null ? field : prefix + "_" + field;
-                if (!validateIndexField(state, fullyPrefixedField)) {
-                    return null;
-                }
-            }
-            LuceneScanParameters scanParameters;
-            switch (luceneQueryComponent.getType()) {
-                case AUTO_COMPLETE:
-                    return null;
-                case AUTO_COMPLETE_HIGHLIGHT:
-                    scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), true);
-                    break;
-                case SPELL_CHECK:
-                    scanParameters = new LuceneScanSpellCheckParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
-                    break;
-                default:
-                    scanParameters = null;
-                    break;
-            }
-            if (scanParameters != null) {
-                if (queryComponent != state.filter) {
-                    filterMask = filterMask.getChild(queryComponent);
-                }
-                filterMask.setSatisfied(true);
-                return scanParameters;
+        if (!(component instanceof LuceneQueryComponent)) {
+            return null;
+        }
+
+        final LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)component;
+        for (String field : luceneQueryComponent.getFields()) {
+            final String fullyPrefixedField = prefix == null ? field : prefix + "_" + field;
+            if (!validateIndexField(state, fullyPrefixedField)) {
+                return null;
             }
         }
-        return null;
+        if (luceneQueryComponent.getType() != LuceneQueryComponent.Type.SPELL_CHECK) {
+            return null;
+        }
+
+        final LuceneScanParameters scanParameters =
+                new LuceneScanSpellCheckParameters(state.groupingComparisons,
+                        luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
+
+        if (queryComponent != state.filter) {
+            filterMask = filterMask.getChild(queryComponent);
+        }
+        filterMask.setSatisfied(true);
+        return scanParameters;
     }
 
     @Nonnull
@@ -294,14 +285,17 @@ public class LucenePlanner extends RecordQueryPlanner {
 
         switch (filter.getType()) {
             case AUTO_COMPLETE:
-            case AUTO_COMPLETE_HIGHLIGHT:
-                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter());
-            default:
+                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), filter.getFields());
+            case QUERY:
+            case QUERY_HIGHLIGHT:
+            case SPELL_CHECK:
                 if (filter.isMultiFieldSearch()) {
                     return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
                 } else {
                     return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
                 }
+            default:
+                throw new RecordCoreException("unknown type of lucene query component");
         }
     }
 

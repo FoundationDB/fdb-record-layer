@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -50,7 +49,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
@@ -142,21 +140,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(),
                     scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector, autoCompleteAnalyzerSelector);
-        }
-
-        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
-            if (!autoCompleteEnabled) {
-                throw new RecordCoreArgumentException("Auto-complete unsupported due to not enabled on index")
-                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-            }
-            if (continuation != null) {
-                throw new RecordCoreArgumentException("Auto complete does not support scanning with continuation")
-                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-            }
-            LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            Analyzer analyzer = autoCompleteAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
-            return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, analyzer, state, scanAutoComplete.getGroupKey());
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
