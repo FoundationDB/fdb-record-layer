@@ -623,15 +623,21 @@ public class LuceneHighlighting {
         if (expression instanceof GroupingKeyExpression) {
             expression = ((GroupingKeyExpression)expression).getGroupedSubKey();
         }
-        if (!(expression instanceof ThenKeyExpression)) {
-            return null;
-        }
-        for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
-            if (child instanceof NestingKeyExpression && ((NestingKeyExpression)child).getParent().getFieldName().equals(nestedName)) {
-                return ((NestingKeyExpression)child).getChild();
+        List<KeyExpression> expressions = new ArrayList<>();
+        if (expression instanceof ThenKeyExpression) {
+            for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
+                if (child instanceof NestingKeyExpression && ((NestingKeyExpression)child).getParent().getFieldName().equals(nestedName)) {
+                    expressions.add(((NestingKeyExpression)child).getChild());
+                }
             }
         }
-        return null;
+        if (expressions.isEmpty()) {
+            return null;
+        } else if (expressions.size() == 1) {
+            return expressions.get(0);
+        } else {
+            return Key.Expressions.concat(expressions);
+        }
     }
 
 }
