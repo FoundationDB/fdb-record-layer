@@ -41,7 +41,6 @@ import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayDeque;
@@ -60,227 +59,141 @@ public class LuceneHighlighting {
     private LuceneHighlighting() {
     }
 
-    /**
-     * Iterator that takes a token stream and implement a next function.
-     * This cannot implement the Iterator interface as TokenStream does
-     * not provide a way to do hasNext.
-     */
-    private static class TokenIterator implements Closeable {
-        @Nonnull
-        private final TokenStream ts;
-        @Nonnull
-        private final CharTermAttribute termAtt;
-        @Nonnull
-        private final OffsetAttribute offsetAtt;
-
-        TokenIterator(@Nonnull TokenStream ts) throws IOException {
-            this.ts = ts;
-            termAtt = ts.addAttribute(CharTermAttribute.class);
-            offsetAtt = ts.addAttribute(OffsetAttribute.class);
-            ts.reset();
-        }
-
-        /**
-         * Find next token. Skips over potential synonyms.
-         * @return true if we got a new token
-         * @throws IOException if something goes wrong
-         */
-        boolean next() throws IOException {
-            int oldStartOffset = startOffset();
-            int oldEndOffset = endOffset();
-            // This can only loop if we keep discovering new synonyms. Once we've seen them all, this will either go to
-            // the next valid token and return true, or there won't be any token left in the stream and we'll return false
-            while (true) {
-                boolean inc = ts.incrementToken();
-                if (!inc) {
-                    return false;
-                }
-                if (oldStartOffset != startOffset() || oldEndOffset != endOffset()) {
-                    return true;
-                }
-            }
-        }
-
-        String getToken() {
-            return termAtt.toString();
-        }
-
-        int startOffset() {
-            return offsetAtt.startOffset();
-        }
-
-        int endOffset() {
-            return offsetAtt.endOffset();
-        }
-
-        @Override
-        public void close() throws IOException {
-            ts.end();
-            ts.close();
-
-        }
-    }
-
-    /**
-     * Helper class. Use search() as entry point.
-     * This will iterate over the token stream and :
-     * - find matches
-     * - cut snippets
-     * - return a list of highlighted positions
-     */
-    @SuppressWarnings("PMD.AvoidStringBufferField")
-    private static class SearchAllAndHighlightImpl {
-        private final TokenIterator it;
-        private final TokenIterator standardIt;
-        private final String text;
-        private final boolean cutSnippets;
-        private final int snippetSize;
-        @Nullable
-        private final List<Pair<Integer, Integer>> highlightedPositions;
-
-        private final StringBuilder sb = new StringBuilder();
-        private int upto = 0;
-        private final ArrayDeque<String> beforeHighlightTokens = new ArrayDeque<>();
-        int snippetRunningBudget = 0;
-        Set<String> matchedInText = new HashSet<>();
-        Set<String> matchedPrefixes = new HashSet<>();
-        boolean prefixTextConnector = false;
-        private String highlightedTextConnector = "...";
-
-        SearchAllAndHighlightImpl(TokenIterator it,
-                                  TokenIterator standardIt,
-                                  String text,
-                                  boolean cutSnippets,
-                                  int snippetSize,
-                                  @Nullable final List<Pair<Integer, Integer>> highlightedPositions) {
-            this.it = it;
-            this.standardIt = standardIt;
-            this.text = text;
-            this.cutSnippets = cutSnippets;
-            this.snippetSize =  snippetSize <= 0 ? Integer.MAX_VALUE : snippetSize;
-            this.highlightedPositions = highlightedPositions;
-        }
-
-        private int tokenCountBeforeHighlighted() {
-            return (snippetSize - 1) / 2;
-        }
-
-        private void handleNonMatchToken() {
-            if (snippetRunningBudget > 0) {
-                addNonMatch(sb, text.substring(upto, standardIt.endOffset()));
-                snippetRunningBudget--;
-            }
-            if (snippetRunningBudget == 0) {
-                beforeHighlightTokens.addLast(text.substring(upto, standardIt.endOffset()));
-                if (beforeHighlightTokens.size() > tokenCountBeforeHighlighted()) {
-                    beforeHighlightTokens.pollFirst();
-                    prefixTextConnector = true;
-                }
-            }
-            upto = standardIt.endOffset();
-        }
-
-        private boolean handleMatchToken(final Set<String> matchedTokens) {
-            if (!matchedTokens.contains(it.getToken())) {
-                return false;
-            }
-            addBeforeTokens();
-            addNonMatch(sb, text.substring(upto, standardIt.startOffset()));
-            addWholeMatch(sb, text.substring(standardIt.startOffset(), standardIt.endOffset()), highlightedPositions);
-            snippetRunningBudget--;
-            upto = it.endOffset();
-            matchedInText.add(standardIt.getToken());
-            return true;
-        }
-
-        private boolean handlePrefixMatch(final Set<String> prefixTokens) {
-            for (String prefixToken : prefixTokens) {
-                if (it.getToken().startsWith(prefixToken)) {
-                    addBeforeTokens();
-                    addNonMatch(sb, text.substring(upto, it.startOffset()));
-                    addPrefixMatch(sb, text.substring(it.startOffset(), it.endOffset()), prefixToken,
-                            highlightedPositions);
-                    upto = it.endOffset();
-                    matchedPrefixes.add(prefixToken);
-                    snippetRunningBudget--;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private void addBeforeTokens() {
-            snippetRunningBudget = snippetSize;
-            if (prefixTextConnector) {
-                addNonMatch(sb, highlightedTextConnector);
-                highlightedTextConnector = " ..."; // TODO(alacurie) This probably does not work for RTL languages
-                prefixTextConnector = false;
-            }
-            for (String token : beforeHighlightTokens) {
-                addNonMatch(sb, token);
-                snippetRunningBudget--;
-            }
-            beforeHighlightTokens.clear();
-        }
-
-        private void handleToken(final Set<String> matchedTokens, final Set<String> prefixTokens) {
-            boolean matched = handleMatchToken(matchedTokens);
-            if (!matched) {
-                matched = handlePrefixMatch(prefixTokens);
-            }
-            if (!matched) {
-                handleNonMatchToken();
-            }
-        }
-
-        public String search(final Set<String> matchedTokens, final Set<String> prefixTokens, final boolean allMatchingRequired) throws IOException {
-            while (it.next()) {
-                do {
-                    standardIt.next();
-                    if (standardIt.startOffset() < it.startOffset()) {
-                        // We're handling a stop word (we don't need to check if that word matches)
-                        handleNonMatchToken();
-                    } else {
-                        // We're handling a real word (We need to check if that word matches)
-                        handleToken(matchedTokens, prefixTokens);
-                    }
-                } while (standardIt.startOffset() < it.startOffset());
-            }
-
-            if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
-                // Query text not actually found in document text. Return null
-                return null;
-            }
-
-            // Text was found. Return text
-            if (!cutSnippets) {
-                addBeforeTokens();
-                addNonMatch(sb, text.substring(upto));
-            }
-
-            if (snippetRunningBudget >= 0 && cutSnippets) {
-                addNonMatch(sb, " ...");
-            }
-            return sb.toString();
-        }
-    }
-
     @Nullable
     static String searchAllAndHighlight(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer, @Nonnull String text,
                                         @Nonnull Set<String> matchedTokens, @Nonnull Set<String> prefixTokens,
                                         boolean allMatchingRequired,
                                         @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                         @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
-        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
-                 StandardAnalyzer standardAnalyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
-                 TokenStream standardTs = standardAnalyzer.tokenStream(fieldName, new StringReader(text)) ;
-                 TokenIterator it = new TokenIterator(ts);
-                 TokenIterator standardIt = new TokenIterator(standardTs)
-        ) {
-            var impl = new SearchAllAndHighlightImpl(it, standardIt, text, luceneQueryHighlightParameters.isCutSnippets(), luceneQueryHighlightParameters.getSnippedSize(), highlightedPositions);
-            return impl.search(matchedTokens, prefixTokens, allMatchingRequired);
+        Set<String> matchedInText = new HashSet<>();
+        Set<String> matchedPrefixes = new HashSet<>();
+        List<Pair<Integer, Integer>> matchesInOriginalText;
+        try {
+            matchesInOriginalText = searchMatchesInOriginalText(fieldName, queryAnalyzer, text, matchedTokens, prefixTokens, matchedInText, matchedPrefixes);
+
+            if (allMatchingRequired && (matchedPrefixes.size() < prefixTokens.size() || (matchedInText.size() < matchedTokens.size()))) {
+                // Query text not actually found in document text. Return null
+                return null;
+            }
+
+            if (!luceneQueryHighlightParameters.isCutSnippets()) {
+                if (highlightedPositions != null) {
+                    highlightedPositions.addAll(matchesInOriginalText);
+                }
+                return text;
+            }
+
+            // We did not find any matches
+            if (matchesInOriginalText.isEmpty()) {
+                return "";
+            }
+
+            return cutSnippetFromOriginalText(fieldName, text, matchesInOriginalText, highlightedPositions, luceneQueryHighlightParameters.getSnippedSize());
         } catch (IOException e) {
-            return null;
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static List<Pair<Integer, Integer>> searchMatchesInOriginalText(
+            @Nonnull String fieldName,
+            @Nonnull Analyzer queryAnalyzer,
+            @Nonnull String text,
+            @Nonnull Set<String> matchedTokens,
+            @Nonnull Set<String> prefixTokens,
+            @Nonnull Set<String> matchedInText,
+            @Nonnull Set<String> matchedPrefixes) throws IOException {
+        List<Pair<Integer, Integer>> matches = new ArrayList<>();
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            final CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            final OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            while (ts.incrementToken()) {
+                final String token = termAtt.toString();
+                final int startOffset = offsetAtt.startOffset();
+                final int endOffset = offsetAtt.endOffset();
+                if (matchedTokens.contains(token)) {
+                    if (matches.isEmpty() || matches.get(matches.size() - 1).getLeft() != startOffset) {
+                        matches.add(Pair.of(startOffset, endOffset));
+                        matchedInText.add(token);
+                    }
+                } else {
+                    for (String prefix : prefixTokens) {
+                        if (token.startsWith(prefix)) {
+                            if (matches.isEmpty() || matches.get(matches.size() - 1).getLeft() != startOffset) {
+                                matches.add(Pair.of(startOffset, startOffset + prefix.length()));
+                                matchedPrefixes.add(token);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return matches;
+    }
+
+    private static String cutSnippetFromOriginalText(
+            @Nonnull String fieldName,
+            @Nonnull String text,
+            @Nonnull List<Pair<Integer, Integer>> matchesInOriginalText,
+            @Nullable List<Pair<Integer, Integer>> highlightedPositions,
+            int snippetSize) throws IOException {
+        try (StandardAnalyzer analyzer = new StandardAnalyzer() ; // TODO(alacurie) This will most likely not work for RTL languages
+                TokenStream ts = analyzer.tokenStream(fieldName, new StringReader(text))) {
+            StringBuilder sb = new StringBuilder();
+            final ArrayDeque<String> beforeHighlightTokens = new ArrayDeque<>();
+            final OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int snippetRunningBudget = 0; // How many words can we still put in the current snippet
+            boolean prefixTextConnector = false; // Should we prefix the next snippet with "..."
+            String highlightedTextConnector = "...";
+            int matchesIndex = 0;
+            int upto = 0; // How far along are we within the original text
+            while (ts.incrementToken()) {
+                final int startOffset = offsetAtt.startOffset();
+                final int endOffset = offsetAtt.endOffset();
+                if (matchesIndex < matchesInOriginalText.size() && matchesInOriginalText.get(matchesIndex).getLeft() == startOffset) {
+                    // Add before tokens
+                    snippetRunningBudget = snippetSize;
+                    if (prefixTextConnector) {
+                        addNonMatch(sb, highlightedTextConnector);
+                        highlightedTextConnector = " ..."; // TODO(alacurie) This probably does not work for RTL languages
+                        prefixTextConnector = false;
+                    }
+                    for (String beforeToken : beforeHighlightTokens) {
+                        addNonMatch(sb, beforeToken);
+                        snippetRunningBudget--;
+                    }
+                    beforeHighlightTokens.clear();
+
+                    // Add the actual match
+                    addNonMatch(sb, text.substring(upto, startOffset));
+                    addWholeMatch(sb, text.substring(matchesInOriginalText.get(matchesIndex).getLeft(), matchesInOriginalText.get(matchesIndex).getRight()), highlightedPositions);
+                    addNonMatch(sb, text.substring(matchesInOriginalText.get(matchesIndex).getRight(), endOffset));
+                    snippetRunningBudget--;
+                    matchesIndex++;
+                } else {
+                    // Handle NonMatch Tokens
+                    if (snippetRunningBudget > 0) {
+                        addNonMatch(sb, text.substring(upto, endOffset));
+                        snippetRunningBudget--;
+                    }
+                    if (snippetRunningBudget == 0) {
+                        beforeHighlightTokens.addLast(text.substring(upto, endOffset));
+                        if (beforeHighlightTokens.size() > (snippetSize - 1) / 2) {
+                            beforeHighlightTokens.pollFirst();
+                            prefixTextConnector = true;
+                        }
+                    }
+                }
+                upto = endOffset;
+            }
+
+            if (snippetRunningBudget >= 0 && !beforeHighlightTokens.isEmpty()) {
+                addNonMatch(sb, " ...");
+            }
+
+            return sb.toString();
         }
     }
 
@@ -310,32 +223,6 @@ public class LuceneHighlighting {
         if (highlightedPositions != null) {
             highlightedPositions.add(Pair.of(start, sb.length()));
         }
-    }
-
-    /**
-     * Called while highlighting a single result, to append a
-     * matched prefix token, to the provided fragments list.
-     *
-     * @param sb The {@code StringBuilder} to append to
-     * @param surface The fragment of the surface form
-     * (indexed during build, corresponding to
-     * this match
-     * @param prefixToken The prefix of the token that matched
-     */
-    private static void addPrefixMatch(StringBuilder sb, String surface, String prefixToken,
-                                       @Nullable List<Pair<Integer, Integer>> highlightedPositions) {
-        // TODO: apps can try to invert their analysis logic
-        // here, e.g. downcase the two before checking prefix:
-        if (prefixToken.length() >= surface.length()) {
-            addWholeMatch(sb, surface, highlightedPositions);
-            return;
-        }
-        int start = sb.length();
-        sb.append(surface, 0, prefixToken.length());
-        if (highlightedPositions != null) {
-            highlightedPositions.add(Pair.of(start, sb.length()));
-        }
-        sb.append(surface.substring(prefixToken.length()));
     }
 
     // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
