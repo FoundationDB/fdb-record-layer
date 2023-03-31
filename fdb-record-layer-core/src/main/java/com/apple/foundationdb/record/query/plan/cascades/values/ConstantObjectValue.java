@@ -137,12 +137,12 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return formatter.getQuantifierName(alias) + "@" + ordinal;
+        return toString();
     }
 
     @Override
     public String toString() {
-        return "@" + alias + "#" + ordinal;
+        return "@" + ordinal;
     }
 
     /**

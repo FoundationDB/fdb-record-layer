@@ -111,17 +111,20 @@ public class InOpValue implements BooleanValue {
     public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
         // we fail if the right side is not evaluable as we cannot create the comparison
 
-        typeRepository = Verify.verifyNotNull(typeRepository);
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
-        if (leftChildCorrelatedTo.isEmpty()) {
+        if (leftChildCorrelatedTo.isEmpty() && typeRepository != null) {
             return compileTimeEvalMaybe(typeRepository);
         }
 
         final var isLiteralList = inArrayValue.getCorrelatedTo().isEmpty();
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
-        final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)));
-        return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
+        if (typeRepository != null) {
+            final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)));
+            return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
+        } else {
+            return Optional.of(new ValuePredicate(probeValue, new Comparisons.ValueComparison(Comparisons.Type.IN, inArrayValue)));
+        }
     }
 
     @Nonnull
