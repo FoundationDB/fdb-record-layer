@@ -106,17 +106,11 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
         final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
-        final var rebaseAggregatedAlias = aliasMap.getTargetOrDefault(groupByExpression.getAggregateValueAlias(), groupByExpression.getAggregateValueAlias());
         final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
-        final var rebaseGroupingAlias = aliasMap.getTargetOrDefault(groupByExpression.getGroupingValueAlias(), groupByExpression.getGroupingValueAlias());
-        final var rebasedResultValue = groupByExpression.getRuntimeValue().rebase(aliasMap);
-        final var result = RecordQueryStreamingAggregationPlan.of(
+        final var result = RecordQueryStreamingAggregationPlan.ofNested(
                 newPlanQuantifier,
                 rebasedGroupingValue,
-                (AggregateValue)rebasedAggregatedValue,
-                rebaseGroupingAlias,
-                rebaseAggregatedAlias,
-                rebasedResultValue);
+                (AggregateValue)rebasedAggregatedValue);
         return GroupExpressionRef.of(result);
     }
 }

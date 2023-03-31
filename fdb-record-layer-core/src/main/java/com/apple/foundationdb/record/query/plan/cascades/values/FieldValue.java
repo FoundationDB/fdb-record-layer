@@ -245,6 +245,12 @@ public class FieldValue implements ValueWithChild {
     }
 
     @Nonnull
+    public static FieldValue ofFieldNameAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final String fieldName) {
+        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(fieldName, -1)));
+        return ofFieldsAndFuseIfPossible(childValue, resolved);
+    }
+
+    @Nonnull
     public static FieldValue ofFieldNames(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
         final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
         return new FieldValue(childValue, resolved);
