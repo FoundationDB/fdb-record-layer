@@ -216,7 +216,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(aggregationExpr, groupingExpr, qun);
-            groupingExprAlias = groupByExpression.getGroupingValueAlias();
             qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
         }
 
@@ -224,7 +223,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // construct a result set that makes sense.
             final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")),
-                    FieldValue.ofFieldNames(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), ImmutableList.of(groupingExprAlias.getId(), "num_value_2")));
+                    FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2"));
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
             final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect(null);

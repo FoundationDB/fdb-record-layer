@@ -223,8 +223,29 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+
+        final var otherStreamingAggregationPlan = (RecordQueryStreamingAggregationPlan)otherExpression;
+
+        if ((groupingKeyValue == null && otherStreamingAggregationPlan.getGroupingValue() != null) ||
+                (groupingKeyValue != null && otherStreamingAggregationPlan.getGroupingValue() == null)) {
+            return false;
+        }
+
+        if (groupingKeyValue != null && !groupingKeyValue.semanticEquals(otherStreamingAggregationPlan.getGroupingValue(), equivalencesMap)) {
+            return false;
+        }
+
+        if (!aggregateValue.semanticEquals(otherStreamingAggregationPlan.getAggregateValue(), equivalencesMap)) {
+            return false;
+        }
+
+        final var extendedEquivalencesMap = equivalencesMap.derived()
+                .put(groupingKeyAlias, otherStreamingAggregationPlan.getGroupingKeyAlias())
+                .put(aggregateAlias, otherStreamingAggregationPlan.getAggregateAlias())
+                .build();
+
         // Results are combination of groupCriteria and aggregateValues
-        return semanticEqualsForResults(otherExpression, equivalencesMap);
+        return semanticEqualsForResults(otherExpression, extendedEquivalencesMap);
     }
 
     @Override
@@ -234,12 +255,12 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH, groupingKeyValue, aggregateValue);
+        return Objects.hash(BASE_HASH, groupingKeyValue, aggregateValue, completeResultValue);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
     }
 
     @Nonnull
@@ -292,10 +313,71 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
     }
 
-    public static Value flattenedResults(@Nullable final Value groupingKeyValue,
-                                         @Nonnull final AggregateValue aggregateValue,
-                                         @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                         @Nonnull final CorrelationIdentifier aggregateAlias) {
+    @Nonnull
+    public AggregateValue getAggregateValue() {
+        return aggregateValue;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getAggregateAlias() {
+        return aggregateAlias;
+    }
+
+    @Nullable
+    public Value getGroupingValue() {
+        return groupingKeyValue;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getGroupingKeyAlias() {
+        return groupingKeyAlias;
+    }
+
+    @Nonnull
+    public Value getCompleteResultValue() {
+        return completeResultValue;
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan ofNested(@Nonnull final Quantifier.Physical inner,
+                                                               @Nullable final Value groupingKeyValue,
+                                                               @Nonnull final AggregateValue aggregateValue) {
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
+                nestedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan ofFlattened(@Nonnull final Quantifier.Physical inner,
+                                                                  @Nullable final Value groupingKeyValue,
+                                                                  @Nonnull final AggregateValue aggregateValue) {
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
+                flattenedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+    }
+
+    @Nonnull
+    private static Value nestedResults(@Nullable final Value groupingKeyValue,
+                                       @Nonnull final AggregateValue aggregateValue,
+                                       @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                       @Nonnull final CorrelationIdentifier aggregateAlias) {
+        if (groupingKeyValue != null) {
+            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
+                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+        } else {
+            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
+                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+        }
+    }
+
+    @Nonnull
+    private static Value flattenedResults(@Nullable final Value groupingKeyValue,
+                                          @Nonnull final AggregateValue aggregateValue,
+                                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
+                                          @Nonnull final CorrelationIdentifier aggregateAlias) {
         final var valuesBuilder = ImmutableList.<Value>builder();
         if (groupingKeyValue != null) {
             final var groupingResultType = groupingKeyValue.getResultType();
@@ -324,56 +406,5 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
 
         return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
-    }
-
-    @Nonnull
-    public static Value nestedResults(@Nullable final Value groupingKeyValue,
-                                      @Nonnull final AggregateValue aggregateValue,
-                                      @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                      @Nonnull final CorrelationIdentifier aggregateAlias) {
-        if (groupingKeyValue != null) {
-            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
-                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
-        } else {
-            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    RecordConstructorValue.ofUnnamed(ImmutableList.of()),
-                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
-        }
-    }
-
-    @Nonnull
-    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
-                                                         @Nullable final Value groupingKeyValue,
-                                                         @Nonnull final AggregateValue aggregateValue,
-                                                         @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                                         @Nonnull final CorrelationIdentifier aggregateAlias,
-                                                         @Nonnull final Value completeResultValue) {
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue);
-    }
-
-    @Nonnull
-    public AggregateValue getAggregateValue() {
-        return aggregateValue;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getAggregateAlias() {
-        return aggregateAlias;
-    }
-
-    @Nullable
-    public Value getGroupingValue() {
-        return groupingKeyValue;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getGroupingKeyAlias() {
-        return groupingKeyAlias;
-    }
-
-    @Nonnull
-    public Value getCompleteResultValue() {
-        return completeResultValue;
     }
 }

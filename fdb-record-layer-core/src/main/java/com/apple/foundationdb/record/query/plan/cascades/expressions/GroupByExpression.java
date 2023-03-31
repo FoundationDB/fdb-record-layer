@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
@@ -75,16 +74,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     private final Supplier<Value> computeResultSupplier;
 
     @Nonnull
-    private final Supplier<Value> computeRuntimeResultSupplier;
-
-    @Nonnull
     private final Supplier<RequestedOrdering> computeRequestedOrderingSupplier;
-
-    @Nonnull
-    private final CorrelationIdentifier groupingValueAlias;
-
-    @Nonnull
-    private final CorrelationIdentifier aggregateValueAlias;
 
     @Nonnull
     private final Quantifier inner;
@@ -102,11 +92,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
         this.computeResultSupplier = Suppliers.memoize(this::computeResultValue);
-        this.computeRuntimeResultSupplier = Suppliers.memoize(this::computeRuntimeValue);
         this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestOrdering);
         this.inner = inner;
-        this.groupingValueAlias = CorrelationIdentifier.uniqueID();
-        this.aggregateValueAlias = CorrelationIdentifier.uniqueID();
     }
 
     @Override
@@ -157,7 +144,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(computeResultSupplier, getGroupingValue(), getAggregateValue());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -220,18 +207,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Nonnull
-    public CorrelationIdentifier getGroupingValueAlias() {
-        return groupingValueAlias;
-    }
-
-    @Nonnull
     public AggregateValue getAggregateValue() {
         return aggregateValue;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getAggregateValueAlias() {
-        return aggregateValueAlias;
     }
 
     /**
@@ -243,18 +220,6 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     public RequestedOrdering getRequestedOrdering() {
         return computeRequestedOrderingSupplier.get();
-    }
-
-    /**
-     * Constructs a {@code GROUP BY} runtime value that can be assembled on the fly by looking into the bindings of its
-     * constituents (grouping expression and aggregation expression). This is done by leveraging the {@link ObjectValue}
-     * which gets the message directly from the binding without attempting to follow the identifier chain.
-     *
-     * @return The runtime type of the {@code GROUP BY} expression.
-     */
-    @Nonnull
-    public Value getRuntimeValue() {
-        return computeRuntimeResultSupplier.get();
     }
 
     @Override
@@ -305,26 +270,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private Value computeResultValue() {
-        final var aggregateColumn = Column.of(Type.Record.Field.of(getAggregateValue().getResultType(), Optional.of(getAggregateValueAlias().getId())), getAggregateValue());
+        final var aggregateColumn = Column.unnamedOf(getAggregateValue());
         if (getGroupingValue() == null) {
             return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
         } else {
-            final var groupingColumn = Column.of(Type.Record.Field.of(getGroupingValue().getResultType(), Optional.of(getGroupingValueAlias().getId())), getGroupingValue());
-            return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
-        }
-    }
-
-    @Nonnull
-    private Value computeRuntimeValue() {
-        final var aggregateColumn = Column.of(
-                Type.Record.Field.of(getAggregateValue().getResultType(), Optional.of(getAggregateValueAlias().getId())),
-                ObjectValue.of(getAggregateValueAlias(), getAggregateValue().getResultType()));
-        if (getGroupingValue() == null) {
-            return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
-        } else {
-            final var groupingColumn = Column.of(
-                    Type.Record.Field.of(getGroupingValue().getResultType(), Optional.of(getGroupingValueAlias().getId())),
-                    ObjectValue.of(Objects.requireNonNull(getGroupingValueAlias()), getGroupingValue().getResultType()));
+            final var groupingColumn = Column.unnamedOf(getGroupingValue());
             return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
         }
     }

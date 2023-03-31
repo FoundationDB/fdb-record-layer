@@ -39,6 +39,13 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.362.0
+
+* **Bug fix** Fixes correcting issues introduced in #2058 [(Issue #2061)](https://github.com/FoundationDB/fdb-record-layer/issues/2061)
+
+### 3.3.361.0
+
+
 ### 3.3.360.0
 
 * **Feature** Feature 1 [(Issue #2071)](https://github.com/FoundationDB/fdb-record-layer/issues/2071)

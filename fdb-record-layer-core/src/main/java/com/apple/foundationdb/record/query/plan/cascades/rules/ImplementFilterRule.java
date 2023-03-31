@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -90,7 +91,7 @@ public class ImplementFilterRule extends CascadesRule<LogicalFilterExpression> {
                             Quantifier.physicalBuilder()
                                     .morphFrom(innerQuantifier)
                                     .build(referenceOverPlans),
-                            queryPredicates)));
+                            queryPredicates.stream().map(QueryPredicate::toResidualPredicate).collect(ImmutableList.toImmutableList()))));
         }
     }
 }

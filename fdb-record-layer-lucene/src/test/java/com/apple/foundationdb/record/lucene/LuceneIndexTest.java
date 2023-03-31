@@ -92,6 +92,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -1076,7 +1077,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1645L, "Hello record layer", 1));
-            assertRecordTexts(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("Hello {recor}d layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "recor*", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
@@ -1314,22 +1315,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void highlightedSynonymIndex() {
         final String original = "peanut butter and jelly sandwich";
-        final String highlighted = "peanut butter and jelly sandwich";
+        final String highlighted = "{peanut} butter and jelly sandwich";
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1236L, original, 1));
             // Search for original token
-            assertRecordTexts(List.of(highlighted),
+            assertRecordHighlights(List.of(highlighted),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "peanut", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
             // Search for synonym word
-            assertRecordTexts(List.of(highlighted),
+            assertRecordHighlights(List.of(highlighted),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "groundnut", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
             // Search for synonym phrase
-            assertRecordTexts(List.of(highlighted),
+            assertRecordHighlights(List.of(highlighted),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"monkey nut\"", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
@@ -1447,15 +1448,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertRecordTexts(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("{Hello} record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordTexts(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("Hello record layer"), // FIXME: {Hel}
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordTexts(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("Hello record layer"), // FIXME: re{cord}
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "cord", true), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
@@ -2824,6 +2825,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final KeyExpression text = field("text");
         assertEquals(texts,
                 cursor.map(rec -> text.evaluateSingleton(possiblyHighlightedStoredRecord(rec)).getString(0)).asList().join());
+    }
+
+    private void assertRecordHighlights(List<String> texts, RecordCursor<FDBIndexedRecord<Message>> cursor) {
+        List<String> highlighted = new ArrayList<>();
+        cursor.forEach(rec -> {
+            for (LuceneHighlighting.HighlightedTerm highlightedTerm : LuceneHighlighting.highlightedTermsForMessage(FDBQueriedRecord.indexed(rec), null)) {
+                final StringBuilder str = new StringBuilder(highlightedTerm.getSnippet());
+                int offset = 0;
+                for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
+                    str.insert(pos.getLeft() + offset, "{");
+                    offset++;
+                    str.insert(pos.getRight() + offset, "}");
+                    offset++;
+                }
+                highlighted.add(str.toString());
+            }
+        }).join();
+        assertEquals(texts, highlighted);
     }
 
     @SuppressWarnings("unchecked")

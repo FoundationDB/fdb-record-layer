@@ -33,12 +33,14 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -1400,14 +1403,46 @@ public interface Type extends Narrowable<Type> {
                 return null;
             }
 
-            final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
-            var i = 0;
+            Set<Integer> fieldIndexesSeen = Sets.newHashSet();
+            boolean override = false;
             for (final var field : fields) {
-                resultFieldsBuilder.add(
-                        new Field(field.getFieldType(),
-                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i))),
-                                Optional.of(field.getFieldIndexOptional().orElse(i + 1))));
-                i++;
+                if (field.getFieldNameOptional().isEmpty() || field.getFieldIndexOptional().isEmpty()) {
+                    override = true;
+                    break;
+                }
+                if (field.fieldIndexOptional.isPresent() && !fieldIndexesSeen.add(field.getFieldIndex())) {
+                    override = true;
+                }
+            }
+
+            //
+            // If any field info is missing, the type that is about to be constructed comes from a constructing
+            // code path. We should be able to just set these field names and indexes as we wish.
+            //
+            Set<String> fieldNamesSeen = Sets.newHashSet();
+            final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
+            for (int i = 0; i < fields.size(); i++) {
+                final var field = fields.get(i);
+                final Field fieldToBeAdded;
+                if (!override) {
+                    fieldToBeAdded = field;
+                } else {
+                    final var explicitFieldName =
+                            field.getFieldNameOptional()
+                                    .flatMap(fieldName -> fieldName.startsWith("_") && StringUtils.isNumeric(fieldName.substring(1))
+                                                          ? Optional.empty()
+                                                          : Optional.of(fieldName))
+                                    .orElse("_" + i);
+                    fieldToBeAdded =
+                            new Field(field.getFieldType(),
+                                    Optional.of(explicitFieldName),
+                                    Optional.of(field.getFieldIndexOptional().orElse(i + 1)));
+                }
+
+                if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
+                    throw new RecordCoreException("fields contain duplicate field names");
+                }
+                resultFieldsBuilder.add(fieldToBeAdded);
             }
 
             return resultFieldsBuilder.build();
