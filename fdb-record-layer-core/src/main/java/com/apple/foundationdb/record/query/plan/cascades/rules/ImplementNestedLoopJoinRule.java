@@ -153,7 +153,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
         if (!outerPredicates.isEmpty()) {
             // create a new quantifier using a new alias
-            final var newOuterLowerQuantifier = Quantifier.physicalBuilder().build(outerRef);
+            final var newOuterLowerQuantifier = Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
             outerRef = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
         }
 
