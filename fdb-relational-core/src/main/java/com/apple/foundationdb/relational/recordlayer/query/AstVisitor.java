@@ -338,9 +338,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             // relies on Antler's visitation (again) giving us consistent results between here and step 3.
             final var aggregateValues = scope.getAggregateValues();
             aggregateValues.forEach(ParserUtils::verifyAggregateValue);
-            final var aggregationValue = RecordConstructorValue.ofColumns(aggregateValues.stream().map(agg ->
-                    Column.of(Type.Record.Field.of(agg.getResultType(), Optional.of(ParserUtils.toProtoBufCompliantName(CorrelationIdentifier.uniqueID().getId()))), agg)).collect(Collectors.toList()));
-            final var groupByExpression = new GroupByExpression(aggregationValue, groupByClause == null ? null : FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0), underlyingSelectQun);
+            final var aggregationValue = RecordConstructorValue.ofColumns(aggregateValues.stream().map(Column::unnamedOf).collect(Collectors.toList()));
+            final var groupByExpression = new GroupByExpression(aggregationValue, groupByClause == null
+                                                                                  ? null
+                                                                                  : FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0), underlyingSelectQun);
             groupByExpressionType = groupByExpression.getResultValue().getResultType();
             final var groupByScope = scopes.pop();
             groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);

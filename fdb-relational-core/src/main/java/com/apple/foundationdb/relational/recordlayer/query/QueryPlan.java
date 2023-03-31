@@ -112,6 +112,11 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             this.offset = offset;
         }
 
+        @Nonnull
+        public RelationalExpression getRelationalExpression() {
+            return relationalExpression;
+        }
+
         /**
          * Parses a query, generates an equivalent logical plan and calls the planner to generate an execution plan.
          *

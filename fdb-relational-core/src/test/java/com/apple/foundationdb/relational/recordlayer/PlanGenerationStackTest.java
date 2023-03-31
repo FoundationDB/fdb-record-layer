@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
@@ -80,6 +81,7 @@ public class PlanGenerationStackTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
             return Stream.of(
+                    Arguments.of(0, "select count(*) from restaurant", null),
                     Arguments.of(1, "select * from restaurant", null),
                     Arguments.of(2, "sElEct * FrOm rESTaurant", null),
                     Arguments.of(3, "   select *   from     restaurant", null),
@@ -163,7 +165,13 @@ public class PlanGenerationStackTest {
         final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
         if (error == null) {
-            Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext));
+            final Plan<?> generatedPlan1 = Plan.generate(query, planContext);
+            final var topExpression1 = ((QueryPlan.LogicalQueryPlan)generatedPlan1).getRelationalExpression();
+            final var queryHash1 = topExpression1.semanticHashCode();
+            final Plan<?> generatedPlan2 = Plan.generate(query, planContext);
+            final var topExpression2 = ((QueryPlan.LogicalQueryPlan)generatedPlan2).getRelationalExpression();
+            final var queryHash2 = topExpression2.semanticHashCode();
+            Assertions.assertEquals(queryHash1, queryHash2);
         } else {
             try {
                 Plan.generate(query, planContext);

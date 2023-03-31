@@ -108,8 +108,8 @@
 ---
 # BOOLEAN value matched against IN list of BOOLEAN values
 - query: select a, d from ta where d in (true, false)
-- result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x},
-           {A: 1, !ignore x}, {A: 3, !ignore x}, {A: 5, !ignore x}, {A: 7, !ignore x}, {A: 9, !ignore x}]
+- resultSet: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x},
+              {A: 1, !ignore x}, {A: 3, !ignore x}, {A: 5, !ignore x}, {A: 7, !ignore x}, {A: 9, !ignore x}]
 ---
 # BOOLEAN value matched against singleton IN list of BOOLEAN values
 - query: select a, d from ta where d in (true)
