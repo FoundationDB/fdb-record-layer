@@ -244,7 +244,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         builder.addRegularCopier(
-                new LuceneAutoCompleteAndSpellCheckCopier(groupingColumnSize));
+                new LuceneSpellCheckCopier(groupingColumnSize));
 
         return builder.build();
     }
@@ -366,10 +366,10 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * The copier to populate the lucene auto complete suggestion as a value for the field where it is indexed from.
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
-    public static class LuceneAutoCompleteAndSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
+    public static class LuceneSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
         private final int groupingColumnSize;
 
-        public LuceneAutoCompleteAndSpellCheckCopier(final int groupingColumnSize) {
+        public LuceneSpellCheckCopier(final int groupingColumnSize) {
             this.groupingColumnSize = groupingColumnSize;
         }
 
