@@ -471,9 +471,10 @@ public abstract class LocatableResolver {
 
     /**
      * Lookup the String that maps to the provided value within the scope of the path that this object was constructed with.
-     * This will execute use the transaction provided to access the database, though the isolation is slightly
-     * relaxed as it may read data committed in other transactions, though it will only return uncommitted data
-     * from this transaction.
+     * This will execute using the transaction provided to access the database, though the isolation is relaxed
+     * compared to other operations. In particular, the semantics are closer to {@code READ_COMMITTED} in that it can
+     * read entries committed by transactions started after the transaction was created. However, the only uncommitted
+     * data it will return will be those that were created by the same transaction.
      *
      * @param context the transaction to use to look up the reverse mapping
      * @param value the value of the mapping to lookup
@@ -529,8 +530,9 @@ public abstract class LocatableResolver {
      * reading from the database (unlike some of the methods in this class which will just use it as the
      * basis of child transactions). If the name has not been previously inserted into the resolver, it
      * will return {@code null}. Additionally, the isolation properties are somewhat relaxed, in that it can
-     * read values committed in other transactions (from the {@linkplain FDBDatabase#getDirectoryCache(int)
-     * directory cache}), though it won't return any uncommitted data.
+     * read values committed by newer transactions (from the {@linkplain FDBDatabase#getDirectoryCache(int)
+     * directory cache}), though it won't return any uncommitted data except for entries that were created
+     * using the supplied transaction.
      *
      * @param context the transaction to use to read from the database
      * @param name the name to look up
