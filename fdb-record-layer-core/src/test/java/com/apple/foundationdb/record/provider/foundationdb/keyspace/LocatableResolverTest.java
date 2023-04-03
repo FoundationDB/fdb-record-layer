@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -1230,10 +1231,33 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             assertNull(globalScope.readInTransaction(context, key).join());
             ResolverResult intermediateResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
             assertEquals(intermediateResult, globalScope.readInTransaction(context, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, intermediateResult.getValue()).join());
             CompletionException reversLookupErr = assertThrows(CompletionException.class, () -> globalScope.reverseLookup(context, uncommittedResult.getValue()).join());
             assertNotNull(reversLookupErr.getCause());
             assertThat(reversLookupErr.getCause(), instanceOf(NoSuchElementException.class));
             // do not commit
+        }
+
+        try (FDBRecordContext context1 = database.openContext(); FDBRecordContext context2 = database.openContext()) {
+            context1.getReadVersion();
+            context2.getReadVersion();
+
+            byte[] conflictKey = ByteArrayUtil2.unprint("conflict_key");
+            context1.ensureActive().addReadConflictKey(conflictKey);
+            context2.ensureActive().addWriteConflictKey(conflictKey);
+
+            assertNull(globalScope.readInTransaction(context1, key).join());
+            ResolverResult intermediateResult = globalScope.createInTransaction(context1, key, ResolverCreateHooks.getDefault()).join();
+            assertEquals(intermediateResult, globalScope.readInTransaction(context1, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context1, intermediateResult.getValue()).join());
+            CompletionException reversLookupErr = assertThrows(CompletionException.class, () -> globalScope.reverseLookup(context1, uncommittedResult.getValue()).join());
+            assertNotNull(reversLookupErr.getCause());
+            assertThat(reversLookupErr.getCause(), instanceOf(NoSuchElementException.class));
+
+            context2.commit();
+
+            // Attempt to commit context1, but it fails due to a transaction conflict (on conflict_key)
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context1::commit);
         }
 
         final ResolverResult committedResult;
@@ -1315,6 +1339,46 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                 globalScope.mustResolve(context, "a-different-key").join();
             }
         }, "nothing is added for a-different-key");
+    }
+
+    @Test
+    void testSetMappingWithUpdatedValue() {
+        final String key = "key_with_meta_data";
+        final String metaData1 = "meta_data_1";
+        final String metaData2 = "meta_data_2";
+        final ResolverResult initialResult;
+        try (FDBRecordContext context = database.openContext()) {
+            initialResult = globalScope.createInTransaction(context, key, new ResolverCreateHooks(List.of(), ignore -> {
+                if (globalScope instanceof ScopedDirectoryLayer) {
+                    return null;
+                } else {
+                    return metaData1.getBytes(StandardCharsets.UTF_8);
+                }
+            })).join();
+
+            if (globalScope instanceof ScopedDirectoryLayer) {
+                assertNull(initialResult.getMetadata());
+            } else {
+                assertNotNull(initialResult.getMetadata());
+                assertEquals(metaData1, new String(initialResult.getMetadata(), StandardCharsets.UTF_8));
+            }
+            context.commit();
+        }
+
+        assertEquals(initialResult, globalScope.resolveWithMetadata((FDBStoreTimer) null, key, ResolverCreateHooks.getDefault()).join());
+
+        // Update the meta-data on this key
+        final ResolverResult newResult = new ResolverResult(initialResult.getValue(), metaData2.getBytes(StandardCharsets.UTF_8));
+        try (FDBRecordContext context = database.openContext()) {
+            if (globalScope instanceof ScopedDirectoryLayer) {
+                UnsupportedOperationException err = assertThrows(UnsupportedOperationException.class, () -> globalScope.setMapping(context, key, newResult).join());
+                assertThat(err, hasMessageContaining("cannot manually add mappings"));
+            } else {
+                CompletionException err = assertThrows(CompletionException.class, () -> globalScope.setMapping(context, key, newResult).join());
+                assertNotNull(err.getCause());
+                assertThat(err.getCause(), hasMessageContaining("mapping already exists with different value"));
+            }
+        }
     }
 
     @Test

@@ -580,27 +580,6 @@ public abstract class LocatableResolver {
                         addCachePostCommitIfNotError(context, directoryCache, name, result, err)));
     }
 
-    /**
-     * Update the mapping for a single value within the context of a single transaction. This will use the
-     * transaction passed in when saving the result to the database. This method can be used for things
-     * like copying data from one locatable resolver to another, but other methods like {@link #resolve(String)}
-     * or {@link #createInTransaction(FDBRecordContext, String, ResolverCreateHooks)} should generally
-     * be preferred.
-     *
-     * @param context the transaction to use to write to the database
-     * @param name the name to write a mapping for
-     * @param newResult the new resolver result to write into the database
-     * @return a future that will complete when the new mapping has been saved
-     */
-    @Nonnull
-    public CompletableFuture<Void> saveInTransaction(@Nonnull FDBRecordContext context,
-                                                     @Nonnull String name,
-                                                     @Nonnull ResolverResult newResult) {
-        return getDirectoryCache(context).thenCompose(directoryCache ->
-                setMapping(context, name, newResult).whenComplete((vignore, err) ->
-                        addCachePostCommitIfNotError(context, directoryCache, name, newResult, err)));
-    }
-
     private void addCachePostCommitIfNotError(@Nonnull FDBRecordContext context,
                                               @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
                                               @Nonnull String name,
