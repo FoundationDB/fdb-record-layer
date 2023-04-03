@@ -997,25 +997,26 @@ public abstract class IndexingBase {
     CompletableFuture<Map<String, IndexBuildProto.IndexBuildIndexingStamp>> performIndexingStampOperation(@Nullable IndexingStampOperation op,
                                                                                                           @Nullable String id,
                                                                                                           @Nullable Long ttlSeconds) {
-        ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> newStamps = new ConcurrentHashMap<>();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> store.loadIndexingTypeStampAsync(index)
-                    .thenApply(stamp -> performIndexingStampOperation(oldStamps, store, index, stamp, op, id, ttlSeconds)))
-        )).thenApply(ignore -> oldStamps);
+                    .thenApply(stamp -> performIndexingStampOperation(newStamps, store, index, stamp, op, id, ttlSeconds)))
+        )).thenApply(ignore -> newStamps);
     }
 
-    boolean performIndexingStampOperation(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> oldStamps,
+    boolean performIndexingStampOperation(@Nonnull ConcurrentHashMap<String, IndexBuildProto.IndexBuildIndexingStamp> newStamps,
                                           @Nonnull FDBRecordStore store,
                                           @Nonnull Index index,
                                           @Nullable IndexBuildProto.IndexBuildIndexingStamp stamp,
                                           @Nullable IndexingStampOperation op,
                                           @Nullable String id,
                                           @Nullable  Long ttlSeconds) {
-        oldStamps.put(index.getName(), stamp != null ? stamp :
-                                       IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                                               .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
-                                               .build());
+
         if (op == null || stamp == null || op.equals(IndexingStampOperation.QUERY)) {
+            newStamps.put(index.getName(), stamp != null ? stamp :
+                                           IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                                                   .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
+                                                   .build());
             return false;
         }
 
@@ -1032,7 +1033,9 @@ public abstract class IndexingBase {
                 (id == null || id.isEmpty() || id.equals(stamp.getBlockID()))) {
             builder.setBlock(false);
         }
-        store.saveIndexingTypeStamp(index, builder.build());
+        final IndexBuildProto.IndexBuildIndexingStamp newStamp = builder.build();
+        store.saveIndexingTypeStamp(index, newStamp);
+        newStamps.put(index.getName(), newStamp);
         return true;
     }
 

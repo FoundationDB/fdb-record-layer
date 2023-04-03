@@ -1004,7 +1004,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
-                assertTrue(stamp.getBlock());
+                assertFalse(stamp.getBlock());
             }
         }
 
@@ -1317,7 +1317,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
-                assertTrue(stamp.getBlock());
+                assertFalse(stamp.getBlock());
             }
         }
 

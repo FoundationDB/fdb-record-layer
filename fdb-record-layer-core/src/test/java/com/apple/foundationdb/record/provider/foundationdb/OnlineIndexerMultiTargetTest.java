@@ -726,7 +726,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
-                assertFalse(stamp.getBlock());
+                assertTrue(stamp.getBlock());
             }
         }
 
