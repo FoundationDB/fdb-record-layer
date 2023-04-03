@@ -1263,13 +1263,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         final ResolverResult committedResult;
         try (FDBRecordContext context = database.openContext()) {
             assertNull(globalScope.readInTransaction(context, key).join());
-            if (globalScope instanceof ScopedDirectoryLayer) {
-                // ScopedDirectoryLayers do not support saveInTransaction
-                committedResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
-            } else {
-                globalScope.saveInTransaction(context, key, uncommittedResult).join();
-                committedResult = uncommittedResult;
-            }
+            committedResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
             assertEquals(key, globalScope.reverseLookupInTransaction(context, committedResult.getValue()).join());
 
             context.commit();
