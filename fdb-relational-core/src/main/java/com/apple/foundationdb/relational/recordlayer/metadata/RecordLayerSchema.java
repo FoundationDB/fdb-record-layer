@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 public class RecordLayerSchema implements Schema {
 
@@ -32,20 +31,21 @@ public class RecordLayerSchema implements Schema {
     private final String name;
 
     @Nonnull
-    private final RecordLayerSchemaTemplate schemaTemplate;
+    private final SchemaTemplate schemaTemplate;
 
     @Nonnull
     private final String databaseName;
 
     /**
      * Creates a new instance of the {@link Schema}.
-     * @param name The name of the schema.
-     * @param databaseName The database name to which the schema belongs.
+     *
+     * @param name           The name of the schema.
+     * @param databaseName   The database name to which the schema belongs.
      * @param schemaTemplate The name of the originating schema template.
      */
     RecordLayerSchema(@Nonnull final String name,
                       @Nonnull final String databaseName,
-                      @Nonnull final RecordLayerSchemaTemplate schemaTemplate) {
+                      @Nonnull final SchemaTemplate schemaTemplate) {
         this.name = name;
         this.databaseName = databaseName;
         this.schemaTemplate = schemaTemplate;
@@ -67,11 +67,5 @@ public class RecordLayerSchema implements Schema {
     @Override
     public String getDatabaseName() {
         return databaseName;
-    }
-
-    @Nonnull
-    @Override
-    public Set<RecordLayerTable> getTables() {
-        return schemaTemplate.getTables();
     }
 }

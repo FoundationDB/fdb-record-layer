@@ -101,8 +101,9 @@ public class IndexTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                final Table info = template.getTables().stream().findFirst().orElseThrow();
+                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
+                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");

@@ -79,10 +79,10 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
             Assertions.assertEquals("test_schema_name", result.getName());
             Assertions.assertEquals("test_template_name", result.getSchemaTemplate().getName());
             Assertions.assertEquals(1, result.getSchemaTemplate().getVersion());
-            Assertions.assertEquals(1, result.getTables().size());
-            for (var table : result.getTables()) {
-                Assertions.assertEquals("dummy_table", table.getName());
-            }
+            RelationalException ex1 = Assertions.assertThrows(RelationalException.class, () -> result.getTables());
+            Assertions.assertEquals("NoOpSchemaTemplate doesn't have tables!", ex1.getMessage());
+            RelationalException ex2 = Assertions.assertThrows(RelationalException.class, () -> result.getIndexes());
+            Assertions.assertEquals("NoOpSchemaTemplate doesn't have indexes!", ex2.getMessage());
         }
     }
 

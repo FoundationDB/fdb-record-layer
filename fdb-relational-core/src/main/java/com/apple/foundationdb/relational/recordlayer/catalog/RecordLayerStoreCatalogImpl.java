@@ -434,8 +434,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         // load metadata from template table
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
         final var version = (Integer) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-        final RecordLayerSchemaTemplate template = (RecordLayerSchemaTemplate) schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
-        return template.generateSchema(dbId, schemaName);
+        SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
+        return (RecordLayerSchema) template.generateSchema(dbId, schemaName);
     }
 
     private RecordLayerSchemaTemplate getCatalogSchemaTemplate() throws RelationalException {

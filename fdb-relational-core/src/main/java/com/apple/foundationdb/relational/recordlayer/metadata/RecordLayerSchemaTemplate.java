@@ -27,7 +27,10 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescriptorSerializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
@@ -37,6 +40,8 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -149,10 +154,53 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return builder.setCachedMetadata(metaData).build();
     }
 
+    /**
+     * Retrieves a {@link Table} by looking up its name.
+     *
+     * @param tableName The name of the {@link Table}.
+     * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
+     */
+    @Nonnull
+    public Optional<Table> findTableByName(@Nonnull final String tableName) {
+        for (final var table : getTables()) {
+            if (table.getName().equals(tableName)) {
+                return Optional.of(table);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns a list of all table-scoped {@link Index}es in the schema template.
+     *
+     * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
+     */
+    @Override
+    @Nonnull
+    public Multimap<String, String> getIndexes() {
+        final var result = ImmutableSetMultimap.<String, String>builder();
+        for (final var table : getTables()) {
+            for (final var index : table.getIndexes()) {
+                result.put(table.getName(), index.getName());
+            }
+        }
+        return result.build();
+    }
+
     @Nonnull
     @Override
     public <T extends SchemaTemplate> T unwrap(@Nonnull final Class<T> iface) throws RelationalException {
         return iface.cast(this);
+    }
+
+    @Override
+    public void accept(@Nonnull final Visitor visitor) {
+        visitor.startVisit(this);
+        visitor.visit(this);
+        for (final var table : getTables()) {
+            table.accept(visitor);
+        }
+        visitor.finishVisit(this);
     }
 
     public static final class Builder {

@@ -22,11 +22,9 @@ package com.apple.foundationdb.relational.api.metadata;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -52,41 +50,13 @@ public interface SchemaTemplate extends Metadata {
      * Returns the {@link Table}s inside the schema template.
      *
      * @return The {@link Table}s inside the schema template.
+     * @throws RelationalException if it is a NoOpSchemaTemplate
      */
     @Nonnull
-    Set<? extends Table> getTables();
+    Set<? extends Table> getTables() throws RelationalException;
 
-    /**
-     * Retrieves a {@link Table} by looking up its name.
-     *
-     * @param tableName The name of the {@link Table}.
-     * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
-     */
     @Nonnull
-    default Optional<Table> findTableByName(@Nonnull final String tableName) {
-        for (final var table : getTables()) {
-            if (table.getName().equals(tableName)) {
-                return Optional.of(table);
-            }
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Returns a list of all table-scoped {@link Index}es in the schema template.
-     *
-     * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
-     */
-    @Nonnull
-    default Multimap<String, String> getIndexes() {
-        final var result = ImmutableSetMultimap.<String, String>builder();
-        for (final var table : getTables()) {
-            for (final var index : table.getIndexes()) {
-                result.put(table.getName(), index.getName());
-            }
-        }
-        return result.build();
-    }
+    Multimap<String, String> getIndexes() throws RelationalException;
 
     /**
      * Creates a {@link Schema} instance using the specified.
@@ -94,7 +64,7 @@ public interface SchemaTemplate extends Metadata {
      * @param databaseId The ID of the database.
      * @param schemaName The name of the {@link Schema}.
      * @return A new {@link Schema} instance with the specified name, database Id, version containing the same set of
-     *         {@link Table}s in {@code this} {@link SchemaTemplate}.
+     * {@link Table}s in {@code this} {@link SchemaTemplate}.
      */
     @Nonnull
     Schema generateSchema(@Nonnull final String databaseId, @Nonnull final String schemaName);
@@ -102,13 +72,7 @@ public interface SchemaTemplate extends Metadata {
     @Override
     default void accept(@Nonnull final Visitor visitor) {
         visitor.startVisit(this);
-
         visitor.visit(this);
-
-        for (final var table : getTables()) {
-            table.accept(visitor);
-        }
-
         visitor.finishVisit(this);
     }
 

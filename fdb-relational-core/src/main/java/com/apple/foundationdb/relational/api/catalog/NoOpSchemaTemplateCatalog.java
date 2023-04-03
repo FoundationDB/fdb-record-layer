@@ -24,12 +24,9 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
 import javax.annotation.Nonnull;
@@ -37,12 +34,14 @@ import javax.annotation.Nonnull;
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
  * to instantiate a store catalog object that ends up not caring about the schema template in the Schema.
- *
+ * <p>
  * Overview of operations:
- *    1. Membership check always return {@code true}
- *    2. List templates return empty {@link RelationalResultSet}
- *    3. Update and delete templates are noop
- *    4. Loads the schema template for a given (name, version) by simply asserting the (name, version) and a dummy table.
+ * <ul>
+ *   <li> Membership check always return {@code true} </li>
+ *   <li> List templates return empty {@link RelationalResultSet} </li>
+ *   <li> Update and delete templates are noop </li>
+ *   <li> Loads the schema template for a given (name, version) with a NoOpSchemaTemplate with the (name, version).</li>
+ * </ul>
  */
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
@@ -63,17 +62,7 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     @Nonnull
     @Override
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
-        return RecordLayerSchemaTemplate.newBuilder()
-                .setName(templateId)
-                .setVersion(version)
-                .addTable(RecordLayerTable.newBuilder(false)
-                        .addColumn(RecordLayerColumn.newBuilder()
-                                .setName("dummy_col")
-                                .setDataType(DataType.Primitives.STRING.type())
-                                .build())
-                        .setName("dummy_table")
-                        .build())
-                .build();
+        return new NoOpSchemaTemplate(templateId, version);
     }
 
     @Override

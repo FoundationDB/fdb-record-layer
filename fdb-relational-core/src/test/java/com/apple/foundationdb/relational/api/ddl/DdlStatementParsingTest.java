@@ -139,7 +139,7 @@ public class DdlStatementParsingTest {
     @Test
     void indexFailsWithNonExistingTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE INDEX t_idx as select a from foo" ;
+                "CREATE INDEX t_idx as select a from foo";
         shouldFailWith(stmt, ErrorCode.INVALID_SCHEMA_TEMPLATE);
     }
 
@@ -147,14 +147,14 @@ public class DdlStatementParsingTest {
     void indexFailsWithNonExistingIndexColumn() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE foo(a bigint, PRIMARY KEY(a))" +
-                " CREATE INDEX t_idx as select non_existing from foo" ;
+                " CREATE INDEX t_idx as select non_existing from foo";
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Test
     void indexFailsWithReservedKeywordAsName() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE INDEX table as select a from foo" ;
+                "CREATE INDEX table as select a from foo";
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -162,8 +162,7 @@ public class DdlStatementParsingTest {
     void enumFailsWithNoOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM foo () " +
-                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))"
-        ;
+                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))";
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -171,8 +170,7 @@ public class DdlStatementParsingTest {
     void enumFailsWithUnquotedOptions() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM foo (OPTION_1, OPTION_2) " +
-                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))"
-        ;
+                "CREATE TABLE bar (id bigint, foo_field foo, PRIMARY KEY(id))";
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -180,16 +178,14 @@ public class DdlStatementParsingTest {
     void basicEnumParsedCorrectly() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS ENUM my_enum ('VAL_1', 'VAL_2') " +
-                "CREATE TABLE my_table (id bigint, enum_field my_enum, PRIMARY KEY(id))"
-        ;
+                "CREATE TABLE my_table (id bigint, enum_field my_enum, PRIMARY KEY(id))";
 
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, template.getTables().size(), "should have only 1 table");
                 Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
-
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
                 fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
@@ -200,7 +196,8 @@ public class DdlStatementParsingTest {
                             .collect(Collectors.toList()));
                 });
 
-                return txn -> { };
+                return txn -> {
+                };
             }
         });
     }
@@ -215,7 +212,8 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals(0, template.getTables().size(), "Tables defined!");
+                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertEquals(0, ((RecordLayerSchemaTemplate) template).getTables().size(), "Tables defined!");
                 visited[0] = true;
                 return txn -> {
                 };
@@ -253,7 +251,8 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
+                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 return txn -> {
                 };
             }
@@ -349,8 +348,9 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                final Table info = template.getTables().stream().findFirst().orElseThrow();
+                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
+                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
@@ -389,14 +389,14 @@ public class DdlStatementParsingTest {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
-                " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns) ;
+                " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns);
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, template.getTables().size(), "Incorrect number of tables");
-                final Table info = template.getTables().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
+                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
@@ -434,7 +434,7 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(booleans =  {true, false})
+    @ValueSource(booleans = {true, false})
     void createSchemaTemplateSplitLongRecord(Boolean enableLongRows) throws Exception {
         String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE TABLE test_table (A BIGINT, PRIMARY KEY(A))";

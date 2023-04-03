@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
@@ -50,9 +52,10 @@ public interface Schema extends Metadata {
      * Returns the tables inside the {@code Schema}.
      *
      * @return The tables inside the {@code Schema}.
+     * @throws RelationalException if the schema template is NoOpSchemaTemplate
      */
     @Nonnull
-    default Set<? extends Table> getTables() {
+    default Set<? extends Table> getTables() throws RelationalException {
         return getSchemaTemplate().getTables();
     }
 
@@ -62,7 +65,7 @@ public interface Schema extends Metadata {
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
      */
     @Nonnull
-    default Multimap<String, String> getIndexes() {
+    default Multimap<String, String> getIndexes() throws RelationalException {
         return getSchemaTemplate().getIndexes();
     }
 
