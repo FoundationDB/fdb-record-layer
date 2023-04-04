@@ -73,7 +73,7 @@ public class IndexingThrottle {
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
     /**
-     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, BiConsumer, List)}.
+     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, List)}.
      */
     private int successCount = 0;
 
@@ -84,15 +84,12 @@ public class IndexingThrottle {
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
         AtomicLong recordsScanned = new AtomicLong(0);
         return throttledRunAsync(store -> buildFunction.apply(store, recordsScanned),
                 // Run after a single transactional call within runAsync.
                 (result, exception) -> {
-                    if (limitControl) {
-                        tryToIncreaseLimit(exception);
-                    }
+                    tryToIncreaseLimit(exception);
                     // Update records scanned.
                     if (exception == null) {
                         common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
@@ -101,7 +98,6 @@ public class IndexingThrottle {
                     }
                     return Pair.of(result, exception);
                 },
-                limitControl ? this::decreaseLimit : null,
                 additionalLogMessageKeyValues
         );
     }
@@ -122,7 +118,7 @@ public class IndexingThrottle {
         }
     }
 
-    void decreaseLimit(@Nonnull FDBException fdbException,
+    private void decreaseLimit(@Nonnull FDBException fdbException,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         limit = Math.max(1, (3 * limit) / 4);
         if (LOGGER.isInfoEnabled()) {
@@ -185,7 +181,6 @@ public class IndexingThrottle {
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
@@ -229,9 +224,7 @@ public class IndexingThrottle {
                     int currTries = tries.getAndIncrement();
                     FDBException fdbE = getFDBException(e);
                     if (currTries < common.config.getMaxRetries() && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
-                        if (handleLessenWork != null) {
-                            handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
-                        }
+                        decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
                         if (LOGGER.isWarnEnabled()) {
                             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,

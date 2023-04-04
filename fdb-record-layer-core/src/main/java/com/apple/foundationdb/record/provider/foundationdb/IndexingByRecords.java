@@ -211,7 +211,7 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        return buildCommitRetryAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
+        return buildCommitRetryAsync(this::buildEndpoints, additionalLogMessageKeyValues);
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
@@ -460,7 +460,6 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
-                true,
                 additionalLogMessageKeyValues);
     }
 
@@ -471,7 +470,6 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
         return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
-                true,
                 additionalLogMessageKeyValues);
     }
 

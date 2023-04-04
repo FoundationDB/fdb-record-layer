@@ -310,7 +310,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                     insertRanges(targetRangeSets, null, rangeStart),
                                     insertRanges(targetRangeSets, rangeEnd, null))
                             .thenApply(ignore -> null);
-                }, false, null);
+                }, null);
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper",
                 LogMessageKeys.RANGE_START, rangeStart,

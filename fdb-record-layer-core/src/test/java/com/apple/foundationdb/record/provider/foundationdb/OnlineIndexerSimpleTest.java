@@ -460,7 +460,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
-        return indexBuilder.throttledRunAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
+        return indexBuilder.throttledRunAsync(function, Pair::of, null);
     }
 
     @Test

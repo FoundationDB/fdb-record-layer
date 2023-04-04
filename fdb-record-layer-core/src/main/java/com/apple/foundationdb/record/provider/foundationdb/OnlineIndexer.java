@@ -415,7 +415,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the current number of records to process in one transaction.
-     * This may go up or down while {@link #throttledRunAsync(Function, BiFunction, BiConsumer, List)} is running, if there are failures committing or
+     * This may go up or down while {@link #throttledRunAsync(Function, BiFunction, List)} is running, if there are failures committing or
      * repeated successes.
      * @return the current number of records to process in one transaction
      */
@@ -444,8 +444,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with
      * the result or exception respectively. This handler should return a new pair with either the result to return from
      * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
-     * @param handleLessenWork if it there is too much work to be done in a single transaction, this function is called
-     * with the FDB exception and additional logging. It should make necessary adjustments to lessen the work.
      * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
      * @param <R> return type of function to run
      */
@@ -453,24 +451,16 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         // test only
-        return getIndexer().throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
+        return getIndexer().throttledRunAsync(function, handlePostTransaction, additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting
     <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                    @Nullable List<Object> additionalLogMessageKeyValues) {
         // test only
-        return getIndexer().buildCommitRetryAsync(buildFunction, true, additionalLogMessageKeyValues);
-    }
-
-    @VisibleForTesting
-    void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
-        // test only
-        getIndexer().decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        return getIndexer().buildCommitRetryAsync(buildFunction, additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting

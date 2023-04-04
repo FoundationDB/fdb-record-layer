@@ -662,9 +662,8 @@ public abstract class IndexingBase {
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-        return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
+        return throttle.buildCommitRetryAsync(buildFunction, additionalLogMessageKeyValues);
     }
 
     protected static void timerIncrement(@Nullable FDBStoreTimer timer, FDBStoreTimer.Counts event) {
@@ -902,7 +901,6 @@ public abstract class IndexingBase {
 
         return AsyncUtil.whileTrue(() ->
                     buildCommitRetryAsync(iterateRange,
-                            true,
                             additionalLogMessageKeyValues)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
@@ -963,14 +961,8 @@ public abstract class IndexingBase {
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
-        return throttle.throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
-    }
-
-    void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
-        throttle.decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        return throttle.throttledRunAsync(function, handlePostTransaction, additionalLogMessageKeyValues);
     }
 
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
