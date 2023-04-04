@@ -44,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +54,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
@@ -495,6 +497,49 @@ public interface Type extends Narrowable<Type> {
         }
     }
 
+    @Nonnull
+    static Type fromObject(@Nullable final Object o) {
+        if (o instanceof Typed) {
+            return ((Typed)o).getResultType();
+        }
+        if (o == null) {
+            return Type.nullType();
+        }
+        if (o instanceof List) {
+            return new Type.Array(Type.fromListObject((List<?>)o));
+        }
+        if (o instanceof ByteString) {
+            return Type.primitiveType(TypeCode.BYTES);
+        }
+        final var typeCode = Type.getClassToTypeCodeMap().getOrDefault(o.getClass(), Type.TypeCode.UNKNOWN);
+        if (typeCode == null || typeCode == TypeCode.NULL) {
+            return Type.nullType();
+        }
+        if (typeCode == TypeCode.UNKNOWN) {
+            return Type.any();
+        }
+        if (typeCode.isPrimitive()) {
+            return Type.primitiveType(typeCode);
+        }
+        throw new RecordCoreException(String.format("Unable to convert %s to Type", o));
+    }
+
+    @Nonnull
+    private static Type fromListObject(@Nullable final List<?> list) {
+        if (list == null) {
+            return Type.nullType();
+        }
+        if (list.isEmpty()) {
+            return Type.any();
+        }
+        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().collect(Collectors.toList());
+        if (elementTypes.size() > 1) {
+            return Type.any();
+        } else {
+            return elementTypes.get(0);
+        }
+    }
+
     /**
      * All supported {@link Type}s.
      */
@@ -511,7 +556,7 @@ public interface Type extends Narrowable<Type> {
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
-        ARRAY(Array.class, null, false, false),
+        ARRAY(List.class, null, false, false),
         RELATION(null, null, false, false);
 
         /**
@@ -753,6 +798,9 @@ public interface Type extends Narrowable<Type> {
             return Objects.hash(getTypeCode().name().hashCode(), isNullable());
         }
 
+        @Nonnull
+        private static final Any ANY = new Any();
+
         /**
          * {@inheritDoc}
          */
@@ -816,6 +864,11 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return getTypeCode().toString();
         }
+    }
+
+    @Nonnull
+    static Any any() {
+        return Any.ANY;
     }
 
     /**
