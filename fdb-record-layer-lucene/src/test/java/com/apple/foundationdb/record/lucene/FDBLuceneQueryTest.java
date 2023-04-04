@@ -368,7 +368,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
             final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6));
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6), null);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(filter)
@@ -407,7 +407,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
             final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6));
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6), null);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(filter)
@@ -497,7 +497,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "civil blood makes civil hands unclean", false, Lists.newArrayList(), true,
-                    null);
+                    null, null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -654,9 +654,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"civil blood makes civil hands unclean\")", false, Lists.newArrayList("text"), true,
-                    null);
+                    null, null);
             final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"was king from 966 to 1016\")", false, Lists.newArrayList(), true,
-                    null);
+                    null, null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -703,10 +703,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "\"the continuance\"", false, Lists.newArrayList(), true,
-                    null);
+                    null, null);
             final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
                     "grudge", false, Lists.newArrayList(), true,
-                    null);
+                    null, null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)

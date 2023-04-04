@@ -60,7 +60,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -77,7 +76,8 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     @Nonnull
     private final Set<String> fields;
 
-    public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter, @Nonnull Iterable<String> fields) {
+    public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter,
+                                         @Nonnull final Iterable<String> fields) {
         this.search = search;
         this.isParameter = isParameter;
         this.fields = ImmutableSet.copyOf(fields);
@@ -94,18 +94,6 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
 
     @Override
     public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final var excludedFields = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
-        final var excludedFieldNames =
-                excludedFields == null
-                ? Collections.<String>emptySet()
-                : LuceneIndexOptions.parseMultipleElementsOptionValue(excludedFields).stream()
-                        .map(excludedFieldName -> excludedFieldName.replace('.', '_'))
-                        .collect(ImmutableSet.toImmutableSet());
-
-        if (excludedFieldNames.stream().anyMatch(fields::contains)) {
-            throw new RecordCoreException("one or more requested field(s) in auto-complete is/are excluded from index");
-        }
-
         final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
@@ -114,10 +102,10 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
 
-        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+        final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
-                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
+                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, fieldDerivationMap);
         final var queryAnalyzer = analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer();
 
         // Determine the tokens from the query key
@@ -125,19 +113,9 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final var prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
         final Set<String> tokenSet = Sets.newHashSet(tokens);
 
-        final var fieldNames = fieldInfos.keySet()
-                .stream()
-                .filter(name -> {
-                    if (excludedFieldNames.contains(name)) {
-                        return false;
-                    }
-                    return fields.contains(name);
-                })
-                .collect(ImmutableSet.toImmutableSet());
-
         final var finalQuery = phraseQueryNeeded
-                               ? buildQueryForPhraseMatching(fieldNames, tokens, prefixToken)
-                               : buildQueryForTermsMatching(fieldNames, tokenSet, prefixToken);
+                               ? buildQueryForPhraseMatching(fields, tokens, prefixToken)
+                               : buildQueryForTermsMatching(fields, tokenSet, prefixToken);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())

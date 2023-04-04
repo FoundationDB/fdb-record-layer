@@ -160,8 +160,10 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     private static LuceneScanQueryParameters.LuceneQueryHighlightParameters getHighlightParameters(@Nonnull QueryComponent queryComponent) {
         if (queryComponent instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent) queryComponent;
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             return luceneQueryComponent.getLuceneQueryHighlightParameters();
+        } else if (queryComponent instanceof NestedField) {
+            return getHighlightParameters(((NestedField)queryComponent).getChild());
         } else if (queryComponent instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
                 LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
@@ -247,7 +249,10 @@ public class LucenePlanner extends RecordQueryPlanner {
             return luceneQueryComponent;
         }
         final var name = String.join("_", prefix);
-        return luceneQueryComponent.withNewFields(luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
+        final var newFieldNames = luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList());
+        final var newExplicitFieldNames = luceneQueryComponent.getExplicitFieldNames() == null
+                ? null : luceneQueryComponent.getExplicitFieldNames().stream().map(field -> name + "_" + field).collect(Collectors.toSet());
+        return luceneQueryComponent.withNewFields(newFieldNames, newExplicitFieldNames);
     }
 
     @Nullable
@@ -285,7 +290,10 @@ public class LucenePlanner extends RecordQueryPlanner {
 
         switch (filter.getType()) {
             case AUTO_COMPLETE:
-                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), filter.getFields());
+                final var resolvedFields = filter.getExplicitFieldNames() == null
+                                           ? filter.getFields()
+                                           : filter.getExplicitFieldNames();
+                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), resolvedFields);
             case QUERY:
             case QUERY_HIGHLIGHT:
             case SPELL_CHECK:
@@ -465,25 +473,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         return false;
     }
 
-    private boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
-                                     @Nonnull String field) {
-        StringBuilder path = null;
-        for (String pathElement : fieldDerivation.getRecordFieldPath()) {
-            if (path == null) {
-                path = new StringBuilder(pathElement);
-            } else {
-                path.append("_").append(pathElement);
-            }
-            if (path.length() > field.length()) {
-                break;
-            }
-            if (path.toString().equals(field)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private boolean getSort(@Nonnull LucenePlanState state,
                             @Nullable KeyExpression sort, boolean sortReverse,
                             @Nullable KeyExpression commonPrimaryKey, @Nullable KeyExpression groupingKey) {
@@ -629,4 +618,22 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    static boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
+                                    @Nonnull String field) {
+        StringBuilder path = null;
+        for (String pathElement : fieldDerivation.getRecordFieldPath()) {
+            if (path == null) {
+                path = new StringBuilder(pathElement);
+            } else {
+                path.append("_").append(pathElement);
+            }
+            if (path.length() > field.length()) {
+                break;
+            }
+            if (path.toString().equals(field)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -135,7 +135,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
             ++found;
             value = proto.getFloatValue();
         }
-        if (proto.hasLongValue()) {
+        if (proto.hasLongValue()) {                   
             ++found;
             value = proto.getLongValue();
         }

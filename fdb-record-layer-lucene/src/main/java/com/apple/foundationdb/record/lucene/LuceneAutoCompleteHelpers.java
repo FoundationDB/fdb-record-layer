@@ -108,7 +108,6 @@ public class LuceneAutoCompleteHelpers {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static List<String> computeAllMatches(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer,
                                                  @Nonnull String text, @Nonnull AutoCompleteTokens tokens) {
         final var resultBuilder = ImmutableList.<String>builder();
@@ -131,9 +130,11 @@ public class LuceneAutoCompleteHelpers {
                     continue;
                 }
 
+                final var matchedSubstring = text.substring(startOffset, endOffset);
+
                 if (queryTokens.contains(token)) {
                     seenQueryTokens.add(token);
-                    resultBuilder.add(token);
+                    resultBuilder.add(matchedSubstring);
                     // Token matches.
                     upto = endOffset;
                 } else {
@@ -141,7 +142,7 @@ public class LuceneAutoCompleteHelpers {
                         if (token.startsWith(prefixToken)) {
                             upto = endOffset;
                             seenPrefixTokens.add(prefixToken);
-                            resultBuilder.add(token);
+                            resultBuilder.add(matchedSubstring);
                             break;
                         }
                     }
@@ -149,7 +150,7 @@ public class LuceneAutoCompleteHelpers {
             }
             ts.end();
 
-            if (seenQueryTokens.size() == queryTokens.size() && seenPrefixTokens.size() == prefixTokens.size()) {
+            if (!seenQueryTokens.isEmpty() || !seenPrefixTokens.isEmpty()) {
                 return resultBuilder.build();
             } else {
                 return ImmutableList.of();
@@ -179,14 +180,16 @@ public class LuceneAutoCompleteHelpers {
             while (ts.incrementToken()) {
                 String token = termAtt.toString();
                 int startOffset = offsetAtt.startOffset();
+                int endOffset = offsetAtt.endOffset();
                 if (upto > startOffset) {
                     continue;
                 }
 
-                activeAcceptors.removeIf(currentAcceptor -> !currentAcceptor.accept(token));
+                final var matchedSubstring = text.substring(startOffset, endOffset);
+                activeAcceptors.removeIf(currentAcceptor -> !currentAcceptor.accept(token, matchedSubstring));
 
                 // let's see if there is another partial match
-                final var phraseAcceptor = PhraseAcceptor.acceptFirstToken(token, queryTokens, prefixToken);
+                final var phraseAcceptor = PhraseAcceptor.acceptFirstToken(token, matchedSubstring, queryTokens, prefixToken);
                 if (phraseAcceptor != null) {
                     activeAcceptors.add(phraseAcceptor);
                 }
@@ -248,7 +251,7 @@ public class LuceneAutoCompleteHelpers {
             return isEndState;
         }
 
-        public boolean accept(@Nonnull final String currentToken) {
+        public boolean accept(@Nonnull final String currentToken, @Nonnull final String currentMatchedString) {
             if (isEndState) {
                 return true;
             }
@@ -263,14 +266,14 @@ public class LuceneAutoCompleteHelpers {
                 case NOT_ACCEPTED:
                     return false;
                 case ACCEPTED_QUERY_TOKEN:
-                    acceptedTokens.add(currentToken);
+                    acceptedTokens.add(currentMatchedString);
                     queryTokensRemainingIterator.next();
                     if (!queryTokensRemainingIterator.hasNext() && prefixToken == null) {
                         isEndState = true;
                     }
                     return true;
                 case ACCEPTED_PREFIX_TOKEN:
-                    acceptedTokens.add(currentToken);
+                    acceptedTokens.add(currentMatchedString);
                     isEndState = true;
                     return true;
                 default:
@@ -279,7 +282,8 @@ public class LuceneAutoCompleteHelpers {
         }
 
         @Nullable
-        public static PhraseAcceptor acceptFirstToken(@Nonnull String currentToken, @Nonnull final List<String> queryTokens, @Nullable final String prefixToken) {
+        public static PhraseAcceptor acceptFirstToken(@Nonnull final String currentToken, @Nonnull final String currentMatchedString,
+                                                      @Nonnull final List<String> queryTokens, @Nullable final String prefixToken) {
             final var firstQueryToken = queryTokens.isEmpty() ? null : queryTokens.get(0);
             final var acceptState = acceptToken(currentToken, firstQueryToken, prefixToken);
 
@@ -289,9 +293,9 @@ public class LuceneAutoCompleteHelpers {
                 case ACCEPTED_QUERY_TOKEN:
                     final var queryTokensIterator = queryTokens.iterator();
                     queryTokensIterator.next(); // skip the first item
-                    return new PhraseAcceptor(queryTokensIterator, prefixToken, Lists.newArrayList(currentToken), !queryTokensIterator.hasNext() && prefixToken == null);
+                    return new PhraseAcceptor(queryTokensIterator, prefixToken, Lists.newArrayList(currentMatchedString), !queryTokensIterator.hasNext() && prefixToken == null);
                 case ACCEPTED_PREFIX_TOKEN:
-                    return new PhraseAcceptor(queryTokens.iterator(), prefixToken, Lists.newArrayList(currentToken), true);
+                    return new PhraseAcceptor(queryTokens.iterator(), prefixToken, Lists.newArrayList(currentMatchedString), true);
                 default:
                     throw new RecordCoreException("unexpected accept state");
             }

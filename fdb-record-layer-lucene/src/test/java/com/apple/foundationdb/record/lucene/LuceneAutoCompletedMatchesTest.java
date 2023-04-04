@@ -50,22 +50,12 @@ class LuceneAutoCompletedMatchesTest {
                 Arguments.of(match[0], match[1]));
     }
 
-    // Auto-complete searches for the prefix "qua"
-    private static final String[][] QUA_MATCHES = {
-            {"quality", "quality"},
-            {"The basic qualia of objects", "The basic qualia of objects"},
-            {"Quality over quantity!", "Quality over quantity!"},
-            {"quorum logic", null},
-            {"square", null},
-            {"example qua example", "example qua example"},
-    };
-
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> searchForQua() {
         return ImmutableList.of(
                 Arguments.of("quality", ImmutableList.of("quality")),
                 Arguments.of("The basic qualia of objects", ImmutableList.of("qualia")),
-                Arguments.of("Quality over quantity!", ImmutableList.of("quality", "quantity")),
+                Arguments.of("Quality over quantity!", ImmutableList.of("Quality", "quantity")),
                 Arguments.of("quorum logic", ImmutableList.of()),
                 Arguments.of("example qua example", ImmutableList.of("qua"))).stream();
     }
@@ -79,11 +69,11 @@ class LuceneAutoCompletedMatchesTest {
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> searchForGoodMor() {
         return ImmutableList.of(
-                Arguments.of("Good morning!", ImmutableList.of("good", "morning")),
+                Arguments.of("Good morning!", ImmutableList.of("Good", "morning")),
                 Arguments.of("It is all for the good, and I'll see you on the morrow", ImmutableList.of("good", "morrow")),
                 Arguments.of("The more good we do, the more good we see", ImmutableList.of("more", "good", "more", "good")),
-                Arguments.of("Good day!", ImmutableList.of()),
-                Arguments.of("Morning!", ImmutableList.of())).stream();
+                Arguments.of("Good day!", ImmutableList.of("Good")),
+                Arguments.of("Morning!", ImmutableList.of("Morning"))).stream();
     }
 
     @ParameterizedTest(name = "searchForGoodMor[text={0}]")
@@ -95,10 +85,10 @@ class LuceneAutoCompletedMatchesTest {
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> searchForHelloWorld() {
         return ImmutableList.of(
-                Arguments.of("Hello, world!", ImmutableList.of("hello", "world")),
-                Arguments.of("Hello, worldlings!", ImmutableList.of()),
-                Arguments.of("World--hello!", ImmutableList.of("world", "hello")),
-                Arguments.of("Worldly--hello!", ImmutableList.of())).stream();
+                Arguments.of("Hello, world!", ImmutableList.of("Hello", "world")),
+                Arguments.of("Hello, worldlings!", ImmutableList.of("Hello")),
+                Arguments.of("World--hello!", ImmutableList.of("World", "hello")),
+                Arguments.of("Worldly--hello!", ImmutableList.of("hello"))).stream();
     }
 
     @ParameterizedTest(name = "searchForHelloWorld[text={1}]")
@@ -123,7 +113,7 @@ class LuceneAutoCompletedMatchesTest {
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> searchForHelloWorldInPhrase() {
         return ImmutableList.of(
-                Arguments.of("Hello, world!", ImmutableList.of("hello", "world")),
+                Arguments.of("Hello, world!", ImmutableList.of("Hello", "world")),
                 Arguments.of("world, Hello!", ImmutableList.of()),
                 Arguments.of("Hello to the entire world!", ImmutableList.of()),
                 Arguments.of("Hello to the entire hello, world!", ImmutableList.of("hello", "world")),
@@ -139,11 +129,11 @@ class LuceneAutoCompletedMatchesTest {
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> searchForGoodMorInPhrase() {
         return ImmutableList.of(
-                Arguments.of("Good Morning!", ImmutableList.of("good", "morning")),
-                Arguments.of("Good Morrow Morning!", ImmutableList.of("good", "morrow")),
+                Arguments.of("Good Morning!", ImmutableList.of("Good", "Morning")),
+                Arguments.of("Good Morrow Morning!", ImmutableList.of("Good", "Morrow")),
                 Arguments.of("Morning!", ImmutableList.of()),
                 Arguments.of("Morning, Good it is! (Yoda)", ImmutableList.of()),
-                Arguments.of("Good, Good, Good, more mornings!", ImmutableList.of("good", "more"))).stream();
+                Arguments.of("Good, Good, good, more mornings!", ImmutableList.of("good", "more"))).stream();
     }
 
     @ParameterizedTest(name = "searchForGoodMorInPhrase[text={1}]")

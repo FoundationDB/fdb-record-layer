@@ -56,7 +56,6 @@ public class LuceneIndexValidator extends IndexValidator {
     public static void validateIndexOptions(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
-        validateAutoCompleteExcludedFields(index, recordMetaData);
     }
 
     private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {
@@ -65,24 +64,6 @@ public class LuceneIndexValidator extends IndexValidator {
             LuceneIndexOptions.validateKeyValuePairOptionValue(analyzerNamePerFieldOption,
                     new MetaDataException(String.format("Index %s has invalid option value for %s: %s",
                             index.getName(), optionKey, analyzerNamePerFieldOption)));
-        }
-    }
-
-    private static void validateAutoCompleteExcludedFields(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
-        String autoCompleteExcludedFieldsOption = index.getOption(LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS);
-        if (autoCompleteExcludedFieldsOption != null) {
-            LuceneIndexOptions.validateMultipleElementsOptionValue(autoCompleteExcludedFieldsOption,
-                    new MetaDataException(String.format("Index %s has invalid option value for %s: %s",
-                            index.getName(), LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, autoCompleteExcludedFieldsOption)));
-            final var excludedFieldNames = LuceneIndexOptions.parseMultipleElementsOptionValue(autoCompleteExcludedFieldsOption);
-            final var documentFields = LuceneIndexExpressions.getDocumentFieldDerivations(index, recordMetaData);
-            excludedFieldNames.forEach(excluded  -> {
-                final var excludedDocumentField = excluded.replace('.', '_');
-                if (!documentFields.containsKey(excludedDocumentField)) {
-                    throw new MetaDataException(String.format("Index %s has invalid field name value for %s: %s",
-                            index.getName(), LuceneIndexOptions.AUTO_COMPLETE_EXCLUDED_FIELDS, excluded));
-                }
-            });
         }
     }
 }
