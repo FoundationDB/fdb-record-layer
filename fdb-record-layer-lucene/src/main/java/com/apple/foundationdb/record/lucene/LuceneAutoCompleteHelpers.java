@@ -22,10 +22,14 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
@@ -38,6 +42,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -152,6 +157,152 @@ public class LuceneAutoCompleteHelpers {
 
         } catch (IOException ioException) {
             throw new RecordCoreException("token stream threw an io exception", ioException);
+        }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static List<String> computeAllMatchesForPhrase(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer,
+                                                          @Nonnull String text, @Nonnull AutoCompleteTokens tokens) {
+        final var queryTokens = tokens.getQueryTokens();
+        final var prefixTokens = tokens.getPrefixTokens();
+        Preconditions.checkArgument(prefixTokens.size() <= 1);
+        final var prefixToken = prefixTokens.isEmpty() ? null : Iterables.getOnlyElement(prefixTokens);
+        final var activeAcceptors = Lists.<PhraseAcceptor>newArrayList();
+
+        try (TokenStream ts = queryAnalyzer.tokenStream(fieldName, new StringReader(text))) {
+            CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+            OffsetAttribute offsetAtt = ts.addAttribute(OffsetAttribute.class);
+            ts.reset();
+            int upto = 0;
+
+            while (ts.incrementToken()) {
+                String token = termAtt.toString();
+                int startOffset = offsetAtt.startOffset();
+                if (upto > startOffset) {
+                    continue;
+                }
+
+                activeAcceptors.removeIf(currentAcceptor -> !currentAcceptor.accept(token));
+
+                // let's see if there is another partial match
+                final var phraseAcceptor = PhraseAcceptor.acceptFirstToken(token, queryTokens, prefixToken);
+                if (phraseAcceptor != null) {
+                    activeAcceptors.add(phraseAcceptor);
+                }
+
+                upto = offsetAtt.endOffset();
+            }
+            ts.end();
+
+            return activeAcceptors.stream()
+                    .filter(PhraseAcceptor::isEndState)
+                    .findFirst()
+                    .map(PhraseAcceptor::getAcceptedTokens)
+                    .orElse(ImmutableList.of());
+        } catch (IOException ioException) {
+            throw new RecordCoreException("token stream threw an io exception", ioException);
+        }
+    }
+
+    private static class PhraseAcceptor {
+
+        private enum AcceptState {
+            NOT_ACCEPTED,
+            ACCEPTED_QUERY_TOKEN,
+            ACCEPTED_PREFIX_TOKEN;
+        }
+
+        @Nonnull
+        private final List<String> acceptedTokens;
+        @Nonnull
+        private final PeekingIterator<String> queryTokensRemainingIterator;
+        @Nullable
+        private final String prefixToken;
+
+        private boolean isEndState;
+
+        private PhraseAcceptor(@Nonnull final Iterator<String> queryTokensRemainingIterator, @Nullable final String prefixToken, @Nonnull final List<String> acceptedTokens, boolean isEndState) {
+            this.queryTokensRemainingIterator = Iterators.peekingIterator(queryTokensRemainingIterator);
+            this.prefixToken = prefixToken;
+            this.acceptedTokens = acceptedTokens;
+            this.isEndState = isEndState;
+        }
+
+        @Nonnull
+        public Iterator<String> getQueryTokensRemainingIterator() {
+            return queryTokensRemainingIterator;
+        }
+
+        @Nullable
+        public String getPrefixToken() {
+            return prefixToken;
+        }
+
+        @Nonnull
+        public List<String> getAcceptedTokens() {
+            return acceptedTokens;
+        }
+
+        public boolean isEndState() {
+            return isEndState;
+        }
+
+        public boolean accept(@Nonnull final String currentToken) {
+            if (isEndState) {
+                return true;
+            }
+
+            final var currentQueryToken =
+                    queryTokensRemainingIterator.hasNext()
+                    ? queryTokensRemainingIterator.peek()
+                    : null;
+            final var acceptState = acceptToken(currentToken, currentQueryToken, prefixToken);
+
+            switch (acceptState) {
+                case NOT_ACCEPTED:
+                    return false;
+                case ACCEPTED_QUERY_TOKEN:
+                    acceptedTokens.add(currentToken);
+                    queryTokensRemainingIterator.next();
+                    if (!queryTokensRemainingIterator.hasNext() && prefixToken == null) {
+                        isEndState = true;
+                    }
+                    return true;
+                case ACCEPTED_PREFIX_TOKEN:
+                    acceptedTokens.add(currentToken);
+                    isEndState = true;
+                    return true;
+                default:
+                    throw new RecordCoreException("unexpected accept state");
+            }
+        }
+
+        @Nullable
+        public static PhraseAcceptor acceptFirstToken(@Nonnull String currentToken, @Nonnull final List<String> queryTokens, @Nullable final String prefixToken) {
+            final var firstQueryToken = queryTokens.isEmpty() ? null : queryTokens.get(0);
+            final var acceptState = acceptToken(currentToken, firstQueryToken, prefixToken);
+
+            switch (acceptState) {
+                case NOT_ACCEPTED:
+                    return null;
+                case ACCEPTED_QUERY_TOKEN:
+                    final var queryTokensIterator = queryTokens.iterator();
+                    queryTokensIterator.next(); // skip the first item
+                    return new PhraseAcceptor(queryTokensIterator, prefixToken, Lists.newArrayList(currentToken), !queryTokensIterator.hasNext() && prefixToken == null);
+                case ACCEPTED_PREFIX_TOKEN:
+                    return new PhraseAcceptor(queryTokens.iterator(), prefixToken, Lists.newArrayList(currentToken), true);
+                default:
+                    throw new RecordCoreException("unexpected accept state");
+            }
+        }
+
+        private static AcceptState acceptToken(@Nonnull final String currentToken, @Nullable final String currentQueryToken, @Nullable final String prefixToken) {
+            Preconditions.checkArgument(currentQueryToken != null || prefixToken != null);
+            if (currentQueryToken != null) {
+                return currentToken.equals(currentQueryToken) ? AcceptState.ACCEPTED_QUERY_TOKEN : AcceptState.NOT_ACCEPTED;
+            }
+            return currentToken.startsWith(prefixToken) ? AcceptState.ACCEPTED_PREFIX_TOKEN : AcceptState.NOT_ACCEPTED;
         }
     }
 

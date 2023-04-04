@@ -73,7 +73,7 @@ class LuceneAutoCompletedMatchesTest {
     @ParameterizedTest(name = "searchForQua[text={1}]")
     @MethodSource
     void searchForQua(String text, List<String> expected) throws IOException {
-        assertSearchMatches("qua", Collections.emptyList(), ImmutableSet.of("qua"), text, expected);
+        assertComputeAllMatches("qua", Collections.emptyList(), ImmutableSet.of("qua"), text, expected);
     }
 
     @SuppressWarnings("unused") // used as argument source for parameterized test
@@ -89,7 +89,7 @@ class LuceneAutoCompletedMatchesTest {
     @ParameterizedTest(name = "searchForGoodMor[text={0}]")
     @MethodSource
     void searchForGoodMor(String text, List<String> expected) throws IOException {
-        assertSearchMatches("Good mor", List.of("good"), ImmutableSet.of("mor"), text, expected);
+        assertComputeAllMatches("Good mor", List.of("good"), ImmutableSet.of("mor"), text, expected);
     }
     
     @SuppressWarnings("unused") // used as argument source for parameterized test
@@ -104,20 +104,65 @@ class LuceneAutoCompletedMatchesTest {
     @ParameterizedTest(name = "searchForHelloWorld[text={1}]")
     @MethodSource
     void searchForHelloWorld(String text, List<String> expected) throws IOException {
-        assertSearchMatches("Hello World ", List.of("hello", "world"), ImmutableSet.of(), text, expected);
+        assertComputeAllMatches("Hello World ", List.of("hello", "world"), ImmutableSet.of(), text, expected);
     }
 
-    private static void assertSearchMatches(@Nonnull final String queryString, @Nonnull final List<String> expectedTokens,
-                                            @Nullable final Set<String> expectedPrefixTokens,
-                                            @Nonnull final String text,
-                                            @Nonnull List<String> expectedMatches) {
+    private static void assertComputeAllMatches(@Nonnull final String queryString, @Nonnull final List<String> expectedTokens,
+                                                @Nullable final Set<String> expectedPrefixTokens,
+                                                @Nonnull final String text,
+                                                @Nonnull final List<String> expectedMatches) {
         final Analyzer analyzer = getTestAnalyzer();
-
         LuceneAutoCompleteHelpers.AutoCompleteTokens tokens = LuceneAutoCompleteHelpers.getQueryTokens(analyzer, queryString);
         assertEquals(expectedTokens, tokens.getQueryTokens());
         assertEquals(expectedPrefixTokens, tokens.getPrefixTokens());
         List<String> match =
                 LuceneAutoCompleteHelpers.computeAllMatches("text", analyzer, text, tokens);
+        assertEquals(expectedMatches, match);
+    }
+
+    @SuppressWarnings("unused") // used as argument source for parameterized test
+    static Stream<Arguments> searchForHelloWorldInPhrase() {
+        return ImmutableList.of(
+                Arguments.of("Hello, world!", ImmutableList.of("hello", "world")),
+                Arguments.of("world, Hello!", ImmutableList.of()),
+                Arguments.of("Hello to the entire world!", ImmutableList.of()),
+                Arguments.of("Hello to the entire hello, world!", ImmutableList.of("hello", "world")),
+                Arguments.of("Hello, hello, world, world!", ImmutableList.of("hello", "world"))).stream();
+    }
+
+    @ParameterizedTest(name = "searchForHelloWorldInPhrase[text={1}]")
+    @MethodSource
+    void searchForHelloWorldInPhrase(final String text, final List<String> expected) throws IOException {
+        assertComputeAllMatchesForPhrase("Hello World ", List.of("hello", "world"), null, text, expected);
+    }
+
+    @SuppressWarnings("unused") // used as argument source for parameterized test
+    static Stream<Arguments> searchForGoodMorInPhrase() {
+        return ImmutableList.of(
+                Arguments.of("Good Morning!", ImmutableList.of("good", "morning")),
+                Arguments.of("Good Morrow Morning!", ImmutableList.of("good", "morrow")),
+                Arguments.of("Morning!", ImmutableList.of()),
+                Arguments.of("Morning, Good it is! (Yoda)", ImmutableList.of()),
+                Arguments.of("Good, Good, Good, more mornings!", ImmutableList.of("good", "more"))).stream();
+    }
+
+    @ParameterizedTest(name = "searchForGoodMorInPhrase[text={1}]")
+    @MethodSource
+    void searchForGoodMorInPhrase(final String text, final List<String> expected) throws IOException {
+        assertComputeAllMatchesForPhrase("Good Mor", List.of("good"), "mor", text, expected);
+    }
+
+    private static void assertComputeAllMatchesForPhrase(@Nonnull final String queryString,
+                                                         @Nonnull final List<String> expectedTokens,
+                                                         @Nullable final String expectedPrefixToken,
+                                                         @Nonnull final String text,
+                                                         @Nonnull final List<String> expectedMatches) {
+        final Analyzer analyzer = getTestAnalyzer();
+        LuceneAutoCompleteHelpers.AutoCompleteTokens tokens = LuceneAutoCompleteHelpers.getQueryTokens(analyzer, queryString);
+        assertEquals(expectedTokens, tokens.getQueryTokens());
+        assertEquals(expectedPrefixToken, tokens.getPrefixTokenOrNull());
+        List<String> match =
+                LuceneAutoCompleteHelpers.computeAllMatchesForPhrase("text", analyzer, text, tokens);
         assertEquals(expectedMatches, match);
     }
 }
