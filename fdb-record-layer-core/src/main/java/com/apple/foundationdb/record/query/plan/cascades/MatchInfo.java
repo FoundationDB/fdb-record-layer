@@ -99,7 +99,7 @@ public class MatchInfo {
             if (constraints.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(QueryPlanConstraint.of(constraints));
+            return Optional.of(QueryPlanConstraint.compose(constraints));
         }
         );
         this.predicateMap = predicateMap;

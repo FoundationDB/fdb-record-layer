@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
-public class OfValueType implements Value, Value.CompileTimeValue, ValueWithChild {
+public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChild {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Value-Type");
 
@@ -42,7 +42,7 @@ public class OfValueType implements Value, Value.CompileTimeValue, ValueWithChil
 
     private final Type expectedType;
 
-    public OfValueType(@Nonnull final Value child, @Nonnull final Type expectedType) {
+    private OfTypeValue(@Nonnull final Value child, @Nonnull final Type expectedType) {
         this.child = child;
         this.expectedType = expectedType;
     }
@@ -61,7 +61,7 @@ public class OfValueType implements Value, Value.CompileTimeValue, ValueWithChil
     @Nonnull
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
-        return new OfValueType(rebasedChild);
+        return new OfTypeValue(rebasedChild, expectedType);
     }
 
     @Nullable
@@ -75,30 +75,11 @@ public class OfValueType implements Value, Value.CompileTimeValue, ValueWithChil
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
                                             @Nonnull final EvaluationContext context) {
         final var value = child.eval(store, context);
-        final var typeCode = LiteralValue.typeCodeFromLiteral(value);
-        final Type type;
-        if (typeCode == null) {
-            // value is null
-            if (expectedType.isNullable()) {
-                return true;
-            } else {
-                return false;
-            }
-        } if (typeCode == Type.TypeCode.ARRAY) {
-            // special stuff for arrays
-        } else {
-            type = Type.primitiveType(typeCode);
+        if (value == null) {
+            return expectedType.isNullable();
         }
-
-        if (expectedType.equals(type)) {
-            //yay
-        }
-
-        final var javaClass = child.getResultType().getTypeCode().getJavaClass();
-        if (javaClass == null) {
-            return false;
-        }
-        return child.getResultType().getTypeCode().getJavaClass().isInstance(value);
+        final var type = Type.fromObject(value);
+        return expectedType.equals(type);
     }
 
     @Override
@@ -108,6 +89,16 @@ public class OfValueType implements Value, Value.CompileTimeValue, ValueWithChil
 
     @Override
     public String toString() {
-        return child + " ofType " + child.getResultType();
+        return child + " ofType " + expectedType;
+    }
+
+    @Nonnull
+    public static OfTypeValue of(@Nonnull final Value value, @Nonnull final Type type) {
+        return new OfTypeValue(value, type);
+    }
+
+    @Nonnull
+    public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
+        return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getOrdinal(), Type.any()), value.getResultType());
     }
 }

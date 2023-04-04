@@ -113,6 +113,10 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
         return alias;
     }
 
+    public int getOrdinal() {
+        return ordinal;
+    }
+
     @Nonnull
     public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return fieldValue;

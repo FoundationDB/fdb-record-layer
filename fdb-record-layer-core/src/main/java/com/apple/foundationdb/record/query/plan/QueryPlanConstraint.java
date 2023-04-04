@@ -58,13 +58,18 @@ public class QueryPlanConstraint {
     }
 
     @Nonnull
-    public static QueryPlanConstraint of(@Nonnull final QueryPredicate predicate) {
+    public static QueryPlanConstraint compose(@Nonnull final Collection<QueryPlanConstraint> constraints) {
+        return new QueryPlanConstraint(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+    }
+
+    @Nonnull
+    public static QueryPlanConstraint ofPredicate(@Nonnull final QueryPredicate predicate) {
         return new QueryPlanConstraint(predicate);
     }
 
     @Nonnull
-    public static QueryPlanConstraint of(@Nonnull final Collection<QueryPlanConstraint> constraints) {
-        return new QueryPlanConstraint(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+    public static QueryPlanConstraint ofPredicates(@Nonnull final Collection<QueryPredicate> predicates) {
+        return new QueryPlanConstraint(AndPredicate.and(predicates));
     }
 
     @Nonnull
@@ -109,7 +114,7 @@ public class QueryPlanConstraint {
         public QueryPlanConstraint getConstraint(@Nonnull final RecordQueryPlan plan) {
             visit(plan);
             final var constraints = builder.build();
-            return QueryPlanConstraint.of(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+            return QueryPlanConstraint.ofPredicate(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
         }
     }
 }

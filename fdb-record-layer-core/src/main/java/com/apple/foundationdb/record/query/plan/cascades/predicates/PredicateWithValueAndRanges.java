@@ -35,9 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Supplier;
@@ -407,7 +405,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
             //         .collect(Collectors.toList())));
         }
         final var orPredicate = OrPredicate.or(conjunctions.build());
-        return QueryPlanConstraint.of(orPredicate);
+        return QueryPlanConstraint.ofPredicate(orPredicate);
     }
 
     @Nullable
