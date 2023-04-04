@@ -133,16 +133,17 @@ public class AvailableFields {
 
         // KEYs -- from the index's definition
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        for (int i = 0; i < keyFields.size(); i++) {
-            KeyExpression keyField = keyFields.get(i);
-            FieldData fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyField, ImmutableIntArray.of(i));
+        int keyPosition = 0;
+        for (KeyExpression keyField : keyFields) {
+            FieldData fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyField, ImmutableIntArray.of(keyPosition));
             if (!nonStoredFields.contains(keyField) && !keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
                 fields.put(keyField, fieldData);
             }
+            keyPosition += keyField.getColumnSize();
         }
         if (commonPrimaryKey != null) {
             // KEYs -- from the primary key
-            fields.putAll(getPrimaryKeyFieldMap(recordType, index, commonPrimaryKey, keyFields.size(), nonStoredFields, constituentNameToPathMap, builder));
+            fields.putAll(getPrimaryKeyFieldMap(recordType, index, commonPrimaryKey, keyPosition, nonStoredFields, constituentNameToPathMap, builder));
         }
         for (int i = 0; i < valueFields.size(); i++) {
             KeyExpression valueField = valueFields.get(i);

@@ -1899,7 +1899,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         final IndexKeyValueToPartialRecord.TupleSource source;
         final int index;
 
-        int i = keyFields.indexOf(requiredExpr);
+        int i = keyFieldPosition(requiredExpr, keyFields);
         if (i >= 0) {
             source = IndexKeyValueToPartialRecord.TupleSource.KEY;
             index = i;
@@ -1913,6 +1913,17 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         return AvailableFields.addCoveringField(requiredExpr, AvailableFields.FieldData.ofUnconditional(source, ImmutableIntArray.of(index)), builder);
+    }
+
+    private static int keyFieldPosition(final @Nonnull KeyExpression requiredExpr, final @Nonnull List<KeyExpression> keyFields) {
+        int position = 0;
+        for (KeyExpression keyField : keyFields) {
+            if (keyField.equals(requiredExpr)) {
+                return position;
+            }
+            position += keyField.getColumnSize();
+        }
+        return -1;
     }
 
     private static class PlanContext {
