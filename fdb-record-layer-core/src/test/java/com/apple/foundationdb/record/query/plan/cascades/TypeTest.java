@@ -46,6 +46,7 @@ import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -197,6 +198,12 @@ class TypeTest {
 
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+            final var listOfNulls = new LinkedList<Integer>();
+            listOfNulls.add(null);
+            final var listOfNullsAndNonNulls = new LinkedList<Integer>();
+            listOfNullsAndNonNulls.add(null);
+            listOfNullsAndNonNulls.add(42);
+            listOfNullsAndNonNulls.add(43);
             return Stream.of(
 
                     // Typed objects
@@ -210,6 +217,7 @@ class TypeTest {
 
 
                     // Primitives
+                    Arguments.of(null, Type.nullType()),
                     Arguments.of(false, Type.primitiveType(Type.TypeCode.BOOLEAN)),
                     Arguments.of(42, Type.primitiveType(Type.TypeCode.INT)),
                     Arguments.of(42.1d, Type.primitiveType(Type.TypeCode.DOUBLE)),
@@ -219,6 +227,8 @@ class TypeTest {
                     Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset()), Type.primitiveType(Type.TypeCode.BYTES)),
 
                     // Arrays
+                    Arguments.of(listOfNulls, new Type.Array(Type.any())),
+                    Arguments.of(listOfNullsAndNonNulls, new Type.Array(Type.primitiveType(Type.TypeCode.INT))),
                     Arguments.of(List.of(false), new Type.Array(Type.primitiveType(Type.TypeCode.BOOLEAN))),
                     Arguments.of(List.of(42), new Type.Array(Type.primitiveType(Type.TypeCode.INT))),
                     Arguments.of(List.of(42.1d), new Type.Array(Type.primitiveType(Type.TypeCode.DOUBLE))),
@@ -229,6 +239,8 @@ class TypeTest {
 
 
                     // Arrays of arrays
+                    Arguments.of(List.of(listOfNulls), new Type.Array(new Type.Array(Type.any()))),
+                    Arguments.of(List.of(listOfNullsAndNonNulls), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT)))),
                     Arguments.of(List.of(List.of(false), List.of(false)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BOOLEAN)))),
                     Arguments.of(List.of(List.of(42), List.of(42)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT)))),
                     Arguments.of(List.of(List.of(42.1d), List.of(42.1d)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.DOUBLE)))),

@@ -497,21 +497,26 @@ public interface Type extends Narrowable<Type> {
         }
     }
 
+    /**
+     * Returns an equivalent {@link Type} of a given Java object's type.
+     * @param object The object whose Java type to be checked for an equivalent {@link Type}.
+     * @return The equivalent {@link Type}.
+     */
     @Nonnull
-    static Type fromObject(@Nullable final Object o) {
-        if (o instanceof Typed) {
-            return ((Typed)o).getResultType();
+    static Type fromObject(@Nullable final Object object) {
+        if (object instanceof Typed) {
+            return ((Typed)object).getResultType();
         }
-        if (o == null) {
+        if (object == null) {
             return Type.nullType();
         }
-        if (o instanceof List) {
-            return new Type.Array(Type.fromListObject((List<?>)o));
+        if (object instanceof List) {
+            return new Type.Array(Type.fromListObject((List<?>)object));
         }
-        if (o instanceof ByteString) {
+        if (object instanceof ByteString) {
             return Type.primitiveType(TypeCode.BYTES);
         }
-        final var typeCode = Type.getClassToTypeCodeMap().getOrDefault(o.getClass(), Type.TypeCode.UNKNOWN);
+        final var typeCode = Type.getClassToTypeCodeMap().getOrDefault(object.getClass(), Type.TypeCode.UNKNOWN);
         if (typeCode == null || typeCode == TypeCode.NULL) {
             return Type.nullType();
         }
@@ -521,7 +526,7 @@ public interface Type extends Narrowable<Type> {
         if (typeCode.isPrimitive()) {
             return Type.primitiveType(typeCode);
         }
-        throw new RecordCoreException(String.format("Unable to convert %s to Type", o));
+        throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
     }
 
     @Nonnull
@@ -532,8 +537,8 @@ public interface Type extends Narrowable<Type> {
         if (list.isEmpty()) {
             return Type.any();
         }
-        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().collect(Collectors.toList());
-        if (elementTypes.size() > 1) {
+        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
+        if (elementTypes.size() != 1) {
             return Type.any();
         } else {
             return elementTypes.get(0);
