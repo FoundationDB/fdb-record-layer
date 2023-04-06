@@ -60,7 +60,7 @@ To do the full suite of checks and tests run:
 If you enable the local repo in whatever uses the Record Layer, the following will make it available. The published jars will be in the directory `~/.m2/repository/org/foundationdb/fdb-record-layer-core/n.n-SNAPSHOT/`.
 
 ```
-./gradlew publishToMavenLocal
+./gradlew publishToMavenLocal -PpublishBuild=true
 ```
 
 ## Configuring tests for a non-standard FDB cluster file location
