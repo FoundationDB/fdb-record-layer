@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.planning;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -262,9 +263,16 @@ public class TextScanPlanner {
             final KeyExpression groupedKey = groupingIndexExpression.getGroupedSubKey();
             final KeyExpression groupingKey = groupingIndexExpression.getGroupingSubKey();
             otherFields.addAll(groupingKey.normalizeKeyForPositions());
-            otherFields.addAll(groupedKey.getSubKey(1, groupedKey.getColumnSize()).normalizeKeyForPositions());
+            otherFields.add(Key.Expressions.value("__text_token"));
+            if (groupedKey.getColumnSize() > 1) {
+                otherFields.addAll(groupedKey.getSubKey(1, groupedKey.getColumnSize()).normalizeKeyForPositions());
+            }
         } else {
-            otherFields.addAll(indexExpression.getSubKey(1, indexExpression.getColumnSize()).normalizeKeyForPositions());
+            // Need something that occupies one index entry column but does not produce covering values.
+            otherFields.add(Key.Expressions.value("__text_token"));
+            if (indexExpression.getColumnSize() > 1) {
+                otherFields.addAll(indexExpression.getSubKey(1, indexExpression.getColumnSize()).normalizeKeyForPositions());
+            }
         }
         return otherFields.build();
     }
