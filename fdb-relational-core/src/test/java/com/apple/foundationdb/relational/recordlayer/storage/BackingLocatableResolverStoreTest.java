@@ -137,7 +137,7 @@ public class BackingLocatableResolverStoreTest {
             }
             if (!catalog.doesDatabaseExist(transaction, getURI())) {
                 catalog.createDatabase(transaction, getURI());
-                catalog.saveSchema(transaction, schemaTemplate.generateSchema(getURI().getPath(), "dl"));
+                catalog.saveSchema(transaction, schemaTemplate.generateSchema(getURI().getPath(), "dl"), false);
             }
             this.txn = transaction;
             EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, catalog, transaction, Options.NONE);

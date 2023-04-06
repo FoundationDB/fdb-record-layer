@@ -166,7 +166,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
                     //insert the schema into the catalog
-                    catalog.saveSchema(txn, schema);
+                    catalog.saveSchema(txn, schema, false);
                 };
             }
 

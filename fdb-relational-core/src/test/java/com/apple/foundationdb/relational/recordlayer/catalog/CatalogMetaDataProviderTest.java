@@ -71,7 +71,7 @@ class CatalogMetaDataProviderTest {
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
             storeCatalog.createDatabase(txn, dbUri);
-            storeCatalog.saveSchema(txn, schema);
+            storeCatalog.saveSchema(txn, schema, false);
 
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(storeCatalog, dbUri, schemaName, txn);
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();

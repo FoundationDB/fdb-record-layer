@@ -91,7 +91,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         //map the schema to the template
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
         //insert the schema into the catalog
-        catalog.saveSchema(txn, schema);
+        catalog.saveSchema(txn, schema, false);
 
         //now create the FDBRecordStore
         final var databasePath = RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName);

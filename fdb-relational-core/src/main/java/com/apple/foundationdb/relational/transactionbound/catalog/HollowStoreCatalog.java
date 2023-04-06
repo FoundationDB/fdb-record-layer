@@ -50,7 +50,7 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException {
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 

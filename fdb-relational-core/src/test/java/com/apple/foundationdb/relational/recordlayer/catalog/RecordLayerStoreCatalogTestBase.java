@@ -89,7 +89,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
                 Schema schema = generateTestSchema("test_schema_name" + i, "/TEST/test_database_id" + i / 2, "test_template_name", 1);
                 storeCatalog.createDatabase(txn, URI.create(schema.getDatabaseName()));
                 storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema.getSchemaTemplate());
-                storeCatalog.saveSchema(txn, schema);
+                storeCatalog.saveSchema(txn, schema, false);
             }
             txn.commit();
         }
@@ -132,6 +132,53 @@ public abstract class RecordLayerStoreCatalogTestBase {
     }
 
     @Test
+    void testSaveSchema() throws RelationalException {
+        String templateName = "test_template_name";
+        final var templateVersion = 1;
+        Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
+        // save record in FDB
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
+            storeCatalog.saveSchema(txn, schema1, false);
+            txn.commit();
+        }
+        // check schema exists!
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final var exists = storeCatalog.doesSchemaExist(txn, URI.create(schema1.getDatabaseName()), schema1.getName());
+            Assertions.assertTrue(exists);
+        }
+        // check database exists!
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final var exists = storeCatalog.doesDatabaseExist(txn, URI.create(schema1.getDatabaseName()));
+            Assertions.assertTrue(exists);
+        }
+    }
+
+    @Test
+    void testSaveSchemaWithCreateDatabase() throws RelationalException {
+        String templateName = "test_template_name";
+        final var templateVersion = 1;
+        Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
+        // save record in FDB
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.saveSchema(txn, schema1, true);
+            txn.commit();
+        }
+        // check schema exists!
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final var exists = storeCatalog.doesSchemaExist(txn, URI.create(schema1.getDatabaseName()), schema1.getName());
+            Assertions.assertTrue(exists);
+        }
+        // check database exists!
+        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
+            final var exists = storeCatalog.doesDatabaseExist(txn, URI.create(schema1.getDatabaseName()));
+            Assertions.assertTrue(exists);
+        }
+    }
+
+    @Test
     void testDatabaseDeleteWorks() throws RelationalException {
         final Schema schema1 = generateTestSchema("test_schema_name1", "/TEST/test_database_id1", "test_template_name", 1);
         final Schema schema2 = generateTestSchema("test_schema_name2", "/TEST/test_database_id1", "test_template_name", 1);
@@ -139,8 +186,8 @@ public abstract class RecordLayerStoreCatalogTestBase {
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema2.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
-            storeCatalog.saveSchema(txn, schema2);
+            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema2, false);
             txn.commit();
         }
 
@@ -180,7 +227,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
             try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
                 storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema.getSchemaTemplate());
                 storeCatalog.createDatabase(txn, URI.create(schema.getDatabaseName()));
-                storeCatalog.saveSchema(txn, schema);
+                storeCatalog.saveSchema(txn, schema, false);
                 txn.commit();
             }
         }
@@ -230,7 +277,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
+            storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
         }
 
@@ -250,8 +297,8 @@ public abstract class RecordLayerStoreCatalogTestBase {
             storeCatalog.createDatabase(txn, URI.create(schema2.getDatabaseName()));
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema2.getSchemaTemplate());
-            storeCatalog.saveSchema(txn, schema1);
-            storeCatalog.saveSchema(txn, schema2);
+            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema2, false);
             txn.commit();
         }
         // list databases

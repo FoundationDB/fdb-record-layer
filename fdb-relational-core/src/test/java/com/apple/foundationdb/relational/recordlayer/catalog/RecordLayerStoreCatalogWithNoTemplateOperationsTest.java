@@ -69,7 +69,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
+            storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
         }
 
@@ -94,32 +94,8 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
+            storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
-        }
-    }
-
-    @Test
-    void testSaveSchema() throws RelationalException {
-        String templateName = "test_template_name";
-        final var templateVersion = 1;
-        Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
-        // save record in FDB
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
-            storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
-            txn.commit();
-        }
-        // check schema exists!
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final var exists = storeCatalog.doesSchemaExist(txn, URI.create(schema1.getDatabaseName()), schema1.getName());
-            Assertions.assertTrue(exists);
-        }
-        // check database exists!
-        try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final var exists = storeCatalog.doesDatabaseExist(txn, URI.create(schema1.getDatabaseName()));
-            Assertions.assertTrue(exists);
         }
     }
 
@@ -130,7 +106,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1);
+            storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
         }
         // save schema template with version  2

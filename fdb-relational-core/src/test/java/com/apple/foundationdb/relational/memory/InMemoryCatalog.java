@@ -68,7 +68,7 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException {
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException {
         final URI key = URI.create(dataToWrite.getDatabaseName());
         List<InMemorySchema> schemas = dbToSchemas.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()));
 
@@ -80,10 +80,10 @@ public class InMemoryCatalog implements StoreCatalog {
         }
 
         //we need to create the schema
-        InMemorySchema schem = new InMemorySchema();
-        schem.schema = dataToWrite;
-        schem.createTables();
-        schemas.add(schem);
+        InMemorySchema schema = new InMemorySchema();
+        schema.schema = dataToWrite;
+        schema.createTables();
+        schemas.add(schema);
     }
 
     @Override

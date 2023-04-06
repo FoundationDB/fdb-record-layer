@@ -58,10 +58,10 @@ public interface StoreCatalog {
      *
      * @param txn         a Transaction
      * @param dataToWrite the new Schema
-     * @throws RelationalException InternalError if txn is compatible type
-     *                           TransactionInactive if txn is no longer active
+     * @param createDatabaseIfNecessary create the corresponding database entry if it does not exist
+     * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite) throws RelationalException;
+    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException;
 
     /**
      * Updates schema to the latest template.
@@ -69,7 +69,7 @@ public interface StoreCatalog {
      * @param txn        a Transaction
      * @param databaseId database id of the schema to be updated
      * @param schemaName name of the schema to be updated
-     * @throws RelationalException InternalError if txn is compatible type
+     * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      *                           UNDEFINED_SCHEMA if schema not found
      */
@@ -83,7 +83,7 @@ public interface StoreCatalog {
      * @param txn          a Transaction
      * @param continuation continuation from a previous execution
      * @return a RelationalResultSet object
-     * @throws RelationalException InternalError if txn is compatible type
+     * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
     RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
@@ -94,7 +94,7 @@ public interface StoreCatalog {
      * @param txn          a Transaction
      * @param continuation continuation from a previous execution
      * @return a RelationalResultSet object
-     * @throws RelationalException InternalError if txn is compatible type
+     * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
     RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
@@ -106,7 +106,7 @@ public interface StoreCatalog {
      * @param databaseId   database id
      * @param continuation continuation from a previous execution
      * @return a RelationalResultSet object
-     * @throws RelationalException InternalError if txn is compatible type
+     * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
     RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException;
