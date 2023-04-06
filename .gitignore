@@ -43,6 +43,10 @@ atlassian-ide-plugin.xml
 .idea/jarRepositories.xml
 .idea/shelf
 
+# VSCode specific files/directories
+.vscode
+**/bin
+
 # Eclipse specific files/directories
 .classpath
 .project
