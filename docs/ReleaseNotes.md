@@ -28,16 +28,21 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Remove old Lucene auto-complete functionality and create a proper composable query clause for auto-complete functionality [(Issue #2083)](https://github.com/FoundationDB/fdb-record-layer/issues/2083)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Remove old Lucene auto-complete functionality and deprecated auto-complete-related indexing options [(Issue #2083)](https://github.com/FoundationDB/fdb-record-layer/issues/2083)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.3.364.0
+
+* **Feature** Remove old Lucene auto-complete functionality and create a proper composable query clause for auto-complete functionality [(Issue #2083)](https://github.com/FoundationDB/fdb-record-layer/issues/2083)
+* **Breaking change** Remove old Lucene auto-complete functionality and deprecated auto-complete-related indexing options [(Issue #2083)](https://github.com/FoundationDB/fdb-record-layer/issues/2083)
 
 ### 3.3.363.0
 
