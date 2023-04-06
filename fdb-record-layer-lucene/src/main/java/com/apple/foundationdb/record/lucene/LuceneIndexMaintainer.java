@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -50,7 +49,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoublePoint;
@@ -94,11 +92,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
-    private final LuceneAnalyzerCombinationProvider autoCompleteQueryAnalyzerSelector;
+    private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
-    private final boolean autoCompleteEnabled;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -106,12 +103,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.directoryManager = FDBDirectoryManager.getManager(state);
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
         this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
-        this.autoCompleteQueryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
-        this.autoCompleteEnabled = state.index.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false);
+        this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
     }
 
-    public LuceneAnalyzerCombinationProvider getAutoCompleteQueryAnalyzerSelector() {
-        return autoCompleteQueryAnalyzerSelector;
+    public LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector() {
+        return autoCompleteAnalyzerSelector;
     }
 
     @Nonnull
@@ -141,22 +137,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(),
-                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector);
-        }
-
-        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
-            if (!autoCompleteEnabled) {
-                throw new RecordCoreArgumentException("Auto-complete unsupported due to not enabled on index")
-                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-            }
-            if (continuation != null) {
-                throw new RecordCoreArgumentException("Auto complete does not support scanning with continuation")
-                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
-            }
-            LuceneScanAutoComplete scanAutoComplete = (LuceneScanAutoComplete)scanBounds;
-            Analyzer analyzer = autoCompleteQueryAnalyzerSelector.provideQueryAnalyzer(scanAutoComplete.getKeyToComplete()).getAnalyzer();
-            return new LuceneAutoCompleteResultCursor(scanAutoComplete.getKeyToComplete(),
-                    executor, analyzer, state, scanAutoComplete.getGroupKey());
+                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector, autoCompleteAnalyzerSelector);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {

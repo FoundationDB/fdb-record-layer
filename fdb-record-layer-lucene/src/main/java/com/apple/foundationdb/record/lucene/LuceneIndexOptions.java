@@ -42,32 +42,7 @@ public class LuceneIndexOptions {
      * The delimiter by which the elements are split if the option's value has multiple elements or key-value pairs.
      */
     public static final String DELIMITER_BETWEEN_ELEMENTS = ",";
-    /**
-     * Whether indexed for auto complete search.
-     */
-    public static final String AUTO_COMPLETE_ENABLED = "autoCompleteEnabled";
-    /**
-     * The type of auto complete blender to transform the weight after search to take into account the position of the searched term into the indexed text.
-     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
-     */
-    @Deprecated
-    public static final String AUTO_COMPLETE_BLENDER_TYPE = "autoCompleteBlenderType";
-    /**
-     * The number factor to multiply the number of searched elements for auto complete blender.
-     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
-     */
-    @Deprecated
-    public static final String AUTO_COMPLETE_BLENDER_NUM_FACTOR = "autoCompleteBlenderNumFactor";
-    /**
-     * The minimum number of leading characters before prefix query is used for auto complete.
-     */
-    public static final String AUTO_COMPLETE_MIN_PREFIX_SIZE = "autoCompleteMinPrefixSize";
-    /**
-     * The exponent to use for auto complete when the blender type is POSITION_EXPONENTIAL_RECIPROCAL.
-     * @deprecated this option is ignored as the blender suggester is no longer used by auto-complete queries
-     */
-    @Deprecated
-    public static final String AUTO_COMPLETE_BLENDER_EXPONENT = "autoCompleteBlenderExponent";
+
     /**
      * Whether a Lucene's EdgeNGramTokenFilter or a regular NGramTokenFilter to use for the ngram analyzer.
      */
@@ -94,12 +69,6 @@ public class LuceneIndexOptions {
      * The name of the synonym set to use in Lucene.
      */
     public static final String TEXT_SYNONYM_SET_NAME_OPTION = "textSynonymSetName";
-
-    /**
-     * A list of fields to be excluded for auto-complete query.
-     * The format of the value should be "fieldName1,fieldName2,...", with field names split by ",".
-     */
-    public static final String AUTO_COMPLETE_EXCLUDED_FIELDS = "autoCompleteExcludedFields";
 
     private LuceneIndexOptions() {
     }

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.IndexScanType;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneScanTypes {
     public static final IndexScanType BY_LUCENE = new IndexScanType("BY_LUCENE");
-    public static final IndexScanType BY_LUCENE_AUTO_COMPLETE = new IndexScanType("BY_LUCENE_AUTO_COMPLETE");
     public static final IndexScanType BY_LUCENE_SPELL_CHECK = new IndexScanType("BY_LUCENE_SPELL_CHECK");
 
     private LuceneScanTypes() {

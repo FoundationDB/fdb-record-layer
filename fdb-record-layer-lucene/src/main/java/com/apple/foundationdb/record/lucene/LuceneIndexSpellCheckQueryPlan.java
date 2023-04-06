@@ -73,7 +73,7 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         return entryCursorFunction.apply(continuation)
                 .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                        LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, scanType), scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)));
+                        LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, scanType), false));
     }
 
     /**

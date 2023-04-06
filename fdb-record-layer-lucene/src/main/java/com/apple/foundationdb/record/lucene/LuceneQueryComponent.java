@@ -32,12 +32,17 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -55,7 +60,6 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     public enum Type {
         QUERY,
         QUERY_HIGHLIGHT,
-        AUTO_COMPLETE_HIGHLIGHT,
         AUTO_COMPLETE,
         SPELL_CHECK,
     }
@@ -71,6 +75,9 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
 
     @Nullable
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+
+    @Nullable
+    private final Set<String> explicitFieldNames;
 
     //MultiFieldSearch determines whether MultiFieldQueryParser or QueryParserBase is used.
     // QueryParserBase expects the query to contain the fields to be run against and takes a default field
@@ -90,17 +97,26 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch) {
-        this(type, query, queryIsParameter, fields, multiFieldSearch, null);
+        this(type, query, queryIsParameter, fields, multiFieldSearch, null, null);
     }
 
     public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch,
-                                @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                                @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                @Nullable Set<String> explicitFieldNames) {
         this.type = type;
         this.query = query;
         this.queryIsParameter = queryIsParameter;
         this.fields = fields;
         this.multiFieldSearch = multiFieldSearch;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+        if (explicitFieldNames != null) {
+            Preconditions.checkArgument(fields.size() == 1);
+            final String fieldName = Iterables.getOnlyElement(fields);
+            Preconditions.checkArgument(explicitFieldNames.stream().allMatch(explicitFieldName -> explicitFieldName.startsWith(fieldName)));
+            this.explicitFieldNames = ImmutableSet.copyOf(explicitFieldNames);
+        } else {
+            this.explicitFieldNames = null;
+        }
     }
 
     @Nonnull
@@ -151,14 +167,20 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return luceneQueryHighlightParameters;
     }
 
+    @Nullable
+    public Set<String> getExplicitFieldNames() {
+        return explicitFieldNames;
+    }
+
     /**
      * Creates an instance of this {@link LuceneQueryComponent} with a new list of fields.
      * @param fields The new list of fields.
+     * @param explicitFieldNames the new list of explicit field names
      * @return a new instance of {@link LuceneQueryComponent}.
      */
     @Nonnull
-    public LuceneQueryComponent withNewFields(@Nonnull final List<String> fields) {
-        return new LuceneQueryComponent(type, query, queryIsParameter, fields, multiFieldSearch, luceneQueryHighlightParameters);
+    public LuceneQueryComponent withNewFields(@Nonnull final List<String> fields, @Nullable Set<String> explicitFieldNames) {
+        return new LuceneQueryComponent(type, query, queryIsParameter, fields, multiFieldSearch, luceneQueryHighlightParameters, explicitFieldNames);
     }
 
     @Override
@@ -187,6 +209,9 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         if (!fields.equals(that.fields)) {
             return false;
         }
+        if (!Objects.equals(explicitFieldNames, that.explicitFieldNames)) {
+            return false;
+        }
 
         return true;
     }
@@ -198,6 +223,9 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         result = 31 * result + (queryIsParameter ? 1 : 0);
         result = 31 * result + fields.hashCode();
         result = 31 * result + (multiFieldSearch ? 1 : 0);
+        if (explicitFieldNames != null) {
+            result = 31 * result + explicitFieldNames.hashCode();
+        }
         return result;
     }
 

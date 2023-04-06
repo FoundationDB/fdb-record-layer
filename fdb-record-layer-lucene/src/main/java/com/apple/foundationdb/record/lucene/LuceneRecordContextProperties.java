@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
@@ -46,27 +45,6 @@ public final class LuceneRecordContextProperties {
     public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_ENCRYPTION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.encryptionEnabled", false);
 
     /**
-     * A defined {@link RecordLayerPropertyKey} for Integer type to control the number of suggestions to look up.
-     * The number to use is the minimum of this value and the one configured by the {@link ScanProperties}. So this one is an upper limit.
-     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
-     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
-     */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteSearchLimitation", 10);
-
-    /**
-     * A defined {@link RecordLayerPropertyKey} for Long type to control the default weight for each new suggestion when indexing.
-     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
-     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
-     */
-    public static final RecordLayerPropertyKey<Long> LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteDefaultWeight", 100L);
-
-    /**
-     * Upper limitation of text size that is acceptable for auto-complete indexing.
-     * Text larger than this limitation is ignored.
-     */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_TEXT_SIZE_UPPER_LIMIT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteTextSizeUpperLimitation", 32_766);
-
-    /**
      * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
      */
     public static final RecordLayerPropertyKey<ExecutorService> LUCENE_EXECUTOR_SERVICE = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.executorService", null, ExecutorService.class);
@@ -82,32 +60,6 @@ public final class LuceneRecordContextProperties {
      * Maximum segment size to produce during normal merging for ordinary full-text search with Lucene.
      */
     public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeMaxSize", 5.0);
-
-    /**
-     * Maximum number of segments to be merged at a time for ordinary full-text search with Lucene, during forceMerge for forceMergeDeletes.
-     */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.mergeMaxNum", 2);
-
-    /**
-     * Maximum segment size to produce during normal merging for auto-complete search with Lucene.
-     * @deprecated No longer in use as auto-complete no longer has its own directory
-     */
-    @Deprecated
-    public static final RecordLayerPropertyKey<Double> LUCENE_AUTO_COMPLETE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxSize", 5.0);
-
-    /**
-     * Maximum number of segments to be merged at a time for auto-complete search with Lucene, during forceMerge for forceMergeDeletes.
-     * @deprecated No longer in use as auto-complete no longer has its own directory
-     */
-    @Deprecated
-    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_MERGE_MAX_NUMBER = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteMergeMaxNum", 2);
-
-    /**
-     * This controls the suggester's base class to use for Lucene auto-complete search.
-     * @deprecated No longer in use as auto-complete no longer has its own directory
-     */
-    @Deprecated
-    public static final RecordLayerPropertyKey<Boolean> LUCENE_AUTO_COMPLETE_WITH_TERM_VECTORS = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.autoComplete.withTermVectors", true);
 
     /**
      * This controls whether Lucene indexes' directories (and their directories for auto-complete) should be merged based on probability to reduce multiple merges per transaction.

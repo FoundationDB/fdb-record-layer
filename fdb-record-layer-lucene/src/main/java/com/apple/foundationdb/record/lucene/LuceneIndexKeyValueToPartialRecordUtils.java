@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -225,7 +224,6 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
 
         KeyExpression root = index.getRootExpression();
-        int startOrdinalPrimaryKey = 0;
         final int groupingColumnSize;
         if (root instanceof GroupingKeyExpression) {
             KeyExpression groupingKey = ((GroupingKeyExpression) root).getGroupingSubKey();
@@ -237,21 +235,6 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             groupingColumnSize = 0;
         }
 
-        startOrdinalPrimaryKey += groupingColumnSize;
-
-        // account for a lucene field name, field value pair
-        startOrdinalPrimaryKey += 2;
-
-        if (scanType.equals(LuceneScanTypes.BY_LUCENE_AUTO_COMPLETE)) {
-            final var constituentToPathMap = AvailableFields.getConstituentToPathMap(recordType, startOrdinalPrimaryKey);
-
-            AvailableFields.getPrimaryKeyFieldMap(recordType, index, recordType.getPrimaryKey(),
-                    startOrdinalPrimaryKey,
-                    ImmutableList.of(),
-                    constituentToPathMap,
-                    builder);
-        }
-
         builder.addRequiredMessageFields();
         if (!builder.isValid(true)) {
             throw new RecordCoreException("Missing required field for result record")
@@ -261,7 +244,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         builder.addRegularCopier(
-                new LuceneAutoCompleteAndSpellCheckCopier(groupingColumnSize));
+                new LuceneSpellCheckCopier(groupingColumnSize));
 
         return builder.build();
     }
@@ -383,10 +366,10 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * The copier to populate the lucene auto complete suggestion as a value for the field where it is indexed from.
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
-    public static class LuceneAutoCompleteAndSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
+    public static class LuceneSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
         private final int groupingColumnSize;
 
-        public LuceneAutoCompleteAndSpellCheckCopier(final int groupingColumnSize) {
+        public LuceneSpellCheckCopier(final int groupingColumnSize) {
             this.groupingColumnSize = groupingColumnSize;
         }
 

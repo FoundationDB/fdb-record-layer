@@ -26,14 +26,12 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
-import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.MergeScheduler;
@@ -45,7 +43,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A transaction-scoped manager of {@link FDBDirectory} objects. For a single transaction, all {@link FDBDirectory}
@@ -55,10 +52,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @API(API.Status.INTERNAL)
 public class FDBDirectoryManager implements AutoCloseable {
-    @VisibleForTesting
-    @Nonnull
-    public static final Tuple AUTO_COMPLETE_SUFFIX = Tuple.from("s");
-
     @Nonnull
     private final IndexMaintainerState state;
     @Nonnull
@@ -143,16 +136,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private int getMergeDirectoryCount(@Nonnull IndexMaintainerState state) {
-        final AtomicInteger luceneMergeCount = new AtomicInteger();
-        state.store.getRecordMetaData().getAllIndexes().stream().filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType())).forEach(i -> {
-            if (i.getBooleanOption(LuceneIndexOptions.AUTO_COMPLETE_ENABLED, false)) {
-                // Auto-complete has its separate directory to merge
-                luceneMergeCount.getAndAdd(2);
-            } else {
-                luceneMergeCount.incrementAndGet();
-            }
-        });
-        return luceneMergeCount.get();
+        return Math.toIntExact(state.store
+                .getRecordMetaData()
+                .getAllIndexes()
+                .stream()
+                .filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType()))
+                .count());
     }
 
     public static String getMergeLogMessage(@Nonnull MergeScheduler.MergeSource mergeSource, @Nonnull MergeTrigger trigger,

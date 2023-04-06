@@ -160,17 +160,12 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     private static LuceneScanQueryParameters.LuceneQueryHighlightParameters getHighlightParameters(@Nonnull QueryComponent queryComponent) {
         if (queryComponent instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent) queryComponent;
+            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             return luceneQueryComponent.getLuceneQueryHighlightParameters();
+        } else if (queryComponent instanceof NestedField) {
+            return getHighlightParameters(((NestedField)queryComponent).getChild());
         } else if (queryComponent instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
-                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
-                if (parameters != null) {
-                    return parameters;
-                }
-            }
-        } else if (queryComponent instanceof AndComponent) {
-            for (QueryComponent child : ((AndComponent) queryComponent).getChildren()) {
                 LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
                 if (parameters != null) {
                     return parameters;
@@ -222,50 +217,42 @@ public class LucenePlanner extends RecordQueryPlanner {
         final var prefixComponents = prefixComponentsBuilder.build();
         final String prefix = prefixComponents.isEmpty() ? null : String.join("_", prefixComponents);
 
-        if (component instanceof LuceneQueryComponent) {
-            LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)component;
-            for (String field : luceneQueryComponent.getFields()) {
-                final String fullyPrefixedField = prefix == null ? field : prefix + "_" + field;
-                if (!validateIndexField(state, fullyPrefixedField)) {
-                    return null;
-                }
-            }
-            LuceneScanParameters scanParameters;
-            switch (luceneQueryComponent.getType()) {
-                case AUTO_COMPLETE:
-                    scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), false);
-                    break;
-                case AUTO_COMPLETE_HIGHLIGHT:
-                    scanParameters = new LuceneScanAutoCompleteParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter(), true);
-                    break;
-                case SPELL_CHECK:
-                    scanParameters = new LuceneScanSpellCheckParameters(state.groupingComparisons,
-                            luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
-                    break;
-                default:
-                    scanParameters = null;
-                    break;
-            }
-            if (scanParameters != null) {
-                if (queryComponent != state.filter) {
-                    filterMask = filterMask.getChild(queryComponent);
-                }
-                filterMask.setSatisfied(true);
-                return scanParameters;
+        if (!(component instanceof LuceneQueryComponent)) {
+            return null;
+        }
+
+        final LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)component;
+        for (String field : luceneQueryComponent.getFields()) {
+            final String fullyPrefixedField = prefix == null ? field : prefix + "_" + field;
+            if (!validateIndexField(state, fullyPrefixedField)) {
+                return null;
             }
         }
-        return null;
+        if (luceneQueryComponent.getType() != LuceneQueryComponent.Type.SPELL_CHECK) {
+            return null;
+        }
+
+        final LuceneScanParameters scanParameters =
+                new LuceneScanSpellCheckParameters(state.groupingComparisons,
+                        luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
+
+        if (queryComponent != state.filter) {
+            filterMask = filterMask.getChild(queryComponent);
+        }
+        filterMask.setSatisfied(true);
+        return scanParameters;
     }
 
     @Nonnull
-    private LuceneQueryComponent tryPushResidual(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
+    private LuceneQueryComponent prefixFieldNames(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
         if (prefix.isEmpty()) {
             return luceneQueryComponent;
         }
         final var name = String.join("_", prefix);
-        return luceneQueryComponent.withNewFields(luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList()));
+        final var newFieldNames = luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList());
+        final var newExplicitFieldNames = luceneQueryComponent.getExplicitFieldNames() == null
+                ? null : luceneQueryComponent.getExplicitFieldNames().stream().map(field -> name + "_" + field).collect(Collectors.toSet());
+        return luceneQueryComponent.withNewFields(newFieldNames, newExplicitFieldNames);
     }
 
     @Nullable
@@ -290,10 +277,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Nullable
     private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
                                                          @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
-        if (!parentFieldPath.isEmpty()) {
-            // check whether the provided parent path is actually a field in the Lucene index itself.
-            filter = tryPushResidual(filter, parentFieldPath);
-        }
+        filter = prefixFieldNames(filter, parentFieldPath);
+
         for (String field : filter.getFields()) {
             if (!validateIndexField(state, field)) {
                 return null;
@@ -303,10 +288,22 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterMask.setSatisfied(true);
         }
 
-        if (filter.isMultiFieldSearch()) {
-            return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
-        } else {
-            return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+        switch (filter.getType()) {
+            case AUTO_COMPLETE:
+                final var resolvedFields = filter.getExplicitFieldNames() == null
+                                           ? filter.getFields()
+                                           : filter.getExplicitFieldNames();
+                return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), resolvedFields);
+            case QUERY:
+            case QUERY_HIGHLIGHT:
+            case SPELL_CHECK:
+                if (filter.isMultiFieldSearch()) {
+                    return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                } else {
+                    return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                }
+            default:
+                throw new RecordCoreException("unknown type of lucene query component");
         }
     }
 
@@ -476,25 +473,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         return false;
     }
 
-    private boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
-                                     @Nonnull String field) {
-        StringBuilder path = null;
-        for (String pathElement : fieldDerivation.getRecordFieldPath()) {
-            if (path == null) {
-                path = new StringBuilder(pathElement);
-            } else {
-                path.append("_").append(pathElement);
-            }
-            if (path.length() > field.length()) {
-                break;
-            }
-            if (path.toString().equals(field)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private boolean getSort(@Nonnull LucenePlanState state,
                             @Nullable KeyExpression sort, boolean sortReverse,
                             @Nullable KeyExpression commonPrimaryKey, @Nullable KeyExpression groupingKey) {
@@ -640,4 +618,22 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
+    static boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
+                                    @Nonnull String field) {
+        StringBuilder path = null;
+        for (String pathElement : fieldDerivation.getRecordFieldPath()) {
+            if (path == null) {
+                path = new StringBuilder(pathElement);
+            } else {
+                path.append("_").append(pathElement);
+            }
+            if (path.length() > field.length()) {
+                break;
+            }
+            if (path.toString().equals(field)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
