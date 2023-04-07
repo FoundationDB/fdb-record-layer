@@ -40,11 +40,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -73,7 +73,7 @@ public class IndexingThrottle {
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
     /**
-     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, List)}.
+     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, Function, List)}.
      */
     private int successCount = 0;
 
@@ -84,6 +84,7 @@ public class IndexingThrottle {
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+                                                          @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
         AtomicLong recordsScanned = new AtomicLong(0);
         return throttledRunAsync(store -> buildFunction.apply(store, recordsScanned),
@@ -98,6 +99,7 @@ public class IndexingThrottle {
                     }
                     return Pair.of(result, exception);
                 },
+                shouldReturnQuietly,
                 additionalLogMessageKeyValues
         );
     }
@@ -181,6 +183,7 @@ public class IndexingThrottle {
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
+                                               @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
@@ -218,32 +221,41 @@ public class IndexingThrottle {
                 return function.apply(store);
             }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                 if (e == null) {
+                    // Here: success path - also the common path (or so we hope)
                     ret.complete(value);
                     return AsyncUtil.READY_FALSE;
-                } else {
-                    int currTries = tries.getAndIncrement();
-                    FDBException fdbE = getFDBException(e);
-                    if (currTries < common.config.getMaxRetries() && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
-                        decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
-                        if (LOGGER.isWarnEnabled()) {
-                            final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
-                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
-                                    LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                                    LogMessageKeys.DELAY, delay.getNextDelayMillis(),
-                                    LogMessageKeys.LIMIT, limit);
-                            message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
-                            LOGGER.warn(message.toString(), e);
-                        }
-                        CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(vignore3 -> true);
-                        if (common.getRunner().getTimer() != null) {
-                            delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
-                                    delayedContinue, common.getRunner().getExecutor());
-                        }
-                        return delayedContinue;
-                    } else {
-                        return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+                }
+                FDBException fdbE = getFDBException(e);
+                if (shouldReturnQuietly != null) {
+                    Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
+                    if (retVal.isPresent()) {
+                        // Here: handle a special case: would the caller wish us to quietly return?
+                        ret.complete(retVal.get());
+                        return AsyncUtil.READY_FALSE;
                     }
                 }
+                int currTries = tries.getAndIncrement();
+                if (currTries >= common.config.getMaxRetries() || fdbE == null || !lessenWorkCodes.contains(fdbE.getCode())) {
+                    // Here: should not retry. Or no more retries.
+                    return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+                }
+                // Here: decrease limit, log, delay continue
+                decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
+                if (LOGGER.isWarnEnabled()) {
+                    final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
+                            LogMessageKeys.INDEXER_CURR_RETRY, currTries,
+                            LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
+                            LogMessageKeys.DELAY, delay.getNextDelayMillis(),
+                            LogMessageKeys.LIMIT, limit);
+                    message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
+                    LOGGER.warn(message.toString(), e);
+                }
+                CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(vignore3 -> true);
+                if (common.getRunner().getTimer() != null) {
+                    delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
+                            delayedContinue, common.getRunner().getExecutor());
+                }
+                return delayedContinue;
             }).thenCompose(Function.identity());
         }, common.getRunner().getExecutor()).whenComplete((vignore, e) -> {
             if (e != null) {

@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -73,7 +74,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -663,7 +663,7 @@ public abstract class IndexingBase {
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-        return throttle.buildCommitRetryAsync(buildFunction, additionalLogMessageKeyValues);
+        return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues);
     }
 
     protected static void timerIncrement(@Nullable FDBStoreTimer timer, FDBStoreTimer.Counts event) {
@@ -898,9 +898,17 @@ public abstract class IndexingBase {
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspaceProvider, subspace, null);
+    }
+
+    protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
+                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
+                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                       @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
-                    buildCommitRetryAsync(iterateRange,
+                    throttle.buildCommitRetryAsync(iterateRange,
+                            shouldReturnQuietly,
                             additionalLogMessageKeyValues)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
@@ -962,7 +970,7 @@ public abstract class IndexingBase {
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
-        return throttle.throttledRunAsync(function, handlePostTransaction, additionalLogMessageKeyValues);
+        return throttle.throttledRunAsync(function, handlePostTransaction, null, additionalLogMessageKeyValues);
     }
 
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {

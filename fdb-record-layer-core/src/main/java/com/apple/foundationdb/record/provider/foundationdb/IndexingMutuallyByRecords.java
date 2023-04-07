@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -48,11 +49,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -96,6 +99,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private FragmentIterationType fragmentIterationType;
     private int loopProtectionCounter;
     private String loopProtectionToken = "";
+
+    private FDBException anyJumperEx = null;
+    private int anyJumperCurrent;
+    private Range anyJumperRange;
 
     enum FragmentIterationType {
         FULL,     // 1st iteration: only build fragments that are fully unbuilt (for efficiency).
@@ -324,7 +331,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store,
-                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+                                                      @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
         // return false when done
         /* Mutual indexing:
          * 1. detects missing ranges
@@ -371,7 +378,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                         LogMessageKeys.RANGE, rangeToBuild,
                         LogMessageKeys.ORIGINAL_RANGE, fragmentRange));
             }
-            if (rangeToBuild != null) {
+            if (rangeToBuild != null && !anyJumperSaysJump(rangeToBuild)) {
                 infiniteLoopProtection(rangeToBuild, missingRanges);
                 final List<Object> additionalLogMessageKeyValues = new ArrayList<>(
                         Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
@@ -380,9 +387,13 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 additionalLogMessageKeyValues.addAll(fragmentLogMessageKeyValues());
                 return iterateAllRanges(additionalLogMessageKeyValues,
                         (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, rangeToBuild),
-                        subspaceProvider, subspace).thenCompose(ignore -> AsyncUtil.READY_TRUE);
+                        subspaceProvider, subspace,
+                        anyJumperCallback(rangeToBuild)
+                ).thenCompose(ignore -> AsyncUtil.READY_TRUE);
             }
-            fragmentPlusPlus();
+            if (anyJumperEx == null) {
+                fragmentPlusPlus();
+            }
         }
     }
 
@@ -512,6 +523,45 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             loopProtectionCounter = 1000;
             loopProtectionToken = token;
         }
+    }
+
+    // anyJumper:
+    //  During the ANY iteration, we wish to avoid cases of two indexers competing on the same fragment.
+    //  It is done by recording the exception and the fragment info, then - during the next iteration:
+    //      If at the same fragment, same range: re-throw
+    //      If at the same fragment, different range: jump to the next fragment
+    boolean anyJumperSaysJump(Range rangeToBuild) {
+        if (anyJumperEx == null || fragmentIterationType != FragmentIterationType.ANY) {
+            return false;
+        }
+        boolean same = anyJumperCurrent == fragmentCurrent;
+        if (same && anyJumperRange.equals(rangeToBuild)) {
+            // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
+            throw anyJumperEx;
+        }
+        // Here: if at the same fragment, jump ahead.
+        anyJumperEx = null;
+        return same;
+    }
+
+    @Nullable
+    private Function<FDBException, Optional<Boolean>> anyJumperCallback(Range rangeToBuild) {
+        if (fragmentIterationType != FragmentIterationType.ANY) {
+            return null;
+        }
+        return ex -> {
+            if (anyJumperEx != null) {
+                // Here: anyJumperSaysJump is re-throwing. Do not interrupt.
+                anyJumperEx = null;
+                return Optional.empty();
+            }
+            // Here: this exception may or may not be a rangeSet conflict.
+            // Memorize this info and handle it during the next iteration.
+            anyJumperEx = ex;
+            anyJumperRange = rangeToBuild;
+            anyJumperCurrent = fragmentCurrent;
+            return Optional.of(false);
+        };
     }
 
     @SuppressWarnings("unused")
