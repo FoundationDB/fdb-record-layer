@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
@@ -76,7 +77,7 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
             @Nonnull
             @Override
             public Continuation getContinuation() {
-                return Continuation.BEGIN;
+                return ContinuationImpl.BEGIN;
             }
 
             @Override

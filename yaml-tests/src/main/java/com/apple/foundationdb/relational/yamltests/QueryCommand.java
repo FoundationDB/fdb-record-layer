@@ -183,7 +183,7 @@ class QueryCommand extends Command {
             Debugger.setDebugger(savedDebugger);
         }
         logger.debug("finished executing query '{}'", query);
-        var continuation = Continuation.EMPTY_SET;
+        var continuation = ContinuationImpl.END;
         switch (config) {
             case RESULT:
             case RESULT_AS_SET:

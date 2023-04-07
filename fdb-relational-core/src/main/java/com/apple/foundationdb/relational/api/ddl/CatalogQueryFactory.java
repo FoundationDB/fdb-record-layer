@@ -21,12 +21,12 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 
 import javax.annotation.Nonnull;
@@ -57,7 +57,7 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
 
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                return catalog.listDatabases(txn, Continuation.BEGIN);
+                return catalog.listDatabases(txn, ContinuationImpl.BEGIN);
             }
         };
     }

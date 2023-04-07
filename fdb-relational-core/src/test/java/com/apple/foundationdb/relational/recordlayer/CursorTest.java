@@ -89,7 +89,7 @@ public class CursorTest {
             List<Row> actual = new ArrayList<>();
             StructMetaData metaData = null;
             try {
-                Continuation cont = Continuation.BEGIN;
+                Continuation cont = ContinuationImpl.BEGIN;
                 while (!cont.atEnd()) {
                     try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(),
                             Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
@@ -116,7 +116,7 @@ public class CursorTest {
             try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation continuation = resultSet.getContinuation();
-                Assertions.assertEquals(Continuation.BEGIN, continuation, "Incorrect starting continuation!");
+                Assertions.assertEquals(ContinuationImpl.BEGIN, continuation, "Incorrect starting continuation!");
 
                 StructMetaData smd = resultSet.getMetaData().unwrap(StructMetaData.class);
                 boolean called = false;
@@ -136,7 +136,7 @@ public class CursorTest {
 
                 // verify
                 Assertions.assertTrue(lastContinuation.atEnd());
-                Assertions.assertEquals(lastContinuation.getBytes(), Continuation.END.getBytes());
+                Assertions.assertEquals(lastContinuation.getUnderlyingBytes(), ContinuationImpl.END.getUnderlyingBytes());
 
             } catch (RelationalException | SQLException e) {
                 Assertions.fail("failed to parse ", e);
@@ -151,9 +151,9 @@ public class CursorTest {
             try {
                 resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE);
                 Continuation continuation = resultSet.getContinuation();
-                Assertions.assertNull(continuation.getBytes());
+                Assertions.assertEquals(0, continuation.getUnderlyingBytes().length);
                 Assertions.assertTrue(continuation.atEnd());
-                Assertions.assertTrue(continuation.atBeginning());
+                Assertions.assertFalse(continuation.atBeginning());
                 Assertions.assertFalse(resultSet.next());
             } catch (SQLException e) {
                 throw new RuntimeException(e);

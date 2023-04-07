@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Iterator;
@@ -55,32 +54,17 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
         boolean hasNext = rowIter.hasNext();
         boolean beginning = currentRowPosition == 0;
         int currPos = currentRowPosition + 1;
-        return new Continuation() {
-            @Nullable
-            @Override
-            public byte[] getBytes() {
-                if (beginning) {
-                    return null;
-                } else if (hasNext) {
-                    ByteBuffer buffer = ByteBuffer.allocate(4);
-                    buffer.putInt(currPos);
-                    buffer.flip();
-                    return buffer.array();
-                } else {
-                    return new byte[]{};
-                }
-            }
 
-            @Override
-            public boolean atBeginning() {
-                return beginning;
-            }
-
-            @Override
-            public boolean atEnd() {
-                return !hasNext;
-            }
-        };
+        if (beginning) {
+            return ContinuationImpl.BEGIN;
+        } else if (hasNext) {
+            ByteBuffer buffer = ByteBuffer.allocate(4);
+            buffer.putInt(currPos);
+            buffer.flip();
+            return ContinuationImpl.fromUnderlyingBytes(buffer.array());
+        } else {
+            return ContinuationImpl.END;
+        }
     }
 
     @Override

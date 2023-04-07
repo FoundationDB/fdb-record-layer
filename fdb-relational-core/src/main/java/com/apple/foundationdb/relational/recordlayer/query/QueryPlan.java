@@ -59,8 +59,10 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -205,8 +207,13 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             Type type = queryExecutor.getQueryResultType();
             StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
             var executeProperties = ExecuteProperties.newBuilder().setSkip(offset).setReturnedRowLimit(limit).build();
-            return new RecordLayerResultSet(metaData,
-                    queryExecutor.execute(ContinuationImpl.fromBytes(continuation), executeProperties), connection);
+            try {
+                return new RecordLayerResultSet(metaData,
+                        // Deserialize the continuation that was provided in the query
+                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection);
+            } catch (InvalidProtocolBufferException ex) {
+                throw ExceptionUtil.toRelationalException(ex);
+            }
         }
 
         @Nonnull

@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -64,7 +65,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         // list all schemas
         Set<String> fullSchemaNames = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
-            Continuation continuation = Continuation.BEGIN;
+            Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     if (result.next()) {
@@ -96,7 +97,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         // list all schemas
         Set<String> fullSchemaNames = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
-            Continuation continuation = Continuation.BEGIN;
+            Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
                     // to test continuation, only read 1 result at once
@@ -116,7 +117,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         // list schemas of 1 database
         Set<String> resultSet = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
-            Continuation continuation = Continuation.BEGIN;
+            Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, URI.create("/TEST/test_database_id1"), continuation)) {
                     if (result.next()) {
@@ -304,7 +305,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         // list databases
         Set<String> databases = new HashSet<>();
         try (Transaction listTxn = new RecordContextTransaction(fdb.openContext())) {
-            Continuation continuation = Continuation.BEGIN;
+            Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 RelationalResultSet result = storeCatalog.listDatabases(listTxn, continuation);
                 while (result.next()) {
@@ -322,7 +323,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
     @Test
     void testAllTheSchemas() throws RelationalException, SQLException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final RelationalResultSet relationalResultSet = storeCatalog.listSchemas(txn, Continuation.BEGIN);
+            final RelationalResultSet relationalResultSet = storeCatalog.listSchemas(txn, ContinuationImpl.BEGIN);
             int schemaCount = 0;
             final var schemas = new ArrayList<String>();
             while (relationalResultSet.next()) {

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
@@ -62,7 +63,7 @@ public abstract class Command {
             if (errorCode != null) {
                 Assert.fail("‼️ unexpected NULL SQLException!");
             } else {
-                return Continuation.EMPTY_SET;
+                return ContinuationImpl.END;
             }
         }
         if (!sqlException.getSQLState().equals(errorCode)) {
@@ -70,7 +71,7 @@ public abstract class Command {
         } else {
             logger.debug("✔️ error codes '{}' match!", errorCode);
         }
-        return Continuation.EMPTY_SET;
+        return ContinuationImpl.END;
     }
 
     static Command resolve(String commandString) {

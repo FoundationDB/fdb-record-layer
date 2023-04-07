@@ -51,14 +51,14 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     private void alignContinuation(Continuation continuation) throws RelationalException {
         if (continuation == null) {
             if (iterator.hasNext()) {
-                this.continuation = Continuation.BEGIN;
+                this.continuation = ContinuationImpl.BEGIN;
             } else {
-                this.continuation = Continuation.EMPTY_SET;
+                this.continuation = ContinuationImpl.END;
             }
             return;
         }
         if (continuation.atBeginning()) {
-            this.continuation = Continuation.BEGIN;
+            this.continuation = ContinuationImpl.BEGIN;
             return;
         }
         // if the continuation is FINISHED, it indicates no more rows are available.
@@ -66,11 +66,11 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
             while (iterator.hasNext()) {
                 iterator.next();
             }
-            this.continuation = Continuation.END;
+            this.continuation = ContinuationImpl.END;
             return;
         }
-        assert continuation.getBytes() != null;
-        int offset = Ints.fromByteArray(continuation.getBytes());
+        assert continuation.getUnderlyingBytes() != null;
+        int offset = Ints.fromByteArray(continuation.getUnderlyingBytes());
         int counter = 0;
         while (iterator.hasNext() && counter < offset) {
             counter++;
@@ -89,7 +89,7 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
 
     @Override
     public Continuation getContinuation() throws RelationalException {
-        return ContinuationImpl.copyOf(continuation);
+        return continuation;
     }
 
     /**
@@ -106,7 +106,7 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     public boolean hasNext() {
         boolean result = iterator.hasNext();
         if (!result) {
-            continuation = Continuation.END;
+            continuation = ContinuationImpl.END;
         }
         return result;
     }
@@ -120,18 +120,14 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
                 if (continuation.atBeginning()) {
                     continuation = ContinuationImpl.fromInt(1);
                 } else {
-                    continuation = ContinuationImpl.fromInt(Ints.fromByteArray(continuation.getBytes()) + 1);
+                    continuation = ContinuationImpl.fromInt(Ints.fromByteArray(continuation.getUnderlyingBytes()) + 1);
                 }
             } else {
-                continuation = Continuation.END;
+                continuation = ContinuationImpl.END;
             }
             return result;
         } else {
-            if (continuation.atBeginning()) {
-                continuation = Continuation.EMPTY_SET;
-            } else {
-                continuation = Continuation.END;
-            }
+            continuation = ContinuationImpl.END;
             // fallthrough the underlying iterator semantics of next() when hasNext() potentially returns NULL
             // e.g. throw an exception.
             return iterator.next();

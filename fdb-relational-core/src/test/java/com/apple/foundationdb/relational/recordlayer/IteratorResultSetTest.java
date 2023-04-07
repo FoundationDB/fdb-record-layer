@@ -44,7 +44,7 @@ class IteratorResultSetTest {
         try (IteratorResultSet irs = new IteratorResultSet(new RelationalStructMetaData(fields), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
             Continuation shouldBeStart = irs.getContinuation();
             Assertions.assertTrue(shouldBeStart.atBeginning(), "Is not at beginning!");
-            Assertions.assertNull(shouldBeStart.getBytes(), "Incorrect byte[] for continuation!");
+            Assertions.assertNull(shouldBeStart.getUnderlyingBytes(), "Incorrect byte[] for continuation!");
 
             //now iterate
             irs.next();
@@ -53,7 +53,7 @@ class IteratorResultSetTest {
             Continuation end = irs.getContinuation();
 
             Assertions.assertTrue(end.atEnd(), "Is not at end!");
-            Assertions.assertArrayEquals(new byte[]{}, end.getBytes());
+            Assertions.assertArrayEquals(new byte[]{}, end.getUnderlyingBytes());
         }
     }
 }

@@ -183,7 +183,7 @@ class AbstractRecordLayerResultSetTest {
             @Override
             @Nonnull
             public Continuation getContinuation() {
-                return Continuation.BEGIN;
+                return ContinuationImpl.BEGIN;
             }
 
             @Override

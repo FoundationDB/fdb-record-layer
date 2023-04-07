@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -80,7 +79,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             throw new OperationUnsupportedException("Must use a non-null catalog name currently").toSqlException();
         }
         ensureActiveTransaction();
-        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, URI.create(catalogStr), Continuation.BEGIN)) {
+        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, URI.create(catalogStr), ContinuationImpl.BEGIN)) {
             //TODO(bfines) we need to transform this live, not materialize like this
             List<Row> simplifiedRows = new ArrayList<>();
             while (rrs.next()) {

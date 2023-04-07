@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
@@ -251,7 +252,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         return new RecordLayerResultSet(dbTableMetaData, RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
 
@@ -259,7 +260,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
         return new RecordLayerResultSet(getMetaData(schemaDesc),
                 RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
@@ -269,7 +270,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
         FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
         return new RecordLayerResultSet(getMetaData(schemaDesc), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
@@ -342,12 +343,12 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
         final var key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, prefix);
         final var databaseDesc = recordStore.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING), ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         var resultSet = new RecordLayerResultSet(getMetaData(databaseDesc), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null);
         try {
             do {
                 if (!resultSet.next()) {
-                    return resultSet.getContinuation() == Continuation.END;
+                    return resultSet.getContinuation() == ContinuationImpl.END;
                 }
                 final var operationCompleted = deleteDatabase(recordStore, URI.create(resultSet.getString("DATABASE_ID")));
                 if (!operationCompleted) {
@@ -376,7 +377,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     // throws exception otherwise.
     private boolean deleteSchemas(@Nonnull FDBRecordStoreBase<Message> recordStore, @Nonnull URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), Continuation.BEGIN.getBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
         try {
             do {

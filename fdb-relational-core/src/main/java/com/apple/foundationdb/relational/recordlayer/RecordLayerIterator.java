@@ -46,9 +46,9 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
-        this.continuation = Continuation.BEGIN;
+        this.continuation = ContinuationImpl.BEGIN;
         if (result.getContinuation().isEnd()) {
-            this.continuation = Continuation.EMPTY_SET;
+            this.continuation = ContinuationImpl.END;
         }
     }
 
@@ -82,10 +82,10 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
         try {
             final Row row = transform.apply(result.get());
             // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
-            this.continuation = ContinuationImpl.fromBytes(result.getContinuation().toBytes());
+            this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
             result = recordCursor.getNext();
             if (result.getContinuation().isEnd()) {
-                this.continuation = Continuation.END;
+                this.continuation = ContinuationImpl.END;
             }
             return row;
         } catch (RecordCoreException ex) {

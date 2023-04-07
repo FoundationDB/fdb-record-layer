@@ -210,7 +210,7 @@ public final class BackingRecordStore implements BackingStore {
     public RecordCursor<FDBStoredRecord<Message>> scanType(RecordType type, TupleRange range, @Nullable Continuation continuation, Options options) throws RelationalException {
         try {
             final ScanProperties scanProps = QueryPropertiesUtils.getScanProperties(options);
-            return recordStore.scanRecords(range, continuation == null ? null : continuation.getBytes(), scanProps)
+            return recordStore.scanRecords(range, continuation == null ? null : continuation.getUnderlyingBytes(), scanProps)
                     .filter(record -> type.equals(record.getRecordType()));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
@@ -223,7 +223,7 @@ public final class BackingRecordStore implements BackingStore {
         assert continuation == null || continuation instanceof ContinuationImpl;
         try {
             return recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
-                    continuation == null ? null : continuation.getBytes(), QueryPropertiesUtils.getScanProperties(options));
+                    continuation == null ? null : continuation.getUnderlyingBytes(), QueryPropertiesUtils.getScanProperties(options));
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -358,14 +359,14 @@ public class StandardQueryTests {
                 Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
                 final String initialQuery = "select * from RestaurantComplexRecord where rest_no > 40";
-                Continuation continuation = Continuation.BEGIN;
+                Continuation continuation = ContinuationImpl.BEGIN;
                 final List<Message> expected = List.of(l42, l43, l44, l45);
                 int i = 0;
 
                 while (!continuation.atEnd()) {
                     String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION '" + Base64.getEncoder().encodeToString(continuation.getBytes()) + "'";
+                        query += " WITH CONTINUATION '" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected

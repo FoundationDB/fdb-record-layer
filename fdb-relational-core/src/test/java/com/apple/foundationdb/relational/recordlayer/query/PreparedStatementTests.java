@@ -252,7 +252,7 @@ public class PreparedStatementTests {
                 }
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?continuation")) {
-                ps.setBytes("continuation", continuation.getBytes());
+                ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 12L)
@@ -260,7 +260,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                     continuation = resultSet.getContinuation();
                 }
-                ps.setBytes("continuation", continuation.getBytes());
+                ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 14L)

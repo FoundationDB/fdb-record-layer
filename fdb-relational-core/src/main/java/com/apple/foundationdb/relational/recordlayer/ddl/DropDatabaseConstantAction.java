@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -29,6 +28,7 @@ import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -55,7 +55,7 @@ public class DropDatabaseConstantAction implements ConstantAction {
             throw new RelationalException("Cannot drop /__SYS database", ErrorCode.INSUFFICIENT_PRIVILEGE);
         }
 
-        try (RelationalResultSet schemas = catalog.listSchemas(txn, dbUrl, Continuation.BEGIN)) {
+        try (RelationalResultSet schemas = catalog.listSchemas(txn, dbUrl, ContinuationImpl.BEGIN)) {
             while (schemas.next()) {
                 String schemaName = schemas.getString("SCHEMA_NAME");
                 metadataOperationsFactory.getDropSchemaConstantAction(dbUrl, schemaName, options).execute(txn);

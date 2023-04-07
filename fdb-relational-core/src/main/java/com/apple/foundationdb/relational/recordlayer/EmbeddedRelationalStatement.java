@@ -356,7 +356,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             } catch (Query.InvalidExpressionException ex) {
                 // To work around a record layer limitation, we execute point deletes at this point if we cannot execute a range delete
                 // This may be caused by the fact that an index does not share the same prefix as the table we're trying to range delete from
-                Continuation continuation = Continuation.BEGIN;
+                Continuation continuation = ContinuationImpl.BEGIN;
                 ResumableIterator<Row> scannedRows;
                 do {
                     Options newOptions = Options.combine(options, Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());

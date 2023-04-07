@@ -46,6 +46,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
@@ -283,7 +284,7 @@ public class BackingLocatableResolverStoreTest {
             connection.setSchema("dl");
             final int pageSize = 10;
             Map<String, Long> found = new HashMap<>();
-            Continuation continuation = Continuation.BEGIN;
+            Continuation continuation = ContinuationImpl.BEGIN;
 
             while (!continuation.atEnd()) {
                 try (RelationalStatement statement = connection.createStatement()) {

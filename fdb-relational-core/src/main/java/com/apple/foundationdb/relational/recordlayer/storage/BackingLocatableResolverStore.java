@@ -152,7 +152,7 @@ public final class BackingLocatableResolverStore implements BackingStore {
                     });
             return new FutureCursor<>(context.getExecutor(), future);
         } else if (type.getName().equals(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME)) {
-            byte[] continuationBytes = continuation == null ? null : continuation.getBytes();
+            byte[] continuationBytes = continuation == null ? null : continuation.getUnderlyingBytes();
             return locatableResolver.scan(context, continuationBytes, QueryPropertiesUtils.getScanProperties(options))
                     .map(resolverKeyValue -> {
                         Message msg = metaDataProvider.wrapResolverResult(resolverKeyValue.getKey(), resolverKeyValue.getValue());

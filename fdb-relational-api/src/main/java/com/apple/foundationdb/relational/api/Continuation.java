@@ -24,79 +24,29 @@ import javax.annotation.Nullable;
 
 public interface Continuation {
 
-    Continuation END = new Continuation() {
-        @SuppressWarnings("PMD.FieldNamingConventions")
-        private final byte[] empty = new byte[]{};
-
-        @Nullable
-        @Override
-        public byte[] getBytes() {
-            return empty;
-        }
-
-        @Override
-        public boolean atBeginning() {
-            return false;
-        }
-
-        @Override
-        public boolean atEnd() {
-            return true;
-        }
-    };
-
-    Continuation BEGIN = new Continuation() {
-        @Nullable
-        @Override
-        public byte[] getBytes() {
-            return null;
-        }
-
-        @Override
-        public boolean atBeginning() {
-            return true;
-        }
-
-        @Override
-        public boolean atEnd() {
-            return false;
-        }
-    };
-
-    Continuation EMPTY_SET = new Continuation() {
-        @Nullable
-        @Override
-        public byte[] getBytes() {
-            return null;
-        }
-
-        @Override
-        public boolean atBeginning() {
-            return true;
-        }
-
-        @Override
-        public boolean atEnd() {
-            return true;
-        }
-    };
+    /**
+     * Serialize the continuation (such that it can be transferred across the wire).
+     * This will create a serialized version of the continuation's entire state, that can be later restored.
+     *
+     * @return the serialized state of the continuation
+     */
+    byte[] serialize();
 
     /**
-     * Get the continuation as a sequence of bytes.
+     * Return the continuation's underlying (cursor) state.
+     * This is the state that is representing the continuation's underlying cursor state.
      *
-     * @return the continuation as a byte array. If the returned array is {@code null}, then this continuation
-     * is treated as being at the <em>beginning</em> (equivalent to {@link #BEGIN}). If the returned array is empty
-     * then this should be treated as equivalent to {@link #END}.
+     * @return the cursor state (if exists)
      */
     @Nullable
-    byte[] getBytes();
+    byte[] getUnderlyingBytes();
 
     default boolean atBeginning() {
-        return getBytes() == null;
+        return getUnderlyingBytes() == null;
     }
 
     default boolean atEnd() {
-        byte[] bytes = getBytes();
+        byte[] bytes = getUnderlyingBytes();
         return bytes != null && bytes.length == 0;
     }
 }
