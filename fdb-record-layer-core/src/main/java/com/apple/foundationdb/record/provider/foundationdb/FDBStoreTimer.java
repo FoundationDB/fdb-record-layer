@@ -653,6 +653,8 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of missing index entries detected by the online scrubber. */
         ONLINE_INDEX_BUILDER_RANGES_BY_TIME("number of indexer iterations terminated by time limit", false),
         /** The number of {@link OnlineIndexer} range scans terminated after hitting the time limit. */
+        ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION("number of indexer iterations terminated by cursor's range depletion", false),
+        /** The number of {@link OnlineIndexer} range scans terminated after hitting the cursor's range depletion. */
         MUTUAL_INDEXER_FULL_START("counter: start indexing a 'FULL' fragment", false),
         /** {@link IndexingMutuallyByRecords} counter: start indexing a 'FULL' fragment. */
         MUTUAL_INDEXER_FULL_DONE("counter: done indexing a 'FULL' fragment", false),

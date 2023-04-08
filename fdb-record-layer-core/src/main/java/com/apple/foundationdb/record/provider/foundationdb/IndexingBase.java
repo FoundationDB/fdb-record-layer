@@ -802,6 +802,7 @@ public abstract class IndexingBase {
                     final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
                     if (isExhausted) {
                         // we've just processed the last item
+                        timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
                         hasMore.set(false);
                         return updateMaintainer.thenApply(vignore -> false);
                     }
