@@ -191,8 +191,7 @@ public class IndexingScrubDangling extends IndexingBase {
         if (! indexResult.hasStoredRecord() ) {
             // Here: Oh, No! this index is dangling!
             danglingCount.incrementAndGet();
-            final FDBStoreTimer timer = getRunner().getTimer();
-            timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
+            timerIncrement(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
             final IndexEntry indexEntry = indexResult.getIndexEntry();
             final Tuple valueKey = indexEntry.getKey();
             final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);

@@ -651,6 +651,18 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of {@link OnlineIndexer} range scans terminated after hitting the size limit. */
         ONLINE_INDEX_BUILDER_RANGES_BY_SIZE("number of indexer iterations terminated by write limit", false),
         /** The number of missing index entries detected by the online scrubber. */
+        ONLINE_INDEX_BUILDER_RANGES_BY_TIME("number of indexer iterations terminated by time limit", false),
+        /** The number of {@link OnlineIndexer} range scans terminated after hitting the time limit. */
+        MUTUAL_INDEXER_FULL_START("counter: start indexing a 'FULL' fragment", false),
+        /** {@link IndexingMutuallyByRecords} counter: start indexing a 'FULL' fragment. */
+        MUTUAL_INDEXER_FULL_DONE("counter: done indexing a 'FULL' fragment", false),
+        /** {@link IndexingMutuallyByRecords} counter: done indexing a 'FULL' fragment. */
+        MUTUAL_INDEXER_ANY_START("counter: start indexing an 'ANY' fragment", false),
+        /** {@link IndexingMutuallyByRecords} counter: start indexing an 'ANY' fragment. */
+        MUTUAL_INDEXER_ANY_DONE("counter: done indexing an 'ANY' fragment", false),
+        /** {@link IndexingMutuallyByRecords} counter: done indexing an 'ANY' fragment. */
+        MUTUAL_INDEXER_ANY_JUMP("counter: had conflicts while indexing an 'ANY' fragment, jump ahead", false),
+        /** {@link IndexingMutuallyByRecords} counter: had conflicts while indexing an 'ANY' fragment, jump ahead. */
         INDEX_SCRUBBER_MISSING_ENTRIES("number of missing index entries detected by online scrubber", false),
         /** The number of dangling index entries detected by online scrubber. */
         INDEX_SCRUBBER_DANGLING_ENTRIES("number of dangling index entries detected by online scrubber", false),

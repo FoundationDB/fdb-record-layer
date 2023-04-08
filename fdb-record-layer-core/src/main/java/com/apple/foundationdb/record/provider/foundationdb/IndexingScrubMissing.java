@@ -223,8 +223,7 @@ public class IndexingScrubMissing extends IndexingBase {
                                 .toString());
                     }
                     missingCount.incrementAndGet();
-                    final FDBStoreTimer timer = getRunner().getTimer();
-                    timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES);
+                    timerIncrement(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES);
                     if (scrubbingPolicy.allowRepair()) {
                         // record to be indexed
                         return rec;

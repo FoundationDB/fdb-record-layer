@@ -369,16 +369,22 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 }
                 return AsyncUtil.READY_TRUE; // let the caller handle the recovery
             }
-            Range rangeToBuild = fragmentIterationType == FragmentIterationType.FULL ?
+            final boolean isFull = fragmentIterationType == FragmentIterationType.FULL;
+            Range rangeToBuild = isFull ?
                                  fullyUnBuiltRange(missingRanges, fragmentRange) :
                                  partlyUnBuiltRange(missingRanges, fragmentRange);
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("range to build",
-                        LogMessageKeys.SCAN_TYPE, fragmentIterationType,
-                        LogMessageKeys.RANGE, rangeToBuild,
-                        LogMessageKeys.ORIGINAL_RANGE, fragmentRange));
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("range to build",
+                                LogMessageKeys.SCAN_TYPE, fragmentIterationType,
+                                LogMessageKeys.RANGE, rangeToBuild,
+                                LogMessageKeys.ORIGINAL_RANGE, fragmentRange)
+                        .addKeysAndValues(fragmentLogMessageKeyValues())
+                        .toString());
             }
             if (rangeToBuild != null && !anyJumperSaysJump(rangeToBuild)) {
+                timerIncrement(isFull ?
+                               FDBStoreTimer.Counts.MUTUAL_INDEXER_FULL_START :
+                               FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_START);
                 infiniteLoopProtection(rangeToBuild, missingRanges);
                 final List<Object> additionalLogMessageKeyValues = new ArrayList<>(
                         Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
@@ -392,6 +398,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 ).thenCompose(ignore -> AsyncUtil.READY_TRUE);
             }
             if (anyJumperEx == null) {
+                timerIncrement(isFull ?
+                               FDBStoreTimer.Counts.MUTUAL_INDEXER_FULL_DONE :
+                               FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_DONE);
                 fragmentPlusPlus();
             }
         }
@@ -534,14 +543,28 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         if (anyJumperEx == null || fragmentIterationType != FragmentIterationType.ANY) {
             return false;
         }
-        boolean same = anyJumperCurrent == fragmentCurrent;
-        if (same && anyJumperRange.equals(rangeToBuild)) {
-            // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
-            throw anyJumperEx;
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.build("anyJumper: check if should jump",
+                            "anyJumperRange", anyJumperRange,
+                            "anyJumperCurrent", anyJumperCurrent,
+                            "anyJumperEx", anyJumperEx,
+                            LogMessageKeys.RANGE, rangeToBuild)
+                    .addKeysAndValues(fragmentLogMessageKeyValues())
+                    .toString());
         }
-        // Here: if at the same fragment, jump ahead.
+        if (anyJumperCurrent == fragmentCurrent) {
+            if (anyJumperRange.equals(rangeToBuild)) {
+                // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
+                throw anyJumperEx;
+            }
+            // Here: Another indexer is working on this fragment, jump to the next one
+            timerIncrement(FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_JUMP);
+            anyJumperEx = null;
+            return true;
+        }
+        // Here: this way or another, the conflicting fragment is fully built now. Irrelevant.
         anyJumperEx = null;
-        return same;
+        return false;
     }
 
     @Nullable
