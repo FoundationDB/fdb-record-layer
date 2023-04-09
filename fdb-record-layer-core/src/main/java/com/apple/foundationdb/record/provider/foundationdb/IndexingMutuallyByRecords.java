@@ -341,6 +341,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         if (fragmentIterationType == FragmentIterationType.RECOVER) {
             // At this point, recovery should be done manually after investigation. In the future we may fallback
             // to a regular multi target indexing - with or without a type stamp change.
+            // Note that if there are less unbuilt fragments than active indexers, we will expect the surplus indexer to
+            // reach this iteration (see anyJumper below).
             throw new ValidationException("Mutual indexing failure - third iteration");
         }
         validateSameMetadataOrThrow(store);
@@ -552,19 +554,19 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     .addKeysAndValues(fragmentLogMessageKeyValues())
                     .toString());
         }
-        if (anyJumperCurrent == fragmentCurrent) {
-            if (anyJumperRange.equals(rangeToBuild)) {
-                // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
-                throw anyJumperEx;
-            }
-            // Here: Another indexer is working on this fragment, jump to the next one
-            timerIncrement(FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_JUMP);
+        if (anyJumperCurrent != fragmentCurrent) {
+            // Here: this way or another, the conflicting fragment is fully built now. Irrelevant.
             anyJumperEx = null;
-            return true;
+            return false;
         }
-        // Here: this way or another, the conflicting fragment is fully built now. Irrelevant.
+        if (anyJumperRange.equals(rangeToBuild)) {
+            // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
+            throw anyJumperEx;
+        }
+        // Here: Another indexer is processing this fragment, jump to the next one.
+        timerIncrement(FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_JUMP);
         anyJumperEx = null;
-        return false;
+        return true;
     }
 
     @Nullable
