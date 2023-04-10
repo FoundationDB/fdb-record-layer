@@ -79,6 +79,9 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     LinkedIdentitySet<T> getMembers();
 
     @Nonnull
+    ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions);
+
+    @Nonnull
     <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull PlanProperty<A> planProperty);
 
     @Nonnull

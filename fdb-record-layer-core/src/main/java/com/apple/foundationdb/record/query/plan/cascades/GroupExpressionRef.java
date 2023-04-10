@@ -431,6 +431,26 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return members;
     }
 
+    /**
+     * Re-reference members of this group, i.e., use a subset of members to from a new {@link GroupExpressionRef}.
+     * Note that {@code this} group must not need exploration.
+     *
+     * @param expressions a collection of expressions that all have to be members of this group
+     * @return a new explored {@link GroupExpressionRef}
+     */
+    @SuppressWarnings({"SuspiciousMethodCalls", "unchecked"})
+    @Nonnull
+    public ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        Verify.verify(!needsExploration());
+        Verify.verify(getMembers().containsAll(expressions));
+
+        final var members = new LinkedIdentitySet<T>();
+        expressions.forEach(expression -> members.add((T)expression));
+        final var newRef = new GroupExpressionRef<>(members);
+        newRef.getConstraintsMap().setExplored();
+        return newRef;
+    }
+
     @Nonnull
     @Override
     public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
@@ -478,7 +498,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T... expressions) {
+    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull T... expressions) {
         return from(Arrays.asList(expressions));
     }
 

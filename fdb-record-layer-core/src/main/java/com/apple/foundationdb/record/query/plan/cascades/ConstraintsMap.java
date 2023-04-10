@@ -249,6 +249,15 @@ public class ConstraintsMap {
         watermarkCommittedTick = watermarkGoalTick;
     }
 
+    /**
+     * Method to immediately indicate the group has been explored. This corresponds to calling {@link #startExploration()}
+     * and then {@link #commitExploration()}.
+     */
+    public void setExplored() {
+        watermarkGoalTick = currentTick;
+        watermarkCommittedTick = currentTick;
+    }
+
     @CanIgnoreReturnValue
     private long bumpTick() {
         return ++currentTick;

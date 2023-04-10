@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -83,9 +84,12 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                                   planPartition.getAttributeValue(PRIMARY_KEY).isPresent(),
                     rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))));
 
+    private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
+            all(forEachQuantifierOverRef(unionLegReferenceMatcher));
+
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
-            logicalUnionExpression(all(forEachQuantifierOverRef(unionLegReferenceMatcher)));
+            logicalUnionExpression(allForEachQuantifiersMatcher);
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = forEachQuantifier(unionExpressionMatcher);
@@ -98,17 +102,18 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
     }
 
     @Override
-    @SuppressWarnings("java:S135")
+    @SuppressWarnings({"java:S135", "UnstableApiUsage"})
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requiredOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requiredOrderingsOptional.isEmpty()) {
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
-        final var requestedOrderings = requiredOrderingsOptional.get();
+        final var requestedOrderings = requestedOrderingsOptional.get();
 
         final var bindings = call.getBindings();
 
         final var unionForEachQuantifier = bindings.get(unionForEachQuantifierMatcher);
+        final var allForEachQuantifiers = bindings.get(allForEachQuantifiersMatcher);
         final var planPartitionsByQuantifier = bindings.getAll(unionLegPlanPartitionsMatcher);
 
         final var partitionsCrossProduct = CrossProduct.crossProduct(planPartitionsByQuantifier);
@@ -197,12 +202,12 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     //
                     // create new quantifiers
                     //
-                    final var newQuantifiers = partitions
-                            .stream()
-                            .map(PlanPartition::getPlans)
-                            .map(GroupExpressionRef::from)
-                            .map(Quantifier::physical)
-                            .collect(ImmutableList.toImmutableList());
+                    final var newQuantifiers =
+                            Streams.zip(partitions.stream(),
+                                            allForEachQuantifiers.stream(),
+                                            (partition, quantifier) -> call.refMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
+                                    .map(Quantifier::physical)
+                                    .collect(ImmutableList.toImmutableList());
 
                     final var enumeratedSatisfyingComparisonKeyValues =
                             mergedOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);

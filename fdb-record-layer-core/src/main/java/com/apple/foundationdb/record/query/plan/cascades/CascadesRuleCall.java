@@ -23,19 +23,24 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call implementation for the {@link CascadesPlanner}. This rule call implements the logic for handling new
@@ -146,7 +151,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
                 if (root.insertFrom(member, groupExpressionRef)) {
                     newExpressions.add(member);
-                    traversal.addExpression(expressionReference, member);
+                    traversal.addExpression(root, member);
                 }
             }
         } else {
@@ -154,11 +159,30 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         }
     }
 
-    @Nonnull
-    public ExpressionRef<? extends RelationalExpression> ref(@Nonnull final RelationalExpression expression) {
-        if (expression.getQuantifiers().isEmpty()) {
-            return GroupExpressionRef.of(expression);
+    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"}) // deliberate use of == equality check for short-circuit condition
+    public void yield(@Nonnull Set<? extends RelationalExpression> expressions) {
+        for (RelationalExpression member : expressions) {
+            if (root.insert(member)) {
+                newExpressions.add(member);
+                traversal.addExpression(root, member);
+            }
         }
+    }
+
+    public void yield(@Nonnull RelationalExpression expression) {
+        if (root.insert(expression)) {
+            newExpressions.add(expression);
+            traversal.addExpression(root, expression);
+        }
+    }
+
+    @Nonnull
+    public ExpressionRef<? extends RelationalExpression> refExpression(@Nonnull final RelationalExpression expression) {
+        if (expression.getQuantifiers().isEmpty()) {
+            return refLeaf(expression);
+        }
+
+        Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
 
         final var referencePathsList =
                 expression.getQuantifiers()
@@ -170,7 +194,11 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, ExpressionRef<? extends RelationalExpression>>();
         referencePathsList.stream()
                 .flatMap(Collection::stream)
-                .forEach(referencePath -> expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference()));
+                .forEach(referencePath -> {
+                    if (expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference()) != null) {
+                        throw new RecordCoreException("expression used in multiple references");
+                    }
+                });
 
         final var referencingExpressions =
                 referencePathsList.stream()
@@ -190,7 +218,84 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             }
         }
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
-        return GroupExpressionRef.of(expression);
+        final var newRef = GroupExpressionRef.of(expression);
+        traversal.addExpression(newRef, expression);
+        return newRef;
+    }
+
+    @Nonnull
+    public ExpressionRef<? extends RelationalExpression> refLeaf(@Nonnull final RelationalExpression expression) {
+        Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
+        Preconditions.checkArgument(expression.getQuantifiers().isEmpty());
+
+        final var leafRefs = traversal.getLeafReferences();
+
+        for (final var leafRef : leafRefs) {
+            for (final var member : leafRef.getMembers()) {
+                if (GroupExpressionRef.containsInMember(expression, member)) {
+                    Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED)));
+                    return leafRef;
+                }
+            }
+        }
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
+        final var newRef = GroupExpressionRef.of(expression);
+        traversal.addExpression(newRef, expression);
+        return newRef;
+    }
+
+    @Nonnull
+    public ExpressionRef<? extends RelationalExpression> refMemberPlans(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                                                                        @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return refPlans(plans, reference::referenceFromMembers);
+    }
+
+    public ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull RecordQueryPlan... plans) {
+        return refPlans(Arrays.asList(plans));
+    }
+
+    @Nonnull
+    public ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return refPlans(plans, GroupExpressionRef::from);
+    }
+
+    @Nonnull
+    private ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull final Collection<? extends RecordQueryPlan> plans,
+                                                                   @Nonnull Function<Set<? extends RecordQueryPlan>, ExpressionRef<? extends RelationalExpression>> refAction) {
+        final var planSet = new LinkedIdentitySet<>(plans);
+        final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findPlansInMemo(planSet);
+
+        if (memoizedRefMaybe.isPresent()) {
+            Debugger.withDebugger(debugger ->
+                    planSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(plan, Debugger.Location.REUSED))));
+            return memoizedRefMaybe.get();
+        }
+
+        final var newRef = refAction.apply(planSet);
+        for (final var plan : planSet) {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(plan, Debugger.Location.NEW)));
+            traversal.addExpression(newRef, plan);
+        }
+        return newRef;
+    }
+
+    @Nonnull
+    private Optional<ExpressionRef<? extends RelationalExpression>> findPlansInMemo(final LinkedIdentitySet<? extends RecordQueryPlan> planSet) {
+        final var planIterator = planSet.iterator();
+        Verify.verify(planIterator.hasNext());
+        final var refsContainingAllPlans = traversal.getRefsContaining(planIterator.next());
+        while (planIterator.hasNext()) {
+            final var currentRefsContainingPlan = traversal.getRefsContaining(planIterator.next());
+            refsContainingAllPlans.retainAll(currentRefsContainingPlan);
+        }
+
+        //
+        // There should only at most be one exact match which is the ref that contains exactly all plans and nothing else.
+        //
+        final var memoizedRefMaybe = refsContainingAllPlans.stream()
+                .filter(refContainingAllPlans -> refContainingAllPlans.getMembers().size() == planSet.size())
+                .findFirst();
+        return memoizedRefMaybe;
     }
 
     /**
