@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -118,8 +117,6 @@ public class CombineFilterRule extends CascadesRule<LogicalFilterExpression> {
                 lowerPreds.stream()
                         .map(lowerPred -> lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yield(GroupExpressionRef.of(
-                new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred),
-                        newUpperQun)));
+        call.yield(new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred), newUpperQun));
     }
 }

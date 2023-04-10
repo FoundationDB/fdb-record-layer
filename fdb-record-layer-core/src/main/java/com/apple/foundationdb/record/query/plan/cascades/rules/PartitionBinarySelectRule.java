@@ -135,7 +135,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
             }
             newLeftQuantifier = Quantifier.forEachBuilder()
                     .withAlias(leftQuantifier.getAlias())
-                    .build(call.ref(leftSelectExpression));
+                    .build(call.refExpression(leftSelectExpression));
         } else {
             newLeftQuantifier = leftQuantifier;
         }
@@ -156,7 +156,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
             }
             newRightQuantifier = Quantifier.forEachBuilder()
                     .withAlias(rightQuantifier.getAlias())
-                    .build(call.ref(rightSelectExpression));
+                    .build(call.refExpression(rightSelectExpression));
         } else {
             newRightQuantifier = rightQuantifier;
         }
