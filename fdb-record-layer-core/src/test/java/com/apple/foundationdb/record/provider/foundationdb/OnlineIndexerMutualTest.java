@@ -1322,8 +1322,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
 
         // After unblocking, finish building
-        IntStream.rangeClosed(0, 3).parallel()
-                .forEach(ignore -> oneThreadIndexing(indexes, timer, boundariesList));
+        oneThreadIndexing(indexes, timer, boundariesList);
 
         // Validate
         assertReadable(indexes);
