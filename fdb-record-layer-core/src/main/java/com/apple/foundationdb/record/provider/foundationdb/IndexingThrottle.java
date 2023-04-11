@@ -229,7 +229,8 @@ public class IndexingThrottle {
                 if (shouldReturnQuietly != null) {
                     Optional<R> retVal = shouldReturnQuietly.apply(fdbE);
                     if (retVal.isPresent()) {
-                        // Here: handle a special case: would the caller wish us to quietly return?
+                        // Here: a non-empty answer signals to return this <R> value rather than handling the exception.
+                        // This is useful when the caller wishes to handle this exception itself.
                         ret.complete(retVal.get());
                         return AsyncUtil.READY_FALSE;
                     }
