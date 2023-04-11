@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class InMemoryCatalog implements StoreCatalog {
 
@@ -134,14 +133,6 @@ public class InMemoryCatalog implements StoreCatalog {
     @Override
     public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) {
         dbToSchemas.remove(dbUrl);
-        return true;
-    }
-
-    @Override
-    public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) {
-        final var dbsToDelete = dbToSchemas.keySet().stream().filter(key -> key.toString().startsWith(prefix))
-                .collect(Collectors.toSet());
-        dbsToDelete.forEach(key -> dbToSchemas.remove(key));
         return true;
     }
 

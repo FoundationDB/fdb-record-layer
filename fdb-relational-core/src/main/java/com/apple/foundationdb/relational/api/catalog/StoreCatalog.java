@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.SQLException;
 
 public interface StoreCatalog {
     /**
@@ -137,6 +136,4 @@ public interface StoreCatalog {
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
     boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException;
-
-    boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException, SQLException;
 }

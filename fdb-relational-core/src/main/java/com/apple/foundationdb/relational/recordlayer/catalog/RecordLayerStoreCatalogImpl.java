@@ -148,11 +148,15 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     public void initialize(@Nonnull final Transaction createTxn) throws RelationalException {
         try {
-            FDBRecordStore.newBuilder()
+            final var store = FDBRecordStore.newBuilder()
                     .setKeySpacePath(schemaPath)
                     .setContext(createTxn.unwrap(FDBRecordContext.class))
                     .setMetaDataProvider(metaDataProvider)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+
+            // Set the Catalog store's state cacheability to be true to make frequent opening of the store a light
+            // operation.
+            store.setStateCacheability(true);
 
             // Update the schema template without any existence checks for now because we depend on the in-memory schema
             // template store that does not persist. Hence, even though the entry remains in the schema table (that is
@@ -315,10 +319,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
         FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
-        return deleteDatabase(recordStore, dbUrl);
-    }
-
-    public boolean deleteDatabase(@Nonnull FDBRecordStoreBase<Message> recordStore, @Nonnull URI dbUrl) throws RelationalException {
         try {
             String dbId = dbUrl.getPath();
             final var allSchemasDeleted = deleteSchemas(recordStore, URI.create(dbId));
@@ -336,32 +336,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             throw ExceptionUtil.toRelationalException(rce);
         }
         return true;
-    }
-
-    @Override
-    public boolean deleteDatabasesWithPrefix(@Nonnull Transaction txn, @Nonnull String prefix) throws RelationalException, SQLException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
-        final var key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, prefix);
-        final var databaseDesc = recordStore.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING), ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
-        var resultSet = new RecordLayerResultSet(getMetaData(databaseDesc), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null);
-        try {
-            do {
-                if (!resultSet.next()) {
-                    return resultSet.getContinuation() == ContinuationImpl.END;
-                }
-                final var operationCompleted = deleteDatabase(recordStore, URI.create(resultSet.getString("DATABASE_ID")));
-                if (!operationCompleted) {
-                    return false;
-                }
-            } while (true);
-        } catch (RecordCoreStorageException ex) {
-            final var relationalException = ExceptionUtil.toRelationalException(ex);
-            if (relationalException.getErrorCode() == ErrorCode.TRANSACTION_INACTIVE || relationalException.getErrorCode() == ErrorCode.TRANSACTION_TIMEOUT) {
-                return false;
-            }
-            throw ExceptionUtil.toRelationalException(ex);
-        }
     }
 
     private FDBRecordStoreBase<Message> openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
