@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer;
 
 import javax.annotation.Nonnull;
 
@@ -56,6 +58,6 @@ public class LuceneAnalyzerWrapper {
 
     @Nonnull
     public static LuceneAnalyzerWrapper getStandardAnalyzerWrapper() {
-        return new LuceneAnalyzerWrapper(STANDARD_ANALYZER_NAME, new StandardAnalyzer());
+        return new LuceneAnalyzerWrapper(STANDARD_ANALYZER_NAME, new UAX29URLEmailAnalyzer(CharArraySet.EMPTY_SET));
     }
 }

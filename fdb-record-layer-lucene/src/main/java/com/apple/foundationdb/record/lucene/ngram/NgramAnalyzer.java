@@ -34,10 +34,12 @@ import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.ngram.EdgeNGramTokenFilter;
 import org.apache.lucene.analysis.ngram.NGramTokenFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,7 +68,7 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     protected TokenStreamComponents createComponents(String fieldName) {
-        final StandardTokenizer src = new StandardTokenizer();
+        final Tokenizer src = new UAX29URLEmailTokenizer();
         TokenStream tok = new LowerCaseFilter(src);
         tok = new StopFilter(tok, stopwords);
         tok = edgesOnly ? new EdgeNGramTokenFilter(tok, minTokenLength, maxTokenLength, true)

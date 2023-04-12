@@ -46,14 +46,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -61,6 +59,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -92,7 +91,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -102,6 +100,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -138,10 +140,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SuppressWarnings({"resource", "SameParameterValue"})
 @Tag(Tags.RequiresFDB)
 public class LuceneIndexTest extends FDBRecordStoreTestBase {
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
     private static final KeyExpression SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
     private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE = new Index("Simple_with_auto_complete",
@@ -179,15 +177,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
 
-    private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                    IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
-                    IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
-
-    private static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(
-                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                    LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
 
     private static final Index AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
@@ -294,22 +283,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setMetaDataProvider(metaData);
     }
 
-    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, int group) {
-        return TestRecordsTextProto.SimpleDocument.newBuilder()
-                .setDocId(docId)
-                .setGroup(group)
-                .build();
-    }
 
-    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, Integer group) {
-        var doc = TestRecordsTextProto.SimpleDocument.newBuilder()
-                .setDocId(docId)
-                .setText(text);
-        if (group != null) {
-            doc.setGroup(group);
-        }
-        return doc.build();
-    }
 
     private ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
         return createComplexDocument(docId, text, text2, group, true);
@@ -363,10 +337,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanBounds fullTextSearch(Index index, String search) {
-        return fullTextSearch(index, search, false);
+        return LuceneIndexTestUtils.fullTextSearch(recordStore,index,search,false);
     }
 
-    private LuceneScanBounds fullTextSearch(Index index, String search, boolean highlight) {
+    protected LuceneScanBounds fullTextSearch(Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false),
@@ -567,6 +541,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void searchTextWithEmailPrefix() {
+        /*
+         * Check that a prefix query with an email in it will return the email
+         */
+        try(FDBRecordContext context = openContext()){
+            rebuildIndexMetaData(context, SIMPLE_DOC,TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1241L,"{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}",1));
+            recordStore.saveRecord(createSimpleDocument(1342L,"{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}",2));
+
+            assertIndexEntryPrimaryKeys(List.of(1241L),
+                    recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "aburritoofjoy@tacos.com* AND group: 1"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
 
     @Test
     void searchTextQueryWithNumberRange() {
@@ -893,7 +881,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
             assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(2L, 1623L)),
-                    recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:jonleach@apple.com\\~"), null, ScanProperties.FORWARD_SCAN));
+                    recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:jonleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES), context, "_0.cfs", true);
         }
@@ -928,18 +916,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
 
             commit(context);
-        }
-    }
-
-    @Test
-    void highlightedPrefix() {
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            recordStore.saveRecord(createSimpleDocument(1645L, "Hello record layer", 1));
-            assertRecordHighlights(List.of("Hello {recor}d layer"),
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "recor*", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
         }
     }
 
@@ -1171,30 +1147,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void highlightedSynonymIndex() {
-        final String original = "peanut butter and jelly sandwich";
-        final String highlighted = "{peanut} butter and jelly sandwich";
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1236L, original, 1));
-            // Search for original token
-            assertRecordHighlights(List.of(highlighted),
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "peanut", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
-            // Search for synonym word
-            assertRecordHighlights(List.of(highlighted),
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "groundnut", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
-            // Search for synonym phrase
-            assertRecordHighlights(List.of(highlighted),
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "\"monkey nut\"", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
-        }
-    }
 
     /**
      * Test config with a combined set of synonyms.
@@ -1299,26 +1251,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // The term "ella" is not expected
             assertIndexEntryPrimaryKeys(Collections.emptyList(),
                     recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "ella"), null, ScanProperties.FORWARD_SCAN));
-        }
-    }
-
-    @Test
-    void highlightedNgramIndex() {
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
-            assertRecordHighlights(List.of("{Hello} record layer"),
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
-            assertRecordHighlights(List.of("Hello record layer"), // FIXME: {Hel}
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
-            assertRecordHighlights(List.of("Hello record layer"), // FIXME: re{cord}
-                    recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "cord", true), null, ScanProperties.FORWARD_SCAN),
-                            IndexOrphanBehavior.ERROR));
         }
     }
 
@@ -2457,10 +2389,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        openRecordStore(context, metaDataBuilder -> {
-            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(document, index);
-        });
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useRewritePlanner);
+        this.recordStore = pair.getLeft();
+        this.planner = pair.getRight();
     }
 
     private void assertIndexEntryPrimaryKeys(List<Long> primaryKeys, RecordCursor<IndexEntry> cursor) {
@@ -2475,23 +2406,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
     }
 
-    private void assertRecordHighlights(List<String> texts, RecordCursor<FDBIndexedRecord<Message>> cursor) {
-        List<String> highlighted = new ArrayList<>();
-        cursor.forEach(rec -> {
-            for (LuceneHighlighting.HighlightedTerm highlightedTerm : LuceneHighlighting.highlightedTermsForMessage(FDBQueriedRecord.indexed(rec), null)) {
-                final StringBuilder str = new StringBuilder(highlightedTerm.getSnippet());
-                int offset = 0;
-                for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
-                    str.insert(pos.getLeft() + offset, "{");
-                    offset++;
-                    str.insert(pos.getRight() + offset, "}");
-                    offset++;
-                }
-                highlighted.add(str.toString());
-            }
-        }).join();
-        assertEquals(texts, highlighted);
-    }
 
     /**
      * A testing analyzer factory to verify the logic for {@link AnalyzerChooser}.

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -60,12 +61,10 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -77,6 +76,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -90,6 +90,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -126,14 +127,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
-    static class BooleanArgumentsProvider implements ArgumentsProvider {
-        @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
-            return Stream.of(Arguments.of(false, false),
-                    Arguments.of(true, false),
-                    Arguments.of(false, true),
-                    Arguments.of(true, true));
-        }
+    @BeforeAll
+    public static void setup() {
+        //set up the English Synonym Map so that we don't spend forever setting it up for every test, because this takes a long time
+        SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
     }
 
     private static final List<TestRecordsTextProto.SimpleDocument> DOCUMENTS = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
@@ -154,7 +151,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             TextSamples.FRENCH
     );
 
-    private List<TestRecordsTextProto.MapDocument> mapDocuments = IntStream.range(0, textSamples.size() / 2)
+    private final List<TestRecordsTextProto.MapDocument> mapDocuments = IntStream.range(0, textSamples.size() / 2)
             .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
                     .setDocId(i)
                     .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
@@ -165,7 +162,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             .collect(Collectors.toList());
 
 
-    private List<TestRecordsTextProto.MapDocument> mapWithFieldDocuments = IntStream.range(0, textSamples.size() / 2)
+    private final List<TestRecordsTextProto.MapDocument> mapWithFieldDocuments = IntStream.range(0, textSamples.size() / 2)
             .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
                     .setDocId(i)
                     .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
@@ -175,7 +172,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             )
             .collect(Collectors.toList());
 
-    private List<TestRecordsTextProto.ComplexDocument> complexDocuments = IntStream.range(0, textSamples.size())
+    private final List<TestRecordsTextProto.ComplexDocument> complexDocuments = IntStream.range(0, textSamples.size())
             .mapToObj(i -> TestRecordsTextProto.ComplexDocument.newBuilder()
                     .setDocId(i)
                     .setGroup(i % 2)
@@ -186,8 +183,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
     private static final Index TEXT_AND_GROUP = new Index("text_and_group", concat(
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             function(LuceneFunctionNames.LUCENE_STORED, function(LuceneFunctionNames.LUCENE_SORTED, field("group")))),
@@ -225,13 +220,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService);
     }
 
+    @SuppressWarnings("SameParameterValue")
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
         final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
                 ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
                         LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY, String.valueOf(edgesOnly)));
-        openRecordStore(context, md -> { }, ngramIndex);
+        openRecordStore(context, md -> {
+        }, ngramIndex);
     }
 
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
@@ -239,21 +236,22 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 ImmutableMap.of(
                         LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
-        openRecordStore(context, md -> { }, ngramIndex);
+        openRecordStore(context, md -> {
+        }, ngramIndex);
     }
 
     protected void openRecordStoreWithGroup(FDBRecordContext context) {
-        openRecordStore(context, md -> { }, TEXT_AND_GROUP);
+        openRecordStore(context, md -> {
+        }, TEXT_AND_GROUP);
     }
 
     protected void openRecordStoreWithComplex(FDBRecordContext context) {
-        openRecordStore(context, md -> {
-            md.addIndex(TextIndexTestUtils.COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
-        }, null);
+        openRecordStore(context, md -> md.addIndex(TextIndexTestUtils.COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP), null);
     }
 
     protected void openRecordStore(FDBRecordContext context) {
-        openRecordStore(context, md -> { }, SIMPLE_TEXT_SUFFIXES);
+        openRecordStore(context, md -> {
+        }, SIMPLE_TEXT_SUFFIXES);
     }
 
     protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
@@ -304,189 +302,88 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private void initializeWithNgramIndex(String text, boolean edgesOnly, int minSize, int maxSize) {
-        try (FDBRecordContext context = openContext()) {
-            openRecordStoreWithNgramIndex(context, edgesOnly, minSize, maxSize);
-            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
-                    .setDocId(1L)
-                    .setGroup(1)
-                    .setText(text)
-                    .build();
-            recordStore.saveRecord(document);
-            commit(context);
-        }
-    }
-
-    private void initializedWithSynonymIndex(String text) {
-        try (FDBRecordContext context = openContext()) {
-            openRecordStoreWithSynonymIndex(context);
-            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
-                    .setDocId(1L)
-                    .setGroup(1)
-                    .setText(text)
-                    .build();
-            recordStore.saveRecord(document);
-            commit(context);
-        }
-    }
-
-    private void assertTermIndexedOrNot(String term, boolean indexedExpected, boolean shouldDeferFetch) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-            final QueryComponent filter = new LuceneQueryComponent(term, Lists.newArrayList());
-            // Query for full records
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
-                    .setFilter(filter)
-                    .build();
-            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
-            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
-            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
-            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
-            if (indexedExpected) {
-                assertEquals(Set.of(1L), Set.copyOf(primaryKeys), "Expected term not indexed");
-            } else {
-                assertThat("Unexpected term indexed", primaryKeys.isEmpty());
-            }
-        }
-    }
-
-    @Test
-    void luceneQueryHighlightingPositions() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-            final String text = "record record record record record record " +
-                                "layer " +
-                                "record record record record record record record record record record " +
-                                "layer " +
-                                "record record " +
-                                "layer " +
-                                "record record record record record record record record";
-            TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder().setDocId(0).setGroup(0).setText(text).build();
-            recordStore.saveRecord(simpleDocument);
-
-            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
-                    "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6), null);
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
-                    .setFilter(filter)
-                    .build();
-
-            RecordQueryPlan plan = planner.plan(query);
-
-            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
-            assertEquals(1, queriedRecordList.size());
-            FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
-            
-            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord, null);
-            assertEquals(1, highlightedTerms.size());
-            LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
-            assertEquals("text", highlightedTerm.getFieldName());
-            assertEquals("... record record layer record record record ... record record layer record record layer record record record record record ...", highlightedTerm.getSnippet());
-            assertEquals(List.of(Pair.of(18, 23), Pair.of(63, 68), Pair.of(83, 88)), highlightedTerm.getHighlightedPositions());
-            for (Pair<Integer, Integer> pos : highlightedTerm.getHighlightedPositions()) {
-                assertEquals("layer", highlightedTerm.getSnippet().substring(pos.getLeft(), pos.getRight()));
-            }
-        }
-    }
-
-    @Test
-    void testSynonymHighlight() throws Exception {
-        final String text = "record record record record record record " +
-                            "layer " +
-                            "record record record record record record record record record record " +
-                            "stratum " +
-                            "record record " +
-                            "layer " +
-                            "record record record record record record record record";
-        initializedWithSynonymIndex(text);
-        try (FDBRecordContext context = openContext()) {
-            openRecordStoreWithSynonymIndex(context);
-
-            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
-                    "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(6), null);
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
-                    .setFilter(filter)
-                    .build();
-
-            RecordQueryPlan plan = planner.plan(query);
-
-            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
-            assertEquals(1, queriedRecordList.size());
-            FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
-
-            List<LuceneHighlighting.HighlightedTerm> highlightedTerms = LuceneHighlighting.highlightedTermsForMessage(queriedRecord, null);
-            assertEquals(1, highlightedTerms.size());
-            LuceneHighlighting.HighlightedTerm highlightedTerm = highlightedTerms.get(0);
-            assertEquals("text", highlightedTerm.getFieldName());
-            assertEquals("... record record layer record record record ... record record stratum record record layer record record record record record ...", highlightedTerm.getSnippet());
-            assertEquals(List.of(Pair.of(18, 23), Pair.of(63, 70), Pair.of(85, 90)), highlightedTerm.getHighlightedPositions());
-            final List<Pair<Integer, Integer>> positions = highlightedTerm.getHighlightedPositions();
-            assertEquals("layer", highlightedTerm.getSnippet().substring(positions.get(0).getLeft(), positions.get(0).getRight()));
-            assertEquals("stratum", highlightedTerm.getSnippet().substring(positions.get(1).getLeft(), positions.get(1).getRight()));
-            assertEquals("layer", highlightedTerm.getSnippet().substring(positions.get(2).getLeft(), positions.get(2).getRight()));
+    private void assertPrimaryKeys(String term, boolean shouldDeferFetch, Set<Long> expectedPrimaryKeys) {
+        final QueryComponent filter = new LuceneQueryComponent(term, Lists.newArrayList());
+        // Query for full records
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                .setFilter(filter)
+                .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+        RecordQueryPlan plan = planner.plan(query);
+        try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+            Set<Long> primaryKeys = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey)
+                    .map(t -> t.getLong(0)).asStream().collect(Collectors.toSet());
+            assertEquals(expectedPrimaryKeys, primaryKeys, "Expected term not indexed");
         }
     }
 
     @ParameterizedTest(name = "testSynonym[shouldDeferFetch={0}]")
-    @BooleanSource
-    void testSynonym(boolean shouldDeferFetch) throws Exception {
-        initializedWithSynonymIndex("Good morning Mr Tian");
-        assertTermIndexedOrNot("good", true, shouldDeferFetch);
-        assertTermIndexedOrNot("morning", true, shouldDeferFetch);
-        // The synonym is not indexed into FDB, it is only used for in fly analysis during query time
-        assertTermIndexedOrNot("full", false, shouldDeferFetch);
+    @ValueSource(booleans = {true, false})
+    void testSynonym(boolean shouldDeferFetch) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithSynonymIndex(context);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Good morning Mr Tian")
+                    .build();
+            recordStore.saveRecord(document);
+
+            assertPrimaryKeys("good", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morning", shouldDeferFetch, Set.of(1L));
+            //The synonym analyzer will add in synonym terms to the query, so this should return even though
+            //it's not in the text
+            assertPrimaryKeys("full", shouldDeferFetch, Set.of(1L));
+        }
     }
 
     @ParameterizedTest(name = "testNgram[shouldDeferFetch={0}]")
-    @BooleanSource
-    void testNgram(boolean shouldDeferFetch) throws Exception {
-        initializeWithNgramIndex("Good morning Mr Tian", false, 3, 5);
-        // Token with length == 2, not indexed
-        assertTermIndexedOrNot("mo", false, shouldDeferFetch);
-        // Token with length == 3, indexed
-        assertTermIndexedOrNot("mor", true, shouldDeferFetch);
-        // Token with length == 4, indexed
-        assertTermIndexedOrNot("morn", true, shouldDeferFetch);
-        // Token with length == 5, indexed
-        assertTermIndexedOrNot("morni", true, shouldDeferFetch);
-        // Token not on front edge, also indexed, because not edgesOnly
-        assertTermIndexedOrNot("ornin", true, shouldDeferFetch);
-        // Token not on front edge, also indexed, because not edgesOnly
-        assertTermIndexedOrNot("rning", true, shouldDeferFetch);
-        // Token with length == 6, not indexed
-        assertTermIndexedOrNot("mornin", false, shouldDeferFetch);
-        // Token indexed with higher/lower case ignored
-        assertTermIndexedOrNot("Good", true, shouldDeferFetch);
-        assertTermIndexedOrNot("good", true, shouldDeferFetch);
-        // Token with length == 2, but also indexed, because it is a separate word
-        assertTermIndexedOrNot("Mr", true, shouldDeferFetch);
-        // Token with length == 7, but also indexed, because it is a separate word
-        assertTermIndexedOrNot("morning", true, shouldDeferFetch);
-        // Query parser parses it as "Mr" and "T" with OR operator, and "Mr" is indexed
-        assertTermIndexedOrNot("Mr T", true, shouldDeferFetch);
+    @ValueSource(booleans = {true, false})
+    void testNgram(boolean shouldDeferFetch) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithNgramIndex(context, false, 3, 5);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Good morning Mr Tian")
+                    .build();
+            recordStore.saveRecord(document);
+
+            assertPrimaryKeys("mo", shouldDeferFetch, Set.of());
+            assertPrimaryKeys("mor", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morn", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morni", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("ornin", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("orning", shouldDeferFetch, Set.of());
+            assertPrimaryKeys("mornin", shouldDeferFetch, Set.of());
+            assertPrimaryKeys("Good", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("good", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("Mr", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morning", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("Mr T", shouldDeferFetch, Set.of(1L));
+
+        }
     }
 
     @ParameterizedTest(name = "testNgramEdgesOnly[shouldDeferFetch={0}]")
-    @BooleanSource
-    void testNgramEdgesOnly(boolean shouldDeferFetch) throws Exception {
-        initializeWithNgramIndex("Good morning Mr Tian", true, 3, 5);
-        // Token with length == 2, not indexed
-        assertTermIndexedOrNot("mo", false, shouldDeferFetch);
-        // Token with length == 3, indexed
-        assertTermIndexedOrNot("mor", true, shouldDeferFetch);
-        // Token with length == 4, indexed
-        assertTermIndexedOrNot("morn", true, shouldDeferFetch);
-        // Token with length == 5, indexed
-        assertTermIndexedOrNot("morni", true, shouldDeferFetch);
-        // Not indexed, because edgesOnly
-        assertTermIndexedOrNot("ornin", false, shouldDeferFetch);
-        // Not indexed, because edgesOnly
-        assertTermIndexedOrNot("rning", false, shouldDeferFetch);
+    @ValueSource(booleans = {true, false})
+    void testNgramEdgesOnly(boolean shouldDeferFetch) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithNgramIndex(context, true, 3, 5);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Good morning Mr Tian")
+                    .build();
+            recordStore.saveRecord(document);
+            assertPrimaryKeys("mo", shouldDeferFetch, Set.of());
+            assertPrimaryKeys("mor", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morn", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("morni", shouldDeferFetch, Set.of(1L));
+            assertPrimaryKeys("ornin", shouldDeferFetch, Set.of());
+            assertPrimaryKeys("rning", shouldDeferFetch, Set.of());
+        }
     }
 
     @ParameterizedTest
@@ -504,17 +401,23 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI civil blood makes civil hands unclean")))));
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, matcher);
-            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
-            Set<Long> primaryKeys = queriedRecordList.stream().map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());
-            assertEquals(Set.of(2L, 4L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                List<FDBQueriedRecord<Message>> queriedRecordList = cursor.asList().get();
+                Set<Long> primaryKeys = queriedRecordList.stream().map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());
+                assertEquals(Set.of(2L, 4L), Set.copyOf(primaryKeys));
 
-            Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
-            texts.forEach(t -> assertTrue(t.contains("civil blood makes civil hands unclean")));
+                Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord)
+                        .filter(Objects::nonNull) //shouldn't be necessary, but helps the linter out
+                        .map(FDBStoredRecord::getRecord)
+                        .map(m -> (String)m.getField(m.getDescriptorForType().findFieldByName("text")))
+                        .collect(Collectors.toSet());
+                texts.forEach(t -> assertTrue(t.contains("civil blood makes civil hands unclean")));
+            }
         }
     }
 
@@ -531,10 +434,11 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
-            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
-            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(0L, 1L, 2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+                RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+                List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(0L, 1L, 2L), Set.copyOf(primaryKeys));
+            }
         }
 
     }
@@ -554,8 +458,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)), scan(bounds(hasTupleString("[[1],[1]]"))));
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(1L), Set.copyOf(primaryKeys));
+            try (final RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = cursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(1L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -575,19 +481,21 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(
                     unorderedUnion(
-                            indexScan(allOf(indexScan("Complex$text_index"),
+                            indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                                     indexScanType(LuceneScanTypes.BY_LUCENE),
                                     scanParams(query(hasToString("civil blood makes civil hands unclean"))))),
                             typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)),
                                     scan(bounds(hasTupleString("([null],[10000])"))))
                     ));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(2L, 4L, 0L, 1L, 3L, 5L), Set.copyOf(primaryKeys));
-            if (shouldDeferFetch) {
-                assertLoadRecord(5, context);
-            } else {
-                assertLoadRecord(6, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = cursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(2L, 4L, 0L, 1L, 3L, 5L), Set.copyOf(primaryKeys));
+                if (shouldDeferFetch) {
+                    assertLoadRecord(5, context);
+                } else {
+                    assertLoadRecord(6, context);
+                }
             }
         }
     }
@@ -607,18 +515,20 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(List.of(5L, 2L, 4L), primaryKeys);
-            if (shouldDeferFetch) {
-                assertLoadRecord(5, context);
-            } else {
-                assertLoadRecord(6, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(List.of(5L, 2L, 4L), primaryKeys);
+                if (shouldDeferFetch) {
+                    assertLoadRecord(5, context);
+                } else {
+                    assertLoadRecord(6, context);
+                }
             }
         }
     }
 
     @ParameterizedTest(name = "delayFetchOnAndOfLuceneAndFieldFilter[shouldDeferFetch={0}]")
-    @BooleanSource
+    @ValueSource(booleans = {true, false})
     void delayFetchOnAndOfLuceneAndFieldFilter(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
@@ -632,17 +542,17 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> scanMatcher = fetch(filter(filter2, coveringIndexScan(indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE), indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> scanMatcher = fetch(filter(filter2, coveringIndexScan(indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE), indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI civil blood makes civil hands unclean"))))))));
             assertThat(plan, scanMatcher);
-            RecordCursor<FDBQueriedRecord<Message>> primaryKeys;
-            primaryKeys = recordStore.executeQuery(plan);
-            final List<Long> keys = primaryKeys.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(2L), Set.copyOf(keys));
-            if (shouldDeferFetch) {
-                assertLoadRecord(3, context);
-            } else {
-                assertLoadRecord(4, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> primaryKeys = recordStore.executeQuery(plan)) {
+                final List<Long> keys = primaryKeys.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(2L), Set.copyOf(keys));
+                if (shouldDeferFetch) {
+                    assertLoadRecord(3, context);
+                } else {
+                    assertLoadRecord(4, context);
+                }
             }
         }
     }
@@ -664,10 +574,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            final Matcher<RecordQueryPlan> scan1 = indexScan(allOf(indexScan("Complex$text_index"),
+            final Matcher<RecordQueryPlan> scan1 = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI (\"civil blood makes civil hands unclean\")")))));
-            final Matcher<RecordQueryPlan> scan2 = indexScan(allOf(indexScan("Complex$text_index"),
+            final Matcher<RecordQueryPlan> scan2 = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI (\"was king from 966 to 1016\")")))));
             Matcher<RecordQueryPlan> matcher;
@@ -677,20 +587,30 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 matcher = primaryKeyDistinct(unorderedUnion(scan1, scan2));
             }
             assertThat(plan, matcher);
-            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
-            Set<Long> primaryKeys = queriedRecordList.stream().map(FDBRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());
-            assertEquals(Set.of(1L, 2L, 4L), primaryKeys);
-            if (shouldDeferFetch) {
-                assertLoadRecord(5, context);
-            } else {
-                assertLoadRecord(6, context);
-            }
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                List<FDBQueriedRecord<Message>> queriedRecordList = cursor.asList().get();
+                Set<Long> primaryKeys = queriedRecordList.stream()
+                        .map(FDBRecord::getPrimaryKey)
+                        .map(t -> t.getLong(0))
+                        .collect(Collectors.toSet());
+                assertEquals(Set.of(1L, 2L, 4L), primaryKeys);
+                if (shouldDeferFetch) {
+                    assertLoadRecord(5, context);
+                } else {
+                    assertLoadRecord(6, context);
+                }
 
-            Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
-            for (String text : texts) {
-                boolean match1 = text.contains("was king from 966 to 1016");
-                boolean match2 = text.contains("civil blood makes civil hands unclean");
-                assertTrue(match1 || match2);
+                Set<String> texts = queriedRecordList.stream()
+                        .map(FDBQueriedRecord::getStoredRecord)
+                        .filter(Objects::nonNull) //unnecessary, but helps keep the linter happy
+                        .map(FDBStoredRecord::getRecord)
+                        .map(m -> (String)m.getField(m.getDescriptorForType().findFieldByName("text")))
+                        .collect(Collectors.toSet());
+                for (String text : texts) {
+                    boolean match1 = text.contains("was king from 966 to 1016");
+                    boolean match2 = text.contains("civil blood makes civil hands unclean");
+                    assertTrue(match1 || match2);
+                }
             }
         }
     }
@@ -718,20 +638,30 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" AND MULTI grudge")))));
             assertThat(plan, matcher);
-            List<FDBQueriedRecord<Message>> queriedRecordList = recordStore.executeQuery(plan).asList().get();
-            Set<Long> primaryKeys = queriedRecordList.stream().map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).collect(Collectors.toSet());
-            assertEquals(Set.of(4L), primaryKeys);
-            if (shouldDeferFetch) {
-                assertLoadRecord(3, context);
-            } else {
-                assertLoadRecord(4, context);
-            }
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                List<FDBQueriedRecord<Message>> queriedRecordList = cursor.asList().get();
+                Set<Long> primaryKeys = queriedRecordList.stream()
+                        .map(FDBQueriedRecord::getPrimaryKey)
+                        .map(t -> t.getLong(0))
+                        .collect(Collectors.toSet());
+                assertEquals(Set.of(4L), primaryKeys);
+                if (shouldDeferFetch) {
+                    assertLoadRecord(3, context);
+                } else {
+                    assertLoadRecord(4, context);
+                }
 
-            Set<String> texts = queriedRecordList.stream().map(FDBQueriedRecord::getStoredRecord).map(FDBStoredRecord::getRecord).map(m -> (String) m.getField(m.getDescriptorForType().findFieldByName("text"))).collect(Collectors.toSet());
-            for (String text : texts) {
-                boolean match1 = text.contains("the continuance");
-                boolean match2 = text.contains("grudge");
-                assertTrue(match1 || match2);
+                Set<String> texts = queriedRecordList.stream()
+                        .map(FDBQueriedRecord::getStoredRecord)
+                        .filter(Objects::nonNull)
+                        .map(FDBStoredRecord::getRecord)
+                        .map(m -> (String)m.getField(m.getDescriptorForType().findFieldByName("text")))
+                        .collect(Collectors.toSet());
+                for (String text : texts) {
+                    boolean match1 = text.contains("the continuance");
+                    boolean match2 = text.contains("grudge");
+                    assertTrue(match1 || match2);
+                }
             }
         }
     }
@@ -754,12 +684,17 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI (the continuance AND grudge)")))));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(4L), Set.copyOf(primaryKeys));
-            if (shouldDeferFetch) {
-                assertLoadRecord(3, context);
-            } else {
-                assertLoadRecord(4, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor
+                        .map(FDBQueriedRecord::getPrimaryKey)
+                        .map(t -> t.getLong(0))
+                        .asList().get();
+                assertEquals(Set.of(4L), Set.copyOf(primaryKeys));
+                if (shouldDeferFetch) {
+                    assertLoadRecord(3, context);
+                } else {
+                    assertLoadRecord(4, context);
+                }
             }
         }
     }
@@ -782,18 +717,20 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" OR grudge")))));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(4L, 5L, 2L), Set.copyOf(primaryKeys));
-            if (shouldDeferFetch) {
-                assertLoadRecord(3, context);
-            } else {
-                assertLoadRecord(4, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(4L, 5L, 2L), Set.copyOf(primaryKeys));
+                if (shouldDeferFetch) {
+                    assertLoadRecord(3, context);
+                } else {
+                    assertLoadRecord(4, context);
+                }
             }
         }
     }
 
     @ParameterizedTest(name = "misMatchQueryShouldReturnNoResult[shouldDeferFetch={0}]")
-    @BooleanSource
+    @ValueSource(booleans = {true, false})
     void misMatchQueryShouldReturnNoResult(boolean shouldDeferFetch) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
@@ -806,14 +743,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"), indexScanType(LuceneScanTypes.BY_LUCENE), scanParams(query(hasToString("MULTI doesNotExist")))));
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()), indexScanType(LuceneScanTypes.BY_LUCENE), scanParams(query(hasToString("MULTI doesNotExist")))));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(), Set.copyOf(primaryKeys));
-            if (shouldDeferFetch) {
-                assertLoadRecord(3, context);
-            } else {
-                assertLoadRecord(4, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(), Set.copyOf(primaryKeys));
+                if (shouldDeferFetch) {
+                    assertLoadRecord(3, context);
+                } else {
+                    assertLoadRecord(4, context);
+                }
             }
         }
     }
@@ -850,8 +789,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(false);
             RecordQueryPlan plan = planner.plan(query);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
+                        .map(FDBQueriedRecord::getPrimaryKey)
+                        .map(t -> t.getLong(0))
+                        .asList().get();
+                assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
+            }
         }
     }
 
@@ -860,7 +804,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         final ThreadFactory delegate = Executors.defaultThreadFactory();
 
         @Override
-        public Thread newThread(Runnable r) {
+        public Thread newThread(@Nonnull Runnable r) {
             return delegate.newThread(() -> {
                 threadCounts.merge(Thread.currentThread().getName(), 1, Integer::sum);
                 r.run();
@@ -883,16 +827,18 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
 
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(
-                    indexScanType(LuceneScanTypes.BY_LUCENE),
-                    indexScan("Map$entry-value"),
-                    scanParams(allOf(
-                            query(hasToString("entry_value:king")),
-                            group(hasTupleString("[[a],[a]]"))))
-            ));
-            assertThat(plan, matcher);
-            assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                Matcher<RecordQueryPlan> matcher = indexScan(allOf(
+                        indexScanType(LuceneScanTypes.BY_LUCENE),
+                        indexScan("Map$entry-value"),
+                        scanParams(allOf(
+                                query(hasToString("entry_value:king")),
+                                group(hasTupleString("[[a],[a]]"))))
+                ));
+                assertThat(plan, matcher);
+                assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -914,8 +860,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     scanParams(query(hasToString("entry_value:king")))
             ));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(0L, 2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(0L, 2L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -942,14 +890,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 matcher = primaryKeyDistinct(matcher);
             }
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(), Set.copyOf(primaryKeys));
+            }
         }
     }
 
     @ParameterizedTest(name = "nestedOneOfThemWithAndQuery[shouldDeferFetch={0}]")
     @BooleanSource
-    void nestedOneOfThemWithAndQuery(boolean shouldDeferFetch) throws Exception {
+    void nestedOneOfThemWithAndQuery(boolean shouldDeferFetch) {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -966,17 +916,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     // TODO: This query does not have the proper correlation between the two children. An index that put the key into the name would be needed to tell that.
                     scanParams(query(hasToString("entry_key:STRING EQUALS b AND entry_value:TEXT TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean")))
-                    ));
+            ));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
             } else {
                 matcher = primaryKeyDistinct(matcher);
             }
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            //assertEquals(Set.of(), Set.copyOf(primaryKeys));
         }
-
     }
 
     @ParameterizedTest(name = "nestedOneOfThemWithOrQuery[shouldDeferFetch={0}]")
@@ -1004,8 +951,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 matcher = primaryKeyDistinct(matcher);
             }
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(0L, 1L, 2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(0L, 1L, 2L), Set.copyOf(primaryKeys));
+            }
         }
 
     }
@@ -1028,8 +977,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     scanParams(query(hasToString("doc_id:LONG GREATER_THAN 1")))
             ));
             assertThat(plan, matcher);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -1052,24 +1003,24 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     scanParams(query(hasToString("MULTI parents")))
             )));
             assertThat(plan, matcher);
-            List<Pair<Long, Long>> results = recordStore.executeQuery(plan).map(qr -> {
-                long pk = qr.getPrimaryKey().getLong(0);
-                TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
-                builder.mergeFrom(qr.getRecord());
-                long gr = builder.getGroup();
-                return Pair.of(pk, gr);
-            }).asList().get();
-            assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
-            assertLoadRecord(0, context);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Pair<Long, Long>> results = recordCursor.map(qr -> {
+                    long pk = qr.getPrimaryKey().getLong(0);
+                    TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+                    builder.mergeFrom(qr.getRecord());
+                    long gr = builder.getGroup();
+                    return Pair.of(pk, gr);
+                }).asList().get();
+                assertEquals(Set.of(Pair.of(2L, 0L), Pair.of(4L, 0L), Pair.of(5L, 1L)), Set.copyOf(results));
+                assertLoadRecord(0, context);
+            }
         }
     }
 
     @Test
-    void fullGroupScan() throws Exception {
+    void fullGroupScan() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, md -> {
-                md.removeIndex(MAP_AND_FIELD_ON_LUCENE_INDEX.getName());
-            }, SIMPLE_TEXT_SUFFIXES);
+            openRecordStore(context, md -> md.removeIndex(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()), SIMPLE_TEXT_SUFFIXES);
             QueryComponent groupFilter = Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a"));
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
@@ -1111,15 +1062,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.and(filter1, Query.not(filter2)))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI Verona AND NOT MULTI traffic")))));
             assertThat(plan, matcher);
             assertThat(getLuceneQuery(plan), Matchers.hasToString("+(text:verona) -(text:traffic)"));
-            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
-            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
-            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+                RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+                List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(2L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -1134,15 +1086,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.not(filter))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("NOT MULTI Verona")))));
             assertThat(plan, matcher);
             assertThat(getLuceneQuery(plan), Matchers.hasToString("+*:* -(text:verona)"));
-            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
-            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
-            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(0L, 1L, 3L, 5L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+                RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+                List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(0L, 1L, 3L, 5L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -1158,15 +1111,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.not(Query.or(filter1, filter2)))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("NOT MULTI Verona AND NOT MULTI traffic")))));
             assertThat(plan, matcher);
             assertThat(getLuceneQuery(plan), Matchers.hasToString("+*:* -(text:verona) -(text:traffic)"));
-            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
-            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
-            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
-            assertEquals(Set.of(0L, 1L, 3L), Set.copyOf(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
+                RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+                List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+                assertEquals(Set.of(0L, 1L, 3L), Set.copyOf(primaryKeys));
+            }
         }
     }
 
@@ -1188,8 +1142,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("doc_id"), true)
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(List.of(5L, 4L, 2L), primaryKeys);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                assertEquals(List.of(5L, 4L, 2L), primaryKeys);
+            }
         }
     }
 
@@ -1209,8 +1165,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("doc_id"), true)
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(1)).asList().get();
-            assertEquals(List.of(2L, 0L), primaryKeys);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(1)).asList().get();
+                assertEquals(List.of(2L, 0L), primaryKeys);
+            }
         }
     }
 
@@ -1240,11 +1198,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertThat(plan, primaryKeyDistinct(unorderedUnion(matcher1, matcher2)));
             }
-            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            if (sorted) {
-                assertEquals(List.of(1L, 2L, 4L, 5L), primaryKeys);
-            } else {
-                assertEquals(Set.of(1L, 2L, 4L, 5L), new HashSet<>(primaryKeys));
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                if (sorted) {
+                    assertEquals(List.of(1L, 2L, 4L, 5L), primaryKeys);
+                } else {
+                    assertEquals(Set.of(1L, 2L, 4L, 5L), new HashSet<>(primaryKeys));
+                }
             }
         }
     }
@@ -1268,8 +1228,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             byte[] continuation = null;
             AtomicReference<RecordCursorResult<Long>> holder = new AtomicReference<>();
             do {
-                primaryKeys.addAll(recordStore.executeQuery(plan, continuation, executeProperties).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList(holder).get());
-                continuation = holder.get().getContinuation().toBytes();
+                try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+                    primaryKeys.addAll(recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList(holder).get());
+                    continuation = holder.get().getContinuation().toBytes();
+                }
             } while (continuation != null);
             if (sorted) {
                 assertEquals(List.of(2L, 4L, 5L), primaryKeys);
@@ -1278,5 +1240,4 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             }
         }
     }
-
 }

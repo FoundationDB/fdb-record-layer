@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
@@ -115,7 +116,11 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Nonnull
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        return new LuceneScanQuery(scanType, getGroupKey(store, context), query.bind(store, index, context),
+        final Query luceneQuery = query.bind(store, index, context);
+        if(luceneQueryHighlightParameters!=null){
+            luceneQueryHighlightParameters.query = luceneQuery;
+        }
+        return new LuceneScanQuery(scanType, getGroupKey(store, context), luceneQuery,
                 sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters);
     }
 
@@ -211,6 +216,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
      */
     public static class LuceneQueryHighlightParameters {
         private final int snippedSize;
+        private Query query;
 
         /**
          * Create parameter for lucene query highlights.
@@ -218,6 +224,16 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
          */
         public LuceneQueryHighlightParameters(int snippetSize) {
             this.snippedSize = snippetSize;
+            this.query = null;
+        }
+
+        public LuceneQueryHighlightParameters(int snippetSize, Query theQuery) {
+            this.snippedSize = snippetSize;
+            this.query = theQuery;
+        }
+
+        public Query getQuery() {
+            return query;
         }
 
         public boolean isCutSnippets() {
