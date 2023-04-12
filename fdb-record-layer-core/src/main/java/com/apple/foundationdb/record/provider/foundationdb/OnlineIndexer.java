@@ -829,7 +829,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Active indexing sessions will check for this block according to {@link IndexingPolicy.Builder#checkIndexingStampFrequencyMilliseconds(long)}.}
      * @param id if non null, will be added to the "indexing stamp" as an id/hint for the blocking reason.
      * @param ttlSeconds if non null, the block will automatically expire after this value (in seconds).
-     * @return a map of target indexes and their "indexing stamps" before the change.
+     * @return a map of target indexes and their "indexing stamps" after the change.
      */
     @API(API.Status.EXPERIMENTAL)
     public Map<String, IndexBuildProto.IndexBuildIndexingStamp> blockIndexBuilds(@Nullable String id, @Nullable Long ttlSeconds)  {
@@ -840,7 +840,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Unblock partly built indexes, allowing continuation.
      * @param id if non-null nor empty, unblock the indexes only if this matches the id in the "indexing stamp", as was
      * set by {@link #blockIndexBuilds(String, Long)}.
-     * @return  a map of target indexes and their "indexing stamps" before the change.
+     * @return  a map of target indexes and their "indexing stamps" after the change.
      */
     @API(API.Status.EXPERIMENTAL)
     public Map<String, IndexBuildProto.IndexBuildIndexingStamp> unblockIndexBuilds(@Nullable String id) {

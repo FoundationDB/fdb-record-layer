@@ -42,7 +42,6 @@ import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -726,7 +725,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
-                assertFalse(stamp.getBlock());
+                assertTrue(stamp.getBlock());
             }
         }
 

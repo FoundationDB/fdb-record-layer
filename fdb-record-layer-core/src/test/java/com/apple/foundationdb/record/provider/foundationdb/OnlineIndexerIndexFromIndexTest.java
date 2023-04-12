@@ -1036,7 +1036,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             String indexName = tgtIndex.getName();
             final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
-            assertFalse(stamp.getBlock());
+            assertTrue(stamp.getBlock());
         }
 
         // query, ensure blocked
