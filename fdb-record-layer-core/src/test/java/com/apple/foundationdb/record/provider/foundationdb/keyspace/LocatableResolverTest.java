@@ -23,11 +23,14 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -35,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -50,6 +54,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -84,6 +89,7 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -95,6 +101,8 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -121,6 +129,8 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         random = new Random(seed);
         globalScope = resolverFactory.getGlobalScope();
         database = resolverFactory.getDatabase();
+        // Loading the reverse directory cache can happen in a potentially conflicting transaction, so get it out of the way
+        database.getReverseDirectoryCache().waitUntilReadyForTesting();
     }
 
     @Test
@@ -954,6 +964,63 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }, is(0), 200, 10);
     }
 
+    @Test
+    void testUpdatingResolverStateDirectly() {
+        final ResolverStateProto.State newState;
+        try (FDBRecordContext context = database.openContext()) {
+            ResolverStateProto.State state = globalScope.loadResolverState(context).join();
+            assertNotNull(state);
+
+            int version = globalScope.getVersion(null).join();
+            assertEquals(state.getVersion(), version);
+
+            newState = state.toBuilder()
+                    .setVersion(state.getVersion() + 1)
+                    .setLock(ResolverStateProto.WriteLock.RETIRED)
+                    .build();
+            globalScope.saveResolverState(context, newState).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            ResolverStateProto.State state = globalScope.loadResolverState(context).join();
+            assertEquals(newState, state);
+
+            int potentiallyCachedVersion = globalScope.getVersion(null).join();
+            assertThat(potentiallyCachedVersion, either(equalTo(newState.getVersion())).or(equalTo(newState.getVersion() - 1)));
+            database.clearCaches();
+            assertEquals(newState.getVersion(), globalScope.getVersion(null).join());
+        }
+    }
+
+    @Test
+    void enforceResolverStateMonotonicity() {
+        int initialVersion = globalScope.getVersion(null).join();
+        try (FDBRecordContext context = database.openContext()) {
+            globalScope.saveResolverState(context, ResolverStateProto.State.newBuilder().setVersion(initialVersion + 10).build()).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            ResolverStateProto.State newState = ResolverStateProto.State.newBuilder()
+                    .setVersion(initialVersion + 5)
+                    .build();
+            CompletionException completionException = assertThrows(CompletionException.class, () -> globalScope.saveResolverState(context, newState).join());
+            assertNotNull(completionException.getCause());
+            assertThat(completionException.getCause(), instanceOf(RecordCoreArgumentException.class));
+            RecordCoreArgumentException argumentException = (RecordCoreArgumentException) completionException.getCause();
+            assertThat(argumentException, hasMessageContaining("resolver state version must monotonically increase"));
+            context.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(initialVersion + 10, globalScope.loadResolverState(context).join().getVersion());
+            assertThat(globalScope.getVersion(null).join(), either(equalTo(initialVersion)).or(equalTo(initialVersion + 10)));
+            database.clearCaches();
+            assertEquals(initialVersion + 10, globalScope.getVersion(null).join());
+        }
+    }
+
     @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
     void testWriteSafetyCheck() {
@@ -1068,6 +1135,158 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
     }
 
+    @Test
+    void createAndReadInTransaction() {
+        final String key = "some_key";
+        ResolverResult result;
+        try (FDBRecordContext context = database.openContext()) {
+            assertNull(globalScope.readInTransaction(context, key).join());
+
+            result = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
+            assertEquals(result, globalScope.readInTransaction(context, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, result.getValue()).join());
+            context.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(result, globalScope.resolveWithMetadata(context, key, ResolverCreateHooks.getDefault()).join());
+            assertEquals(key, globalScope.reverseLookup(context, result.getValue()).join());
+            database.clearCaches();
+            assertEquals(result, globalScope.resolveWithMetadata(context, key, ResolverCreateHooks.getDefault()).join());
+            assertEquals(key, globalScope.reverseLookup(context, result.getValue()).join());
+        }
+    }
+
+    @Test
+    void createInMultipleTransactions() {
+        final String key = "a_key_to_create";
+        final ResolverResult committedResult;
+        final List<FDBRecordContext> contexts = new ArrayList<>();
+        final Set<Long> otherValues = new HashSet<>();
+        try {
+            FDBRecordContext firstContext = database.openContext();
+            firstContext.getReadVersion();
+            contexts.add(firstContext);
+            for (int i = 0; i < 10; i++) {
+                FDBRecordContext nextContext = database.openContext();
+                nextContext.getReadVersion();
+                contexts.add(nextContext);
+            }
+
+            assertNull(globalScope.readInTransaction(firstContext, key).join());
+            String expectedMetadata;
+            ResolverCreateHooks firstCreateHooks;
+            if (globalScope instanceof ScopedDirectoryLayer) {
+                expectedMetadata = null;
+                firstCreateHooks = ResolverCreateHooks.getDefault();
+            } else {
+                expectedMetadata = "first transaction";
+                firstCreateHooks = new ResolverCreateHooks(DEFAULT_CHECK, ignore -> expectedMetadata.getBytes(StandardCharsets.UTF_8));
+            }
+            committedResult = globalScope.createInTransaction(firstContext, key, firstCreateHooks).join();
+            assertEquals(expectedMetadata, committedResult.getMetadata() == null ? null : new String(committedResult.getMetadata(), StandardCharsets.UTF_8));
+            assertEquals(key, globalScope.reverseLookupInTransaction(firstContext, committedResult.getValue()).join());
+
+            for (FDBRecordContext otherContext : contexts.subList(1, contexts.size())) {
+                assertNull(globalScope.readInTransaction(otherContext, key).join());
+                ResolverResult otherResult = globalScope.createInTransaction(otherContext, key, ResolverCreateHooks.getDefault()).join();
+                assertEquals(key, globalScope.reverseLookupInTransaction(otherContext, otherResult.getValue()).join());
+                otherValues.add(otherResult.getValue());
+            }
+
+            firstContext.commit();
+            for (FDBRecordContext otherContext : contexts.subList(1, contexts.size())) {
+                assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, otherContext::commit);
+            }
+        } finally {
+            contexts.forEach(FDBRecordContext::close);
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(committedResult, globalScope.resolveWithMetadata(context, key, ResolverCreateHooks.getDefault()).join());
+            database.clearCaches();
+            assertEquals(committedResult, globalScope.resolveWithMetadata(context, key, ResolverCreateHooks.getDefault()).join());
+            otherValues.remove(committedResult.getValue());
+
+            for (Long otherValue : otherValues) {
+                CompletionException err = assertThrows(CompletionException.class, () -> globalScope.reverseLookup(context, otherValue).join());
+                assertNotNull(err.getCause());
+                assertThat(err.getCause(), instanceOf(NoSuchElementException.class));
+            }
+        }
+    }
+
+    @Test
+    void onlyCacheCommittedResults() {
+        final String key = "key_to_create_but_not_commit";
+        final ResolverResult uncommittedResult;
+        try (FDBRecordContext context = database.openContext()) {
+            uncommittedResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
+            assertNotNull(uncommittedResult);
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, uncommittedResult.getValue()).join());
+            // do not commit
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertNull(globalScope.readInTransaction(context, key).join());
+            ResolverResult intermediateResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
+            assertEquals(intermediateResult, globalScope.readInTransaction(context, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, intermediateResult.getValue()).join());
+            CompletionException reversLookupErr = assertThrows(CompletionException.class, () -> globalScope.reverseLookup(context, uncommittedResult.getValue()).join());
+            assertNotNull(reversLookupErr.getCause());
+            assertThat(reversLookupErr.getCause(), instanceOf(NoSuchElementException.class));
+            // do not commit
+        }
+
+        try (FDBRecordContext context1 = database.openContext(); FDBRecordContext context2 = database.openContext()) {
+            context1.getReadVersion();
+            context2.getReadVersion();
+
+            byte[] conflictKey = ByteArrayUtil2.unprint("conflict_key");
+            context1.ensureActive().addReadConflictKey(conflictKey);
+            context2.ensureActive().addWriteConflictKey(conflictKey);
+
+            assertNull(globalScope.readInTransaction(context1, key).join());
+            ResolverResult intermediateResult = globalScope.createInTransaction(context1, key, ResolverCreateHooks.getDefault()).join();
+            assertEquals(intermediateResult, globalScope.readInTransaction(context1, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context1, intermediateResult.getValue()).join());
+            CompletionException reversLookupErr = assertThrows(CompletionException.class, () -> globalScope.reverseLookup(context1, uncommittedResult.getValue()).join());
+            assertNotNull(reversLookupErr.getCause());
+            assertThat(reversLookupErr.getCause(), instanceOf(NoSuchElementException.class));
+
+            context2.commit();
+
+            // Attempt to commit context1, but it fails due to a transaction conflict (on conflict_key)
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context1::commit);
+        }
+
+        final ResolverResult committedResult;
+        try (FDBRecordContext context = database.openContext()) {
+            assertNull(globalScope.readInTransaction(context, key).join());
+            committedResult = globalScope.createInTransaction(context, key, ResolverCreateHooks.getDefault()).join();
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, committedResult.getValue()).join());
+
+            context.commit();
+        }
+
+        assertEquals(committedResult, database.getDirectoryCache(globalScope.getVersion(null).join())
+                .getIfPresent(globalScope.wrap(key)));
+        assertEquals(key, database.getReverseDirectoryInMemoryCache().getIfPresent(globalScope.wrap(committedResult.getValue())));
+        database.clearCaches();
+        assertNull(database.getDirectoryCache(globalScope.getVersion(null).join())
+                .getIfPresent(globalScope.wrap(key)));
+        assertNull(database.getReverseDirectoryInMemoryCache().getIfPresent(globalScope.wrap(committedResult.getValue())));
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(committedResult, globalScope.readInTransaction(context, key).join());
+            assertEquals(key, globalScope.reverseLookupInTransaction(context, committedResult.getValue()).join());
+            context.commit();
+        }
+        assertEquals(committedResult, database.getDirectoryCache(globalScope.getVersion(null).join())
+                .getIfPresent(globalScope.wrap(key)));
+        assertEquals(key, database.getReverseDirectoryInMemoryCache().getIfPresent(globalScope.wrap(committedResult.getValue())));
+    }
+
     @SuppressWarnings("squid:S5778") // allow multiple calls in throws lambda
     @Test
     void testSetMappingWithConflicts() {
@@ -1114,6 +1333,46 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                 globalScope.mustResolve(context, "a-different-key").join();
             }
         }, "nothing is added for a-different-key");
+    }
+
+    @Test
+    void testSetMappingWithUpdatedValue() {
+        final String key = "key_with_meta_data";
+        final String metaData1 = "meta_data_1";
+        final String metaData2 = "meta_data_2";
+        final ResolverResult initialResult;
+        try (FDBRecordContext context = database.openContext()) {
+            initialResult = globalScope.createInTransaction(context, key, new ResolverCreateHooks(List.of(), ignore -> {
+                if (globalScope instanceof ScopedDirectoryLayer) {
+                    return null;
+                } else {
+                    return metaData1.getBytes(StandardCharsets.UTF_8);
+                }
+            })).join();
+
+            if (globalScope instanceof ScopedDirectoryLayer) {
+                assertNull(initialResult.getMetadata());
+            } else {
+                assertNotNull(initialResult.getMetadata());
+                assertEquals(metaData1, new String(initialResult.getMetadata(), StandardCharsets.UTF_8));
+            }
+            context.commit();
+        }
+
+        assertEquals(initialResult, globalScope.resolveWithMetadata((FDBStoreTimer) null, key, ResolverCreateHooks.getDefault()).join());
+
+        // Update the meta-data on this key
+        final ResolverResult newResult = new ResolverResult(initialResult.getValue(), metaData2.getBytes(StandardCharsets.UTF_8));
+        try (FDBRecordContext context = database.openContext()) {
+            if (globalScope instanceof ScopedDirectoryLayer) {
+                UnsupportedOperationException err = assertThrows(UnsupportedOperationException.class, () -> globalScope.setMapping(context, key, newResult).join());
+                assertThat(err, hasMessageContaining("cannot manually add mappings"));
+            } else {
+                CompletionException err = assertThrows(CompletionException.class, () -> globalScope.setMapping(context, key, newResult).join());
+                assertNotNull(err.getCause());
+                assertThat(err.getCause(), hasMessageContaining("mapping already exists with different value"));
+            }
+        }
     }
 
     @Test

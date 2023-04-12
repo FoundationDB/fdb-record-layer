@@ -114,6 +114,12 @@ public abstract class LocatableResolver {
         return database;
     }
 
+    private void validateDatabase(@Nonnull FDBRecordContext context) {
+        if (!context.getDatabase().equals(database)) {
+            throw new RecordCoreArgumentException("attempted to resolve value against incorrect database");
+        }
+    }
+
     @Nonnull
     private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer,
                                               @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
@@ -159,6 +165,12 @@ public abstract class LocatableResolver {
                 runner.close();
             }
         }
+    }
+
+    private CompletableFuture<Cache<ScopedValue<String>, ResolverResult>> getDirectoryCache(@Nonnull FDBRecordContext context) {
+        validateDatabase(context);
+        return getVersion(context)
+                .thenApply(database::getDirectoryCache);
     }
 
     /**
@@ -350,15 +362,10 @@ public abstract class LocatableResolver {
     @API(API.Status.UNSTABLE)
     @Nonnull
     public CompletableFuture<ResolverResult> resolveWithMetadata(@Nonnull FDBRecordContext context, @Nonnull String name, @Nonnull ResolverCreateHooks hooks) {
-        if (!context.getDatabase().equals(database)) {
-            throw new RecordCoreArgumentException("attempted to resolve value against incorrect database");
-        }
-
         // check the version stored in the resolver state and compare it with what version the cache was created at
         // if we read a version that is ahead of whats stored in FDBDatabase we need to invalidate the cache in FDBDatabase
         // if the cache version in FDBDatabase is a future version we can trust the cache we get from getDirectoryCache
-        return getVersion(context)
-                .thenApply(database::getDirectoryCache)
+        return getDirectoryCache(context)
                 .thenCompose(directoryCache ->
                         resolveWithCache(context, wrap(name), directoryCache, hooks));
     }
@@ -462,6 +469,41 @@ public abstract class LocatableResolver {
         }).orElseThrow(() -> new NoSuchElementException("reverse lookup of " + wrap(value))));
     }
 
+    /**
+     * Lookup the String that maps to the provided value within the scope of the path that this object was constructed with.
+     * This will execute using the transaction provided to access the database, though the isolation is relaxed
+     * compared to other operations. In particular, the semantics are closer to {@code READ_COMMITTED} in that it can
+     * read entries committed by transactions started after the transaction was created. However, the only uncommitted
+     * data it will return will be those that were created by the same transaction.
+     *
+     * @param context the transaction to use to look up the reverse mapping
+     * @param value the value of the mapping to lookup
+     * @return a future that will contain the name that maps to this value
+     * @throws NoSuchElementException if the value is not found
+     */
+    @Nonnull
+    public CompletableFuture<String> reverseLookupInTransaction(@Nonnull FDBRecordContext context,
+                                                                long value) {
+        final Cache<ScopedValue<Long>, String> inMemoryCache = database.getReverseDirectoryInMemoryCache();
+        final ScopedValue<Long> reverseCacheKey = wrap(value);
+        String cachedString = inMemoryCache.getIfPresent(reverseCacheKey);
+        if (cachedString != null) {
+            return CompletableFuture.completedFuture(cachedString);
+        }
+        return readReverse(context, value).thenApply(maybeKey -> {
+            if (maybeKey.isPresent()) {
+                String key = maybeKey.get();
+                context.addPostCommit(() -> {
+                    inMemoryCache.put(reverseCacheKey, key);
+                    return AsyncUtil.DONE;
+                });
+                return key;
+            } else {
+                throw new NoSuchElementException("reverse lookup of " + reverseCacheKey);
+            }
+        });
+    }
+
     private CompletableFuture<ResolverResult> resolveWithCache(@Nonnull FDBRecordContext context,
                                                                @Nonnull ScopedValue<String> scopedName,
                                                                @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
@@ -481,6 +523,75 @@ public abstract class LocatableResolver {
             directoryCache.put(scopedName, fetched);
             return fetched;
         });
+    }
+
+    /**
+     * Read a value within the context of a single transaction. This will use the transaction passed in when
+     * reading from the database (unlike some of the methods in this class which will just use it as the
+     * basis of child transactions). If the name has not been previously inserted into the resolver, it
+     * will return {@code null}. Additionally, the isolation properties are somewhat relaxed, in that it can
+     * read values committed by newer transactions (from the {@linkplain FDBDatabase#getDirectoryCache(int)
+     * directory cache}), though it won't return any uncommitted data except for entries that were created
+     * using the supplied transaction.
+     *
+     * @param context the transaction to use to read from the database
+     * @param name the name to look up
+     * @return a future that contains the current {@link ResolverResult} for the given name or {@code null} if unset
+     */
+    @Nonnull
+    public CompletableFuture<ResolverResult> readInTransaction(@Nonnull FDBRecordContext context,
+                                                               @Nonnull String name) {
+        return getDirectoryCache(context).thenCompose(directoryCache -> {
+            ScopedValue<String> scopedName = wrap(name);
+            ResolverResult cachedValue = directoryCache.getIfPresent(scopedName);
+            if (cachedValue != null) {
+                return CompletableFuture.completedFuture(cachedValue);
+            }
+
+            return context.instrument(FDBStoreTimer.Events.DIRECTORY_READ, read(context, name)).thenApply(maybeResult -> {
+                ResolverResult result = maybeResult.orElse(null);
+                // If the value for this name was inserted in the same transaction, it is not safe to put the
+                // resolved value into the cache until the transaction commits. We don't really have a way
+                // of knowing if that's happened, so only add to the cache as a post-commit hook
+                addCachePostCommitIfNotError(context, directoryCache, name, result, null);
+                return result;
+            });
+        });
+    }
+
+    /**
+     * Allocate a new value within the context of a single transaction. This will use the transaction passed in when
+     * creating the resolver entry (unlike some of the methods in this class which will just use it as the
+     * basis of child transactions). It is the responsibility of the caller to ensure that an entry for this name has
+     * not been previously allocated (such as by calling {@link #readInTransaction(FDBRecordContext, String)}). This
+     * will return the new value that has been allocated.
+     *
+     * @param context the transaction to use to read from the database
+     * @param name the name to create a mapping for
+     * @param hooks hooks to run when inserting the name into the database
+     * @return a future that contains the current {@link ResolverResult} for the given name or {@code null} if unset
+     */
+    @Nonnull
+    public CompletableFuture<ResolverResult> createInTransaction(@Nonnull FDBRecordContext context,
+                                                                 @Nonnull String name,
+                                                                 @Nonnull ResolverCreateHooks hooks) {
+        return getDirectoryCache(context).thenCompose(directoryCache ->
+                createIfNotLocked(context, name, hooks).whenComplete((result, err) ->
+                        addCachePostCommitIfNotError(context, directoryCache, name, result, err)));
+    }
+
+    private void addCachePostCommitIfNotError(@Nonnull FDBRecordContext context,
+                                              @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
+                                              @Nonnull String name,
+                                              @Nullable ResolverResult result,
+                                              @Nullable Throwable err) {
+        if (result != null && err == null) {
+            context.addPostCommit(() -> {
+                ScopedValue<String> scopedName = wrap(name);
+                directoryCache.put(scopedName, result);
+                return AsyncUtil.DONE;
+            });
+        }
     }
 
     private CompletableFuture<ResolverResult> readOrCreateValue(@Nonnull FDBRecordContext context,
@@ -534,7 +645,7 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private CompletableFuture<ResolverStateProto.State> loadResolverState(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<ResolverStateProto.State> loadResolverState(@Nonnull FDBRecordContext context) {
         // don't use a snapshot read, the lock state shouldn't change frequently but if it does we should
         // fail the transaction and should retry getting the value.
         return context.instrument(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ,
@@ -688,6 +799,28 @@ public abstract class LocatableResolver {
                 LogMessageKeys.RESOLVER_KEY, key);
     }
 
+    /**
+     * Update the resolver's state in the context of a single transaction. Most users should prefer
+     * methods like {@link #incrementVersion()} to update the state version or methods like
+     * {@link #retireLayer()} to update whether the resolver is locked.
+     *
+     * @param context the transaction to use to update the resolver's state
+     * @param newState the new state to write
+     * @return a future that will be completed when the new state has been written
+     */
+    @Nonnull
+    public CompletableFuture<Void> saveResolverState(@Nonnull final FDBRecordContext context, @Nonnull ResolverStateProto.State newState) {
+        return loadResolverState(context).thenCompose(oldState -> {
+            if (newState.equals(oldState)) {
+                return AsyncUtil.DONE;
+            }
+            if (oldState.getVersion() > newState.getVersion()) {
+                throw new RecordCoreArgumentException("resolver state version must monotonically increase");
+            }
+            return writeResolverState(context, newState);
+        });
+    }
+
     private CompletableFuture<Void> updateAndCommitResolverState(@Nonnull final StateMutation mutation) {
         return runAsync(null, context -> updateResolverState(context, mutation),
                 LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::updateAndCommitResolverState",
@@ -696,17 +829,18 @@ public abstract class LocatableResolver {
     }
 
     private CompletableFuture<Void> updateResolverState(@Nonnull final FDBRecordContext context, @Nonnull final StateMutation mutation) {
+        return loadResolverState(context)
+                .thenApply(mutation::apply)
+                .thenCompose(newState -> writeResolverState(context, newState));
+    }
+
+    private CompletableFuture<Void> writeResolverState(@Nonnull final FDBRecordContext context, @Nonnull ResolverStateProto.State newState) {
         return getStateSubspaceAsync()
                 .thenApply(Subspace::getKey)
-                .thenCompose(stateKey ->
-                        context.ensureActive().get(stateKey)
-                                .thenApply(LocatableResolver::deserializeResolverState)
-                                .thenApply(state -> mutation.apply(state).toByteArray())
-                                .thenApply(bytes -> {
-                                    context.ensureActive().set(stateKey, bytes);
-                                    return null;
-                                })
-                );
+                .thenApply(stateKey -> {
+                    context.ensureActive().set(stateKey, newState.toByteArray());
+                    return null;
+                });
     }
 
     /**
