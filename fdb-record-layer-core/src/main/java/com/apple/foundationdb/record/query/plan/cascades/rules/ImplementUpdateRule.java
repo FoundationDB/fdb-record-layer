@@ -72,20 +72,22 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final var innerReference = call.get(innerReferenceMatcher);
         final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var updateExpression = call.get(root);
 
-        final ExpressionRef<? extends RelationalExpression> distinctPlansReference;
-        if (!innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
-            distinctPlansReference = GroupExpressionRef.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(GroupExpressionRef.from(innerPlanPartition.getPlans()))));
-        } else {
-            distinctPlansReference = GroupExpressionRef.from(innerPlanPartition.getPlans());
-        }
+        final var planPartitionReference =
+                call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
+
+        final var distinctPlansReference =
+                innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)
+                ? planPartitionReference
+                : call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yield(GroupExpressionRef.of(updateExpression.toPlan(physicalQuantifier)));
+        call.yield(updateExpression.toPlan(physicalQuantifier));
     }
 }

@@ -165,23 +165,24 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 //
                 final var dataAccessReference =
                         dataAccessForMatchPartition(call.getContext(),
+                                call,
                                 pushedRequestedOrderings,
                                 matchPartition);
 
-                if (dataAccessReference.getMembers().isEmpty()) {
+                if (dataAccessReference.isEmpty()) {
                     continue;
                 }
 
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
-                        .build(dataAccessReference);
+                        .build(call.memoizePlans(dataAccessReference));
                 
                 final var compensatedDataAccessExpression =
                         GraphExpansion.builder()
                                 .addQuantifier(dataAccessQuantifier)
                                 .build()
                                 .buildSelectWithResultValue(expression.getResultValue());
-                call.yield(GroupExpressionRef.of(compensatedDataAccessExpression));
+                call.yield(compensatedDataAccessExpression);
             }
         }
     }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -162,7 +161,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
 
-                final Quantifier.ForEach newQuantifier = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
+                final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
                 transformedPredicates.add(
                         new ValuePredicate(value,
                                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
@@ -174,8 +173,8 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
+        call.yield(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
-                transformedPredicates.build())));
+                transformedPredicates.build()));
     }
 }

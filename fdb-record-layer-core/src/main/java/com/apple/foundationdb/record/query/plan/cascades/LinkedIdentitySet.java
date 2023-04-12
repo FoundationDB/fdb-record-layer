@@ -138,6 +138,13 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
                         Collector.Characteristics.IDENTITY_FINISH)));
     }
 
+    @SuppressWarnings("unchecked")
+    public static <T> LinkedIdentitySet<T> of(@Nonnull final T... args) {
+        final var newSet = new LinkedIdentitySet<T>();
+        Collections.addAll(newSet, args);
+        return newSet;
+    }
+
     /**
      * Simple implementation class for {@code Collector}.
      *

@@ -177,12 +177,13 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
         return new LogicalTypeFilterExpression(getQueriedRecordTypeNames(),
-                new PrimaryScanExpression(this,
-                        getAvailableRecordTypeNames(),
-                        Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes())),
-                        comparisonRanges,
-                        reverseScanOrder,
-                        primaryKey),
+                Quantifier.forEach(
+                        GroupExpressionRef.of(new PrimaryScanExpression(this,
+                                getAvailableRecordTypeNames(),
+                                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes())),
+                                comparisonRanges,
+                                reverseScanOrder,
+                                primaryKey))),
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes())));
     }
 }

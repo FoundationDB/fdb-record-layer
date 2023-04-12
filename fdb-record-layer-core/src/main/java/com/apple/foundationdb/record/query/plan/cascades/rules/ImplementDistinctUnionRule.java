@@ -25,9 +25,8 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -205,7 +204,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.refMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -216,7 +215,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yield(GroupExpressionRef.of(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true)));
+                        call.yield(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
                     }
                 }
             }

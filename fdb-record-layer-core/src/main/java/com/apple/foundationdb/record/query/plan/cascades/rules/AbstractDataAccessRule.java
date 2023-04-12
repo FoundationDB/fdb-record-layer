@@ -23,18 +23,19 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -181,15 +182,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * </ul>
      *
      * @param planContext the plan context associated with this planner rule execution
+     * @param call the {@link CascadesRuleCall} that this invocation is a part of
      * @param requestedOrderings a set of requested orderings
      * @param matchPartition a match partition of compatibly-matching {@link PartialMatch}es
      * @return an expression reference that contains all compensated data access plans for the given match partition.
      *         Note that the reference can also include index-ANDed plans for match intersections and that other matches
      *         contained in the match partition passed in may not be planned at all.
      */
-    protected ExpressionRef<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
-                                                                                        @Nonnull Set<RequestedOrdering> requestedOrderings,
-                                                                                        @Nonnull Collection<? extends PartialMatch> matchPartition) {
+    protected Set<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
+                                                                              @Nonnull CascadesRuleCall call,
+                                                                              @Nonnull Set<RequestedOrdering> requestedOrderings,
+                                                                              @Nonnull Collection<? extends PartialMatch> matchPartition) {
         //
         // return if there are no complete matches
         //
@@ -197,19 +200,19 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final var bestMaximumCoverageMatches = maximumCoverageMatches(matchPartition, requestedOrderings);
         if (bestMaximumCoverageMatches.isEmpty()) {
-            return GroupExpressionRef.empty();
+            return LinkedIdentitySet.of();
         }
 
         // create scans for all best matches
         final var bestMatchToExpressionMap =
                 createScansForMatches(bestMaximumCoverageMatches, planContext);
 
-        final var toBeInjectedReference = GroupExpressionRef.empty();
+        final var resultSet = new LinkedIdentitySet<RelationalExpression>();
 
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
             applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
-                    .ifPresent(toBeInjectedReference::insertUnchecked);
+                    .ifPresent(resultSet::add);
         }
 
         final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
@@ -237,9 +240,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     bestMatchToDistinctExpressionMap,
                                     partition,
                                     requestedOrderings).stream())
-                    .forEach(toBeInjectedReference::insertUnchecked);
+                    .forEach(resultSet::add);
         });
-        return toBeInjectedReference;
+        return resultSet;
     }
 
     /**
@@ -390,7 +393,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         ImmutableMap.toImmutableMap(Map.Entry::getKey,
                                 entry -> {
                                     final RelationalExpression dataAccessExpression = entry.getValue();
-                                    return new LogicalDistinctExpression(dataAccessExpression);
+                                    return new LogicalDistinctExpression(GroupExpressionRef.of(dataAccessExpression));
                                 }));
     }
 
@@ -479,6 +482,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         partition
                                 .stream()
                                 .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch.getPartialMatch())))
+                                .map(GroupExpressionRef::of)
                                 .collect(ImmutableList.toImmutableList());
 
                 if (!compensation.isImpossible()) {

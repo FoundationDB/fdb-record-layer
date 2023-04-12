@@ -89,7 +89,7 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
             call.yield(
                     new RecordQueryUnorderedPrimaryKeyDistinctPlan(
                             Quantifier.physical(
-                                    call.refMemberPlans(innerReference, innerPlanPartition.getPlans()))));
+                                    call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));
         }
     }
 }

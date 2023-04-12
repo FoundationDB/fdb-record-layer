@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -50,13 +49,13 @@ public class ImplementPhysicalScanRule extends CascadesRule<PrimaryScanExpressio
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PrimaryScanExpression logical = call.get(root);
-        call.yield(GroupExpressionRef.of(new RecordQueryScanPlan(
+        call.yield(new RecordQueryScanPlan(
                 logical.getRecordTypes(),
                 logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
                 logical.getPrimaryKey(),
                 logical.scanComparisons(),
                 logical.isReverse(),
                 false,
-                logical.getMatchCandidate())));
+                logical.getMatchCandidate()));
     }
 }
