@@ -135,7 +135,7 @@ public class NotPredicate implements QueryPredicateWithChild {
         final var childInjectCompensationFunction = childInjectCompensationFunctionOptional.get();
 
         return Optional.of(translationMap -> {
-            final var childGraphExpansion = childInjectCompensationFunction.applyCompensation(translationMap);
+            final var childGraphExpansion = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
             Verify.verify(childGraphExpansion.getResultColumns().isEmpty());
             return GraphExpansion.of(ImmutableList.of(),
                     ImmutableList.of(not(childGraphExpansion.asAndPredicate())),

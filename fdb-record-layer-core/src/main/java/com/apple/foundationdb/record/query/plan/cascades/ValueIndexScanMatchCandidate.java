@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -39,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -210,9 +210,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
-                                                       @Nonnull final PlanContext planContext,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var reverseScanOrder =
                 matchInfo
@@ -222,6 +222,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
 
+        final var planContext = call.getContext();
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
@@ -231,18 +232,18 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
-                                Optional.of(partialMatch.getMatchCandidate()),
+                                partialMatch.getMatchCandidate(),
                                 baseRecordType,
                                 matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final PlanContext planContext,
-                                                                     @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                     final boolean isReverse,
-                                                                     @Nonnull Type.Record baseRecordType) {
+    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+                                                                @Nonnull final PlanContext planContext,
+                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                                final boolean isReverse,
+                                                                @Nonnull Type.Record baseRecordType) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }

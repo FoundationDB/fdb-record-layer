@@ -24,14 +24,17 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -169,21 +172,50 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
-                                                       @Nonnull final PlanContext planContext,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
+                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
-        return new LogicalTypeFilterExpression(getQueriedRecordTypeNames(),
-                Quantifier.forEach(
-                        GroupExpressionRef.of(new PrimaryScanExpression(this,
-                                getAvailableRecordTypeNames(),
-                                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes())),
-                                comparisonRanges,
-                                reverseScanOrder,
-                                primaryKey))),
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes())));
+
+        final var availableRecordTypeNames = getAvailableRecordTypeNames();
+        final var availableType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes()))
+                        .narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
+        final var scanPlan =
+                new RecordQueryScanPlan(availableRecordTypeNames,
+                        availableType,
+                        primaryKey,
+                        toScanComparisons(comparisonRanges),
+                        reverseScanOrder,
+                        false,
+                        this);
+
+        final var queriedRecordTypeNames = getQueriedRecordTypeNames();
+        Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
+        final var remainingRecordTypesToBeFiltered = Sets.difference(availableRecordTypeNames, queriedRecordTypeNames);
+
+        if (remainingRecordTypesToBeFiltered.isEmpty()) {
+            return scanPlan;
+        }
+
+        final var queriedType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
+
+        return new RecordQueryTypeFilterPlan(
+                Quantifier.physical(call.memoizePlans(scanPlan)),
+                remainingRecordTypesToBeFiltered,
+                queriedType);
+    }
+
+    @Nonnull
+    private static ScanComparisons toScanComparisons(@Nonnull List<ComparisonRange> comparisonRanges) {
+        ScanComparisons.Builder builder = new ScanComparisons.Builder();
+        for (ComparisonRange comparisonRange : comparisonRanges) {
+            builder.addComparisonRange(comparisonRange);
+        }
+        return builder.build();
     }
 }
