@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecord
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 
@@ -78,8 +77,9 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var logicalTypeFilterExpression = call.get(root);
+        final var innerReference = call.get(innerReferenceMatcher);
         final var planPartition = call.get(innerPlanPartitionMatcher);
-        final var noTypeFilterNeededBuilder = ImmutableList.<RecordQueryPlan>builder();
+        final var noTypeFilterNeeded = new LinkedIdentitySet<RecordQueryPlan>();
         final var unsatisfiedMapBuilder = ImmutableMultimap.<Set<String>, RecordQueryPlan>builder();
 
         for (final var innerPlan : planPartition.getPlans()) {
@@ -87,25 +87,24 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
             final var filterRecordTypes = Sets.newHashSet(logicalTypeFilterExpression.getRecordTypes());
 
             if (filterRecordTypes.containsAll(childRecordTypes)) {
-                noTypeFilterNeededBuilder.add(innerPlan);
+                noTypeFilterNeeded.add(innerPlan);
             } else {
                 unsatisfiedMapBuilder.put(Sets.intersection(filterRecordTypes, childRecordTypes), innerPlan);
             }
         }
 
-        final var noTypeFilterNeeded = noTypeFilterNeededBuilder.build();
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yield(GroupExpressionRef.from(noTypeFilterNeeded));
+            call.yield(noTypeFilterNeeded);
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yield(GroupExpressionRef.of(
+            call.yield(
                     new RecordQueryTypeFilterPlan(
-                            Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
+                            Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
-                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType()))));
+                            Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType())));
         }
     }
 }

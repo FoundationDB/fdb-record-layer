@@ -75,12 +75,12 @@ public class ImplementDeleteRule extends CascadesRule<DeleteExpression> {
         final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var deleteExpression = call.get(root);
 
-        final ExpressionRef<? extends RelationalExpression> planPartitionReference =
-                call.refMemberPlans(innerReference, innerPlanPartition.getPlans());
-        final ExpressionRef<? extends RelationalExpression> distinctPlansReference =
+        final var planPartitionReference =
+                call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
+        final var distinctPlansReference =
                 innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)
                 ? planPartitionReference
-                : call.refPlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
+                : call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()

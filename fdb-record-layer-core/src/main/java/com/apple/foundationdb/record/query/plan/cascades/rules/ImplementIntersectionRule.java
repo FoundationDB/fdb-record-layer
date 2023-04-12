@@ -24,16 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 
@@ -66,29 +67,34 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
                     rollUpTo(any(intersectionLegPlanPartitionMatcher), PropertiesMap.allAttributesExcept(DISTINCT_RECORDS, ORDERING))));
 
     @Nonnull
+    private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
+            all(forEachQuantifierOverRef(intersectionLegReferenceMatcher));
+
+    @Nonnull
     private static final BindingMatcher<LogicalIntersectionExpression> root =
-            logicalIntersectionExpression(all(forEachQuantifierOverRef(intersectionLegReferenceMatcher)));
+            logicalIntersectionExpression(allForEachQuantifiersMatcher);
 
     public ImplementIntersectionRule() {
         super(root);
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var logicalIntersectionExpression = bindings.get(root);
+        final var allQuantifiers = bindings.get(allForEachQuantifiersMatcher);
         final var planPartitionsByQuantifier = bindings.getAll(intersectionLegPlanPartitionMatcher);
 
         //
         // create new references
         //
-        final ImmutableList<Quantifier.Physical> newQuantifiers = planPartitionsByQuantifier
-                .stream()
-                .map(PlanPartition::getPlans)
-                .map(GroupExpressionRef::from)
-                .map(Quantifier::physical)
-                .collect(ImmutableList.toImmutableList());
+        final ImmutableList<Quantifier.Physical> newQuantifiers =
+                Streams.zip(planPartitionsByQuantifier.stream(), allQuantifiers.stream(),
+                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
+                        .map(Quantifier::physical)
+                        .collect(ImmutableList.toImmutableList());
 
-        call.yield(GroupExpressionRef.of(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKeyValues())));
+        call.yield(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, logicalIntersectionExpression.getComparisonKeyValues()));
     }
 }

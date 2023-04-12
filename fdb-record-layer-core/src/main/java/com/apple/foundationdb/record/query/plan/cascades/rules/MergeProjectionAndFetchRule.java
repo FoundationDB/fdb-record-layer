@@ -74,7 +74,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch
-            call.yield(GroupExpressionRef.of(fetchPlan.getChild()));
+            call.yield(fetchPlan.getChild());
         }
     }
 }

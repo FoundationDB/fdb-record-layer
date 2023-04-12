@@ -177,7 +177,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     }
 
     @Nonnull
-    public ExpressionRef<? extends RelationalExpression> refExpression(@Nonnull final RelationalExpression expression) {
+    public ExpressionRef<? extends RelationalExpression> memoizeExpression(@Nonnull final RelationalExpression expression) {
         if (expression.getQuantifiers().isEmpty()) {
             return refLeaf(expression);
         }
@@ -244,24 +244,24 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         return newRef;
     }
 
-    @Nonnull
-    public ExpressionRef<? extends RelationalExpression> refMemberPlans(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
-                                                                        @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return refPlans(plans, reference::referenceFromMembers);
-    }
-
-    public ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull RecordQueryPlan... plans) {
-        return refPlans(Arrays.asList(plans));
+    public ExpressionRef<? extends RelationalExpression> memoizeMemberPlans(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                                                                            @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return memoizePlans(plans, reference::referenceFromMembers);
     }
 
     @Nonnull
-    public ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return refPlans(plans, GroupExpressionRef::from);
+    public ExpressionRef<? extends RelationalExpression> memoizePlans(@Nonnull RecordQueryPlan... plans) {
+        return memoizePlans(Arrays.asList(plans));
     }
 
     @Nonnull
-    private ExpressionRef<? extends RelationalExpression> refPlans(@Nonnull final Collection<? extends RecordQueryPlan> plans,
-                                                                   @Nonnull Function<Set<? extends RecordQueryPlan>, ExpressionRef<? extends RelationalExpression>> refAction) {
+    public ExpressionRef<? extends RelationalExpression> memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return memoizePlans(plans, GroupExpressionRef::from);
+    }
+
+    @Nonnull
+    private ExpressionRef<? extends RelationalExpression> memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans,
+                                                                       @Nonnull Function<Set<? extends RecordQueryPlan>, ExpressionRef<? extends RelationalExpression>> refAction) {
         final var planSet = new LinkedIdentitySet<>(plans);
         final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findPlansInMemo(planSet);
 
@@ -348,5 +348,68 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Nonnull
     public EvaluationContext getEvaluationContext() {
         return evaluationContext;
+    }
+
+    @Nonnull
+    public ReferenceBuilder memoizeExpressionBuilder(@Nonnull final RelationalExpression expression) {
+        return new ReferenceBuilder() {
+            @Nonnull
+            @Override
+            public ExpressionRef<? extends RelationalExpression> reference() {
+                return memoizeExpression(expression);
+            }
+
+            @Nonnull
+            @Override
+            public Set<? extends RelationalExpression> members() {
+                return LinkedIdentitySet.of(expression);
+            }
+        };
+    }
+
+    @Nonnull
+    public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                                                      @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return memoizePlansBuilder(plans, reference::referenceFromMembers);
+    }
+
+    @Nonnull
+    public ReferenceBuilder memoizePlansBuilder(@Nonnull RecordQueryPlan... plans) {
+        return memoizePlansBuilder(Arrays.asList(plans));
+    }
+
+    @Nonnull
+    public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        return memoizePlansBuilder(plans, GroupExpressionRef::from);
+    }
+
+    @Nonnull
+    private ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans,
+                                                 @Nonnull Function<Set<? extends RecordQueryPlan>, ExpressionRef<? extends RelationalExpression>> refAction) {
+        final var planSet = new LinkedIdentitySet<>(plans);
+        return new ReferenceBuilder() {
+            @Nonnull
+            @Override
+            public ExpressionRef<? extends RelationalExpression> reference() {
+                return memoizePlans(plans, refAction);
+            }
+
+            @Nonnull
+            @Override
+            public Set<? extends RelationalExpression> members() {
+                return planSet;
+            }
+        };
+    }
+
+    /**
+     * Builder for references.
+     */
+    public interface ReferenceBuilder {
+        @Nonnull
+        ExpressionRef<? extends RelationalExpression> reference();
+
+        @Nonnull
+        Set<? extends RelationalExpression> members();
     }
 }
