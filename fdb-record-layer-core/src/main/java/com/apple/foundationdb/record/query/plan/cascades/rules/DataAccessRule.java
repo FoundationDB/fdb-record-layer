@@ -107,10 +107,8 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        call.yield(
-                dataAccessForMatchPartition(call.getContext(),
-                        call,
-                        requestedOrderings,
-                        matchPartition));
+        call.yield(dataAccessForMatchPartition(call,
+                requestedOrderings,
+                matchPartition));
     }
 }

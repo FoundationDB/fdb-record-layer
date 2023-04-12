@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -41,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -346,9 +346,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
-                                                       @Nonnull final PlanContext planContext,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
@@ -356,6 +356,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
 
+        final var planContext = call.getContext();
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
@@ -365,13 +366,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
-                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
+                                partialMatch.getMatchCandidate(),
                                 baseRecordType));
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final PlanContext planContext,
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse,

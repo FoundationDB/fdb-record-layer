@@ -119,7 +119,7 @@ public class AndPredicate extends AndOrPredicate {
 
         return Optional.of(translationMap -> {
             final var childrenGraphExpansions = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensation(translationMap))
+                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
                     .collect(ImmutableList.toImmutableList());
             return GraphExpansion.ofOthers(childrenGraphExpansions);
         });

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -176,14 +177,14 @@ public interface MatchCandidate {
                                                 boolean isDistinct);
 
     /**
-     * Creates a logical expression that represents a scan over the materialized candidate data.
+     * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data.
      * @param partialMatch the match to be used
-     * @param planContext the plan context for the query
-     * @return a new {@link RelationalExpression}
+     * @param call the rule call causing this method to be invoked
+     * @return a new {@link RecordQueryPlan}
      */
     @SuppressWarnings("java:S135")
-    default RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
-                                                        @Nonnull final PlanContext planContext) {
+    default RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
+                                             @Nonnull final CascadesRuleCall call) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -201,21 +202,21 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(partialMatch, planContext, comparisonRangesForScanBuilder.build());
+        return toEquivalentPlan(partialMatch, call, comparisonRangesForScanBuilder.build());
     }
 
     /**
-     * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
-     * to be implemented by specific implementations of {@link MatchCandidate}.
+     * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data. This method is
+     * expected to be implemented by specific implementations of {@link MatchCandidate}.
      * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
-     * @param planContext the plan context for the query
+     * @param call the rule call causing this method to be invoked
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
-     * @return a new {@link RelationalExpression}
+     * @return a new {@link RecordQueryPlan}
      */
     @Nonnull
-    RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
-                                                @Nonnull PlanContext planContext,
-                                                @Nonnull List<ComparisonRange> comparisonRanges);
+    RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
+                                     @Nonnull CascadesRuleCall call,
+                                     @Nonnull List<ComparisonRange> comparisonRanges);
 
     @Nonnull
     @SuppressWarnings("java:S1452")

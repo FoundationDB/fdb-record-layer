@@ -265,7 +265,7 @@ public class OrPredicate extends AndOrPredicate {
 
         return Optional.of(translationMap -> {
             final var childGraphExpansions = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensation(translationMap))
+                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
                     .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
             final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
