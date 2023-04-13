@@ -201,7 +201,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         range.parallel().forEach(ignore -> {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setMutualIndexingBoundaries(boundaries) // no boundaries mean self detection - which will be no boundaries
+                            .setMutualIndexingBoundaries(boundaries)
                             .build())
                     .setLimit(7)
                     .setMaxAttempts(2)
