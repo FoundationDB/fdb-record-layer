@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
@@ -48,12 +49,18 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.TerribleIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -82,6 +89,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -92,6 +100,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -1041,6 +1050,90 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    void doesNotUpdateSyntheticRecordTypeIfUnderlyingIndexesAreDisabled() throws Exception{
+        /*
+         * If the underlying indexes that are to be updated are not writable, then the synthetic update
+         * should not happen. This test verifies that by faking out the maintainer with a maintainer
+         * that always fails when you attempt to update it. If the error is thrown, then we haven't
+         * got it right.
+         */
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+
+        joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
+                field("custRef").nest("string_value"),
+                "cust",
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
+        );
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        )));
+
+        // Add index on custRef field to facilitate finding join partners of customer records
+        metaDataBuilder.addIndex("OrderWithHeader", new Index("order$custRef", concat(
+                field("___header").nest("z_key"),
+                field("custRef").nest("string_value")
+        )));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+            recordStore.markIndexDisabled(joinIndex).get();
+            context.commit();
+        }
+
+        IndexMaintainerRegistry backingRegistry = IndexMaintainerRegistryImpl.instance();
+        IndexMaintainerRegistry registry = new IndexMaintainerRegistry() {
+            @Nonnull
+            @Override
+            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+                if(!state.index.getName().equals("joinNestedConcat")){
+                    return backingRegistry.getIndexMaintainer(state);
+                }
+                else return new FailIndexMaintainer(state);
+            }
+
+            @Nonnull
+            @Override
+            public IndexValidator getIndexValidator(@Nonnull final Index index) {
+                return backingRegistry.getIndexValidator(index);
+            }
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder
+                    .setIndexMaintainerRegistry(registry)
+                    .setContext(context).open();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+
+            TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
+                    .setOrderNo(10)
+                    .setQuantity(23)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
+                    .build();
+            recordStore.saveRecord(order);
+        }
+    }
+
+    @Test
     void joinOnNestedKeysWithDifferentTypes() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
@@ -1504,4 +1597,20 @@ public class SyntheticRecordPlannerTest {
             assertThat(plan, matcher);
         }
     }
+
+    private static class FailIndexMaintainer extends TerribleIndexMaintainer{
+
+        protected FailIndexMaintainer(final IndexMaintainerState state) {
+            super(state);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(new AssertionFailedError("Update should not have been called on this type!"));
+            return future;
+        }
+    }
+
 }
