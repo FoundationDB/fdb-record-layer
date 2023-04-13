@@ -127,7 +127,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                             .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
-                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
                     } else {
                         predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
                     }

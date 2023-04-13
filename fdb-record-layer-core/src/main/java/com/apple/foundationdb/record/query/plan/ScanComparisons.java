@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extr
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -538,7 +537,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public void addComparison(Comparisons.Comparison comparison) {
-            Object comparand = comparison.getComparand(store, context);
+            final Object comparand = comparison.getComparand(store, context);
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {
                 return;
             }

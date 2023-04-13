@@ -148,7 +148,7 @@ public class OrPredicate extends AndOrPredicate {
             rangesSet.add(range.get());
         }
 
-        return Optional.of(PredicateWithValueAndRanges.constraint(value, rangesSet.build()));
+        return Optional.of(PredicateWithValueAndRanges.ofRanges(value, rangesSet.build()));
     }
 
     /**

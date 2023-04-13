@@ -196,7 +196,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
     }
 
     @Nonnull
-    public static PredicateWithValueAndRanges constraint(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+    public static PredicateWithValueAndRanges ofRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
@@ -390,7 +390,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
                     .filter(comparand -> comparand instanceof ConstantObjectValue)
-                    .map(constant -> PredicateWithValueAndRanges.constraint((ConstantObjectValue)constant, candidateRanges))
+                    .map(constant -> PredicateWithValueAndRanges.ofRanges((ConstantObjectValue)constant, candidateRanges))
                     .collect(Collectors.toList())));
 
             // TODO
