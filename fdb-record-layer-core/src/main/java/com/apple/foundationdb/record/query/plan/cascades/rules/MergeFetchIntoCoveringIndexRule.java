@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -53,6 +52,6 @@ public class MergeFetchIntoCoveringIndexRule extends CascadesRule<RecordQueryFet
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryIndexPlan innerPlan = call.get(innerPlanMatcher);
-        call.yield(GroupExpressionRef.of(innerPlan));
+        call.yield(innerPlan);
     }
 }

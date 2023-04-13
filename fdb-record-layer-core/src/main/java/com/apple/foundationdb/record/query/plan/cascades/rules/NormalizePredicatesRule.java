@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -77,9 +76,9 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
 
         cnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
+                        call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
-                                AndPredicate.conjuncts(cnfPredicate)))));
+                                AndPredicate.conjuncts(cnfPredicate))));
 
         final BooleanPredicateNormalizer dnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
                 BooleanPredicateNormalizer.Mode.DNF,
@@ -87,8 +86,8 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
 
         dnfNormalizer.normalize(conjunctedPredicate, false)
                 .ifPresent(dnfPredicate ->
-                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
+                        call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
-                                ImmutableList.of(dnfPredicate)))));
+                                ImmutableList.of(dnfPredicate))));
     }
 }

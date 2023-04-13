@@ -139,7 +139,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         call.yield(resultExpressions);
     }
 
-    public static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {
+    private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {
         if (orderedPlan instanceof RecordQueryCoveringIndexPlan) {
             orderedPlan = ((RecordQueryCoveringIndexPlan)orderedPlan).getIndexPlan();
         }

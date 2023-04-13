@@ -180,7 +180,7 @@ public class MemoExpressionTest {
         }
 
         public SyntheticPlannerExpression(@Nonnull String identity,
-                                          @Nonnull List<ExpressionRef<SyntheticPlannerExpression>> children) {
+                                          @Nonnull List<ExpressionRef<? extends RelationalExpression>> children) {
             this.identity = identity;
             this.quantifiers = Quantifiers.forEachQuantifiers(children);
         }
@@ -226,7 +226,7 @@ public class MemoExpressionTest {
                 return new SyntheticPlannerExpression(name);
             }
             int numChildren = random.nextInt(4); // Uniform random integer 0 and 3 (inclusive)
-            List<ExpressionRef<SyntheticPlannerExpression>> children = new ArrayList<>(numChildren);
+            List<ExpressionRef<? extends RelationalExpression>> children = new ArrayList<>(numChildren);
             for (int i = 0; i < numChildren; i++) {
                 children.add(GroupExpressionRef.of(generate(random, maxDepth - 1)));
             }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -128,8 +129,8 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryFilterPlan(child, getFilters());
+    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryFilterPlan(Quantifier.physical(childRef), getFilters());
     }
 
     @Nonnull

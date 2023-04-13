@@ -211,7 +211,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     @Override
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final PlanContext planContext,
+                                            @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var reverseScanOrder =
@@ -221,8 +222,6 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-
-        final var planContext = call.getContext();
         return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),

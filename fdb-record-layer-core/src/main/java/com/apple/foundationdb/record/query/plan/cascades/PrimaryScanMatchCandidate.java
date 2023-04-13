@@ -173,7 +173,8 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     @Override
     public RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
-                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final PlanContext planContext,
+                                            @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
@@ -205,7 +206,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
 
         return new RecordQueryTypeFilterPlan(
-                Quantifier.physical(call.memoizePlans(scanPlan)),
+                Quantifier.physical(memoizer.memoizePlans(scanPlan)),
                 remainingRecordTypesToBeFiltered,
                 queriedType);
     }

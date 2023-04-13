@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -48,11 +48,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
- *
+ * <br>
  * For tri-valued logic:
  * <ul>
  * <li>If any child is {@code true}, then {@code true}.</li>
@@ -264,21 +265,15 @@ public class OrPredicate extends AndOrPredicate {
         }
 
         return Optional.of(translationMap -> {
-            final var childGraphExpansions = childrenInjectCompensationFunctions.stream()
+            final var childPredicatesList = childrenInjectCompensationFunctions.stream()
                     .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
                     .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
-            final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
-            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
-            for (final var childGraphExpansion : childGraphExpansions) {
-                quantifiersBuilder.addAll(childGraphExpansion.getQuantifiers());
-                predicatesBuilder.add(childGraphExpansion.asAndPredicate());
+            final var predicates = LinkedIdentitySet.<QueryPredicate>of();
+            for (final var childPredicates : childPredicatesList) {
+                predicates.add(AndPredicate.and(childPredicates));
             }
-
-            return GraphExpansion.of(ImmutableList.of(),
-                    ImmutableList.of(or(predicatesBuilder.build())),
-                    quantifiersBuilder.build(),
-                    ImmutableList.of());
+            return predicates;
         });
     }
 

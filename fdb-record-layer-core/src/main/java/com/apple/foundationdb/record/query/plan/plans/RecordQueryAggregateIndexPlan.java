@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -202,8 +203,8 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
-    public RecordQueryAggregateIndexPlan strictlySorted() {
-        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
+    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
     }
 
     @Nonnull

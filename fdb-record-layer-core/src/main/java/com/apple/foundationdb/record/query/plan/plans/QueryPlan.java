@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -158,7 +159,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * Return a copy of this plan that has the {@link #isStrictlySorted} property.
      * @return a copy of this plan
      */
-    default QueryPlan<T> strictlySorted() {
+    default QueryPlan<T> strictlySorted(@Nonnull final Memoizer memoizer) {
         return this;
     }
 

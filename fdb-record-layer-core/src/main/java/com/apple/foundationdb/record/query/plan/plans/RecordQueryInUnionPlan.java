@@ -98,13 +98,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     public ComparisonKeyFunction getComparisonKeyFunction() {
         return comparisonKeyFunction;
     }
-
-    @Nonnull
-    @Override
-    public RecordQuerySetPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
-        return withChild(Iterables.getOnlyElement(newChildren).get());
-    }
-
+    
     @Override
     public boolean isDynamic() {
         return true;
@@ -245,7 +239,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public abstract RecordQueryInUnionPlan withChild(@Nonnull RecordQueryPlan child);
+    public abstract RecordQueryInUnionPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef);
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

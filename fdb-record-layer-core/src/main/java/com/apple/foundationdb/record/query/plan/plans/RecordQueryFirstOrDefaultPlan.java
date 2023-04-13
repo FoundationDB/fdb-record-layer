@@ -31,7 +31,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -102,8 +103,8 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryFirstOrDefaultPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), onEmptyResultValue);
+    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryFirstOrDefaultPlan(Quantifier.physical(childRef, inner.getAlias()), onEmptyResultValue);
     }
 
     @Nonnull
@@ -131,7 +132,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     }
 
     @Override
-    public RecordQueryFirstOrDefaultPlan strictlySorted() {
+    public RecordQueryFirstOrDefaultPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
 

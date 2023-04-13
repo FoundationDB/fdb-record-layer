@@ -142,7 +142,7 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final CascadesRuleCall call, @Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -178,7 +178,7 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final CascadesRuleCall call, @Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -186,13 +186,13 @@ public interface Compensation {
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
      * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-     * @param call the rule that caused this method to be called
+     * @param memoizer the memoizer for new {@link ExpressionRef}s
      * @param relationalExpression root of graph to apply compensation to
      * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
      *         filters and/or transformations
      */
     @Nonnull
-    RelationalExpression apply(@Nonnull CascadesRuleCall call, @Nonnull RelationalExpression relationalExpression);
+    RelationalExpression apply(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -261,8 +261,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final CascadesRuleCall call, @Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(call, otherCompensation.apply(call, relationalExpression));
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
             }
         };
     }
@@ -281,8 +281,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final CascadesRuleCall call, @Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(call, otherCompensation.apply(call, relationalExpression));
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
             }
         };
     }
@@ -715,17 +715,17 @@ public interface Compensation {
         /**
          * When applied to a reference this method returns a {@link RelationalExpression} consuming the
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-         * @param call the rule that caused this method to be called
+         * @param memoizer the the memoizer for new {@link ExpressionRef}s
          * @param relationalExpression root of graph to apply compensation to
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
          */
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final CascadesRuleCall call, @Nonnull RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
             // apply the child as needed
             if (childCompensation.isNeeded()) {
-                relationalExpression = childCompensation.apply(call, relationalExpression);
+                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
             }
 
             if (predicateCompensationMap.isEmpty()) {
@@ -751,21 +751,16 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var newBaseQuantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression), matchedForEachQuantifierAlias);
-            final var compensationExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
+            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(GroupExpressionRef.of(relationalExpression)), matchedForEachQuantifierAlias);
+            final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
 
             final var injectCompensationFunctions = predicateCompensationMap.values();
             for (final var injectCompensationFunction : injectCompensationFunctions) {
-                compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
+                compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
             }
 
-            final var compensatedPredicatesExpansion =
-                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
-            Verify.verify(compensatedPredicatesExpansion.getQuantifiers().isEmpty());
-            Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
-
             final var compensatedPredicatesCorrelatedTo =
-                    compensatedPredicatesExpansion.getPredicates()
+                    compensatedPredicates
                             .stream()
                             .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                             .collect(ImmutableSet.toImmutableSet());
@@ -794,17 +789,16 @@ public interface Compensation {
             //      in the logical filter expression are left alone by other rules.
             //
             if (toBePulledUpQuantifiers.isEmpty()) {
-                return new LogicalFilterExpression(compensatedPredicatesExpansion.getPredicates(), newBaseQuantifier);
+                return new LogicalFilterExpression(compensatedPredicates, newBaseQuantifier);
             } else {
-                compensationExpansionsBuilder.add(
-                        GraphExpansion.builder().addAllQuantifiers(toBePulledUpQuantifiers).build());
+                final var completeExpansionBuilder = GraphExpansion.builder();
+                completeExpansionBuilder.addAllQuantifiers(toBePulledUpQuantifiers);
 
                 // add base quantifier
-                compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
+                completeExpansionBuilder.addQuantifier(newBaseQuantifier);
+                completeExpansionBuilder.addAllPredicates(compensatedPredicates);
 
-                final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
-
-                return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
+                return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
         }
     }

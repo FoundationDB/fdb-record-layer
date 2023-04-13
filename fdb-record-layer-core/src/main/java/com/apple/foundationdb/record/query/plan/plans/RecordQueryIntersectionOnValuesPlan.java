@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -107,11 +107,11 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     }
 
     @Override
-    public RecordQueryIntersectionOnValuesPlan strictlySorted() {
+    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final Memoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
-                        .map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
+                        .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
         return new RecordQueryIntersectionOnValuesPlan(quantifiers, getComparisonKeyValues(), reverse);
     }
 

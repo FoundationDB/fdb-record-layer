@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -112,7 +113,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public RecordQueryExplodePlan strictlySorted() {
+    public RecordQueryExplodePlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return this;
     }
 
