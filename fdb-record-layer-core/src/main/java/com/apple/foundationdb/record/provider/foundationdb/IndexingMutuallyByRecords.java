@@ -375,15 +375,16 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             Range rangeToBuild = isFull ?
                                  fullyUnBuiltRange(missingRanges, fragmentRange) :
                                  partlyUnBuiltRange(missingRanges, fragmentRange);
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(KeyValueLogMessage.build("range to build",
-                                LogMessageKeys.SCAN_TYPE, fragmentIterationType,
-                                LogMessageKeys.RANGE, rangeToBuild,
-                                LogMessageKeys.ORIGINAL_RANGE, fragmentRange)
-                        .addKeysAndValues(fragmentLogMessageKeyValues())
-                        .toString());
-            }
+
             if (rangeToBuild != null && !anyJumperSaysJump(rangeToBuild)) {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("fragment/range to build",
+                                    LogMessageKeys.SCAN_TYPE, fragmentIterationType,
+                                    LogMessageKeys.RANGE, rangeToBuild,
+                                    LogMessageKeys.ORIGINAL_RANGE, fragmentRange)
+                            .addKeysAndValues(fragmentLogMessageKeyValues())
+                            .toString());
+                }
                 timerIncrement(isFull ?
                                FDBStoreTimer.Counts.MUTUAL_INDEXER_FULL_START :
                                FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_START);
@@ -536,11 +537,13 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
     }
 
-    // anyJumper:
-    //  During the ANY iteration, we wish to avoid cases of two indexers competing on the same fragment.
-    //  It is done by recording the exception and the fragment info, then - during the next iteration:
-    //      If at the same fragment, same range: re-throw
-    //      If at the same fragment, different range: jump to the next fragment
+    /**
+     * anyJumper algo:
+     *  During the ANY iteration, we wish to avoid cases of two indexers competing on the same fragment.
+     *  It is done by recording the exception and the fragment info, then - during the next iteration:
+     *      If at the same fragment, same range: re-throw
+     *      If at the same fragment, different range: jump to the next fragment
+     */
     boolean anyJumperSaysJump(Range rangeToBuild) {
         if (anyJumperEx == null || fragmentIterationType != FragmentIterationType.ANY) {
             return false;
