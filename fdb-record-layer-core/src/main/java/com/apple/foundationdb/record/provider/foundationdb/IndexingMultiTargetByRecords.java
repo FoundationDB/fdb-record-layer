@@ -141,7 +141,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                             insertRanges(targetRangeSets, null, rangeStart),
                                     insertRanges(targetRangeSets, rangeEnd, null))
                             .thenApply(ignore -> null);
-                }, false, null);
+                }, null);
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
                 LogMessageKeys.RANGE_START, rangeStart,

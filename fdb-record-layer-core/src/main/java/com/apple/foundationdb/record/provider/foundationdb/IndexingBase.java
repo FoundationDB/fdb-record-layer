@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -73,7 +74,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -192,7 +192,7 @@ public abstract class IndexingBase {
                 .addKeysAndValues(indexingLogMessageKeyValues())
                 .addKeysAndValues(common.indexLogMessageKeyValues());
         final CompletableFuture<Void> buildIndexAsyncFuture;
-        FDBDatabaseRunner runner = common.getRunner();
+        FDBDatabaseRunner runner = getRunner();
         Index index = common.getPrimaryIndex();
         if (runner.getTimer() != null) {
             lastProgressSnapshot = StoreTimerSnapshot.from(runner.getTimer());
@@ -390,7 +390,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
                                                                      AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
         // An extension function to reduce markIndexReadable's complexity
-        return common.getRunner().runAsync(context ->
+        return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store ->
                                 policy.shouldAllowUniquePendingState(store) ?
@@ -603,7 +603,7 @@ public abstract class IndexingBase {
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            FDBStoreTimer timer = common.getRunner().getTimer();
+            FDBStoreTimer timer = getRunner().getTimer();
             StoreTimer metricsDiff = null;
             if (timer != null) {
                 metricsDiff = lastProgressSnapshot == null ? timer : StoreTimer.getDifference(timer, lastProgressSnapshot);
@@ -662,13 +662,13 @@ public abstract class IndexingBase {
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-        return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
+        return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues);
     }
 
-    protected static void timerIncrement(@Nullable FDBStoreTimer timer, FDBStoreTimer.Counts event) {
+    protected void timerIncrement(FDBStoreTimer.Counts event) {
         // helper function to reduce complexity
+        final FDBStoreTimer timer = getRunner().getTimer();
         if (timer != null) {
             timer.increment(event);
         }
@@ -714,7 +714,6 @@ public abstract class IndexingBase {
 
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
-        final FDBStoreTimer timer = getRunner().getTimer();
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
 
@@ -722,7 +721,7 @@ public abstract class IndexingBase {
                 .thenCompose(ignore ->
                         AsyncUtil.whileTrue(() -> cursor.onNext()
                                 .thenCompose(result ->
-                                        iterateCursorOnly(store, timer, result,
+                                        iterateCursorOnly(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
                                                 recordsScannedCounter, hasMore, isIdempotent)
                                 ), cursor.getExecutor()))
@@ -743,7 +742,6 @@ public abstract class IndexingBase {
     }
 
     private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
-                                                             @Nullable FDBStoreTimer timer,
                                                              @Nonnull RecordCursorResult<T> rangeCursor,
                                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
@@ -764,7 +762,7 @@ public abstract class IndexingBase {
             isExhausted = false;
         } else {
             // end of the cursor list
-            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+            timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
             if (!rangeCursor.getNoNextReason().isSourceExhausted()) {
                 nextResultCont.set(nextResult.get());
                 hasMore.set(true);
@@ -783,7 +781,7 @@ public abstract class IndexingBase {
         }
 
         // here: currResult must have value
-        timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+        timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
         recordsScannedCounter.incrementAndGet();
 
         return getRecordToIndex.apply(store, currResult)
@@ -799,11 +797,12 @@ public abstract class IndexingBase {
                     if (isIdempotent) {
                         store.addRecordReadConflict(rec.getPrimaryKey());
                     }
-                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+                    timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
                     final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
                     if (isExhausted) {
                         // we've just processed the last item
+                        timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
                         hasMore.set(false);
                         return updateMaintainer.thenApply(vignore -> false);
                     }
@@ -811,7 +810,6 @@ public abstract class IndexingBase {
                             hadTransactionReachedLimits(store)
                                     .thenApply(shouldCommit -> {
                                         if (shouldCommit) {
-                                            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
                                             nextResultCont.set(nextResult.get());
                                             hasMore.set(true);
                                             return false;
@@ -829,13 +827,20 @@ public abstract class IndexingBase {
             // return true, since exceeded transaction time limit.
             // Note that limiting transaction's time via cursor's ExecuteProperties::timeLimit could have caused it to provide
             // a single record, which would not have been indexed but used for continuation (hence an infinite loop).
+            timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_TIME);
             return AsyncUtil.READY_TRUE;
         }
         final long maxWriteLimit = common.config.getMaxWriteLimitBytes();
         if (maxWriteLimit > 0) {
             // return a transaction write size limit check
             return store.getContext().getApproximateTransactionSize()
-                    .thenApply(size -> size > maxWriteLimit);
+                    .thenApply(size -> {
+                        if (size > maxWriteLimit) {
+                            timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
+                            return true;
+                        }
+                        return false;
+                    });
         }
         return AsyncUtil.READY_FALSE;
     }
@@ -899,10 +904,17 @@ public abstract class IndexingBase {
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+        return iterateAllRanges(additionalLogMessageKeyValues, iterateRange, subspaceProvider, subspace, null);
+    }
+
+    protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
+                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
+                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                       @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
-                    buildCommitRetryAsync(iterateRange,
-                            true,
+                    throttle.buildCommitRetryAsync(iterateRange,
+                            shouldReturnQuietly,
                             additionalLogMessageKeyValues)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
@@ -963,14 +975,8 @@ public abstract class IndexingBase {
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
-        return throttle.throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
-    }
-
-    void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
-        throttle.decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        return throttle.throttledRunAsync(function, handlePostTransaction, null, additionalLogMessageKeyValues);
     }
 
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
