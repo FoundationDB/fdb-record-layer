@@ -22,12 +22,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Mutual indexing - better handle final iteration conflicts [(Issue #2082)](https://github.com/FoundationDB/fdb-record-layer/issues/2082)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The `LocatableResolver` interface has been enhanced with read-only and transaction-scoped APIs [(Issue #2062)](https://github.com/FoundationDB/fdb-record-layer/issues/2062)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Indexing stamp operations: return the post change values [(Issue #2080)](https://github.com/FoundationDB/fdb-record-layer/issues/2080)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.365.0
+
+* **Performance** Mutual indexing - better handle final iteration conflicts [(Issue #2082)](https://github.com/FoundationDB/fdb-record-layer/issues/2082)
+* **Feature** The `LocatableResolver` interface has been enhanced with read-only and transaction-scoped APIs [(Issue #2062)](https://github.com/FoundationDB/fdb-record-layer/issues/2062)
+* **Feature** Indexing stamp operations: return the post change values [(Issue #2080)](https://github.com/FoundationDB/fdb-record-layer/issues/2080)
 
 ### 3.3.364.0
 
