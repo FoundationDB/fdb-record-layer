@@ -58,7 +58,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     private final List<RecordType> queriedRecordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
-        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
+        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.VERSION.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }

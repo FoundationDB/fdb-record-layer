@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("ConstantConditions")
 class TypeRepositoryTest {
-    private static final int SEED = 42;
+    private static final int SEED = 0x4015e;
     private static final int MAX_ALLOWED_DEPTH = 10;
     private static final Random random = new Random(SEED);
     private static int counter = 0;
@@ -93,14 +93,23 @@ class TypeRepositoryTest {
     }
 
     private static Type generateRandomTypeInternal(int depth) {
-        int booleanIndex = Type.TypeCode.valueOf("BOOLEAN").ordinal();
-        int stringIndex = Type.TypeCode.valueOf("STRING").ordinal();
-        int arrayIndex = Type.TypeCode.valueOf("ARRAY").ordinal();
-        int lowerBound = booleanIndex;
-        int upperBound = (depth >= MAX_ALLOWED_DEPTH ? stringIndex + 1 : arrayIndex + 1) - lowerBound;
-        int pick = random.nextInt(upperBound) + lowerBound;
-        Type.TypeCode randomTypeCode = Type.TypeCode.values()[pick];
+        Type.TypeCode randomTypeCode = generateRandomTypeCode(depth);
         return generateType(depth, randomTypeCode);
+    }
+
+    private static Type.TypeCode generateRandomTypeCode(int depth) {
+        List<Type.TypeCode> choices = new ArrayList<>();
+        for (Type.TypeCode typeCode : Type.TypeCode.values()) {
+            if (typeCode != Type.TypeCode.UNKNOWN && typeCode != Type.TypeCode.ANY && typeCode != Type.TypeCode.NULL) {
+                if (typeCode.isPrimitive()) {
+                    choices.add(typeCode);
+                } else if (depth < MAX_ALLOWED_DEPTH && (typeCode == Type.TypeCode.RECORD || typeCode == Type.TypeCode.ARRAY)) {
+                    choices.add(typeCode);
+                }
+            }
+        }
+        int choice = random.nextInt(choices.size());
+        return choices.get(choice);
     }
 
     private static Type generateType(int depth, Type.TypeCode requestedTypeCode) {
@@ -111,7 +120,8 @@ class TypeRepositoryTest {
             case FLOAT: // fallthrough
             case INT: // fallthrough
             case LONG: // fallthrough
-            case STRING:
+            case STRING: // fallthrough
+            case VERSION:
                 return Type.primitiveType(requestedTypeCode, random.nextBoolean());
             case ARRAY:
                 return new Type.Array(generateRandomTypeInternal(depth + 1));

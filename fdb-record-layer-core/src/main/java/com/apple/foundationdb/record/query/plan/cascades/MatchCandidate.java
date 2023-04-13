@@ -273,6 +273,7 @@ public interface MatchCandidate {
 
         switch (indexType) {
             case IndexTypes.VALUE:
+            case IndexTypes.VERSION:
                 expandIndexMatchCandidate(index,
                     availableRecordTypeNames,
                     availableRecordTypes,

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -45,9 +46,11 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -165,15 +168,23 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         }
 
         if (fieldType.isPrimitive()) {
-            return field;
+            return wrapPrimitive(field);
         }
 
         if (fieldType instanceof Type.Array) {
+            final var objects = (List<?>)field;
             final var elementType = Verify.verifyNotNull(((Type.Array)fieldType).getElementType());
             if (elementType.isPrimitive()) {
-                return field;
+                if (elementType.getTypeCode() == Type.TypeCode.BYTES || elementType.getTypeCode() == Type.TypeCode.VERSION) {
+                    List<Object> wrapped = new ArrayList<>(objects.size());
+                    for (Object object : objects) {
+                        wrapped.add(wrapPrimitive(object));
+                    }
+                    return wrapped;
+                } else {
+                    return field;
+                }
             }
-            final var objects = (List<?>)field;
             final var resultBuilder = ImmutableList.builder();
             for (final var object : objects) {
                 resultBuilder.add(Verify.verifyNotNull(deepCopyIfNeeded(typeRepository, elementType, object)));
@@ -190,6 +201,16 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
         return MessageHelpers.deepCopyMessageIfNeeded(declaredDescriptor, message);
+    }
+
+    private static Object wrapPrimitive(@Nonnull Object field) {
+        if (field instanceof byte[]) {
+            return ZeroCopyByteString.wrap((byte[]) field);
+        } else if (field instanceof FDBRecordVersion) {
+            return ZeroCopyByteString.wrap(((FDBRecordVersion)field).toBytes(false));
+        } else {
+            return field;
+        }
     }
 
     @Override

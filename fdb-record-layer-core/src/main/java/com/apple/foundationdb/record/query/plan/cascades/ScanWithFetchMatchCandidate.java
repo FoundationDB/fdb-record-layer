@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -41,6 +43,12 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                                                  @Nonnull final CorrelationIdentifier sourceAlias,
                                                  @Nonnull final CorrelationIdentifier targetAlias,
                                                  @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
+        if (!(toBePushedValue instanceof FieldValue || toBePushedValue instanceof RecordConstructorValue)) {
+            // At the moment, we can only push field and record value operations through fetches. Once this is fixed,
+            // we can expand the list of push-able values
+            return Optional.empty();
+        }
+
         final AliasMap equivalenceMap = AliasMap.of(sourceAlias, baseAlias);
         final AliasMap toTargetAliasMap = AliasMap.of(sourceAlias, targetAlias);
 
