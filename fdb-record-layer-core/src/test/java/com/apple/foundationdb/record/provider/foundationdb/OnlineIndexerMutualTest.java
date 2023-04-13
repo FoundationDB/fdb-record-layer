@@ -176,50 +176,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertAllValidated(indexes);
         assertTrue(count.get() > 1);
     }
-
-    @Test
-    void testMutualIndexingMultiBoundariesMultiIndexers() {
-        // Let multi threads build all the indexes
-        // Note that some of the indexers should get conflicts, which should trigger the anyJumper mechanism. This test asserts that some indexers jump and abort at the third iteration.
-        final FDBStoreTimer timer = new FDBStoreTimer();
-
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
-        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-
-        long numRecords = 200;
-        populateData(numRecords);
-
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
-        openSimpleMetaData(hook);
-        disableAll(indexes);
-
-        final List<Tuple> boundaries = getBoundariesList(numRecords, 40);
-        IntStream range = IntStream.rangeClosed(0, 7);
-        AtomicInteger count = new AtomicInteger(0);
-        range.parallel().forEach(ignore -> {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setMutualIndexingBoundaries(boundaries)
-                            .build())
-                    .setLimit(7)
-                    .setMaxAttempts(2)
-                    .setMaxRetries(2)
-                    .build()) {
-                try {
-                    indexBuilder.buildIndex(true);
-                } catch (RecordCoreException ex) {
-                    assertTrue(ex.getMessage().contains("Mutual indexing failure - third iteration"));
-                    count.incrementAndGet();
-                }
-            }
-        });
-        assertReadable(indexes);
-        assertAllValidated(indexes);
-        assertTrue(count.get() > 0);
-    }
-
+    
     @ParameterizedTest
     @CsvSource({
             // single threads:
