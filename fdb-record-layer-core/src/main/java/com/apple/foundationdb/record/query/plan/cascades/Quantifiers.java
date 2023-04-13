@@ -87,33 +87,30 @@ public class Quantifiers {
     /**
      * Create a list of for-each quantifiers from a list of references to range over.
      * @param rangesOverExpressions iterable {@link ExpressionRef}s of {@link RelationalExpression}s
-     * @param <E> type parameter to constrain expressions to {@link RelationalExpression}
      * @return a list of for-each quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static <E extends RelationalExpression> List<ForEach> forEachQuantifiers(@Nonnull final Iterable<ExpressionRef<E>> rangesOverExpressions) {
+    public static List<ForEach> forEachQuantifiers(@Nonnull final Iterable<ExpressionRef<? extends RelationalExpression>> rangesOverExpressions) {
         return fromExpressions(rangesOverExpressions, Quantifier::forEach);
     }
 
     /**
      * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
      * @param rangesOverPlans iterable {@link ExpressionRef}s of of {@link RelationalExpression}s.
-     * @param <E> type parameter to constrain expressions to {@link RelationalExpression}
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static <E extends RelationalExpression> List<Existential> existentialQuantifiers(@Nonnull final Iterable<? extends ExpressionRef<E>> rangesOverPlans) {
+    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<ExpressionRef<? extends RelationalExpression>> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::existential);
     }
 
     /**
      * Create a list of physical quantifiers given a list of references these quantifiers should range over.
      * @param rangesOverPlans iterable {@link ExpressionRef}s of {@link RecordQueryPlan}
-     * @param <E> type parameter to constrain expressions to {@link RecordQueryPlan}
      * @return a list of physical quantifiers where each quantifier ranges over a reference contained in the given iterable
      */
     @Nonnull
-    public static <E extends RecordQueryPlan> List<Physical> fromPlans(@Nonnull final Iterable<? extends ExpressionRef<E>> rangesOverPlans) {
+    public static List<Physical> fromPlans(@Nonnull final Iterable<? extends ExpressionRef<? extends RecordQueryPlan>> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::physical);
     }
 
@@ -123,13 +120,12 @@ public class Quantifiers {
      * @param creator lambda to to be called for each expression reference contained in {@code rangesOverExpression}s
      *        to create the actual quantifier. This allows for callers to create different kinds of quantifier based
      *        on needs.
-     * @param <E> type parameter to constrain expressions to {@link RelationalExpression}
      * @param <Q> the type of the quantifier to be created
      * @return a list of quantifiers where each quantifier ranges over an reference contained in the given iterable
      */
     @Nonnull
-    public static <E extends RelationalExpression, Q extends Quantifier> List<Q> fromExpressions(@Nonnull final Iterable<? extends ExpressionRef<E>> rangesOverExpressions,
-                                                                                                 @Nonnull final Function<ExpressionRef<E>, Q> creator) {
+    public static <Q extends Quantifier> List<Q> fromExpressions(@Nonnull final Iterable<? extends ExpressionRef<? extends RelationalExpression>> rangesOverExpressions,
+                                                                 @Nonnull final Function<ExpressionRef<? extends RelationalExpression>, Q> creator) {
         return StreamSupport
                 .stream(rangesOverExpressions.spliterator(), false)
                 .map(creator)

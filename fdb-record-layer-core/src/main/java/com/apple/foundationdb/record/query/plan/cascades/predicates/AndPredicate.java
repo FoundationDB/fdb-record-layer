@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.google.common.collect.ImmutableList;
@@ -117,12 +117,9 @@ public class AndPredicate extends AndOrPredicate {
             return Optional.empty();
         }
 
-        return Optional.of(translationMap -> {
-            final var childrenGraphExpansions = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
-                    .collect(ImmutableList.toImmutableList());
-            return GraphExpansion.ofOthers(childrenGraphExpansions);
-        });
+        return Optional.of(translationMap -> childrenInjectCompensationFunctions.stream()
+                .flatMap(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap).stream())
+                .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,

@@ -29,11 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -135,12 +134,8 @@ public class NotPredicate implements QueryPredicateWithChild {
         final var childInjectCompensationFunction = childInjectCompensationFunctionOptional.get();
 
         return Optional.of(translationMap -> {
-            final var childGraphExpansion = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
-            Verify.verify(childGraphExpansion.getResultColumns().isEmpty());
-            return GraphExpansion.of(ImmutableList.of(),
-                    ImmutableList.of(not(childGraphExpansion.asAndPredicate())),
-                    childGraphExpansion.getQuantifiers(),
-                    ImmutableList.of());
+            final var childPredicates = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
+            return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
         });
     }
 

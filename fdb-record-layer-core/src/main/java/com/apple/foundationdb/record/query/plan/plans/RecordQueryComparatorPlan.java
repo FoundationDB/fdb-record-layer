@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -237,9 +238,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public RecordQueryComparatorPlan strictlySorted() {
+    public RecordQueryComparatorPlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
-                    .map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())),
+                    .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList())),
                 comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 

@@ -477,6 +477,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return partialMatchMap.put(candidate, partialMatch);
     }
 
+    /**
+     * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
+     * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
+     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
+     * it represents rendered in your standard browser.
+     * @param renderSingleGroups whether to render group references with just one member
+     * @return the String "done"
+     */
+    @Nonnull
+    public String show(final boolean renderSingleGroups) {
+        return PlannerGraphProperty.show(renderSingleGroups, this);
+    }
+
     public static boolean containsInMember(@Nonnull final RelationalExpression expression,
                                            @Nonnull final RelationalExpression otherExpression) {
         final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
@@ -554,19 +567,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         // member and otherMember (no children considered).
         return StreamSupport.stream(aliasMapIterable.spliterator(), false)
                 .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
-    }
-
-    /**
-     * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
-     * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
-     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
-     * it represents rendered in your standard browser.
-     * @param renderSingleGroups whether to render group references with just one member
-     * @return the String "done"
-     */
-    @Nonnull
-    public String show(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.show(renderSingleGroups, this);
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {

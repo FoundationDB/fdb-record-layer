@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.google.common.collect.ImmutableSet;
@@ -69,6 +69,12 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
 
     @Nonnull
     @Override
+    public RecordQueryInUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+        return withChild(Iterables.getOnlyElement(newChildren));
+    }
+
+    @Nonnull
+    @Override
     public RecordQueryInUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInUnionOnKeyExpressionPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
@@ -80,8 +86,8 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnKeyExpressionPlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(GroupExpressionRef.of(child)),
+    public RecordQueryInUnionOnKeyExpressionPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(childRef),
                 getInSources(),
                 getComparisonKeyExpression(),
                 reverse,

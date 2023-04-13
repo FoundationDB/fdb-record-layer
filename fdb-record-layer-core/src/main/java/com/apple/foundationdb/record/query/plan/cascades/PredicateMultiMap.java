@@ -76,7 +76,7 @@ public class PredicateMultiMap {
     @FunctionalInterface
     public interface ExpandCompensationFunction {
         @Nonnull
-        GraphExpansion applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
+        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
     }
 
     /**

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
@@ -141,7 +140,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             referredAliasOptional = Optional.of(((QuantifiedObjectValue)resultValue).getAlias());
         }
 
-        final var relationalExpressionReferences = Lists.<ExpressionRef<RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
+        final var relationalExpressionReferences = Lists.<ExpressionRef<? extends RelationalExpression>>newArrayListWithCapacity(orTermPredicates.size());
         for (final var orPredicate : orTermPredicates) {
             final var orCorrelatedTo = orPredicate.getCorrelatedTo();
 
@@ -178,17 +177,17 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
                 lowerResultValue = resultValue;
             }
 
-            relationalExpressionReferences.add(GroupExpressionRef.of(new SelectExpression(lowerResultValue, neededQuantifiers, ImmutableList.of(orPredicate))));
+            relationalExpressionReferences.add(call.memoizeExpression(new SelectExpression(lowerResultValue, neededQuantifiers, ImmutableList.of(orPredicate))));
         }
 
-        var resultReference = GroupExpressionRef.<RelationalExpression>of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
+        var resultReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
 
         if (!isSimpleResultValue) {
-            final var unionQuantifier = Quantifier.forEach(resultReference);
+            final var unionQuantifier = Quantifier.forEach(resultReferenceBuilder.reference());
             final var rebasedResultValue = referredAliasOptional.map(referredAlias -> resultValue.rebase(AliasMap.of(referredAlias, unionQuantifier.getAlias()))).orElse(resultValue);
-            resultReference = GroupExpressionRef.of(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
+            resultReferenceBuilder = call.memoizeExpressionBuilder(new SelectExpression(rebasedResultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
         }
 
-        call.yield(resultReference);
+        call.yield(resultReferenceBuilder.members());
     }
 }

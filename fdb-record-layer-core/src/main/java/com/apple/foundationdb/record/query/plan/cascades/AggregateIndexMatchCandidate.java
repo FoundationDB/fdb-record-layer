@@ -266,7 +266,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Nonnull
     @Override
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final CascadesRuleCall call,
+                                            @Nonnull final PlanContext planContext,
+                                            @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
@@ -282,7 +283,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var constraintMaybe = partialMatch.getMatchInfo().getConstraintMaybe();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
-        final var planContext = call.getContext();
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
                 null,
                 new IndexScanComparisons(IndexScanType.BY_GROUP, toScanComparisons(comparisonRanges)),
