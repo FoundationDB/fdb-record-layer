@@ -1050,7 +1050,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    void doesNotUpdateSyntheticRecordTypeIfUnderlyingIndexesAreDisabled() throws Exception{
+    void doesNotUpdateSyntheticRecordTypeIfUnderlyingIndexesAreDisabled() throws Exception {
         /*
          * If the underlying indexes that are to be updated are not writable, then the synthetic update
          * should not happen. This test verifies that by faking out the maintainer with a maintainer
@@ -1098,10 +1098,11 @@ public class SyntheticRecordPlannerTest {
             @Nonnull
             @Override
             public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-                if(!state.index.getName().equals("joinNestedConcat")){
+                if (!state.index.getName().equals("joinNestedConcat")) {
                     return backingRegistry.getIndexMaintainer(state);
+                } else {
+                    return new FailIndexMaintainer(state);
                 }
-                else return new FailIndexMaintainer(state);
             }
 
             @Nonnull
@@ -1598,7 +1599,7 @@ public class SyntheticRecordPlannerTest {
         }
     }
 
-    private static class FailIndexMaintainer extends TerribleIndexMaintainer{
+    private static class FailIndexMaintainer extends TerribleIndexMaintainer {
 
         protected FailIndexMaintainer(final IndexMaintainerState state) {
             super(state);

@@ -655,6 +655,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return;
             }
             final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
+            if (maintainers.isEmpty()) {
+                //don't exec anything if there are no maintainers
+                return;
+            }
             final Map<Tuple, FDBSyntheticRecord> oldRecords = new ConcurrentHashMap<>();
             CompletableFuture<Void> future = plan.execute(this, oldRecord).forEach(syntheticRecord -> oldRecords.put(syntheticRecord.getPrimaryKey(), syntheticRecord));
             @Nonnull final FDBStoredRecord<M> theNewRecord = newRecord; // @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
@@ -682,14 +686,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 final SyntheticRecordFromStoredRecordPlan plan = planner.fromStoredType(oldRecord.getRecordType(), true);
                 if (plan != null) {
                     final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
-                    futures.add(plan.execute(this, oldRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, syntheticRecord, null), pipelineSize));
+                    if (!maintainers.isEmpty()) {
+                        futures.add(plan.execute(this, oldRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, syntheticRecord, null), pipelineSize));
+                    }
                 }
             }
             if (newRecord != null) {
                 final SyntheticRecordFromStoredRecordPlan plan = planner.fromStoredType(newRecord.getRecordType(), true);
                 if (plan != null) {
                     final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
-                    futures.add(plan.execute(this, newRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, null, syntheticRecord), pipelineSize));
+                    if (!maintainers.isEmpty()) {
+                        futures.add(plan.execute(this, newRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, null, syntheticRecord), pipelineSize));
+                    }
                 }
             }
         }
@@ -701,8 +709,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordMetaData metaData = getRecordMetaData();
         return syntheticRecordTypes.stream().map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
             List<IndexMaintainer> indexMaintainers = new ArrayList<>();
-            syntheticRecordType.getIndexes().stream().map(this::getIndexMaintainer).forEach(indexMaintainers::add);
-            syntheticRecordType.getMultiTypeIndexes().stream().map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+            syntheticRecordType.getIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+            syntheticRecordType.getMultiTypeIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
             return indexMaintainers;
         }));
     }
