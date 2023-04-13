@@ -151,6 +151,10 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
             ++found;
             value = proto.getBytesValue().toByteArray();
         }
+        if (proto.hasIntValue()) {
+            ++found;
+            value = proto.getIntValue();
+        }
         if (found == 0) {
             ++found;
         }
@@ -167,7 +171,9 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         if (value instanceof Double) {
             builder.setDoubleValue((Double) value);
         } else if (value instanceof Float) {
-            builder.setFloatValue((Float) value);
+            builder.setFloatValue((Float)value);
+        } else if (value instanceof Integer) {
+            builder.setIntValue((Integer)value);
         } else if (value instanceof Number) {
             builder.setLongValue(((Number) value).longValue());
         } else if (value instanceof Boolean) {
