@@ -234,30 +234,15 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(multi_index [EQUALS $str, [GREATER_THAN_OR_EQUALS 3 && GREATER_THAN 0 && LESS_THAN_OR_EQUALS 4]])
         RecordQueryPlan plan = planner.plan(query);
-        final var leftBoundRedundant = "GREATER_THAN 0";
-        final var leftBound = "GREATER_THAN_OR_EQUALS 3";
-        final var rightBound = "LESS_THAN_OR_EQUALS 4";
-        if (planner instanceof RecordQueryPlanner) {
-            List<String> bounds = Arrays.asList(leftBound, rightBound, leftBoundRedundant);
-            Collection<List<String>> combinations = Collections2.permutations(bounds);
-            assertThat(plan, indexScan(allOf(indexName("multi_index"),
-                    bounds(anyOf(combinations.stream()
-                            .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
-                            .collect(Collectors.toList()))))));
-            assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-81379784, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1715241633, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        } else {
-            List<String> coalescedBounds = Arrays.asList(leftBound, rightBound);
-            Collection<List<String>> combinations = Collections2.permutations(coalescedBounds);
-            assertThat(plan, indexScan(allOf(indexName("multi_index"),
-                    bounds(anyOf(combinations.stream()
-                            .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
-                            .collect(Collectors.toList()))))));
-            assertEquals(-1466571742, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1547301277, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1412302660, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        }
+        List<String> bounds = Arrays.asList("GREATER_THAN_OR_EQUALS 3", "LESS_THAN_OR_EQUALS 4", "GREATER_THAN 0");
+        Collection<List<String>> combinations = Collections2.permutations(bounds);
+        assertThat(plan, indexScan(allOf(indexName("multi_index"),
+                bounds(anyOf(combinations.stream()
+                        .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
+                        .collect(Collectors.toList()))))));
+        assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-81379784, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1715241633, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

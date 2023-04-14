@@ -264,8 +264,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
             }
 
             final var candidateRanges = candidate.getRanges();
-            final var dereferencedValueWithRanges = compileTimeEvalRanges(evaluationContext);
-            if (dereferencedValueWithRanges.getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
+            if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
