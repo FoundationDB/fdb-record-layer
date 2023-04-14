@@ -34,6 +34,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -286,7 +287,8 @@ class TransactionalRunnerTest extends FDBTestBase {
 
     @Test
     void closesContextsSynchronous() {
-        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        //needs to be synchronized, since CompletableFuture.runAsync() will push items into the futures() list in another thread
+        final List<CompletableFuture<Void>> futures = Collections.synchronizedList(new ArrayList<>());
         try {
             final ForkJoinPool forkJoinPool = new ForkJoinPool(10);
             closesContext((runner, contextFuture, completed) ->
