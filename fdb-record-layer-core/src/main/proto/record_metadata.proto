@@ -160,6 +160,7 @@ message Value {
   optional bool bool_value = 4;
   optional string string_value = 5;
   optional bytes bytes_value = 6;
+  optional int32 int_value = 7;
 }
 
 message Function {

@@ -41,9 +41,22 @@ import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -55,7 +68,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -356,5 +371,52 @@ public class MetaDataProtoTest {
         Index maxRecNoGrouped = metaData.getIndex("MaxRecNoGrouped");
         assertTrue(maxRecNoGrouped.getRootExpression() instanceof GroupingKeyExpression, "should have Grouping");
         assertEquals(1, ((GroupingKeyExpression)maxRecNoGrouped.getRootExpression()).getGroupedCount());
+    }
+
+    private static class ArgumentProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+            return Stream.of(Arguments.of("double parameter", 10.10d, 12, 12d),
+                    Arguments.of("float parameter", 11.11f, 13.13f),
+                    Arguments.of("long parameter", 42L, 44L),
+                    Arguments.of("int parameter", 32, 34),
+                    Arguments.of("string parameter", "foo", "bar"),
+                    Arguments.of("byte[] parameter", new byte[] {0xA, (byte)0xFF}, new byte[] {0xB}),
+                    Arguments.of("boolean parameter", false, true));
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}] with parameter1 = {1} and parameter2 = {2}")
+    @ArgumentsSource(ArgumentProvider.class)
+    void serdeIndexPredicateWorksCorrectly(@Nonnull final String description, @Nonnull final Object expectedParameter1, @Nonnull final Object expectedParameter2) {
+        final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
+        final var numValue2 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2");
+        final var range = OrPredicate.or(List.of(
+                // predicates here are semantically incorrect (e.g. comparing num_value_2 of type INT with STRING).
+                // but this is only for testing SerDe, so probably ok.
+                new ValuePredicate(numValue2, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, expectedParameter1)),
+                new ValuePredicate(numValue2, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, expectedParameter2))
+        ));
+        final var proto = RecordMetaDataProto.Index.newBuilder()
+                .setName("SparseIndex")
+                .addRecordType("MySimpleRecord")
+                .setType(IndexTypes.VALUE)
+                .setRootExpression(field("num_value_2").toKeyExpression())
+                .setPredicate(IndexPredicate.fromQueryPredicate(range).toProto())
+                .build();
+        final var actualParameter1 = proto.getPredicate().getOrPredicate().getChildren(0).getValuePredicate().getComparison().getSimpleComparison().getOperand();
+        final var actualParameter2 = proto.getPredicate().getOrPredicate().getChildren(1).getValuePredicate().getComparison().getSimpleComparison().getOperand();
+
+        if (expectedParameter1.getClass().isArray()) {
+            final var actualParam1Array = LiteralKeyExpression.fromProtoValue(actualParameter1);
+            assertTrue(actualParam1Array != null && actualParam1Array.getClass().equals(byte[].class));
+            final var actualParam2Array = LiteralKeyExpression.fromProtoValue(actualParameter2);
+            assertTrue(actualParam2Array != null && actualParam2Array.getClass().equals(byte[].class));
+            assertArrayEquals((byte[])expectedParameter1, (byte[])actualParam1Array);
+            assertArrayEquals((byte[])expectedParameter2, (byte[])actualParam2Array);
+        } else {
+            assertEquals(expectedParameter1, LiteralKeyExpression.fromProtoValue(actualParameter1));
+            assertEquals(expectedParameter2, LiteralKeyExpression.fromProtoValue(actualParameter2));
+        }
     }
 }
