@@ -48,6 +48,10 @@ public class LiteralKeyExpressionTest {
                 100L,
                 Long.MIN_VALUE,
                 Long.MAX_VALUE,
+                5,
+                -10,
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE,
                 true,
                 false,
                 "a string",
@@ -57,10 +61,6 @@ public class LiteralKeyExpressionTest {
                 TextSamples.YIDDISH,
                 "\n",
                 byteArray);
-    }
-
-    private static Stream<Integer> incorrectIntegerValues() {
-        return Stream.of(5, -10, Integer.MAX_VALUE, Integer.MIN_VALUE);
     }
 
     @ParameterizedTest
@@ -79,24 +79,6 @@ public class LiteralKeyExpressionTest {
             assertEquals(value, parsedViaProto.getValue());
             assertEquals(value, parsedViaBytes.getValue());
         }
-    }
-
-    @ParameterizedTest
-    @MethodSource("incorrectIntegerValues")
-    public void incorrectIntegerSerializationTest(@Nonnull Integer value) throws InvalidProtocolBufferException {
-        final LiteralKeyExpression<?> keyExpression = Key.Expressions.value(value);
-        final LiteralKeyExpression<?> parsedViaProto = LiteralKeyExpression.fromProto(keyExpression.toProto());
-        final LiteralKeyExpression<?> parsedViaBytes = LiteralKeyExpression.fromProto(
-                RecordMetaDataProto.Value.parseFrom(keyExpression.toProto().toByteArray()));
-        assertEquals(value, keyExpression.getValue());
-        assertEquals(keyExpression, parsedViaProto); // Comparison uses proto objects so both sides have Longs.
-
-        // Integer values are cast to Long before serializing so they are deserialized as Longs.
-        assertNotEquals(value, parsedViaProto.getValue());
-        assertNotEquals(value, parsedViaBytes.getValue());
-        // Values (as integers) are correct.
-        assertEquals(value.intValue(), ((Long) parsedViaProto.getValue()).intValue());
-        assertEquals(value.intValue(), ((Long) parsedViaBytes.getValue()).intValue());
     }
 
     @Test
