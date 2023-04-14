@@ -32,7 +32,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -75,6 +74,7 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
         return Set.of();
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (other == null) {
@@ -93,6 +93,7 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
         return equalsWithoutChildren(otherValue, aliasMap);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap ignored) {
         if (this == other) {
@@ -118,6 +119,7 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
     }
 
     @Nonnull
+    @Override
     public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return fieldValue;
     }

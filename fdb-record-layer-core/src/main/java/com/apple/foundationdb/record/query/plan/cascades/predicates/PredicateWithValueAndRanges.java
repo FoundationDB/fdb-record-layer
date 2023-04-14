@@ -222,6 +222,8 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
      *
      * @param aliasMap the current alias map
      * @param candidatePredicate another predicate (usually in a match candidate)
+     * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
+     * implication.
      *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
@@ -263,7 +265,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
 
             final var candidateRanges = candidate.getRanges();
             final var dereferencedValueWithRanges = compileTimeEvalRanges(evaluationContext);
-            if (dereferencedValueWithRanges.getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()))) {
+            if (dereferencedValueWithRanges.getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
@@ -275,7 +277,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
-                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange).coalesce()))) {
+                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
                             return Optional.empty();
                         }
                         // check if ranges are semantically equal.
@@ -420,14 +422,14 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
         }
         // lift value object to singleton range.x
         final var builder = RangeConstraints.newBuilder();
-        builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, valueObject), context);
+        builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, valueObject));
         final var valueRange = builder.build().orElseThrow();
         for (final var range : getRanges()) {
             final var compiledRange = range.compileTimeEval(context);
             if (!compiledRange.isCompileTimeEvaluable()) {
                 continue;
             }
-            if (compiledRange.encloses(valueRange).coalesce()) {
+            if (compiledRange.encloses(valueRange, context).coalesce()) {
                 return true;
             }
         }

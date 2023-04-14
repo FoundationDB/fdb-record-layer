@@ -21,21 +21,20 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -209,7 +208,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
-            applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()), planContext.getEvaluationContext())
+            applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
                     .ifPresent(toBeInjectedReference::insertUnchecked);
         }
 
@@ -237,8 +236,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     commonPrimaryKeyValues,
                                     bestMatchToDistinctExpressionMap,
                                     partition,
-                                    requestedOrderings,
-                                    planContext.getEvaluationContext()).stream())
+                                    requestedOrderings).stream())
                     .forEach(toBeInjectedReference::insertUnchecked);
         });
         return toBeInjectedReference;
@@ -412,13 +410,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     private static Optional<RelationalExpression> applyCompensationForSingleDataAccess(@Nonnull final PartialMatchWithCompensation partialMatchWithCompensation,
-                                                                                       @Nonnull final RelationalExpression scanExpression,
-                                                                                       @Nonnull final EvaluationContext evaluationContext) {
+                                                                                       @Nonnull final RelationalExpression scanExpression) {
         final var compensation = partialMatchWithCompensation.getCompensation();
         return compensation.isImpossible()
                ? Optional.empty()
                : Optional.of(compensation.isNeeded()
-                             ? compensation.apply(scanExpression, evaluationContext)
+                             ? compensation.apply(scanExpression)
                              : scanExpression);
     }
     
@@ -443,8 +440,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<Value> commonPrimaryKeyValues,
                                                                                 @Nonnull final Map<PartialMatch, RelationalExpression> matchToExpressionMap,
                                                                                 @Nonnull final List<PartialMatchWithCompensation> partition,
-                                                                                @Nonnull final Set<RequestedOrdering> requestedOrderings,
-                                                                                @Nonnull final EvaluationContext evaluationContext) {
+                                                                                @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
         final var partitionOrderings = partition
@@ -493,7 +489,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, ImmutableList.copyOf(comparisonKeyValues));
                     final var compensatedIntersection =
                             compensation.isNeeded()
-                            ? compensation.apply(logicalIntersectionExpression, evaluationContext)
+                            ? compensation.apply(logicalIntersectionExpression)
                             : logicalIntersectionExpression;
                     expressionsBuilder.add(compensatedIntersection);
                 }

@@ -174,7 +174,6 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
 
         call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
-                transformedPredicates.build(),
-                call.getContext().getEvaluationContext())));
+                transformedPredicates.build())));
     }
 }

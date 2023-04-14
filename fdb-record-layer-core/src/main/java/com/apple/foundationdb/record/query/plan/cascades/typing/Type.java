@@ -44,7 +44,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,7 +53,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.StreamSupport;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
@@ -799,12 +797,12 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
+        @Nonnull
+        private static final Any INSTANCE = new Any();
+
         private int computeHashCode() {
             return Objects.hash(getTypeCode().name().hashCode(), isNullable());
         }
-
-        @Nonnull
-        private static final Any ANY = new Any();
 
         /**
          * {@inheritDoc}
@@ -873,7 +871,7 @@ public interface Type extends Narrowable<Type> {
 
     @Nonnull
     static Any any() {
-        return Any.ANY;
+        return Any.INSTANCE;
     }
 
     /**

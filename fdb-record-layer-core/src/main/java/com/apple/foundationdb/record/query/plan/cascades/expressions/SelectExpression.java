@@ -99,19 +99,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
 
-    @Nonnull
-    private final EvaluationContext evaluationContext;
-
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
-                            @Nonnull List<? extends QueryPredicate> predicates,
-                            @Nonnull final EvaluationContext evaluationContext) {
+                            @Nonnull List<? extends QueryPredicate> predicates) {
         this.resultValue = resultValue;
         this.children = ImmutableList.copyOf(children);
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
-                          : partitionPredicates(predicates, evaluationContext);
-        this.evaluationContext = evaluationContext;
+                          : partitionPredicates(predicates);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
@@ -170,7 +165,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
         final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
-        return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates, evaluationContext);
+        return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -571,8 +566,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
      * @param predicates The predicates to partition.
      * @return a list of sargables and value predicates.
      */
-    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates,
-                                                                      @Nonnull final EvaluationContext evaluationContext) {
+    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates) {
         final var flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenPredicate(AndPredicate.class, predicate).stream())
@@ -608,7 +602,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .asMap()
                 .forEach((valueWrapper, predicatesOnValue) -> {
                     final var value = Objects.requireNonNull(valueWrapper.get());
-                    final var simplifiedConjunction = simplifyConjunction(value, predicatesOnValue, evaluationContext);
+                    final var simplifiedConjunction = simplifyConjunction(value, predicatesOnValue);
                     resultPredicatesBuilder.addAll(simplifiedConjunction);
                 });
 
@@ -626,15 +620,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
      */
     @Nonnull
     private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value,
-                                                            @Nonnull final Collection<PredicateWithValue> predicates,
-                                                            @Nonnull final EvaluationContext evaluationContext) {
+                                                            @Nonnull final Collection<PredicateWithValue> predicates) {
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
         final var rangeBuilder = RangeConstraints.newBuilder();
 
         for (final var predicate : predicates) {
             if (predicate instanceof ValuePredicate) {
                 final var predicateRange = ((ValuePredicate)predicate).getComparison();
-                if (!rangeBuilder.addComparisonMaybe(predicateRange, evaluationContext)) {
+                if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
             } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {

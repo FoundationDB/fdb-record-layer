@@ -20,13 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -161,7 +160,7 @@ public class GraphExpansion {
      * @return a sealed graph expansion
      */
     @Nonnull
-    public Sealed seal(@Nonnull final EvaluationContext evaluationContext) {
+    public Sealed seal() {
         final GraphExpansion graphExpansion;
 
         final var seenFieldNames = Sets.<String>newHashSet();
@@ -243,30 +242,24 @@ public class GraphExpansion {
         } else {
             graphExpansion = new GraphExpansion(normalizedResultColumns, predicates, quantifiers, ImmutableList.of());
         }
-        return graphExpansion.new Sealed(evaluationContext);
+        return graphExpansion.new Sealed();
     }
 
 
 
     @Nonnull
-    public SelectExpression buildSelect(@Nonnull final EvaluationContext evaluationContext) {
-        return seal(evaluationContext).buildSelect();
+    public SelectExpression buildSelect() {
+        return seal().buildSelect();
     }
 
     @Nonnull
     public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier) {
-        return buildSimpleSelectOverQuantifier(overQuantifier, null);
-    }
-
-    @Nonnull
-    public SelectExpression buildSimpleSelectOverQuantifier(@Nonnull final Quantifier.ForEach overQuantifier,
-                                                            @Nonnull final EvaluationContext evaluationContext) {
-        return seal(evaluationContext).buildSimpleSelectOverQuantifier(overQuantifier);
+        return seal().buildSimpleSelectOverQuantifier(overQuantifier);
     }
 
     @Nonnull
     public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
-        return seal(null).buildSelectWithResultValue(resultValue);
+        return seal().buildSelectWithResultValue(resultValue);
     }
 
     @Nonnull
@@ -350,16 +343,12 @@ public class GraphExpansion {
      */
     public class Sealed {
 
-        @Nonnull
-        private final EvaluationContext evaluationContext;
-
-        public Sealed(@Nonnull final EvaluationContext evaluationContext) {
-            this.evaluationContext = evaluationContext;
+        public Sealed() {
         }
 
         @Nonnull
         public SelectExpression buildSelect() {
-            return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates(), evaluationContext);
+            return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());
         }
 
         @Nonnull
@@ -370,7 +359,7 @@ public class GraphExpansion {
         @Nonnull
         public SelectExpression buildSelectWithResultValue(@Nonnull final Value resultValue) {
             Verify.verify(resultColumns.isEmpty());
-            return new SelectExpression(resultValue, quantifiers, getPredicates(), evaluationContext);
+            return new SelectExpression(resultValue, quantifiers, getPredicates());
         }
 
         @Nonnull

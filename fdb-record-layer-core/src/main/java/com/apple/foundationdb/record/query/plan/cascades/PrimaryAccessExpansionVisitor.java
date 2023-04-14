@@ -77,7 +77,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
         final var parameters = allExpansions.getPlaceholderAliases();
 
         final var expression =
-                new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect(null));
+                new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect());
 
         return new PrimaryScanMatchCandidate(
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expression)),

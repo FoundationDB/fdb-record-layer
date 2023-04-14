@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -66,6 +67,7 @@ public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChil
 
     @Nullable
     @Override
+    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     public Object compileTimeEval(@Nonnull final EvaluationContext context) {
         return eval(null, context);
     }

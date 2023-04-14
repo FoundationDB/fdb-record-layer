@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -142,8 +141,7 @@ public interface Compensation {
         }
 
         @Override
-        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -178,14 +176,12 @@ public interface Compensation {
         }
 
         @Override
-        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
 
-    RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression,
-                               @Nonnull final EvaluationContext evaluationContext);
+    RelationalExpression apply(@Nonnull RelationalExpression relationalExpression);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -254,9 +250,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull final EvaluationContext evaluationContext) {
-                return Compensation.this.apply(otherCompensation.apply(relationalExpression, evaluationContext), evaluationContext);
+            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(otherCompensation.apply(relationalExpression));
             }
         };
     }
@@ -275,9 +270,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull final EvaluationContext evaluationContext) {
-                return Compensation.this.apply(otherCompensation.apply(relationalExpression, evaluationContext), evaluationContext);
+            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(otherCompensation.apply(relationalExpression));
             }
         };
     }
@@ -718,11 +712,10 @@ public interface Compensation {
          * filter
          */
         @Override
-        public RelationalExpression apply(@Nonnull RelationalExpression relationalExpression,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+        public RelationalExpression apply(@Nonnull RelationalExpression relationalExpression) {
             // apply the child as needed
             if (childCompensation.isNeeded()) {
-                relationalExpression = childCompensation.apply(relationalExpression, evaluationContext);
+                relationalExpression = childCompensation.apply(relationalExpression);
             }
 
             if (predicateCompensationMap.isEmpty()) {
@@ -757,7 +750,7 @@ public interface Compensation {
             }
 
             final var compensatedPredicatesExpansion =
-                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal(evaluationContext);
+                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
             Verify.verify(compensatedPredicatesExpansion.getQuantifiers().isEmpty());
             Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
 
@@ -799,7 +792,7 @@ public interface Compensation {
 
                 final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
 
-                return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier, evaluationContext);
+                return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
         }
     }

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -199,7 +198,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
             }
 
-            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect(null)));
+            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
         }
 
         CorrelationIdentifier groupingExprAlias;
@@ -226,7 +225,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2"));
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
-            final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect(null);
+            final var result = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference)).build().buildSelect();
             qun = Quantifier.forEach(GroupExpressionRef.of(result));
             return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
         }

@@ -98,7 +98,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsUsedWhenItsPredicateIsImplied() throws Exception {
         final var compileTimeRange = RangeConstraints.newBuilder();
-        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42), null);
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
@@ -114,7 +114,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void sparseIndexIsNotUsedWhenItsPredicateIsNotImplied() throws Exception {
         final var compileTimeRange = RangeConstraints.newBuilder();
-        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100), null);
+        compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
@@ -166,7 +166,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         queryBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 50)));
         queryBuilder.addQuantifier(qun);
         queryBuilder.addResultColumn(Column.unnamedOf(num2Value));
-        final var query = queryBuilder.build().buildSelect(null);
+        final var query = queryBuilder.build().buildSelect();
 
         qun = Quantifier.forEach(GroupExpressionRef.of(query));
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));

@@ -131,7 +131,7 @@ public class OrPredicate extends AndOrPredicate {
             final var rangesBuilder = RangeConstraints.newBuilder();
             if (child instanceof ValuePredicate) {
                 final var valuePredicate = (ValuePredicate)child;
-                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison(), evaluationContext)) {
+                if (!rangesBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     return Optional.empty();
                 }
             } else if (child instanceof PredicateWithValueAndRanges) {
@@ -186,6 +186,8 @@ public class OrPredicate extends AndOrPredicate {
      *
      * @param aliasMap the current alias map.
      * @param candidatePredicate another predicate to match.
+     * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
+     * implication.
      *
      * @return optional match mapping.
      */
@@ -218,9 +220,9 @@ public class OrPredicate extends AndOrPredicate {
             boolean foundMatch = false;
             for (final var rightRange : rightValueWithRanges.getRanges()) {
                 final var evaledLeft = leftRange.compileTimeEval(evaluationContext);
-                if (rightRange.encloses(evaledLeft) == Proposition.TRUE) {
+                if (rightRange.encloses(evaledLeft, evaluationContext) == Proposition.TRUE) {
                     foundMatch = true;
-                    if (evaledLeft.encloses(rightRange) == Proposition.TRUE) {
+                    if (evaledLeft.encloses(rightRange, evaluationContext) == Proposition.TRUE) {
                         termRequiresCompensation = false;
                         break;
                     }

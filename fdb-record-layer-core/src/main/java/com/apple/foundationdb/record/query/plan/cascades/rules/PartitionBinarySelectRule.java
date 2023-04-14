@@ -131,7 +131,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
                 leftSelectExpression = graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)leftQuantifier);
             } else {
                 graphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
-                leftSelectExpression = graphExpansionBuilder.build().buildSelect(call.getContext().getEvaluationContext());
+                leftSelectExpression = graphExpansionBuilder.build().buildSelect();
             }
             newLeftQuantifier = Quantifier.forEachBuilder()
                     .withAlias(leftQuantifier.getAlias())
@@ -152,7 +152,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
                 rightSelectExpression = graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)rightQuantifier);
             } else {
                 graphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
-                rightSelectExpression = graphExpansionBuilder.build().buildSelect(call.getContext().getEvaluationContext());
+                rightSelectExpression = graphExpansionBuilder.build().buildSelect();
             }
             newRightQuantifier = Quantifier.forEachBuilder()
                     .withAlias(rightQuantifier.getAlias())

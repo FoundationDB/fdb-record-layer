@@ -119,7 +119,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
         final var rankGroupingsAndArgumentsExpansion =
                 expandGroupingsAndArguments(innerBaseQuantifier, groupingKeyExpression, groupingAndArgumentValues);
-        final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect(null);
+        final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect();
         final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
 
         //
@@ -131,7 +131,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseQuantifier, rankQuantifier, rankColumnValue);
         Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
-        final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect(null);
+        final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
         final var rankComparisonQuantifier =
                 Quantifier.forEach(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
 
@@ -170,7 +170,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var groupingAndArgumentAliases = rankGroupingsAndArgumentsExpansion.getPlaceholderAliases();
         final var groupingAliases = groupingAndArgumentAliases.subList(0, groupingKeyExpression.getGroupingCount());
         final var scoreAlias = groupingAndArgumentAliases.get(groupingAndArgumentAliases.size() - 1);
-        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect(null));
+        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
 
         return new WindowedIndexScanMatchCandidate(
                 index,
@@ -288,7 +288,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var partitioningAndArgumentExpansion =
                 pop(wholeKeyExpression.expand(push(initialState)));
-        final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal(null);
+        final var sealedPartitioningAndArgumentExpansion = partitioningAndArgumentExpansion.seal();
 
         //
         // Construct a select expression that uses a windowed value to express the rank.

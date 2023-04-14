@@ -247,7 +247,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
         final SelectExpression upperSelectExpression;
         if (lowersCorrelatedToByUpperAliases.isEmpty() && lowersCorrelatedToByUppers.isEmpty()) {
             lowerGraphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
-            final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelect(call.getContext().getEvaluationContext());
+            final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelect();
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
             upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.ref(lowerSelectExpression)));

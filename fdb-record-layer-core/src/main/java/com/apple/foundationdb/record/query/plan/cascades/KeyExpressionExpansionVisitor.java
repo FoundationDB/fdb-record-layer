@@ -135,10 +135,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final SelectExpression selectExpression =
                         childExpansion
                                 .withBase(childBase)
-                                .buildSelect(null);
+                                .buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
                 final GraphExpansion.Sealed sealedChildExpansion =
-                        childExpansion.seal(null);
+                        childExpansion.seal();
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
@@ -204,7 +204,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBase).withFieldNamePrefix(ImmutableList.of()))));
                 final GraphExpansion baseAndChildExpansion = childExpansion.withBase(childBase);
-                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal(null);
+                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));

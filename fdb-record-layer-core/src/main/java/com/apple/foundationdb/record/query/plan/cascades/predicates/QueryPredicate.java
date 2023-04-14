@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -150,6 +151,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *
      * @param aliasMap the current alias map
      * @param candidatePredicate another predicate (usually in a match candidate)
+     * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
+     * implication.
      *
      * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
      * {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
@@ -208,23 +211,24 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param aliasMap the current alias map
      * @param candidatePredicates an {@link Iterable} of candiate predicates
+     * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty set of {@link PredicateMapping}s
      */
     default Set<PredicateMapping> findImpliedMappings(@NonNull AliasMap aliasMap,
                                                       @Nonnull Iterable<? extends QueryPredicate> candidatePredicates,
-                                                      @Nonnull final EvaluationContext context) {
+                                                      @Nonnull final EvaluationContext evaluationContext) {
         final ImmutableSet.Builder<PredicateMapping> mappingBuilder = ImmutableSet.builder();
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {
             final Optional<PredicateMapping> impliedByQueryPredicateOptional =
-                    impliesCandidatePredicate(aliasMap, candidatePredicate, context);
+                    impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
             impliedByQueryPredicateOptional.ifPresent(mappingBuilder::add);
         }
 
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
-            return impliesCandidatePredicate(aliasMap, tautologyPredicate, context)
+            return impliesCandidatePredicate(aliasMap, tautologyPredicate, evaluationContext)
                     .map(ImmutableSet::of)
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }
@@ -248,6 +252,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
+    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
         return eval(null, context);
     }

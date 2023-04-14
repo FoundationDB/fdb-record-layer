@@ -199,7 +199,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(selectWhereGraphExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect(null)));
+        return Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect()));
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -252,7 +252,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             });
         }
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
-        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(null), placeholderAliases.build());
+        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
     }
 
     @Nonnull

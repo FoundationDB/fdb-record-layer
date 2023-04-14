@@ -88,7 +88,7 @@ public class IndexPredicateExpansion {
                         return false;
                     }
                 }
-                if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison(), null)) {
+                if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                     return false;
                 }
             }
@@ -104,7 +104,7 @@ public class IndexPredicateExpansion {
             final var valuePredicate = (ValuePredicate)group;
             final var key = valuePredicate.getValue();
             var rangeBuilder = RangeConstraints.newBuilder();
-            if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison(), null)) {
+            if (!rangeBuilder.addComparisonMaybe(valuePredicate.getComparison())) {
                 return false;
             }
             final var range = rangeBuilder.build();

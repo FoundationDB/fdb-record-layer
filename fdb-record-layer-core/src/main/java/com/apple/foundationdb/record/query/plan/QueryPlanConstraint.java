@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -31,7 +32,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithConstra
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -55,6 +58,23 @@ public class QueryPlanConstraint {
     @Nonnull
     public QueryPredicate getPredicate() {
         return predicate;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final QueryPlanConstraint that = (QueryPlanConstraint)o;
+        return Objects.equals(predicate, that.predicate);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(predicate);
     }
 
     @Nonnull
@@ -86,19 +106,20 @@ public class QueryPlanConstraint {
     /**
      * Visits a plan and collects all the {@link QueryPlanConstraint}s from it.
      */
+    @SpotBugsSuppressWarnings({"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION", "NP_METHOD_RETURN_RELAXING_ANNOTATION"})
     static class QueryPlanConstraintsCollector implements RecordQueryPlanVisitorWithDefaults<Void> {
 
         @Nonnull
         private final ImmutableList.Builder<QueryPlanConstraint> builder = ImmutableList.builder();
 
-        @Nonnull
+        @Nullable
         @Override
         public Void visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
             visitDefault(element.getIndexPlan());
             return null;
         }
 
-        @Nonnull
+        @Nullable
         @Override
         public Void visitDefault(@Nonnull final RecordQueryPlan element) {
             if (element instanceof RecordQueryPlanWithConstraint) {
