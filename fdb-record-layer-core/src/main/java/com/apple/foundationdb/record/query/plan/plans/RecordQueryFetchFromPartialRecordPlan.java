@@ -86,7 +86,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction, resultType, fetchIndexRecords);
     }
 
-    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
         this.inner = inner;
         this.resultType = resultType;
         this.translateValueFunction = translateValueFunction;

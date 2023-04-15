@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -116,7 +115,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                 final var strictlySortedInnerPlans =
                         innerPlanPartition.getPlans()
                                 .stream()
-                                .map(QueryPlan::strictlySorted)
+                                .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
                 call.yield(strictlySortedInnerPlans);
             }
@@ -130,7 +129,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                     strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
-                resultExpressions.add(innerPlan.strictlySorted());
+                resultExpressions.add(innerPlan.strictlySorted(call));
             } else {
                 resultExpressions.add(innerPlan);
             }

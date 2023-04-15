@@ -34,7 +34,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -196,9 +195,8 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
         Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
-        final var remainingRecordTypesToBeFiltered = Sets.difference(availableRecordTypeNames, queriedRecordTypeNames);
 
-        if (remainingRecordTypesToBeFiltered.isEmpty()) {
+        if (queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
             return scanPlan;
         }
 
@@ -207,7 +205,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
         return new RecordQueryTypeFilterPlan(
                 Quantifier.physical(memoizer.memoizePlans(scanPlan)),
-                remainingRecordTypesToBeFiltered,
+                queriedRecordTypeNames,
                 queriedType);
     }
 

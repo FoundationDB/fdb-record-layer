@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -226,11 +225,11 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
             }
         }
 
-        final List<? extends ExpressionRef<RecordQueryPlan>> newPushedInnerPlans =
+        final List<? extends ExpressionRef<? extends RecordQueryPlan>> newPushedInnerPlans =
                 pushableFetchPlans
                         .stream()
                         .map(RecordQueryFetchFromPartialRecordPlan::getChild)
-                        .map(GroupExpressionRef::of)
+                        .map(call::memoizePlans)
                         .collect(ImmutableList.toImmutableList());
 
         Verify.verify(pushableQuantifiers.size() + nonPushableQuantifiers.size() == setOperationPlan.getQuantifiers().size());
@@ -239,22 +238,22 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildrenReferences(newPushedInnerPlans);
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(newSetOperationPlan,
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(newSetOperationPlan)),
                         combinedTranslateValueFunction,
                         Type.Relation.scalarOf(setOperationPlan.getResultType()),
                         Verify.verifyNotNull(fetchIndexRecords));
 
         if (nonPushableQuantifiers.isEmpty()) {
-            call.yield(GroupExpressionRef.of(newFetchPlan));
+            call.yield(newFetchPlan);
         } else {
             final List<ExpressionRef<? extends RecordQueryPlan>> newFetchPlanAndResidualInners =
-                    Streams.concat(Stream.of(GroupExpressionRef.of(newFetchPlan)),
+                    Streams.concat(Stream.of(call.memoizePlans(newFetchPlan)),
                             nonPushableQuantifiers
                                     .stream()
                                     .map(Quantifier.Physical::getRangesOver)
                                     .map(RecordQueryPlan::narrowReference))
                             .collect(ImmutableList.toImmutableList());
-            call.yield(GroupExpressionRef.of(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners)));
+            call.yield(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
         }
     }
 }
