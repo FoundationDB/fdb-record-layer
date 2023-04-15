@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -58,6 +57,6 @@ public class RemoveProjectionRule extends CascadesRule<LogicalProjectionExpressi
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
         // just remove the projection
-        call.yield(GroupExpressionRef.of(innerPlan));
+        call.yield(innerPlan);
     }
 }

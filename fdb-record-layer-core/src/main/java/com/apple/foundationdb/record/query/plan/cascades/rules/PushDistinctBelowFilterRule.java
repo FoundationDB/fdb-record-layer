@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -100,14 +99,13 @@ public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorder
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
-        final Quantifier.Physical newQun = Quantifier.physical(GroupExpressionRef.of(newDistinctPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlans(newDistinctPlan));
         final List<QueryPredicate> rebasedPredicates =
                 filterPlan.getPredicates()
                         .stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yield(GroupExpressionRef.of(
-                new RecordQueryPredicatesFilterPlan(newQun,
-                        rebasedPredicates)));
+        call.yield(new RecordQueryPredicatesFilterPlan(newQun,
+                        rebasedPredicates));
     }
 }

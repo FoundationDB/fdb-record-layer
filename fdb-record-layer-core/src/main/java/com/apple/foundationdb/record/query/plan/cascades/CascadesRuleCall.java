@@ -247,8 +247,13 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         referencePathsList.stream()
                 .flatMap(Collection::stream)
                 .forEach(referencePath -> {
-                    if (expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference()) != null) {
-                        throw new RecordCoreException("expression used in multiple references");
+                    final var referencingExpression = referencePath.getExpression();
+                    if (expressionToReferenceMap.containsKey(referencingExpression)) {
+                        if (expressionToReferenceMap.get(referencingExpression) != referencePath.getReference()) {
+                            throw new RecordCoreException("expression used in multiple references");
+                        }
+                    } else {
+                        expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference());
                     }
                 });
 

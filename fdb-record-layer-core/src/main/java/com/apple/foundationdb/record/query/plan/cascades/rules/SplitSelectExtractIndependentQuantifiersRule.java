@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -153,7 +152,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
         //
         final var lowerSelectExpression =
                 new SelectExpression(selectExpression.getResultValue(), lowerQuantifiers, selectExpression.getPredicates());
-        final var lowerQuantifier = Quantifier.forEach(GroupExpressionRef.of(lowerSelectExpression));
+        final var lowerQuantifier = Quantifier.forEach(call.memoizeExpression(lowerSelectExpression));
 
         //
         // Create a new SelectExpression with just the eligible quantifiers and a new quantifier ranging over
@@ -167,7 +166,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
                                 .build(),
                         ImmutableList.of());
 
-        call.yield(GroupExpressionRef.of(upperSelectExpression));
+        call.yield(upperSelectExpression);
     }
 
     private boolean isSimpleSelect(@Nonnull final SelectExpression selectExpression,
