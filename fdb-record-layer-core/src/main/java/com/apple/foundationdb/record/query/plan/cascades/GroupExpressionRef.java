@@ -174,20 +174,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      *         otherwise.
      */
     private boolean insert(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
-        final boolean containsInMemo;
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
-            containsInMemo = containsInMemo(newValue);
-        } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
-        }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
+            final boolean containsInMemo = containsInMemo(newValue);
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
 
-        if (!containsInMemo) {
-            insertUnchecked(newValue, precomputedPropertiesMap);
-            return true;
+            if (!containsInMemo) {
+                insertUnchecked(newValue, precomputedPropertiesMap);
+                return true;
+            }
+            return false;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        return false;
     }
 
     /**

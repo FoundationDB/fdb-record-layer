@@ -234,72 +234,82 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             return memoizeLeafExpression(expression);
         }
 
-        Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
+        try {
+            Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
 
-        final var referencePathsList =
-                expression.getQuantifiers()
-                        .stream()
-                        .map(Quantifier::getRangesOver)
-                        .map(traversal::getParentRefPaths)
-                        .collect(ImmutableList.toImmutableList());
+            final var referencePathsList =
+                    expression.getQuantifiers()
+                            .stream()
+                            .map(Quantifier::getRangesOver)
+                            .map(traversal::getParentRefPaths)
+                            .collect(ImmutableList.toImmutableList());
 
-        final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, ExpressionRef<? extends RelationalExpression>>();
-        referencePathsList.stream()
-                .flatMap(Collection::stream)
-                .forEach(referencePath -> {
-                    final var referencingExpression = referencePath.getExpression();
-                    if (expressionToReferenceMap.containsKey(referencingExpression)) {
-                        if (expressionToReferenceMap.get(referencingExpression) != referencePath.getReference()) {
-                            throw new RecordCoreException("expression used in multiple references");
+            final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, ExpressionRef<? extends RelationalExpression>>();
+            referencePathsList.stream()
+                    .flatMap(Collection::stream)
+                    .forEach(referencePath -> {
+                        final var referencingExpression = referencePath.getExpression();
+                        if (expressionToReferenceMap.containsKey(referencingExpression)) {
+                            if (expressionToReferenceMap.get(referencingExpression) != referencePath.getReference()) {
+                                throw new RecordCoreException("expression used in multiple references");
+                            }
+                        } else {
+                            expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference());
                         }
-                    } else {
-                        expressionToReferenceMap.put(referencePath.getExpression(), referencePath.getReference());
-                    }
-                });
+                    });
 
-        final var referencingExpressions =
-                referencePathsList.stream()
-                        .map(referencePaths -> referencePaths.stream().map(ExpressionRefTraversal.ReferencePath::getExpression).collect(LinkedIdentitySet.toLinkedIdentitySet()))
-                        .collect(ImmutableList.toImmutableList());
+            final var referencingExpressions =
+                    referencePathsList.stream()
+                            .map(referencePaths -> referencePaths.stream().map(ExpressionRefTraversal.ReferencePath::getExpression).collect(LinkedIdentitySet.toLinkedIdentitySet()))
+                            .collect(ImmutableList.toImmutableList());
 
-        final var referencingExpressionsIterator = referencingExpressions.iterator();
-        final var commonReferencingExpressions = new LinkedIdentitySet<>(referencingExpressionsIterator.next());
-        while (referencingExpressionsIterator.hasNext()) {
-            commonReferencingExpressions.retainAll(referencingExpressionsIterator.next());
-        }
-
-        for (final var commonReferencingExpression : commonReferencingExpressions) {
-            if (GroupExpressionRef.containsInMember(commonReferencingExpression, expression)) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED)));
-                return Verify.verifyNotNull(expressionToReferenceMap.get(commonReferencingExpression));
+            final var referencingExpressionsIterator = referencingExpressions.iterator();
+            final var commonReferencingExpressions = new LinkedIdentitySet<>(referencingExpressionsIterator.next());
+            while (referencingExpressionsIterator.hasNext()) {
+                commonReferencingExpressions.retainAll(referencingExpressionsIterator.next());
             }
+
+            for (final var commonReferencingExpression : commonReferencingExpressions) {
+                if (GroupExpressionRef.containsInMember(commonReferencingExpression, expression)) {
+                    Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
+                    return Verify.verifyNotNull(expressionToReferenceMap.get(commonReferencingExpression));
+                }
+            }
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
+            final var newRef = GroupExpressionRef.of(expression);
+            traversal.addExpression(newRef, expression);
+            return newRef;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
-        final var newRef = GroupExpressionRef.of(expression);
-        traversal.addExpression(newRef, expression);
-        return newRef;
     }
 
     @Nonnull
     @Override
     public ExpressionRef<? extends RelationalExpression> memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-        Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
-        Preconditions.checkArgument(expression.getQuantifiers().isEmpty());
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
+        try {
+            Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
+            Preconditions.checkArgument(expression.getQuantifiers().isEmpty());
 
-        final var leafRefs = traversal.getLeafReferences();
+            final var leafRefs = traversal.getLeafReferences();
 
-        for (final var leafRef : leafRefs) {
-            for (final var member : leafRef.getMembers()) {
-                if (GroupExpressionRef.containsInMember(expression, member)) {
-                    Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED)));
-                    return leafRef;
+            for (final var leafRef : leafRefs) {
+                for (final var member : leafRef.getMembers()) {
+                    if (GroupExpressionRef.containsInMember(expression, member)) {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
+                        return leafRef;
+                    }
                 }
             }
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
+            final var newRef = GroupExpressionRef.of(expression);
+            traversal.addExpression(newRef, expression);
+            return newRef;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
-        final var newRef = GroupExpressionRef.of(expression);
-        traversal.addExpression(newRef, expression);
-        return newRef;
     }
 
     @Nonnull
@@ -331,28 +341,33 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Nonnull
     private ExpressionRef<? extends RelationalExpression> memoizeExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions,
                                                                              @Nonnull Function<Set<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>> referenceCreator) {
-        final var expressionSet = new LinkedIdentitySet<>(expressions);
-        final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
+        try {
+            final var expressionSet = new LinkedIdentitySet<>(expressions);
+            final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
 
-        if (memoizedRefMaybe.isPresent()) {
-            Debugger.withDebugger(debugger ->
-                    expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(plan, Debugger.Location.REUSED))));
-            return memoizedRefMaybe.get();
-        }
+            if (memoizedRefMaybe.isPresent()) {
+                Debugger.withDebugger(debugger ->
+                        expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED))));
+                return memoizedRefMaybe.get();
+            }
 
-        final var newRef = referenceCreator.apply(expressionSet);
-        for (final var plan : expressionSet) {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(plan, Debugger.Location.NEW)));
-            traversal.addExpression(newRef, plan);
+            final var newRef = referenceCreator.apply(expressionSet);
+            for (final var plan : expressionSet) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
+                traversal.addExpression(newRef, plan);
+            }
+            return newRef;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        return newRef;
     }
 
     @Nonnull
     private Optional<ExpressionRef<? extends RelationalExpression>> findExpressionsInMemo(final LinkedIdentitySet<? extends RelationalExpression> planSet) {
         final var planIterator = planSet.iterator();
         Verify.verify(planIterator.hasNext());
-        final var refsContainingAllPlans = traversal.getRefsContaining(planIterator.next());
+        final var refsContainingAllPlans = new LinkedIdentitySet<>(traversal.getRefsContaining(planIterator.next()));
         while (planIterator.hasNext()) {
             final var currentRefsContainingPlan = traversal.getRefsContaining(planIterator.next());
             refsContainingAllPlans.retainAll(currentRefsContainingPlan);

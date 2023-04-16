@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
@@ -88,7 +90,9 @@ public class ExpressionRefTraversal {
      * @return a set of expression references containing {@code expression}
      */
     public Set<ExpressionRef<? extends RelationalExpression>> getRefsContaining(final RelationalExpression expression) {
-        return containedInMultiMap.get(expression);
+        final var result = containedInMultiMap.get(expression);
+        Debugger.sanityCheck(() -> Verify.verify(result.stream().allMatch(ref -> ref.getMembers().stream().anyMatch(e -> e == expression))));
+        return result;
     }
 
     /**
@@ -118,7 +122,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * Return all expressions (as {@link RelationalExpression}s) that refer to this expression reference.
+     * Return all expressions (as {@link ReferencePath}s) that refer to this expression reference.
      * @param reference reference to return the parent reference paths for
      * @return the set of expressions that are considered parents of this reference.
      */
@@ -137,18 +141,30 @@ public class ExpressionRefTraversal {
         }
     }
 
-    public void addExpression(final ExpressionRef<? extends RelationalExpression> reference, final RelationalExpression expression) {
+    public void addExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final RelationalExpression expression) {
         descendAndAddExpressions(network,
                 containedInMultiMap,
                 leafReferences,
                 reference,
                 expression);
+        Debugger.sanityCheck(() -> Verify.verify(reference.getMembers().contains(expression)));
         containedInMultiMap.put(expression, reference);
         if (expression.getQuantifiers().isEmpty()) {
             leafReferences.add(reference);
         }
     }
 
+    public void removeExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final RelationalExpression expression) {
+        final var referencePaths = ImmutableSet.copyOf(network.inEdges(reference));
+
+        for (final var referencePath : referencePaths) {
+            if (referencePath.expression == expression) {
+                network.removeEdge(referencePath);
+            }
+        }
+
+        containedInMultiMap.removeAll(expression);
+    }
     /**
      * Construct a traversal object using the {@code rootRef} reference passed in.
      * @param rootRef the reference acting as the root for this traversal object
