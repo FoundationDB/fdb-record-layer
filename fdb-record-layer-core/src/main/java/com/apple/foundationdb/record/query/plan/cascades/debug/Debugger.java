@@ -683,14 +683,9 @@ public interface Debugger {
      */
     class InsertIntoMemoEvent implements Event {
         @Nonnull
-        private final RelationalExpression expression;
-
-        @Nonnull
         private final Location location;
 
-        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
-                                   @Nonnull final Location location) {
-            this.expression = expression;
+        public InsertIntoMemoEvent(@Nonnull final Location location) {
             this.location = location;
         }
 
@@ -704,11 +699,6 @@ public interface Debugger {
         @Override
         public Shorthand getShorthand() {
             return Shorthand.INSERT_INTO_MEMO;
-        }
-
-        @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
         }
 
         @Nonnull
