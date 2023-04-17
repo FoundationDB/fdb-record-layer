@@ -56,7 +56,7 @@ import java.util.List;
  * of their {@link Value}s
  */
 @API(API.Status.EXPERIMENTAL)
-public class PickValue implements Value {
+public class PickValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Pick-Value");
     @Nonnull
     private final Value selectorValue;

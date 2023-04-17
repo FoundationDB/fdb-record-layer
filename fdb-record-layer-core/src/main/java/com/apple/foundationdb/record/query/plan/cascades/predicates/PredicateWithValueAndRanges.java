@@ -76,7 +76,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class PredicateWithValueAndRanges implements PredicateWithValue {
+public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue {
 
     /**
      * The value associated with the {@code ranges}.

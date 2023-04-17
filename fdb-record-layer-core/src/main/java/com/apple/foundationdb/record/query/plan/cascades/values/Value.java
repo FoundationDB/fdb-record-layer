@@ -253,21 +253,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        return fold(Value::getCorrelatedToWithoutChildren,
-                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
-                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
-                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
-                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
-                    return correlatedToBuilder.build();
-                });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull
     @Override

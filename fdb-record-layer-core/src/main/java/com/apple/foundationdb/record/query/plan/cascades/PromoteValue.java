@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
@@ -47,7 +48,7 @@ import java.util.function.BiFunction;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PromoteValue implements ValueWithChild {
+public class PromoteValue extends AbstractValue implements ValueWithChild {
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
     private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =

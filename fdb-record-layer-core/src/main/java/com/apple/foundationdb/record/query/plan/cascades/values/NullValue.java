@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * A value that evaluates to empty.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NullValue implements LeafValue {
+public class NullValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Value");
 
     @Nonnull

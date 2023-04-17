@@ -221,7 +221,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Nonnull
-    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         // this brings together all paths that share the same prefixes
         final var orderedFieldPaths =
                 transformMap.keySet()
@@ -248,13 +248,13 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      */
     @Nonnull
     public static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+                                                                  @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
     @Nonnull
     private static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                   @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap,
                                                                    @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (transformMap.containsKey(prefix)) {
             orderedFieldPathIterator.next();

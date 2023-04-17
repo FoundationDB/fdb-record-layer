@@ -50,7 +50,7 @@ import java.util.concurrent.CompletableFuture;
  * TODO remove this class eventually
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryComponentPredicate implements LeafQueryPredicate {
+public class QueryComponentPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Predicate-With-Query-Component");
 
     @Nonnull
@@ -145,7 +145,7 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(correlation);
     }
 

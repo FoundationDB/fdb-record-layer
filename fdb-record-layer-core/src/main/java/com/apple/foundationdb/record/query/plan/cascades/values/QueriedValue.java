@@ -25,19 +25,16 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 /**
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueriedValue implements LeafValue, Value.CompileTimeValue {
+public class QueriedValue extends AbstractValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull
@@ -55,12 +52,6 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue {
     @Override
     public Type getResultType() {
         return resultType;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of();
     }
 
     @Nonnull

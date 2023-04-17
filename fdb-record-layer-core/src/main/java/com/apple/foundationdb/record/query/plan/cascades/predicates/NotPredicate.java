@@ -49,7 +49,7 @@ import java.util.Optional;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotPredicate implements QueryPredicateWithChild {
+public class NotPredicate extends AbstractQueryPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
     @Nonnull

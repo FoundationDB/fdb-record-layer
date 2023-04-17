@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
@@ -99,7 +100,7 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
 
     @SuppressWarnings("ConstantConditions")
-    static class ThrowsValue implements BooleanValue {
+    static class ThrowsValue extends AbstractValue implements BooleanValue {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {

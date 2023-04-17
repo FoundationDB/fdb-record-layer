@@ -49,7 +49,7 @@ import java.util.Locale;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class IndexOnlyAggregateValue implements Value, AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
+public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 

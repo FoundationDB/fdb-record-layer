@@ -41,7 +41,7 @@ import java.util.Set;
  * A wrapper around a constant.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantValue implements LeafValue {
+public class ConstantValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Value");
 
     @Nonnull
@@ -64,7 +64,7 @@ public class ConstantValue implements LeafValue {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 

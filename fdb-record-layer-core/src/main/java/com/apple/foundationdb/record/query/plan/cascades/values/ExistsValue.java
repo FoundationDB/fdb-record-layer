@@ -49,7 +49,7 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
+public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
     private final QuantifiedObjectValue child;

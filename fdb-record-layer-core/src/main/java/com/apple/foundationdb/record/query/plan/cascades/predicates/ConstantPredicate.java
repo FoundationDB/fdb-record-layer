@@ -40,7 +40,7 @@ import java.util.Set;
  * A predicate with a constant boolean value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantPredicate implements LeafQueryPredicate {
+public class ConstantPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
     @Nonnull
@@ -75,7 +75,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Collections.emptySet();
     }
 
