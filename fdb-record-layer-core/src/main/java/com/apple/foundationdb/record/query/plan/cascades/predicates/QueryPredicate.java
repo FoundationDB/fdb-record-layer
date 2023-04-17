@@ -42,8 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -265,21 +263,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        return fold(QueryPredicate::getCorrelatedToWithoutChildren,
-                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
-                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
-                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
-                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
-                    return correlatedToBuilder.build();
-                });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -358,15 +342,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getTransitivelyCorrelatedTo(@Nonnull final Set<CorrelationIdentifier> aliases, @Nonnull final SetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap) {
-        final var predicateCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
-        final var predicateDirectlyCorrelatedTo = Sets.filter(getCorrelatedTo(), aliases::contains);
-        predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
-        predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
-        return predicateCorrelatedToBuilder.build();
     }
 
     @Nonnull

@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class WindowedValue implements Value {
+public abstract class WindowedValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
 
     @Nonnull
@@ -138,7 +138,7 @@ public abstract class WindowedValue implements Value {
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!Value.super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 

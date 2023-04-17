@@ -52,7 +52,7 @@ import java.util.Optional;
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class AndOrValue implements BooleanValue {
+public class AndOrValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Or-Value");
     @Nonnull
     protected final String functionName;

@@ -54,7 +54,7 @@ import java.util.Set;
  * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsPredicate implements LeafQueryPredicate {
+public class ExistsPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Predicate");
 
     @Nonnull

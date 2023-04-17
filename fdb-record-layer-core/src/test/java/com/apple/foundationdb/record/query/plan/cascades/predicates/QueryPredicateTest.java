@@ -55,7 +55,7 @@ public class QueryPredicateTest {
         return new OrPredicate(ImmutableList.copyOf(predicates));
     }
 
-    private abstract static class TestPredicate implements LeafQueryPredicate {
+    private abstract static class TestPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
             return 0;

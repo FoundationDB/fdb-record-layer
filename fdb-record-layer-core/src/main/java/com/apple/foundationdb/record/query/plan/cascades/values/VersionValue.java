@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  * A value representing a version stamp.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue implements QuantifiedValue {
+public class VersionValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     @Nonnull

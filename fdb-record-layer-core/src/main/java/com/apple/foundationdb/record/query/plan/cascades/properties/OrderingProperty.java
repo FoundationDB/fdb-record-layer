@@ -82,6 +82,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -168,7 +169,16 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                             .putAll(equalityBoundValues)
                             .build();
 
-            return Ordering.ofUnnormalized(resultEqualityBoundValueMap, childOrdering.getOrderingSet(), childOrdering.isDistinct());
+            // We can create a new ordering set by adding the equality-bound values to the ordering set domain no matter what.
+            final var childOrderingSet = childOrdering.getOrderingSet();
+            final var orderingSetDomain =
+                    Sets.union(childOrderingSet.getSet(),
+                            equalityBoundValues.keySet()
+                                    .stream()
+                                    .map(OrderingPart::of)
+                                    .collect(ImmutableSet.toImmutableSet()));
+            final var orderingSet = PartiallyOrderedSet.of(orderingSetDomain, childOrderingSet.getDependencyMap());
+            return Ordering.ofUnnormalized(resultEqualityBoundValueMap, orderingSet, childOrdering.isDistinct());
         }
 
         @Nonnull

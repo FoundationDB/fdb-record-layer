@@ -68,7 +68,7 @@ import java.util.stream.StreamSupport;
  * A {@link Value} that returns the comparison result between its children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue implements BooleanValue {
+public class RelOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull

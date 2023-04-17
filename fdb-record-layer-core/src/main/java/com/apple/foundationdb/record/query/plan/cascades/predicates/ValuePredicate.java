@@ -42,7 +42,7 @@ import java.util.Set;
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePredicate implements PredicateWithValue {
+public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
