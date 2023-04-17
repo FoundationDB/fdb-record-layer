@@ -213,7 +213,8 @@ class TypeTest {
                     Arguments.of(LiteralValue.ofScalar(42.2f), LiteralValue.ofScalar(42.2f).getResultType()),
                     Arguments.of(LiteralValue.ofScalar(43L), LiteralValue.ofScalar(43L).getResultType()),
                     Arguments.of(LiteralValue.ofScalar("foo"), LiteralValue.ofScalar("foo").getResultType()),
-                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset())), LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset())).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
+                            LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())).getResultType()),
 
 
                     // Primitives
@@ -224,7 +225,7 @@ class TypeTest {
                     Arguments.of(42.2f, Type.primitiveType(Type.TypeCode.FLOAT)),
                     Arguments.of(43L, Type.primitiveType(Type.TypeCode.LONG)),
                     Arguments.of("foo", Type.primitiveType(Type.TypeCode.STRING)),
-                    Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset()), Type.primitiveType(Type.TypeCode.BYTES)),
+                    Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()), Type.primitiveType(Type.TypeCode.BYTES)),
 
                     // Arrays
                     Arguments.of(listOfNulls, new Type.Array(Type.any())),
@@ -235,7 +236,7 @@ class TypeTest {
                     Arguments.of(List.of(42.2f), new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT))),
                     Arguments.of(List.of(43L), new Type.Array(Type.primitiveType(Type.TypeCode.LONG))),
                     Arguments.of(List.of("foo"), new Type.Array(Type.primitiveType(Type.TypeCode.STRING))),
-                    Arguments.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset())), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES))),
+                    Arguments.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES))),
 
 
                     // Arrays of arrays
@@ -247,7 +248,8 @@ class TypeTest {
                     Arguments.of(List.of(List.of(42.2f), List.of(42.2f)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT)))),
                     Arguments.of(List.of(List.of(43L), List.of(43L)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.LONG)))),
                     Arguments.of(List.of(List.of("foo"), List.of("foo")), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.STRING)))),
-                    Arguments.of(List.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset())), List.of(ByteString.copyFrom("bar", Charset.defaultCharset()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES)))),
+                    Arguments.of(List.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
+                            List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES)))),
 
                     // Unsupported cases
                     Arguments.of(new int[] {1, 2, 3}, Type.any()), // primitive Arrays are not supported
