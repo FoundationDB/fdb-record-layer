@@ -213,8 +213,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
+        final var matchInfo = partialMatch.getMatchInfo();
         final var reverseScanOrder =
-                partialMatch.getMatchInfo()
+                matchInfo
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
@@ -230,9 +231,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
-                                Optional.of((ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()),
+                                Optional.of(partialMatch.getMatchCandidate()),
                                 baseRecordType,
-                                partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
+                                matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
     }
 
     @SuppressWarnings("UnstableApiUsage")

@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -208,8 +209,8 @@ public class GraphExpansion {
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
                             .filter(placeholderWithIndex -> localPredicates.stream()
-                                    .filter(localPredicate -> localPredicate instanceof PredicateWithValueAndRanges)
-                                    .map(localPredicate -> (PredicateWithValueAndRanges)localPredicate)
+                                    .map(p -> p.narrowMaybe(PredicateWithValueAndRanges.class))
+                                    .flatMap(Optional::stream)
                                     .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 
@@ -342,9 +343,6 @@ public class GraphExpansion {
      * A sealed version of {@link GraphExpansion} that has already reconciled duplicate placeholders.
      */
     public class Sealed {
-
-        public Sealed() {
-        }
 
         @Nonnull
         public SelectExpression buildSelect() {

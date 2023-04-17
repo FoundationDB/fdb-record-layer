@@ -90,18 +90,7 @@ public class MatchInfo {
             quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
             return mapBuilder.build();
         });
-        this.capturedConstraintsSupplier = Suppliers.memoize(() -> {
-            final var constraints = predicateMap.getMap()
-                    .values()
-                    .stream()
-                    .flatMap(predicate -> predicate.getConstraint().isPresent() ? Stream.of(predicate.getConstraint().get()) : Stream.empty())
-                    .collect(Collectors.toUnmodifiableList());
-            if (constraints.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(QueryPlanConstraint.compose(constraints));
-        }
-        );
+        this.capturedConstraintsSupplier = Suppliers.memoize(this::capturedConstraintCollectorMaybe);
         this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
             final PredicateMap.Builder targetBuilder = PredicateMap.builder();
@@ -247,6 +236,20 @@ public class MatchInfo {
                 matchedOrderingParts,
                 remainingComputationValueOptional);
     }
+
+    @Nonnull
+    private Optional<QueryPlanConstraint> capturedConstraintCollectorMaybe() {
+        final var constraints = predicateMap.getMap()
+                .values()
+                .stream()
+                .flatMap(predicate -> predicate.getConstraint().isPresent() ? Stream.of(predicate.getConstraint().get()) : Stream.empty())
+                .collect(Collectors.toUnmodifiableList());
+        if (constraints.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(QueryPlanConstraint.compose(constraints));
+    }
+
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
