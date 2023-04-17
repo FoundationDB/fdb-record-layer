@@ -30,4 +30,6 @@ message ContinuationProto {
   int32 version = 1;
   // The underlying (cursor) continuation state
   optional bytes underlyingBytes = 2;
+  // The parameter binding hash for the given query
+  optional int32 bindingHash = 3;
 }

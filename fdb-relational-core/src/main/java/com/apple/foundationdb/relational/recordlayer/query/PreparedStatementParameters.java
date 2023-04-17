@@ -24,6 +24,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 public class PreparedStatementParameters {
 
@@ -53,5 +55,30 @@ public class PreparedStatementParameters {
                 "No value found for parameter " + name,
                 ErrorCode.UNDEFINED_PARAMETER);
         return namedParameters.get(name);
+    }
+
+    /**
+     * Calculate the stable hash value of the binding parameters. The stable hash value should be the same across implementations
+     * of {@link Map}, as it assumes nothing of the implementation or iteration order.
+     * The hash value can be used to detect changes in the bound parameter values, so that the query can be validated to
+     * be the same as another query (e.g. when given in a continuation).
+     * @return the calculated stable hash value for the bound parameters
+     */
+    public int stableHash() {
+        return hash("parameters", parameters) + hash("namedParameters", namedParameters);
+    }
+
+    private int hash(String title, Map<? extends Comparable<?>, Object> map) {
+        int mapHash = 0;
+        // Empty and null maps will produce the same hash value
+        if (map != null) {
+            // Sort the entries by key, to fix the iteration order
+            Map<? extends Comparable<?>, Object> sorted = new TreeMap<>(map);
+
+            for (Map.Entry<?, Object> entry: sorted.entrySet()) {
+                mapHash = 31 * mapHash + Objects.hash(entry.getKey(), entry.getValue());
+            }
+        }
+        return title.hashCode() + mapHash;
     }
 }

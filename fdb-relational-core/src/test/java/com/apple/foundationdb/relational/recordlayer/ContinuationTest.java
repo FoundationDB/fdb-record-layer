@@ -65,12 +65,15 @@ public class ContinuationTest {
     public void customProto() throws Exception {
         ContinuationProto proto = ContinuationProto.newBuilder()
                 .setVersion(5)
-                .setUnderlyingBytes(ByteString.copyFrom("Blah".getBytes())).build();
+                .setUnderlyingBytes(ByteString.copyFrom("Blah".getBytes()))
+                .setBindingHash(1234)
+                .build();
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.parseContinuation(proto.toByteArray());
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(false);
         Assertions.assertThat(continuation.atEnd()).isEqualTo(false);
         Assertions.assertThat(continuation.getUnderlyingBytes()).isEqualTo("Blah".getBytes());
         Assertions.assertThat(continuation.getVersion()).isEqualTo(5);
+        Assertions.assertThat(continuation.getBindingHash()).isEqualTo(1234);
     }
 
     @Test

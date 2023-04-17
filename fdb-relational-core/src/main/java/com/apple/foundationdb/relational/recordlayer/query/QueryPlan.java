@@ -170,7 +170,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 if (forExplain) {
                     return explainPhysicalPlan(recordQueryPlan);
                 } else {
-                    return executePhysicalPlan(recordQueryPlan, recordLayerSchema, conn);
+                    return executePhysicalPlan(recordQueryPlan, recordLayerSchema, conn, context.planContext);
                 }
             }
         }
@@ -195,7 +195,8 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         private RelationalResultSet executePhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
                                                       @Nonnull final RecordLayerSchema recordLayerSchema,
-                                                      @Nonnull final EmbeddedRelationalConnection connection) throws RelationalException {
+                                                      @Nonnull final EmbeddedRelationalConnection connection,
+                                                      @Nonnull final PlanContext planContext) throws RelationalException {
             final Type innerType = relationalExpression.getResultType().getInnerType();
             Assert.notNull(innerType);
             Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
@@ -210,7 +211,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             try {
                 return new RecordLayerResultSet(metaData,
                         // Deserialize the continuation that was provided in the query
-                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection);
+                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection, planContext);
             } catch (InvalidProtocolBufferException ex) {
                 throw ExceptionUtil.toRelationalException(ex);
             }

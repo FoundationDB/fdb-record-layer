@@ -44,20 +44,25 @@ public interface Plan<T> {
         final Options options;
         @Nonnull
         final RelationalConnection connection;
+        @Nonnull
+        final PlanContext planContext;
 
         ExecutionContext(@Nonnull Transaction transaction,
                          @Nonnull Options options,
-                         @Nonnull RelationalConnection connection) {
+                         @Nonnull RelationalConnection connection,
+                         @Nonnull PlanContext planContext) {
             this.transaction = transaction;
             this.options = options;
             this.connection = connection;
+            this.planContext = planContext;
         }
 
         @Nonnull
         public static ExecutionContext of(@Nonnull Transaction transaction,
-                                              @Nonnull Options options,
-                                              @Nonnull RelationalConnection connection) {
-            return new ExecutionContext(transaction, options, connection);
+                                          @Nonnull Options options,
+                                          @Nonnull RelationalConnection connection,
+                                          @Nonnull PlanContext planContext) {
+            return new ExecutionContext(transaction, options, connection, planContext);
         }
     }
 
@@ -72,7 +77,7 @@ public interface Plan<T> {
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
-    static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
+    static Plan<?>  generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())

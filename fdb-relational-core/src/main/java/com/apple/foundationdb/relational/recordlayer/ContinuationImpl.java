@@ -52,7 +52,7 @@ public final class ContinuationImpl implements Continuation {
         proto = builder.build();
     }
 
-    private ContinuationImpl(@Nonnull ContinuationProto proto) {
+    ContinuationImpl(@Nonnull ContinuationProto proto) {
         this.proto = proto;
     }
 
@@ -72,6 +72,24 @@ public final class ContinuationImpl implements Continuation {
             return null;
         } else {
             return proto.getUnderlyingBytes().toByteArray();
+        }
+    }
+
+
+    /**
+     * Hash code for the parameter binding for the continuation.
+     * Once the query gets a continuation, a stable hash of the parameter binding  (both explicit - from the customer and
+     * implicit - added by the system) is stored in the continuation. Once another query request is attempted with the
+     * continuation, the binding hash can be compared to verify that the query matches the continuation. The request will
+     * be rejected if the hashes do not match.
+     * @return a stable hash for the parameter bindings for the continuation
+     */
+    @Nullable
+    public Integer getBindingHash() {
+        if (proto.hasBindingHash()) {
+            return proto.getBindingHash();
+        } else {
+            return null;
         }
     }
 
@@ -124,18 +142,35 @@ public final class ContinuationImpl implements Continuation {
         }
     }
 
-    public static Continuation copyOf(@Nonnull Continuation other) throws RelationalException {
+    public static ContinuationImpl copyOf(@Nonnull Continuation other) throws RelationalException {
         if (other instanceof ContinuationImpl) {
             // ContinuationImpl is immutable, no need to actually copy
-            return other;
+            return (ContinuationImpl) other;
         } else if (other.atBeginning()) {
-            return BEGIN;
+            return (ContinuationImpl) BEGIN;
         } else if (other.atEnd()) {
-            return END;
+            return (ContinuationImpl) END;
         } else {
             String message = String.format("programming error, extra logic required for copy-constructing from %s", other.getClass());
             assert false : message;
             throw new RelationalException(message, ErrorCode.INTERNAL_ERROR); // -ea safety net.
         }
+    }
+
+    /**
+     * Factory method to create a new {@link ContinuationBuilder}.
+     * @return a newly created continuation builder
+     */
+    public static ContinuationBuilder newBuilder() {
+        return new ContinuationBuilder();
+    }
+
+    /**
+     * Create a {@link ContinuationBuilder} initialized to the state of this continuation. This can be used as a mutation
+     * method to modify an existing continuation.
+     * @return a builder initialized to the state of this continuation
+     */
+    public ContinuationBuilder asBuilder() {
+        return new ContinuationBuilder(proto);
     }
 }

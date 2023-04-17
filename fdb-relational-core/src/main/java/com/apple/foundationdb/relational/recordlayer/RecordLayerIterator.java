@@ -69,6 +69,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     @Override
     public Continuation getContinuation() throws RelationalException {
         //TODO(bfines) replace this with mutable abstraction?
+        //Alternatively, store the bytes and create the continuation upon demand
         return ContinuationImpl.copyOf(continuation);
     }
 

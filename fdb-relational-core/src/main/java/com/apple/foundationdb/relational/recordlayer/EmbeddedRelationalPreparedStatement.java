@@ -178,7 +178,7 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
                     .withPreparedParameters(preparedStatementParameters)
                     .build();
             final Plan<?> plan = Plan.generate(query, planContext);
-            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
+            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, planContext);
             if (plan instanceof QueryPlan) {
                 return Optional.of(((QueryPlan) plan).execute(executionContext));
             } else {

@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,12 +42,23 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     private Row currentRow;
 
+    @Nullable
+    private PlanContext planContext;
+
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
+        this(metaData, iterator, connection, null);
+    }
+
+    public RecordLayerResultSet(@Nonnull StructMetaData metaData,
+                                @Nonnull final ResumableIterator<Row> iterator,
+                                @Nullable final EmbeddedRelationalConnection connection,
+                                @Nullable PlanContext planContext) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
+        this.planContext = planContext;
     }
 
     @Override
@@ -85,7 +97,15 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
-            return currentCursor.getContinuation();
+            if (planContext == null) {
+                return currentCursor.getContinuation();
+            } else {
+                // When we have plan context, record the parameter binding hash in the continuation
+                ContinuationBuilder builder = ContinuationImpl.copyOf(currentCursor.getContinuation())
+                        .asBuilder()
+                        .withBindingHash(planContext.getPreparedStatementParameters().stableHash());
+                return builder.build();
+            }
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
