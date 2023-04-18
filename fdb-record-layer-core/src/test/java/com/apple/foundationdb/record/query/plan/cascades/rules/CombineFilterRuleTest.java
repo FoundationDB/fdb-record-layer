@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -85,7 +86,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
             GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
             assertTrue(execution.getResult().containsInMemo(
                     buildLogicalFilter(Query.and(filter1, filter2), basePlan)));
@@ -98,7 +99,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
             // this rule should not try to coalesce the two filters
             assertTrue(root.containsInMemo(buildLogicalFilter(Query.and(filter1, filter1), basePlan)));
@@ -112,7 +113,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, basePlan));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertFalse(execution.isRuleMatched());
         }
     }

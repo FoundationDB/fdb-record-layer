@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  */
 public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChild {
 
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Value-Type");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
     @Nonnull
     private final Value child;

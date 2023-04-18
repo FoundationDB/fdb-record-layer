@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -63,7 +62,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     private final Supplier<Set<CorrelationIdentifier>> correlationsCalculator;
 
     /**
-     * Amortised checker which checks whether any of the underlying range {@link Comparisons.Comparison}
+     * Amortized checker which checks whether any of the underlying range {@link Comparisons.Comparison}
      * is a {@link com.apple.foundationdb.record.query.expressions.Comparisons.ValueComparison} with a
      * {@link ConstantObjectValue} comparand. This check is needed for situations where we want to compile-time
      * evaluate this {@link RangeConstraints}.
@@ -155,17 +154,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
         final var builder = newBuilder();
         for (final var comparison : getComparisons()) {
-            if (comparison instanceof Comparisons.ValueComparison || comparison.getComparand() instanceof ConstantObjectValue) {
-                final var newComparand = comparison instanceof Comparisons.ValueComparison
-                                         ? ((Comparisons.ValueComparison)comparison).getComparandValue().compileTimeEval(context)
-                                         : ((ConstantObjectValue)comparison.getComparand()).compileTimeEval(context);
-                if (newComparand == null) {
-                    builder.addComparisonMaybe(new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
-                } else if (!(newComparand instanceof Value)) {
-                    builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand));
-                } else {
-                    builder.addComparisonMaybe(comparison.withComparand(newComparand));
-                }
+            if (comparison instanceof Comparisons.ValueComparison) {
+                final var newComparand = ((Comparisons.ValueComparison)comparison).getComparandValue().compileTimeEval(context);
+                builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand));
             } else {
                 builder.addComparisonMaybe(comparison);
             }

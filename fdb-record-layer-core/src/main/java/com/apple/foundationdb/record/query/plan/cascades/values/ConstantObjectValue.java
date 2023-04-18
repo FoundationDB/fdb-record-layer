@@ -35,9 +35,9 @@ import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
- * Represents a constant value that correlates to a value of a constant binding.
+ * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
-public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeValue {
+public class ConstantObjectValue implements LeafValue, Value.CompileTimeValue {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Object-Value");
@@ -56,16 +56,15 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
         this.resultType = resultType;
     }
 
+    @Nonnull
+    public CorrelationIdentifier getAlias() {
+        return alias;
+    }
+
     @Override
     @Nonnull
     public Type getResultType() {
         return resultType;
-    }
-
-    @Nonnull
-    @Override
-    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
-        return ConstantObjectValue.of(targetAlias, ordinal, resultType);
     }
 
     @Nonnull
@@ -108,20 +107,8 @@ public class ConstantObjectValue implements QuantifiedValue, Value.CompileTimeVa
         return ordinal == otherConstantObjectValue.ordinal;
     }
 
-    @Override
-    @Nonnull
-    public CorrelationIdentifier getAlias() {
-        return alias;
-    }
-
     public int getOrdinal() {
         return ordinal;
-    }
-
-    @Nonnull
-    @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return fieldValue;
     }
 
     @Nullable

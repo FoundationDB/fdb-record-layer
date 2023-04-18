@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
@@ -58,15 +57,10 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
 
-    @Nonnull
-    private final EvaluationContext evaluationContext;
-
     private MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                @Nonnull final Set<MatchCandidate> matchCandidates,
-                                @Nonnull final EvaluationContext evaluationContext) {
+                                @Nonnull final Set<MatchCandidate> matchCandidates) {
         this.plannerConfiguration = plannerConfiguration;
         this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
-        this.evaluationContext = evaluationContext;
     }
 
     @Nonnull
@@ -96,12 +90,6 @@ public class MetaDataPlanContext implements PlanContext {
         return matchCandidates;
     }
 
-    @Override
-    @Nonnull
-    public EvaluationContext getEvaluationContext() {
-        return evaluationContext;
-    }
-
     @Nonnull
     private static List<Index> readableOf(@Nonnull RecordStoreState recordStoreState,
                                           @Nonnull List<Index> indexes) {
@@ -117,15 +105,6 @@ public class MetaDataPlanContext implements PlanContext {
                                              @Nonnull RecordMetaData metaData,
                                              @Nonnull RecordStoreState recordStoreState,
                                              @Nonnull RecordQuery query) {
-        return forRecordQuery(plannerConfiguration, metaData, recordStoreState, query, EvaluationContext.EMPTY);
-    }
-
-    @Nonnull
-    public static PlanContext forRecordQuery(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
-                                             @Nonnull RecordMetaData metaData,
-                                             @Nonnull RecordStoreState recordStoreState,
-                                             @Nonnull RecordQuery query,
-                                             @Nonnull final EvaluationContext evaluationContext) {
         final Optional<Collection<String>> queriedRecordTypeNamesOptional = query.getRecordTypes().isEmpty() ? Optional.empty() : Optional.of(query.getRecordTypes());
         final Optional<Collection<String>> allowedIndexesOptional = query.hasAllowedIndexes() ? Optional.of(Objects.requireNonNull(query.getAllowedIndexes())) : Optional.empty();
         final var indexQueryabilityFilter = query.getIndexQueryabilityFilter();
@@ -183,7 +162,7 @@ public class MetaDataPlanContext implements PlanContext {
         MatchCandidate.fromPrimaryDefinition(metaData, queriedRecordTypeNames, commonPrimaryKey, isSortReverse)
                 .ifPresent(matchCandidatesBuilder::add);
 
-        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build(), evaluationContext);
+        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build());
     }
 
     public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
@@ -193,28 +172,10 @@ public class MetaDataPlanContext implements PlanContext {
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                                final boolean isSortReverse) {
-        return forRootReference(plannerConfiguration,
-                metaData,
-                recordStoreState,
-                rootReference,
-                allowedIndexesOptional,
-                indexQueryabilityFilter,
-                isSortReverse,
-                EvaluationContext.EMPTY);
-    }
-
-    public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                               @Nonnull final RecordMetaData metaData,
-                                               @Nonnull final RecordStoreState recordStoreState,
-                                               @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference,
-                                               @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
-                                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
-                                               final boolean isSortReverse,
-                                               @Nonnull final EvaluationContext evaluationContext) {
         final var queriedRecordTypeNames = RecordTypesProperty.evaluate(rootReference);
 
         if (queriedRecordTypeNames.isEmpty()) {
-            return new MetaDataPlanContext(plannerConfiguration, ImmutableSet.of(), EvaluationContext.EMPTY);
+            return new MetaDataPlanContext(plannerConfiguration, ImmutableSet.of());
         }
 
         final var queriedRecordTypes =
@@ -251,6 +212,6 @@ public class MetaDataPlanContext implements PlanContext {
                     .ifPresent(matchCandidatesBuilder::add);
         }
 
-        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build(), evaluationContext);
+        return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build());
     }
 }

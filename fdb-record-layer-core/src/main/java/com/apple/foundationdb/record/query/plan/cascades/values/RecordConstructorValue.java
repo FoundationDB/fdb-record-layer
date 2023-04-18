@@ -119,7 +119,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
             if (childResult != null) {
                 final var fieldDescriptor = fieldDescriptors.get(i);
-                if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
+                if (fieldType.isArray() && fieldType.isNullable()) {
                     final var wrappedDescriptor = fieldDescriptor.getMessageType();
                     final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
                     wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);

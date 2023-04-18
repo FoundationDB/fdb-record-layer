@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
@@ -43,11 +42,5 @@ public class FakePlanContext implements PlanContext {
     @Override
     public Set<MatchCandidate> getMatchCandidates() {
         return ImmutableSet.of();
-    }
-
-    @Nonnull
-    @Override
-    public EvaluationContext getEvaluationContext() {
-        return EvaluationContext.EMPTY;
     }
 }

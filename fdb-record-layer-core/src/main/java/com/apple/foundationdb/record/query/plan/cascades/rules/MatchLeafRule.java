@@ -88,7 +88,7 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
                     // member expressions that do have quantifiers they range over as we are interested in only the leaf
                     // expressions.
                     if (leafMember.getQuantifiers().isEmpty()) {
-                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember, context.getEvaluationContext());
+                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember, call.getEvaluationContext());
                         // yield any match to the planner
                         boundMatchInfos.forEach(boundMatchInfo ->
                                 call.yieldPartialMatch(boundMatchInfo.getAliasMap(),

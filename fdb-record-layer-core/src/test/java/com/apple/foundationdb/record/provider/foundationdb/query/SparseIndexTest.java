@@ -174,10 +174,10 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Generates query {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50} using {@link CascadesPlanner}
-     * and returns an optimised physical plan.
+     * and returns an optimized physical plan.
      *
      * @param planner The planner.
-     * @return optimised query of {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50}
+     * @return optimized query of {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50}
      */
     @Nonnull
     private static RecordQueryPlan planQuery(@Nonnull final CascadesPlanner planner) {

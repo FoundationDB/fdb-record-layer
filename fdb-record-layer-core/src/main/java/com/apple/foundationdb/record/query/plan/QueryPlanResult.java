@@ -39,21 +39,14 @@ public class QueryPlanResult implements PlanHashable {
     @Nonnull
     private final QueryPlanInfo planInfo;
 
-    @Nonnull
-    private final QueryPlanConstraint constraint;
-
     public QueryPlanResult(@Nonnull final RecordQueryPlan plan) {
-        this(plan, QueryPlanInfo.empty());
+        this.plan = plan;
+        planInfo = QueryPlanInfo.empty();
     }
 
     public QueryPlanResult(@Nonnull final RecordQueryPlan plan, @Nonnull final QueryPlanInfo planInfo) {
-        this(plan, planInfo, QueryPlanConstraint.tautology());
-    }
-
-    public QueryPlanResult(@Nonnull final RecordQueryPlan plan, @Nonnull final QueryPlanInfo planInfo, @Nonnull final QueryPlanConstraint constraint) {
         this.plan = plan;
         this.planInfo = planInfo;
-        this.constraint = constraint;
     }
 
     @Nonnull
@@ -64,11 +57,6 @@ public class QueryPlanResult implements PlanHashable {
     @Nonnull
     public QueryPlanInfo getPlanInfo() {
         return planInfo;
-    }
-
-    @Nonnull
-    public QueryPlanConstraint getPlanConstraint() {
-        return constraint;
     }
 
     /**

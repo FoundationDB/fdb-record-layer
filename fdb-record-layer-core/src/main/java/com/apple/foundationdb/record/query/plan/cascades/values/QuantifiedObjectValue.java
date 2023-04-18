@@ -80,7 +80,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
         final var binding = (QueryResult)context.getBinding(alias);
-        if (resultType.getTypeCode() == Type.TypeCode.RECORD) {
+        if (resultType.isRecord()) {
             return binding.getDatum() == null ? null : binding.getMessage();
         } else {
             return binding.getDatum();

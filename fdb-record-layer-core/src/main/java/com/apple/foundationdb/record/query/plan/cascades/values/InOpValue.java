@@ -195,7 +195,7 @@ public class InOpValue implements BooleanValue {
 
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            SemanticException.check(res1.getTypeCode() == Type.TypeCode.ARRAY, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            SemanticException.check(res1.isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
             final var arrayElementType = Objects.requireNonNull(((Type.Array) res1).getElementType());
             if (res0.getTypeCode() != arrayElementType.getTypeCode()) {

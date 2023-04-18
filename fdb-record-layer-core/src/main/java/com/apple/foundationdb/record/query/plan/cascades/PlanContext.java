@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
@@ -40,7 +39,4 @@ public interface PlanContext {
 
     @Nonnull
     Set<MatchCandidate> getMatchCandidates();
-
-    @Nonnull
-    EvaluationContext getEvaluationContext();
 }

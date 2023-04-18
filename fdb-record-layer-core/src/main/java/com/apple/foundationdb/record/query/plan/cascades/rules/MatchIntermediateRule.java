@@ -195,7 +195,7 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
                         matchWithCandidate(expression,
                                 matchCandidate,
                                 candidateExpression,
-                                call.getContext().getEvaluationContext());
+                                call.getEvaluationContext());
                 boundMatchInfos.forEach(boundMatchInfo ->
                         call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
                                 matchCandidate,

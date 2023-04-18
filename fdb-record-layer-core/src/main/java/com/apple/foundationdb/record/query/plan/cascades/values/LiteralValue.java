@@ -53,7 +53,7 @@ public class LiteralValue<T> implements LeafValue, Value.CompileTimeValue {
     private final T value;
 
     public LiteralValue(@Nullable final T value) {
-        this(Type.primitiveType(typeCodeFromLiteral(value), false), value);
+        this(Type.primitiveType(Type.typeCodeFromPrimitive(value), false), value);
     }
 
     @VisibleForTesting
@@ -155,11 +155,6 @@ public class LiteralValue<T> implements LeafValue, Value.CompileTimeValue {
     }
 
     @Nonnull
-    public static Type.TypeCode typeCodeFromLiteral(@Nullable final Object o) {
-        return Type.getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), Type.TypeCode.UNKNOWN);
-    }
-
-    @Nonnull
     public static String formatLiteral(@Nonnull final Type type, @Nonnull final String literal) {
         final String comparandString;
         if (type.isPrimitive()) {
@@ -198,10 +193,10 @@ public class LiteralValue<T> implements LeafValue, Value.CompileTimeValue {
         return new LiteralValue<>(value);
     }
 
-    public static <T> LiteralValue<List<T>> ofList(final List<T> listValue) {
+    public static <T> LiteralValue<List<T>> ofList(@Nonnull final List<T> listValue) {
         Type resolvedElementType = null;
         for (final var elementValue : listValue) {
-            final var currentType = Type.primitiveType(typeCodeFromLiteral(elementValue));
+            final var currentType = Type.primitiveType(Type.typeCodeFromPrimitive(elementValue));
             if (resolvedElementType == null) {
                 resolvedElementType = currentType;
             } else {

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -64,12 +65,15 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     private final LinkedIdentitySet<PartialMatch> newPartialMatches;
     @Nonnull
     private final Set<ExpressionRef<? extends RelationalExpression>> referencesWithPushedRequirements;
+    @Nonnull
+    private final EvaluationContext evaluationContext;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
                             @Nonnull CascadesRule<?> rule,
                             @Nonnull GroupExpressionRef<RelationalExpression> root,
                             @Nonnull ExpressionRefTraversal traversal,
-                            @Nonnull PlannerBindings bindings) {
+                            @Nonnull PlannerBindings bindings,
+                            @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
         this.rule = rule;
         this.root = root;
@@ -78,6 +82,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         this.newExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
         this.referencesWithPushedRequirements = Sets.newLinkedHashSet();
+        this.evaluationContext = evaluationContext;
     }
 
     public void run() {
@@ -233,5 +238,10 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Nonnull
     public Set<PartialMatch> getNewPartialMatches() {
         return newPartialMatches;
+    }
+
+    @Nonnull
+    public EvaluationContext getEvaluationContext() {
+        return evaluationContext;
     }
 }

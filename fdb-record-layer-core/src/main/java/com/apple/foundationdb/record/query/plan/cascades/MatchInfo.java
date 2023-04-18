@@ -44,7 +44,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * This class represents the result of matching one expression against a candidate.
@@ -63,6 +62,9 @@ public class MatchInfo {
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
+    /**
+     * Conjuncts the constraints from the predicate map into a single {@link QueryPlanConstraint}.
+     */
     @Nonnull
     private final Supplier<Optional<QueryPlanConstraint>> capturedConstraintsSupplier;
 
@@ -239,17 +241,19 @@ public class MatchInfo {
 
     @Nonnull
     private Optional<QueryPlanConstraint> capturedConstraintCollectorMaybe() {
+        final var childConstraints = quantifierToPartialMatchMap.values().stream().map(
+                partialMatch -> partialMatch.get().getMatchInfo().capturedConstraintCollectorMaybe()).flatMap(Optional::stream).collect(Collectors.toList());
         final var constraints = predicateMap.getMap()
                 .values()
                 .stream()
-                .flatMap(predicate -> predicate.getConstraint().isPresent() ? Stream.of(predicate.getConstraint().get()) : Stream.empty())
+                .flatMap(predicate -> predicate.getConstraint().stream())
                 .collect(Collectors.toUnmodifiableList());
-        if (constraints.isEmpty()) {
+        if (constraints.isEmpty() && childConstraints.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(QueryPlanConstraint.compose(constraints));
+        final var allConstraints = ImmutableList.<QueryPlanConstraint>builder().addAll(constraints).addAll(childConstraints).build();
+        return Optional.of(QueryPlanConstraint.compose(allConstraints));
     }
-
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {

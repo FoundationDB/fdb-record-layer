@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -209,8 +208,7 @@ public class GraphExpansion {
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
                             .filter(placeholderWithIndex -> localPredicates.stream()
-                                    .map(p -> p.narrowMaybe(PredicateWithValueAndRanges.class))
-                                    .flatMap(Optional::stream)
+                                    .flatMap(predicate -> predicate.narrowMaybe(PredicateWithValueAndRanges.class).stream())
                                     .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 

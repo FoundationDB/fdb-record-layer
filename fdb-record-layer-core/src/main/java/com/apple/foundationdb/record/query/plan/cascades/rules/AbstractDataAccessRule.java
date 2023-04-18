@@ -23,18 +23,18 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -402,10 +402,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * intersection. For single data scans that will not be used in an intersection we still follow the same
      * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
-     *
      * @param partialMatchWithCompensation the match the caller wants to apply compensation for
      * @param scanExpression the scan expression the caller would like to create compensation for.
-     *
      * @return a new {@link RelationalExpression} that represents the data access and its compensation
      */
     @Nonnull
@@ -426,15 +424,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
-     *
      * @param commonPrimaryKeyValues normalized common primary key
      * @param matchToExpressionMap a map from match to single data access expression
      * @param partition a partition (i.e. a list of {@link PartialMatch}es that the caller would like to compute
-     * and intersected data access for
+     *        and intersected data access for
      * @param requestedOrderings a set of ordering that have been requested by consuming expressions/plan operators
-     *
      * @return a optional containing a new {@link RelationalExpression} that represents the data access and its
-     * compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
+     *         compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
      */
     @Nonnull
     private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<Value> commonPrimaryKeyValues,

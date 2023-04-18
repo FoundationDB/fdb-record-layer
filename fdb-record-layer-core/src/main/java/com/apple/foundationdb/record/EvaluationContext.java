@@ -146,9 +146,6 @@ public class EvaluationContext {
         if (constantsList == null) {
             throw new RecordCoreException(String.format("could not find '%s'-'%d' in the evaluation context", alias, ordinal));
         }
-        if (ordinal < 0 || ordinal >= constantsList.size()) {
-            throw new RecordCoreException(String.format("could not find item with ordinal '%d' in '%s'", ordinal, constantsList));
-        }
         return constantsList.get(ordinal);
     }
 
