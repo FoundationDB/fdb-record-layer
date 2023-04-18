@@ -66,6 +66,8 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.jline.console.SystemRegistry;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -206,6 +208,24 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThat(record2List, hasSize(1));
             FDBQueriedRecord<Message> queriedRecord2 = record2List.get(0);
             assertEquals(record2, queriedRecord2.getRecord());
+        }
+    }
+
+    @Test
+    public void testLoadStoreHeader() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // load store header with new static method
+            RecordMetaDataProto.DataStoreInfo dataStoreInfo1 = FDBRecordStore.loadStoreHeaderAsync(context, path).get();
+            // load store header with old method
+            RecordMetaDataProto.DataStoreInfo dataStoreInfo2 = recordStore.getRecordStoreState().getStoreHeader();
+            // assert
+            Assertions.assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, dataStoreInfo1.getFormatVersion());
+            Assertions.assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, dataStoreInfo2.getFormatVersion());
+            Assertions.assertEquals(recordStore.getRecordMetaData().getVersion(), dataStoreInfo1.getMetaDataversion());
+            Assertions.assertEquals(recordStore.getRecordMetaData().getVersion(), dataStoreInfo2.getMetaDataversion());
+            Assertions.assertEquals(dataStoreInfo1.getLastUpdateTime(), dataStoreInfo2.getLastUpdateTime());
+            commit(context);
         }
     }
 

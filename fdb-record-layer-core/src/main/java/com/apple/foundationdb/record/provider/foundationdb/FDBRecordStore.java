@@ -2107,6 +2107,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 });
     }
 
+    private static RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
+                                                                              @Nonnull StoreExistenceCheck existenceCheck,
+                                                                              @Nonnull FDBRecordContext context,
+                                                                              @Nonnull SubspaceProvider subspaceProvider,
+                                                                              @Nonnull Subspace subspace) {
+        RecordMetaDataProto.DataStoreInfo info;
+        if (firstKeyValue == null) {
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else if (!checkFirstKeyIsHeader(firstKeyValue, context, subspaceProvider, subspace, existenceCheck)) {
+            // Treat as brand new, although there is no way to be sure that what was written is compatible
+            // with the current default versions.
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else {
+            try {
+                info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreStorageException("Error reading version", ex)
+                        .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
+            }
+        }
+        checkStoreHeaderInternal(info, context, subspaceProvider, existenceCheck);
+        return info;
+    }
+
     @Nonnull
     private RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
                                                                        @Nonnull StoreExistenceCheck existenceCheck) {
@@ -2378,6 +2402,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             state.endWrite();
             return state;
         });
+    }
+
+    public static CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath keySpacePath) {
+        SubspaceProvider subspaceProvider1 = new SubspaceProviderByKeySpacePath(keySpacePath);
+        Subspace subspace1 = subspaceProvider1.getSubspace(context);
+        return readStoreFirstKey(context, subspace1, IsolationLevel.SERIALIZABLE).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, StoreExistenceCheck.NONE, context, subspaceProvider1, subspace1));
     }
 
     @Nonnull
