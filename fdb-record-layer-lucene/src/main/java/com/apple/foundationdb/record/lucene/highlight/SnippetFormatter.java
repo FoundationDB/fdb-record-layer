@@ -18,13 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.highlight;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import org.apache.lucene.search.uhighlight.Passage;
 import org.apache.lucene.search.uhighlight.PassageFormatter;
 
-import javax.annotation.Nonnull;
 import java.text.BreakIterator;
 import java.util.function.Supplier;
 
@@ -32,26 +32,29 @@ import java.util.function.Supplier;
  * A {@link PassageFormatter} which keeps a whole number of words
  * before and after matching text entries to provide context, and inserts ellipses in between
  * matched strings to form a summarized text.
- *
+ * <p>
  * If you want a formatter which returns the whole string, use {@link WholeTextFormatter} instead.
  */
+
+@API(API.Status.INTERNAL)
 public class SnippetFormatter extends PassageFormatter {
     private final Supplier<BreakIterator> breakIterator;
     private final int snippetSize;
 
-    private static final String ellipsis = "...";
+    private static final String ELLIPSIS = "...";
     private final String fieldName;
 
     public SnippetFormatter(final String fieldName, final Supplier<BreakIterator> breakIterator, int snippetSize) {
         this.fieldName = fieldName;
         this.breakIterator = breakIterator;
         this.snippetSize = snippetSize;
-        if(snippetSize<=0){
+        if (snippetSize <= 0) {
             throw new RecordCoreArgumentException("Cannot create a snippet formatter with a non-positive snippet size");
         }
     }
 
     @Override
+    @SuppressWarnings("PMD.AvoidReassigningLoopVariables") //intentional usage to eat excess match ends
     public Object format(final Passage[] passages, final String content) {
         BreakIterator breakIter = breakIterator.get();
         breakIter.setText(content);
@@ -73,9 +76,10 @@ public class SnippetFormatter extends PassageFormatter {
         boolean hasMatches = false;
         int priorSnippetEnd = -1;
         int priorHighlightEnd = -1;
-        for(int p = 0; p < passages.length;p++){
+        for (int p = 0; p < passages.length; p++) {
             Passage passage = passages[p];
-            for(int i =0; i< passage.getNumMatches();i++){
+            int i = 0;
+            while (i < passage.getNumMatches()) {
                 hasMatches = true;
                 int start = passage.getMatchStarts()[i];
                 int end = passage.getMatchEnds()[i];
@@ -85,35 +89,19 @@ public class SnippetFormatter extends PassageFormatter {
                 end = Math.min(end, passage.getEndOffset());
 
                 //go back and forth until we reach snippetSize number of tokens
-                int snippetStart = start;
-                int numTerms = snippetSize;
-                while(snippetStart >0 && numTerms >0){
-                    snippetStart = breakIter.preceding(snippetStart-1);
-                    numTerms--;
-                }
-                int snippetEnd = end;
-                if(snippetEnd<content.length()) {
-                    numTerms = snippetSize;
-                    while (snippetEnd != BreakIterator.DONE && numTerms > 0) {
-                        snippetEnd = breakIter.following(snippetEnd + 1);
-                        numTerms--;
-                    }
-                }
-                //make sure that we always stay within our bounds
-                snippetStart = Math.max(snippetStart, 0);
-                snippetEnd = snippetEnd >= 0 && snippetEnd <= content.length() ? snippetEnd : content.length();
+                int snippetStart = getSnippetStart(breakIter, start);
 
                 /*
                  * Build out the string.
                  */
                 if (priorSnippetEnd < 0) {
                     //this is the first snippet to append, so write out the leading snippet directly
-                    if (snippetStart < ellipsis.length()) {
+                    if (snippetStart < ELLIPSIS.length()) {
                         //user experience--if the snippet starts close to the start of the string, then just use
                         //the start value
                         snippetStart = 0;
                     } else {
-                        summaryBuilder.append(ellipsis);
+                        summaryBuilder.append(ELLIPSIS);
                     }
                 } else {
                     //compute the range of the prior passage's trailing snippet. If it overlaps with ours,
@@ -130,9 +118,9 @@ public class SnippetFormatter extends PassageFormatter {
                         summaryBuilder.append(content, priorHighlightEnd, priorSnippetEnd);
                         if (priorSnippetEnd < snippetStart) {
                             //only write out an ellipsis separator if there is distance between the two snippets
-                            summaryBuilder.append(ellipsis);
+                            summaryBuilder.append(ELLIPSIS);
                         }
-                    }else{
+                    } else {
                         //some of this passage's leading context has already been written, so only write
                         //until we get to the next passage
                         snippetStart = priorHighlightEnd;
@@ -148,21 +136,44 @@ public class SnippetFormatter extends PassageFormatter {
                 highlightEnds[p] = summaryBuilder.length();
 
                 priorHighlightEnd = end;
-                priorSnippetEnd = snippetEnd;
+                priorSnippetEnd = getSnippetEnd(content.length(), breakIter, end);
+                i++;
             }
         }
-        if(!hasMatches){
+        if (!hasMatches) {
             //there is no snippet to return, so the summarized text should be empty
             return new HighlightedTerm(fieldName, "", new int[] {}, new int[] {});
         }
 
         //write out the trailing snippet for the last element
-        summaryBuilder.append(content,priorHighlightEnd,priorSnippetEnd);
-        if(content.length()-priorSnippetEnd>ellipsis.length()){
+        summaryBuilder.append(content, priorHighlightEnd, priorSnippetEnd);
+        if (content.length() - priorSnippetEnd > ELLIPSIS.length()) {
             //user experience--only write out a trailing snippet if we're far enough away from the end of the string
-            summaryBuilder.append(ellipsis);
+            summaryBuilder.append(ELLIPSIS);
         }
 
         return new HighlightedTerm(fieldName, summaryBuilder.toString(), highlightStarts, highlightEnds);
+    }
+
+    private int getSnippetEnd(int contentLength, final BreakIterator breakIter, final int end) {
+        int snippetEnd = end;
+        int numTerms = snippetSize;
+        while (snippetEnd != BreakIterator.DONE && snippetEnd < contentLength && numTerms > 0) {
+            snippetEnd = breakIter.following(snippetEnd + 1);
+            numTerms--;
+        }
+        snippetEnd = snippetEnd >= 0 && snippetEnd <= contentLength ? snippetEnd : contentLength;
+        return snippetEnd;
+    }
+
+    private int getSnippetStart(final BreakIterator breakIter, final int start) {
+        int snippetStart = start;
+        int numTerms = snippetSize;
+        while (snippetStart > 0 && numTerms > 0) {
+            snippetStart = breakIter.preceding(snippetStart - 1);
+            numTerms--;
+        }
+        //make sure our snippet start is always non-negative
+        return Math.max(snippetStart, 0);
     }
 }

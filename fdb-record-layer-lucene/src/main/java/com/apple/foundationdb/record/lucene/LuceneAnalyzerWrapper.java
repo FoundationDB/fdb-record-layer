@@ -21,8 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.CharArraySet;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer;
 
 import javax.annotation.Nonnull;
@@ -33,8 +32,8 @@ import javax.annotation.Nonnull;
 public class LuceneAnalyzerWrapper {
     public static final String STANDARD_ANALYZER_NAME = "STANDARD";
 
-    private String uniqueIdentifier;
-    private Analyzer analyzer;
+    private final String uniqueIdentifier;
+    private final Analyzer analyzer;
 
     public LuceneAnalyzerWrapper(@Nonnull String uniqueIdentifier, @Nonnull Analyzer analyzer) {
         this.uniqueIdentifier = uniqueIdentifier;
@@ -57,7 +56,10 @@ public class LuceneAnalyzerWrapper {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource") //intentional
     public static LuceneAnalyzerWrapper getStandardAnalyzerWrapper() {
-        return new LuceneAnalyzerWrapper(STANDARD_ANALYZER_NAME, new UAX29URLEmailAnalyzer(CharArraySet.EMPTY_SET));
+        final UAX29URLEmailAnalyzer backingAnalyzer = new UAX29URLEmailAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET);
+        backingAnalyzer.setMaxTokenLength(30);
+        return new LuceneAnalyzerWrapper(STANDARD_ANALYZER_NAME, backingAnalyzer);
     }
 }

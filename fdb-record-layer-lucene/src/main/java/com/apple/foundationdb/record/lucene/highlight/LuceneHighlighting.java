@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.highlight;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
+import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneRecordCursor;
+import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -32,8 +38,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.search.uhighlight.LengthGoalBreakIterator;
-import org.apache.lucene.search.uhighlight.SplittingBreakIterator;
 import org.apache.lucene.search.uhighlight.UnifiedHighlighter;
 
 import javax.annotation.Nonnull;
@@ -151,20 +155,28 @@ public class LuceneHighlighting {
 
                     Set<String> prefixes = getPrefixTerms(terms);
                     if (value instanceof String && isMatch((String)value, terms, prefixes)) {
-                        String valueStr = (String)value;
-                        final LuceneAnalyzerWrapper queryAnalyzer = analyzerSelector.provideQueryAnalyzer(valueStr);
-                        UnifiedHighlighter highlighter = makeHighlighter(fieldName,queryAnalyzer.getAnalyzer(),luceneQueryHighlightParameters.getSnippedSize());
-                        try {
-                            final Object o = highlighter.highlightWithoutSearcher(termName, luceneQueryHighlightParameters.getQuery(), valueStr, 10);
-                            if (o instanceof HighlightedTerm) {
-                                result.add((HighlightedTerm)o);
-                            }
-                        } catch (IOException e) {
-                            throw new RecordCoreException("Unexpected error processing highlights", e);
+                        Object o = highlight(analyzerSelector, luceneQueryHighlightParameters, fieldName, (String)value, termName);
+                        if (o instanceof HighlightedTerm) {
+                            result.add((HighlightedTerm)o);
                         }
                     }
                 }, null);
         return result;
+    }
+
+    @Nullable
+    private static Object highlight(final @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
+                                    final @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                    final String fieldName,
+                                    final String value,
+                                    final String termName) {
+        final LuceneAnalyzerWrapper queryAnalyzer = analyzerSelector.provideQueryAnalyzer(value);
+        UnifiedHighlighter highlighter = makeHighlighter(fieldName, queryAnalyzer.getAnalyzer(), luceneQueryHighlightParameters.getSnippedSize());
+        try {
+            return highlighter.highlightWithoutSearcher(termName, luceneQueryHighlightParameters.getQuery(), value, luceneQueryHighlightParameters.getMaxMatchCount());
+        } catch (IOException e) {
+            throw new RecordCoreException("Unexpected error processing highlights", e);
+        }
     }
 
     @Nullable
@@ -189,7 +201,7 @@ public class LuceneHighlighting {
         }
     }
 
-    static UnifiedHighlighter makeHighlighter(String fieldName, Analyzer analyzer, int snippetSize){
+    public static UnifiedHighlighter makeHighlighter(String fieldName, Analyzer analyzer, int snippetSize) {
         /*
          * Factory method to make correct highlighters for Lucene. The returned highlighter will
          * process at the word level, and will format passaged to return HighlightedTerm objects.

@@ -117,7 +117,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final Query luceneQuery = query.bind(store, index, context);
-        if(luceneQueryHighlightParameters!=null){
+        if (luceneQueryHighlightParameters != null) {
             luceneQueryHighlightParameters.query = luceneQuery;
         }
         return new LuceneScanQuery(scanType, getGroupKey(store, context), luceneQuery,
@@ -216,19 +216,26 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
      */
     public static class LuceneQueryHighlightParameters {
         private final int snippedSize;
+
+        //the maximum number of times the query will be matched during summarization
+        private final int maxMatchCount;
         private Query query;
 
         /**
          * Create parameter for lucene query highlights.
-         * @param snippetSize The size of the snippets that should be returned by the query. If zero or less, return the entire text
+         *
+         * @param snippetSize The size of the snippets that should be returned by the query. If zero or less, return the
+         * entire text
+         * @param maxMatchCount The maximum number of times a query will match during highlighting before the highlighter
+         * stops
          */
-        public LuceneQueryHighlightParameters(int snippetSize) {
-            this.snippedSize = snippetSize;
-            this.query = null;
+        public LuceneQueryHighlightParameters(int snippetSize, int maxMatchCount) {
+            this(snippetSize, maxMatchCount, null);
         }
 
-        public LuceneQueryHighlightParameters(int snippetSize, Query theQuery) {
+        public LuceneQueryHighlightParameters(int snippetSize, int maxMatchCount, Query theQuery) {
             this.snippedSize = snippetSize;
+            this.maxMatchCount = maxMatchCount;
             this.query = theQuery;
         }
 
@@ -242,6 +249,10 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
         public int getSnippedSize() {
             return snippedSize;
+        }
+
+        public int getMaxMatchCount() {
+            return maxMatchCount;
         }
     }
 }

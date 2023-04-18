@@ -64,19 +64,19 @@ public class LuceneIndexTestUtils {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
-    static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+    public static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                     LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
 
-    static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+    public static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_FACTORY_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
 
 
-    static TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, Integer group) {
+    public static TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, Integer group) {
         var doc = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(docId)
                 .setText(text);
@@ -100,10 +100,10 @@ public class LuceneIndexTestUtils {
         return rebuildIndexMetaData(context, path, document, index, false);
     }
 
-    static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
-                                                                   final KeySpacePath path,
-                                                                   final String document,
-                                                                   final Index index, boolean useRewritePlanner) {
+    public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
+                                                                          final KeySpacePath path,
+                                                                          final String document,
+                                                                          final Index index, boolean useRewritePlanner) {
         FDBRecordStore store = openRecordStore(context, path, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
@@ -159,21 +159,21 @@ public class LuceneIndexTestUtils {
         return planner;
     }
 
-    static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore,Index index, String search, boolean highlight) {
+    public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false),
                 null, null, null,
-                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1) : null );
+                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10) : null);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore,Index index, String search, boolean highlight,int snippetSize) {
+    public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight, int snippetSize) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(search, false),
                 null, null, null,
-                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(snippetSize) : null );
+                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(snippetSize, 10) : null);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 

@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.highlight;
 
+import com.apple.foundationdb.annotation.API;
 import org.apache.lucene.search.uhighlight.Passage;
 import org.apache.lucene.search.uhighlight.PassageFormatter;
 
@@ -29,6 +30,7 @@ import org.apache.lucene.search.uhighlight.PassageFormatter;
  * <p>
  * If you want to summarize the content, use {@link SnippetFormatter} instead.
  */
+@API(API.Status.INTERNAL)
 public class WholeTextFormatter extends PassageFormatter {
     private final String fieldName;
 
@@ -37,6 +39,7 @@ public class WholeTextFormatter extends PassageFormatter {
     }
 
     @Override
+    @SuppressWarnings("PMD.AvoidReassigningLoopVariables") //intentional usage to eat excess match ends
     public Object format(final Passage[] passages, final String content) {
         int[] highlightStarts = new int[passages.length];
         int[] highlightEnds = new int[passages.length];
@@ -66,9 +69,9 @@ public class WholeTextFormatter extends PassageFormatter {
             }
         }
 
-        if(!hasMatches){
-            return new HighlightedTerm(fieldName,content,new int[]{},new int[]{});
-        }else {
+        if (!hasMatches) {
+            return new HighlightedTerm(fieldName, content, new int[] {}, new int[] {});
+        } else {
             return new HighlightedTerm(fieldName, content, highlightStarts, highlightEnds);
         }
     }

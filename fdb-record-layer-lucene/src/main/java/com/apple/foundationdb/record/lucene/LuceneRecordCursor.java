@@ -91,7 +91,7 @@ import java.util.function.Function;
  *
  */
 @API(API.Status.EXPERIMENTAL)
-class LuceneRecordCursor implements BaseCursor<IndexEntry> {
+public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
     private final int pageSize;
@@ -451,7 +451,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
     }
 
-    protected static final class ScoreDocIndexEntry extends IndexEntry {
+    /**
+     * An IndexEntry based off a Lucene ScoreDoc.
+     */
+    public static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
 
         private final Map<String, Set<String>> termMap;

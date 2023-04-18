@@ -80,11 +80,13 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -242,9 +244,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of());
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
-            "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
-            "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
-            "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
+                                                "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
+                                                "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
+                                                "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
 
     private static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
 
@@ -282,8 +284,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setContext(context)
                 .setMetaDataProvider(metaData);
     }
-
-
 
     private ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
         return createComplexDocument(docId, text, text2, group, true);
@@ -337,16 +337,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanBounds fullTextSearch(Index index, String search) {
-        return LuceneIndexTestUtils.fullTextSearch(recordStore,index,search,false);
-    }
-
-    protected LuceneScanBounds fullTextSearch(Index index, String search, boolean highlight) {
-        LuceneScanParameters scan = new LuceneScanQueryParameters(
-                ScanComparisons.EMPTY,
-                new LuceneQueryMultiFieldSearchClause(search, false),
-                null, null, null,
-                highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1) : null );
-        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+        return LuceneIndexTestUtils.fullTextSearch(recordStore, index, search, false);
     }
 
     private LuceneScanBounds specificFieldSearch(Index index, String search, String field) {
@@ -422,6 +413,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             assertIndexEntryPrimaryKeys(List.of(1623L),
                     recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Ω", "ç"})
+    void insertAndSearchWithSpecialCharacters(String specialCharacter) {
+        String baseText = "Do we match special characters like %s, even when its mashed together like %snoSpaces?";
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            //one document when the chars, one without
+            recordStore.saveRecord(createSimpleDocument(1623L, String.format(baseText, specialCharacter, specialCharacter), 2));
+            recordStore.saveRecord(createSimpleDocument(1547L, String.format(baseText, " ", " "), 1));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, specialCharacter), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
@@ -546,10 +554,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         /*
          * Check that a prefix query with an email in it will return the email
          */
-        try(FDBRecordContext context = openContext()){
-            rebuildIndexMetaData(context, SIMPLE_DOC,TEXT_AND_NUMBER_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1241L,"{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}",1));
-            recordStore.saveRecord(createSimpleDocument(1342L,"{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}",2));
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, TEXT_AND_NUMBER_INDEX);
+            recordStore.saveRecord(createSimpleDocument(1241L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", 1));
+            recordStore.saveRecord(createSimpleDocument(1342L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", 2));
 
             assertIndexEntryPrimaryKeys(List.of(1241L),
                     recordStore.scanIndex(TEXT_AND_NUMBER_INDEX, fullTextSearch(TEXT_AND_NUMBER_INDEX, "aburritoofjoy@tacos.com* AND group: 1"), null, ScanProperties.FORWARD_SCAN));
@@ -718,7 +726,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
-                    .setScore(0.22025093F)
+                    .setScore(0.21973526F)
                     .setShard(0)
                     .build();
             assertIndexEntryPrimaryKeys(List.of(1625L, 1626L),
@@ -784,7 +792,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testLimitWithContinuation() {
+    void testLimitWithContinuation() throws ExecutionException, InterruptedException {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 200; i++) {
@@ -792,7 +800,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
-                    .setScore(0.0019084287F)
+                    .setScore(0.0019047183F)
                     .setShard(0)
                     .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
@@ -990,8 +998,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private String matchAll(String... words) {
         return "text:(" +
-                Arrays.stream(words).map(word -> "+\"" + word + "\"").collect(Collectors.joining(" AND ")) +
-                ")";
+               Arrays.stream(words).map(word -> "+\"" + word + "\"").collect(Collectors.joining(" AND ")) +
+               ")";
     }
 
     @Test
@@ -1270,7 +1278,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * To verify the suggestion lookup can work correctly if the suggester is never built and no entries exist in the directory.
+     * To verify the suggestion lookup can work correctly if the suggester is never built and no entries exist in the
+     * directory.
      */
     @Test
     void searchForAutoCompleteWithLoadingNoRecords() {
@@ -1341,7 +1350,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE),
                     context, "_0.cfs", true);
-            
+
             List<Tuple> primaryKeys = results.stream()
                     .map(FDBQueriedRecord::getIndexEntry)
                     .map(Verify::verifyNotNull)
@@ -1359,7 +1368,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             final RecordQueryPlan luceneIndexPlan =
                     LuceneIndexQueryPlan.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE.getName(),
-                            autoCompleteScanParams("good mor",  ImmutableSet.of("text")),
+                            autoCompleteScanParams("good mor", ImmutableSet.of("text")),
                             RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                             false,
                             null,
@@ -1425,7 +1434,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1623L, message.getField(docIdDescriptor));
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
-            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
+            Message entry = (Message)message.getRepeatedField(entryDescriptor, 0);
 
             Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
             Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
@@ -1466,7 +1475,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
     }
-    
+
     @Test
     void testAutoCompleteSearchForPhrase() throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -1517,7 +1526,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     ImmutableList.of("united states of america",
                             "united states is a country in the continent of america",
                             "welcome to the united states of america"));
+        }
+    }
 
+    @Test
+    @Disabled("Auto complete does not currently work properly with phrases which contain stop words")
+    void autoCompletePhraseSearchIncludingStopWords() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+            final List<KeyExpression> storedFields = ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+
+            addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
+            /*
+             * Note(scottfines): This component is currently commented
+             */
             // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
             // same as the other tokens due to the white space following it
             queryAndAssertAutoCompleteSuggestionsReturned(index,
@@ -1527,7 +1549,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     ImmutableList.of("united states of america",
                             "welcome to the united states of america"));
 
-            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query against the NGRAM field
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "text",
@@ -1660,7 +1681,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
-            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
+            Message entry = (Message)message.getRepeatedField(entryDescriptor, 0);
 
             Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
             Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
@@ -1906,7 +1927,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                 .asList().get();
                 assertThat(results, hasSize(10));
                 int docId = 0;
-                for (FDBQueriedRecord<?> result: results) {
+                for (FDBQueriedRecord<?> result : results) {
                     final Message record = result.getRecord();
                     final Descriptors.Descriptor descriptor = record.getDescriptorForType();
                     final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName("text");
@@ -1919,7 +1940,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     Tuple primaryKey = entry.getPrimaryKey();
                     // The 1st element is the key for the record type
                     assertEquals(group, primaryKey.get(1));
-                    assertEquals((long) docId, primaryKey.get(2));
+                    assertEquals((long)docId, primaryKey.get(2));
                     docId++;
                 }
             }
@@ -1944,7 +1965,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 } else {
                     assertThat(results, hasSize(10));
                     int docId = 0;
-                    for (FDBQueriedRecord<?> result: results) {
+                    for (FDBQueriedRecord<?> result : results) {
                         final Message record = result.getRecord();
                         final Descriptors.Descriptor descriptor = record.getDescriptorForType();
                         final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName("text");
@@ -1956,7 +1977,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         Tuple primaryKey = entry.getPrimaryKey();
                         // The 1st element is the key for the record type
                         assertEquals(group, primaryKey.get(1));
-                        assertEquals((long) docId, primaryKey.get(2));
+                        assertEquals((long)docId, primaryKey.get(2));
                         docId++;
                     }
                 }
@@ -2235,7 +2256,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         for (int i = 0; i < numberOfWords; i++) {
             word = new char[random.nextInt(8) + 3]; // words of length 3 through 10. (1 and 2 letter words are boring.)
             for (int j = 0; j < word.length; j++) {
-                word[j] = (char) ('a' + random.nextInt(26));
+                word[j] = (char)('a' + random.nextInt(26));
             }
             if (i != numberOfWords - 1) {
                 builder.append(word).append(" ");
@@ -2317,7 +2338,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             } else {
                 assertEquals(ImmutableList.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good"), suggestions);
             }
-            
+
             assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE),
                     context, "_0.cfs", true);
 

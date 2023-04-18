@@ -1,5 +1,5 @@
 /*
- * LuceneHighlightingTest.java
+ * FDBLuceneHighlightingTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,11 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.highlight;
 
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
+import com.apple.foundationdb.record.lucene.LuceneQueryComponent;
+import com.apple.foundationdb.record.lucene.LuceneScanBounds;
+import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import com.apple.foundationdb.record.metadata.Index;
@@ -52,18 +56,17 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests around the highlighting structure as used in Lucene
+ * Tests around the highlighting structure as used in Lucene.
  */
-public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
+public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
 
     @BeforeAll
-    public static void setup(){
+    public static void setup() {
         //set up the English Synonym Map so that we don't spend forever setting it up for every test, because this takes a long time
         SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
     }
@@ -72,7 +75,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
     void highlightedPrefix() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            recordStore.saveRecord(createSimpleDocument(1645L, "Hello record layer", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1645L, "Hello record layer", 1));
             /*
              * Note(scottfines): This test is changed at this commit to reflect the fact that Lucene's
              * highlighting structure highlights the full matched term, not just the prefix elements
@@ -90,7 +93,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
         final String highlighted = "{peanut} butter and jelly sandwich";
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1236L, original, 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1236L, original, 1));
             // Search for original token
             assertRecordHighlights(List.of(highlighted),
                     recordStore.fetchIndexRecords(
@@ -113,7 +116,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
     void highlightedNgramIndex() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1623L, "Hello record layer", 1));
             assertRecordHighlights(List.of("{Hello} record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello"), null, ScanProperties.FORWARD_SCAN),
@@ -136,7 +139,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
                           "Top Stories Former Trump adviser Steve Bannon agreed to testify to the January 6 committee " +
                           "after months of defying a congressional subpoena. The Washington Post https://apple.news/AgZ7a_IT4TpKFF3kAyZsvUg?";
             rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1241L, text, 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1241L, text, 1));
 
             final List<HighlightedTerm> highlightedTerms = recordStore.fetchIndexRecords(
                             recordStore.scanIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX, fullTextSearch(QUERY_ONLY_SYNONYM_LUCENE_INDEX, "appl*", 3), null, ScanProperties.FORWARD_SCAN),
@@ -146,7 +149,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
                     .flatMap(Collection::stream)
                     .collect(Collectors.toList());
 
-            List<HighlightedTerm> expectedResults = List.of(new HighlightedTerm("text", "Good Morning From Apple News It?s...", new int[]{18},new int[]{23}));
+            List<HighlightedTerm> expectedResults = List.of(new HighlightedTerm("text", "Good Morning From Apple News It?s...", new int[] {18}, new int[] {23}));
             assertEquals(expectedResults.size(), highlightedTerms.size(), "Incorrect number of snippets returned!");
             Iterator<HighlightedTerm> expected = expectedResults.iterator();
             Iterator<HighlightedTerm> actual = highlightedTerms.iterator();
@@ -167,8 +170,8 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
 
     @Test
     void highlightPositionsCorrectWhenPlanned() throws Exception {
-        try(FDBRecordContext context = openContext()){
-            rebuildIndexMetaData(context,SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             final String text = "record record record record record record " +
                                 "layer " +
                                 "record record record record record record record record record record " +
@@ -181,7 +184,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
 
             final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(4), null);
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(4, 10), null);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(SIMPLE_DOC)
                     .setFilter(filter)
@@ -189,7 +192,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
 
             RecordQueryPlan plan = planner.plan(query);
 
-            try(RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 List<FDBQueriedRecord<Message>> queriedRecordList = cursor.asList().get();
                 assertEquals(1, queriedRecordList.size());
                 FDBQueriedRecord<Message> queriedRecord = queriedRecordList.get(0);
@@ -216,8 +219,8 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
                             "record record " +
                             "layer " +
                             "record record record record record record record record";
-        try(FDBRecordContext context = openContext()){
-            rebuildIndexMetaData(context,SIMPLE_DOC,QUERY_ONLY_SYNONYM_LUCENE_INDEX);
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, QUERY_ONLY_SYNONYM_LUCENE_INDEX);
 
             TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
                     .setDocId(1L)
@@ -229,7 +232,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
 
             final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
-                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(2), null);
+                    new LuceneScanQueryParameters.LuceneQueryHighlightParameters(2, 10), null);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(filter)
@@ -261,7 +264,7 @@ public class LuceneHighlightingTest extends FDBRecordStoreTestBase {
 
 
     private LuceneScanBounds fullTextSearch(Index index, String search) {
-        return LuceneIndexTestUtils.fullTextSearch(recordStore,index, search, true);
+        return LuceneIndexTestUtils.fullTextSearch(recordStore, index, search, true);
     }
 
     @SuppressWarnings("SameParameterValue") //deliberately placed here to make it easier to add new tests

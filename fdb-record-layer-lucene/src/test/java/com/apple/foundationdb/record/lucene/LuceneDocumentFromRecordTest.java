@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.UnstoredRecord;
+import com.apple.foundationdb.record.lucene.highlight.HighlightedTerm;
+import com.apple.foundationdb.record.lucene.highlight.LuceneHighlighting;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -68,12 +70,12 @@ class LuceneDocumentFromRecordTest {
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("text",Set.of("some")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("text","some"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(4,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("text", Set.of("some")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("text", "some"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(4, terms.get(0).getHighlightEnd(0));
 
         KeyExpression primaryKey = field("doc_id");
 
@@ -104,12 +106,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "text" for text field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("text",Set.of("text")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("text","text"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(5,terms.get(0).getHighlightStart(0));
-        assertEquals(9,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("text", "text"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(5, terms.get(0).getHighlightStart(0));
+        assertEquals(9, terms.get(0).getHighlightEnd(0));
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
 
@@ -146,16 +148,16 @@ class LuceneDocumentFromRecordTest {
 
         // Highlight "text" for text field
 
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("text",Set.of("text")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("text","text"))));
-        assertEquals(2,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(5,terms.get(0).getHighlightStart(0));
-        assertEquals(9,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("text", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("text", "text"))));
+        assertEquals(2, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(5, terms.get(0).getHighlightStart(0));
+        assertEquals(9, terms.get(0).getHighlightEnd(0));
 
-        assertEquals(1,terms.get(1).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(6,terms.get(1).getHighlightStart(0));
-        assertEquals(10,terms.get(1).getHighlightEnd(0));
+        assertEquals(1, terms.get(1).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(6, terms.get(1).getHighlightStart(0));
+        assertEquals(10, terms.get(1).getHighlightEnd(0));
         assertEquals("some text", builder.build().getText(0));
         assertEquals("other text", builder.build().getText(1));
 
@@ -200,12 +202,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "text" for text field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("text2",Set.of("text")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("text2","text"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(7,terms.get(0).getHighlightStart(0));
-        assertEquals(11,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("text2", Set.of("text")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("text2", "text"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(7, terms.get(0).getHighlightStart(0));
+        assertEquals(11, terms.get(0).getHighlightEnd(0));
 
         assertEquals("first text", builder.build().getText());
         assertEquals("second text", builder.build().getText2());
@@ -251,12 +253,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "v2" for entry_value field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("entry_value",Set.of("v2")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("entry_value","v2"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(2,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("entry_value", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("entry_value", "v2"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(2, terms.get(0).getHighlightEnd(0));
         assertEquals("v1", builder.build().getEntry(0).getValue());
         assertEquals("v2", builder.build().getEntry(1).getValue());
 
@@ -297,12 +299,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "v2" for k2 field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("k2",Set.of("v2")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("k2","v2"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(2,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("k2", Set.of("v2")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("k2", "v2"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(2, terms.get(0).getHighlightEnd(0));
         assertEquals("v1", builder.build().getEntry(0).getValue());
         assertEquals("v2", builder.build().getEntry(1).getValue());
 
@@ -346,12 +348,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "v20" for k2 field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("k2",Set.of("v20")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("k2","v20"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(3,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("k2", Set.of("v20")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("k2", "v20"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(3, terms.get(0).getHighlightEnd(0));
         assertEquals("v10", builder.build().getEntry(0).getValue());
         assertEquals("v20", builder.build().getEntry(1).getValue());
 
@@ -395,17 +397,17 @@ class LuceneDocumentFromRecordTest {
                                 function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")),
                                 function(LuceneFunctionNames.LUCENE_TEXT, field("third_value"))))), 3);
         assertEquals(ImmutableMap.of(
-                Tuple.from(30, "r1"), ImmutableList.of(textField("entry_value", "val"), textField("entry_second_value", "2val"), textField("entry_third_value", "3val")),
-                Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
+                        Tuple.from(30, "r1"), ImmutableList.of(textField("entry_value", "val"), textField("entry_second_value", "2val"), textField("entry_third_value", "3val")),
+                        Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "2val" for entry_second_value field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("entry_second_value",Set.of("2val")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("entry_second_value","2val"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(4,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("entry_second_value", Set.of("2val")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("entry_second_value", "2val"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(4, terms.get(0).getHighlightEnd(0));
 
         assertEquals("val", builder.build().getEntry(0).getValue());
         assertEquals("2val", builder.build().getEntry(0).getSecondValue());
@@ -458,12 +460,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "second" for entry_second_value field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("entry_second_value",Set.of("second")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("entry_second_value","second"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(6,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("entry_second_value", Set.of("second")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("entry_second_value", "second"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(6, terms.get(0).getHighlightEnd(0));
 
         assertEquals("first", builder.build().getEntry(0).getValue());
         assertEquals("second", builder.build().getEntry(0).getSecondValue());
@@ -514,12 +516,12 @@ class LuceneDocumentFromRecordTest {
                 LuceneDocumentFromRecord.getRecordFields(index, record));
 
         // Highlight "testValue" for entry_k1_value field
-        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record,message,null,index,Map.of("entry_k1_value",Set.of("testvalue")),analyzerProvider,
-                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1,new TermQuery(new Term("entry_k1_value","testvalue"))));
-        assertEquals(1,terms.size(),"Should only match once");
-        assertEquals(1,terms.get(0).getNumHighlights(),"Incorrect number of highlights");
-        assertEquals(0,terms.get(0).getHighlightStart(0));
-        assertEquals(9,terms.get(0).getHighlightEnd(0));
+        List<HighlightedTerm> terms = LuceneHighlighting.highlightedTermsForMessage(record, message, null, index, Map.of("entry_k1_value", Set.of("testvalue")), analyzerProvider,
+                new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10, new TermQuery(new Term("entry_k1_value", "testvalue"))));
+        assertEquals(1, terms.size(), "Should only match once");
+        assertEquals(1, terms.get(0).getNumHighlights(), "Incorrect number of highlights");
+        assertEquals(0, terms.get(0).getHighlightStart(0));
+        assertEquals(9, terms.get(0).getHighlightEnd(0));
         assertEquals("testValue", builder.build().getEntry(0).getSubEntry().getValue());
 
         KeyExpression primaryKey = concat(field("group"), field("doc_id"));
@@ -548,10 +550,13 @@ class LuceneDocumentFromRecordTest {
     }
 
     /**
-     * When a schema leads an ambiguity of the parsed path given a concatenated Lucene field, the first path that satisfies the given field will be selected and the correct one could be ignored.
-     * In this test, because both the path {entry -> sub_entry -> value} and {entry -> sub_entry -> second_value} could match with the given Lucene field "entry_k1_second_value",
+     * When a schema leads an ambiguity of the parsed path given a concatenated Lucene field, the first path that
+     * satisfies the given field will be selected and the correct one could be ignored.
+     * In this test, because both the path {entry -> sub_entry -> value} and {entry -> sub_entry -> second_value} could
+     * match with the given Lucene field "entry_k1_second_value",
      * and in the first path the key is "k1_second" and in the second one the key is "k1".
-     * There is no more information to tell which is the expected one so we just pick up the first one to build the partial record.
+     * There is no more information to tell which is the expected one so we just pick up the first one to build the
+     * partial record.
      * TODO: Predicate the potential ambiguity when loading a schema and reject it
      */
     @Test

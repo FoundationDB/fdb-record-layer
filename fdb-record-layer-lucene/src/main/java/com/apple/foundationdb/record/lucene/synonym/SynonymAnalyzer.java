@@ -32,9 +32,8 @@ import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
-import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
@@ -50,6 +49,8 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     @Nonnull
     private final String name;
 
+    private int maxTokenLength = StandardAnalyzer.DEFAULT_MAX_TOKEN_LENGTH;
+
     @Nonnull
     public String getName() {
         return name;
@@ -60,20 +61,38 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return stopwords;
     }
 
+    public void setMaxTokenLength(int length) {
+        this.maxTokenLength = length;
+    }
+
+    public int getMaxTokenLength() {
+        return this.maxTokenLength;
+    }
+
     public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name) {
         super(stopwords);
         this.name = name;
     }
 
+    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name, int maxTokenLength) {
+        super(stopwords);
+        this.name = name;
+        this.maxTokenLength = maxTokenLength;
+    }
+
     @Override
     @SuppressWarnings("PMD.CloseResource")
     protected TokenStreamComponents createComponents(String fieldName) {
-        final Tokenizer src = new UAX29URLEmailTokenizer();
+        final UAX29URLEmailTokenizer src = new UAX29URLEmailTokenizer();
+        src.setMaxTokenLength(maxTokenLength);
         TokenStream tok = new LowerCaseFilter(src);
         tok = new StopFilter(tok, stopwords);
         tok = new SynonymGraphFilter(tok, getSynonymMap(), true);
 
-        return new TokenStreamComponents(src, tok);
+        return new TokenStreamComponents(r -> {
+            src.setMaxTokenLength(maxTokenLength);
+            src.setReader(r);
+        }, tok);
     }
 
     @Override

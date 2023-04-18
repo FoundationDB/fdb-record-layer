@@ -18,8 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.highlight;
 
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
 /**
@@ -27,6 +29,8 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
  * with ellipses between highlight positions), along with a collection of intervals which are used
  * to locate the specific locations to be highlighted.
  */
+@API(API.Status.EXPERIMENTAL)
+@SpotBugsSuppressWarnings(value = "EI2", justification = "functionally immutable, and done for performance reasons")
 public class HighlightedTerm {
     private final String fieldName;
     private final String summarizedText; //the paraphrased text, with ... in between highlight matches
@@ -60,15 +64,15 @@ public class HighlightedTerm {
         return summarizedText;
     }
 
-    int getNumHighlights() {
+    public int getNumHighlights() {
         return highlightStarts.length;
     }
 
-    int getHighlightStart(int pos) {
+    public int getHighlightStart(int pos) {
         return highlightStarts[pos];
     }
 
-    int getHighlightEnd(int pos) {
+    public int getHighlightEnd(int pos) {
         return highlightEnds[pos];
     }
 }
