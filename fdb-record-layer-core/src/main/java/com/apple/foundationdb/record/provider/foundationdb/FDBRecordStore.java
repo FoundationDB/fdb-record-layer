@@ -707,12 +707,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.EXPERIMENTAL)
     private Map<RecordType, Collection<IndexMaintainer>> getSyntheticMaintainers(@Nonnull Set<String> syntheticRecordTypes) {
         final RecordMetaData metaData = getRecordMetaData();
-        return syntheticRecordTypes.stream().map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
-            List<IndexMaintainer> indexMaintainers = new ArrayList<>();
-            syntheticRecordType.getIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
-            syntheticRecordType.getMultiTypeIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
-            return indexMaintainers;
-        }));
+        Map<RecordType, Collection<IndexMaintainer>> map = syntheticRecordTypes.stream()
+                .map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
+                    List<IndexMaintainer> indexMaintainers = new ArrayList<>();
+                    syntheticRecordType.getIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+                    syntheticRecordType.getMultiTypeIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+                    return indexMaintainers;
+                }));
+
+        map.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+
+        return map;
     }
 
     @Nonnull
