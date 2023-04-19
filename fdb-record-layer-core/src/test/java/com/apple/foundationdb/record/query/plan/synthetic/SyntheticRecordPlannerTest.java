@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
@@ -56,9 +55,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.TerribleIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
@@ -1050,7 +1046,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    void doesNotUpdateSyntheticRecordTypeIfUnderlyingIndexesAreDisabled() throws Exception {
+    void wontUpdateSyntheticTypeIfUnderlyingIndexesAreDisabled() throws Exception {
         /*
          * If the underlying indexes that are to be updated are not writable, then the synthetic update
          * should not happen. This test verifies that by faking out the maintainer with a maintainer
@@ -1093,29 +1089,8 @@ public class SyntheticRecordPlannerTest {
             context.commit();
         }
 
-        IndexMaintainerRegistry backingRegistry = IndexMaintainerRegistryImpl.instance();
-        IndexMaintainerRegistry registry = new IndexMaintainerRegistry() {
-            @Nonnull
-            @Override
-            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-                if (!state.index.getName().equals("joinNestedConcat")) {
-                    return backingRegistry.getIndexMaintainer(state);
-                } else {
-                    return new FailIndexMaintainer(state);
-                }
-            }
-
-            @Nonnull
-            @Override
-            public IndexValidator getIndexValidator(@Nonnull final Index index) {
-                return backingRegistry.getIndexValidator(index);
-            }
-        };
-
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recordStore = recordStoreBuilder
-                    .setIndexMaintainerRegistry(registry)
-                    .setContext(context).open();
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
@@ -1131,6 +1106,22 @@ public class SyntheticRecordPlannerTest {
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
                     .build();
             recordStore.saveRecord(order);
+
+            context.commit();
+        }
+
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            //force-mark the index as readable
+            recordStore.uncheckedMarkIndexReadable("joinNestedConcat").get();
+
+            //now verify that no records exist in that index
+            Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                Assertions.assertEquals(0, cursor.getCount().get(), "Wrote records to a disabled index!");
+            }
         }
     }
 
