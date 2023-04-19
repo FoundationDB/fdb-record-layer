@@ -240,7 +240,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public abstract RecordQueryInUnionPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef);
+    public abstract RecordQueryInUnionPlan withChild(@Nonnull ExpressionRef<? extends RecordQueryPlan> childRef);
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

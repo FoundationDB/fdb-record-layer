@@ -60,6 +60,7 @@ public abstract class AbstractValue implements Value {
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }

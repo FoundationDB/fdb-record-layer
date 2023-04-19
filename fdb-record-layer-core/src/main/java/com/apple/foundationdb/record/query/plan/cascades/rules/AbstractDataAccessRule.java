@@ -505,7 +505,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
-                    final var intersectionPlan = RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, commonPrimaryKeyValues);
+                    final var intersectionPlan = RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues));
                     final var compensatedIntersection =
                             compensation.isNeeded()
                             ? compensation.apply(memoizer, intersectionPlan)

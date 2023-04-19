@@ -273,7 +273,7 @@ public class OrPredicate extends AndOrPredicate {
             for (final var childPredicates : childPredicatesList) {
                 predicates.add(AndPredicate.and(childPredicates));
             }
-            return predicates;
+            return LinkedIdentitySet.of(OrPredicate.or(predicates));
         });
     }
 
