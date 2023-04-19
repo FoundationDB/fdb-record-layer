@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.AbsoluteValueFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
@@ -48,15 +50,13 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.record.provider.foundationdb.TerribleIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -85,7 +85,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -96,7 +95,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -1053,38 +1051,11 @@ public class SyntheticRecordPlannerTest {
          * that always fails when you attempt to update it. If the error is thrown, then we haven't
          * got it right.
          */
-        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
-        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
-
-        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
-        joined.addConstituent("order", "OrderWithHeader");
-        joined.addConstituent("cust", "CustomerWithHeader");
-
-        joined.addJoin("order",
-                field("___header").nest("z_key"),
-                "cust",
-                field("___header").nest("z_key")
-        );
-        joined.addJoin("order",
-                field("custRef").nest("string_value"),
-                "cust",
-                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
-        );
-
-        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
-                field("cust").nest("name"),
-                field("order").nest("order_no")
-        )));
-
-        // Add index on custRef field to facilitate finding join partners of customer records
-        metaDataBuilder.addIndex("OrderWithHeader", new Index("order$custRef", concat(
-                field("___header").nest("z_key"),
-                field("custRef").nest("string_value")
-        )));
+        String indexName = addJoinedIndexToMetaData();
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
-            final Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
+            final Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
             recordStore.markIndexDisabled(joinIndex).get();
             context.commit();
         }
@@ -1115,7 +1086,7 @@ public class SyntheticRecordPlannerTest {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             //force-mark the index as readable
-            recordStore.uncheckedMarkIndexReadable("joinNestedConcat").get();
+            recordStore.uncheckedMarkIndexReadable(indexName).get();
 
             //now verify that no records exist in that index
             Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
@@ -1123,6 +1094,172 @@ public class SyntheticRecordPlannerTest {
                 Assertions.assertEquals(0, cursor.getCount().get(), "Wrote records to a disabled index!");
             }
         }
+    }
+
+    @Test
+    void updateSyntheticIndexesWhenInWriteOnly() throws Exception {
+        String indexName = addJoinedIndexToMetaData();
+
+        //write some data
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+
+            TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
+                    .setOrderNo(10)
+                    .setQuantity(23)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
+                    .build();
+            recordStore.saveRecord(order);
+
+            context.commit();
+        }
+
+        //mark the index write only, then write some more data
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            recordStore.markIndexWriteOnly(indexName).get();
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(2L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+
+            TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("33"))
+                    .setOrderNo(10)
+                    .setQuantity(23)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:2"))
+                    .build();
+            recordStore.saveRecord(order);
+
+            context.commit();
+        }
+
+        //should be able to bring this back to readable, and read both rows
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            //force-mark the index as readable
+            recordStore.markIndexReadable(indexName).get();
+
+            Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                Assertions.assertEquals(2, cursor.getCount().get(), "Did not update a writable index");
+            }
+        }
+    }
+
+    @Test
+    void deleteFromSyntheticIndexWhenIndexIsWriteOnly() throws Exception {
+        String indexName = addJoinedIndexToMetaData();
+
+        TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("23"))
+                .setOrderNo(10)
+                .setQuantity(23)
+                .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1"))
+                .build();
+
+        //write some data
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+
+            recordStore.saveRecord(order);
+
+            context.commit();
+        }
+
+        //mark the index write only, then write some more data
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            recordStore.markIndexWriteOnly(indexName).get();
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            Tuple pk;
+            try (RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                final RecordCursorResult<FDBStoredRecord<Message>> next = cursor.getNext();
+                Assertions.assertTrue(next.hasNext(), "Did not find a record in the store!");
+                final FDBStoredRecord<Message> messageFDBStoredRecord = next.get();
+                Assertions.assertNotNull(messageFDBStoredRecord);
+                pk = messageFDBStoredRecord.getPrimaryKey();
+            }
+
+            recordStore.deleteRecord(pk);
+            context.commit();
+        }
+
+        //should be able to bring this back to readable, but will read zero rows
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            //force-mark the index as readable
+            recordStore.markIndexReadable(indexName).get();
+
+            Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                Assertions.assertEquals(0, cursor.getCount().get(), "Did not update a writable index");
+            }
+        }
+    }
+
+    private String addJoinedIndexToMetaData() {
+        metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
+        metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
+
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiNestedFieldJoin");
+        joined.addConstituent("order", "OrderWithHeader");
+        joined.addConstituent("cust", "CustomerWithHeader");
+
+        joined.addJoin("order",
+                field("___header").nest("z_key"),
+                "cust",
+                field("___header").nest("z_key")
+        );
+        joined.addJoin("order",
+                field("custRef").nest("string_value"),
+                "cust",
+                function(IntWrappingFunction.NAME, field("___header").nest("int_rec_id"))
+        );
+
+        final Index index = new Index("joinNestedConcat", concat(
+                field("cust").nest("name"),
+                field("order").nest("order_no")
+        ));
+        metaDataBuilder.addIndex(joined, index);
+
+        // Add index on custRef field to facilitate finding join partners of customer records
+        metaDataBuilder.addIndex("OrderWithHeader", new Index("order$custRef", concat(
+                field("___header").nest("z_key"),
+                field("custRef").nest("string_value")
+        )));
+        return index.getName();
     }
 
     @Test
@@ -1587,21 +1724,6 @@ public class SyntheticRecordPlannerTest {
             Matcher<? super SyntheticRecordFromStoredRecordPlan> matcher = constituentMatchers.get(constituent.getName());
             final SyntheticRecordFromStoredRecordPlan plan = planner.forJoinConstituent(joinedRecordType, constituent);
             assertThat(plan, matcher);
-        }
-    }
-
-    private static class FailIndexMaintainer extends TerribleIndexMaintainer {
-
-        protected FailIndexMaintainer(final IndexMaintainerState state) {
-            super(state);
-        }
-
-        @Nonnull
-        @Override
-        public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.completeExceptionally(new AssertionFailedError("Update should not have been called on this type!"));
-            return future;
         }
     }
 
