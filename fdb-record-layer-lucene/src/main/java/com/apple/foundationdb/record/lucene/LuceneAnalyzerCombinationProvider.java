@@ -70,16 +70,17 @@ public class LuceneAnalyzerCombinationProvider {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts, @Nonnull AnalyzerChooser defaultAnalyzerChooser,
+    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts,
+                                                              @Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
         final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer(texts);
         if (customizedAnalyzerChooserPerField != null) {
             // The order of keys matters because the identifier for each map needs to be consistent
             SortedMap<String, LuceneAnalyzerWrapper> analyzerWrapperMap = new TreeMap<>(customizedAnalyzerChooserPerField.entrySet().stream()
-                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().chooseAnalyzer(texts))));
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer(texts))));
 
             PerFieldAnalyzerWrapper analyzerWrapper = new PerFieldAnalyzerWrapper(defaultAnalyzerWrapper.getAnalyzer(),
-                    analyzerWrapperMap.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().getAnalyzer())));
+                    analyzerWrapperMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getAnalyzer())));
             final String analyzerId = buildAnalyzerIdentifier(defaultAnalyzerWrapper, analyzerWrapperMap);
             return new LuceneAnalyzerWrapper(analyzerId, analyzerWrapper);
         } else {
