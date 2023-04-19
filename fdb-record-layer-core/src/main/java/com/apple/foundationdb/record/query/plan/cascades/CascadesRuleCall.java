@@ -316,7 +316,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Override
     public ExpressionRef<? extends RelationalExpression> memoizeMemberPlans(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
                                                                             @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return memoizeExpressions(plans, reference::referenceFromMembers);
+        return memoizeExpressionsExactly(plans, reference::referenceFromMembers);
     }
 
     @Nonnull
@@ -329,27 +329,29 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     @Nonnull
     @Override
     public ExpressionRef<? extends RecordQueryPlan> memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return (ExpressionRef<? extends RecordQueryPlan>)memoizeExpressions(plans, GroupExpressionRef::from);
+        return (ExpressionRef<? extends RecordQueryPlan>)memoizeExpressionsExactly(plans, GroupExpressionRef::from);
     }
 
     @Nonnull
     @Override
     public ExpressionRef<? extends RelationalExpression> memoizeReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
-        return memoizeExpressions(reference.getMembers(), members -> reference);
+        return memoizeExpressionsExactly(reference.getMembers(), members -> reference);
     }
 
     @Nonnull
-    private ExpressionRef<? extends RelationalExpression> memoizeExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions,
-                                                                             @Nonnull Function<Set<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>> referenceCreator) {
+    private ExpressionRef<? extends RelationalExpression> memoizeExpressionsExactly(@Nonnull final Collection<? extends RelationalExpression> expressions,
+                                                                                    @Nonnull Function<Set<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>> referenceCreator) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
-            final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
 
-            if (memoizedRefMaybe.isPresent()) {
-                Debugger.withDebugger(debugger ->
-                        expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED))));
-                return memoizedRefMaybe.get();
+            if (expressionSet.size() == 1) {
+                final Optional<ExpressionRef<? extends RelationalExpression>> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
+                if (memoizedRefMaybe.isPresent()) {
+                    Debugger.withDebugger(debugger ->
+                            expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED))));
+                    return memoizedRefMaybe.get();
+                }
             }
 
             final var newRef = referenceCreator.apply(expressionSet);
@@ -426,7 +428,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             @Nonnull
             @Override
             public ExpressionRef<? extends RelationalExpression> reference() {
-                return memoizeExpressions(expressions, refAction);
+                return memoizeExpressionsExactly(expressions, refAction);
             }
 
             @Nonnull

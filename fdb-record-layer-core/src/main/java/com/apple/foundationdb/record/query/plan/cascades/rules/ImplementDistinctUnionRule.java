@@ -146,7 +146,6 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
             // keep a side structure to avoid re-computation of the combined orderings
             final var merge =
                     Lists.<Pair<Ordering /* merged ordering */, Ordering /* current ordering */>>newArrayList();
-            int count = 0;
             while (partitionsCrossProductIterator.hasNext()) {
                 final var partitions = partitionsCrossProductIterator.next();
 
@@ -196,8 +195,6 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     }
                 }
 
-                count ++;
-
                 if (merge.size() == orderings.size()) {
                     final var mergedOrdering = merge.get(merge.size() - 1).getKey();
 
@@ -222,7 +219,6 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     }
                 }
             }
-            System.out.println(count);
         }
     }
 

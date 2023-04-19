@@ -77,7 +77,6 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var sortExpression = call.get(root);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
-        final var innerReference = call.get(innerReferenceMatcher);
 
         final var sortValues = sortExpression.getSortValues();
         if (sortValues.isEmpty()) {

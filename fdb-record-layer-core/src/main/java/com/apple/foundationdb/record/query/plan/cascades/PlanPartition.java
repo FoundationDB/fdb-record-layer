@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -81,6 +82,7 @@ public class PlanPartition {
                         })
                         // group by the filtered attributes rolling up to form new sets of plans
                         .collect(Collectors.groupingBy(PlanPartition::getAttributesMap,
+                                LinkedHashMap::new,
                                 Collectors.flatMapping(planPartition -> planPartition.getPlans().stream(), LinkedIdentitySet.toLinkedIdentitySet())));
 
         return toPlanPartitions(rolledUpAttributesMap);

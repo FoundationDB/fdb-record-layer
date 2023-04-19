@@ -59,6 +59,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }

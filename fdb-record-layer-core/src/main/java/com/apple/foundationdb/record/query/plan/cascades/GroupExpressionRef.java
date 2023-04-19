@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -360,6 +361,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      */
     @SuppressWarnings({"SuspiciousMethodCalls", "unchecked"})
     @Nonnull
+    @Override
     public ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
         Verify.verify(!needsExploration());
         Verify.verify(getMembers().containsAll(expressions));
@@ -400,9 +402,14 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return null;
     }
 
+    @SuppressWarnings("checkstyle:Indentation")
     @Override
     public String toString() {
-        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")";
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+                                    getMembers().stream()
+                       .map(debugger::nameForObject)
+                       .collect(Collectors.joining(",")) + "]")
+                .orElse("ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
     }
 
     @Override

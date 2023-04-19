@@ -157,6 +157,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Return a copy of this plan that has the {@link #isStrictlySorted} property.
+     * @param memoizer a memoizer that is used to memoize/re-reference new expressions references
      * @return a copy of this plan
      */
     default QueryPlan<T> strictlySorted(@Nonnull final Memoizer memoizer) {

@@ -171,6 +171,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
                                             @Nonnull final PlanContext planContext,
                                             @Nonnull final Memoizer memoizer,

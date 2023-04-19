@@ -165,6 +165,7 @@ public class ExpressionRefTraversal {
 
         containedInMultiMap.removeAll(expression);
     }
+
     /**
      * Construct a traversal object using the {@code rootRef} reference passed in.
      * @param rootRef the reference acting as the root for this traversal object
