@@ -525,7 +525,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {
         String token = range.toString();
         if (token.equals(loopProtectionToken)) {
-            if ((loopProtectionCounter ++) > 1000) {
+            loopProtectionCounter ++;
+            if (loopProtectionCounter > 1000) {
                 throw new ValidationException("Potential infinite loop",
                         LogMessageKeys.RANGE, token,
                         LogMessageKeys.MISSING_RANGES, missingRanges);
