@@ -138,13 +138,12 @@ public class RelOpValue implements BooleanValue {
         if (childrenCount == 1) {
             Value child = children.iterator().next();
             final Set<CorrelationIdentifier> childCorrelatedTo = child.getCorrelatedTo();
-            if (childCorrelatedTo.contains(innermostAlias)) {
-                // AFAIU [NOT] NULL are the only unary predicates
-                return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
-            } else if (typeRepository != null) {
+            if (!childCorrelatedTo.contains(innermostAlias) && typeRepository != null) {
                 // it seems this is a constant expression, try to evaluate it.
                 return tryBoxSelfAsConstantPredicate(typeRepository);
             }
+            // AFAIU [NOT] NULL are the only unary predicates
+            return Optional.of(new ValuePredicate(child, new Comparisons.NullComparison(comparisonType)));
         } else if (childrenCount == 2) {
             // only binary comparison functions are commutative.
             // one side of the relop can be correlated to the innermost alias and only to that one; the other one
@@ -196,6 +195,16 @@ public class RelOpValue implements BooleanValue {
         }
     }
 
+    /**
+     * Attempt to compile-time evaluate {@code this} predicate as a constant {@link QueryPredicate}.
+     * <br/>
+     * <b>Note:</b> doing the compile-time evaluation like this is probably incorrect. We should, instead, have
+     * and explicit phase that does compactions, simplifications, and compile-time evaluations as an explicit
+     * preprocessing step.
+     *
+     * @param typeRepository The type repository, used to create an {@link EvaluationContext}.
+     * @return if successful, a constant {@link QueryPredicate}, otherwise an empty {@link Optional}.
+     */
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {

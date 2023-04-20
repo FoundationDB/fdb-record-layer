@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -29,7 +30,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstra
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -100,7 +100,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var compileTimeRange = RangeConstraints.newBuilder();
         compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 42));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
@@ -116,7 +116,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var compileTimeRange = RangeConstraints.newBuilder();
         compileTimeRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 100));
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-        complexQuerySetup(metaData -> setupIndex(metaData, ValueWithRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
+        complexQuerySetup(metaData -> setupIndex(metaData, PredicateWithValueAndRanges.sargable(FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2"),
                 compileTimeRange.build().orElseThrow()).toResidualPredicate()));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = planQuery(cascadesPlanner);
@@ -174,10 +174,10 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Generates query {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50} using {@link CascadesPlanner}
-     * and returns an optimised physical plan.
+     * and returns an optimized physical plan.
      *
      * @param planner The planner.
-     * @return optimised query of {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50}
+     * @return optimized query of {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50}
      */
     @Nonnull
     private static RecordQueryPlan planQuery(@Nonnull final CascadesPlanner planner) {
@@ -186,6 +186,6 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
     }
 }

@@ -381,7 +381,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var valuesBuilder = ImmutableList.<Value>builder();
         if (groupingKeyValue != null) {
             final var groupingResultType = groupingKeyValue.getResultType();
-            if (groupingResultType.getTypeCode() == Type.TypeCode.RECORD) {
+            if (groupingResultType.isRecord()) {
                 Verify.verify(groupingResultType instanceof Type.Record);
                 final var groupingResultRecordType = (Type.Record)groupingResultType;
                 List<Type.Record.Field> fields = groupingResultRecordType.getFields();
@@ -394,7 +394,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
 
         final var aggregateResultType = aggregateValue.getResultType();
-        if (aggregateResultType.getTypeCode() == Type.TypeCode.RECORD) {
+        if (aggregateResultType.isRecord()) {
             Verify.verify(aggregateResultType instanceof Type.Record);
             final var aggregateResultRecordType = (Type.Record)aggregateResultType;
             List<Type.Record.Field> fields = aggregateResultRecordType.getFields();

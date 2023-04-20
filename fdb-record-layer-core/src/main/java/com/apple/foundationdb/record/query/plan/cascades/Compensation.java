@@ -707,7 +707,7 @@ public interface Compensation {
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
          * @param relationalExpression root of graph to apply compensation to
          * @return a new relational expression that corrects the result of {@code reference} by applying an additional
-         *         filter
+         * filter
          */
         @Override
         public RelationalExpression apply(@Nonnull RelationalExpression relationalExpression) {

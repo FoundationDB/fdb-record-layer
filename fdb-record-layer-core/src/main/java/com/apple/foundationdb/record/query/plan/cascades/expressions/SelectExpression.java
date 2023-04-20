@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -46,10 +47,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
@@ -296,7 +297,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap aliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          @Nonnull final EvaluationContext evaluationContext) {
         // TODO This method should be simplified by adding some structure to it.
         final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
@@ -404,7 +406,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (getPredicates().isEmpty()) {
             final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
-                    .allMatch(queryPredicate -> queryPredicate instanceof ValueWithRanges || queryPredicate.isTautology());
+                    .allMatch(queryPredicate -> queryPredicate instanceof PredicateWithValueAndRanges || queryPredicate.isTautology());
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
@@ -456,7 +458,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
 
             final Set<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates());
+                    predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates(), evaluationContext);
 
             predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
@@ -617,7 +619,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
      * @return a simplified list of predicates.
      */
     @Nonnull
-    private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value, @Nonnull final Collection<PredicateWithValue> predicates) {
+    private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value,
+                                                            @Nonnull final Collection<PredicateWithValue> predicates) {
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
         final var rangeBuilder = RangeConstraints.newBuilder();
 
@@ -627,8 +630,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 if (!rangeBuilder.addComparisonMaybe(predicateRange)) {
                     result.add(value.withComparison(predicateRange));  // give up.
                 }
-            } else if (predicate instanceof ValueWithRanges && ((ValueWithRanges)predicate).isSargable()) {
-                final var predicateRange = Iterables.getOnlyElement(((ValueWithRanges)predicate).getRanges());
+            } else if (predicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)predicate).isSargable()) {
+                final var predicateRange = Iterables.getOnlyElement(((PredicateWithValueAndRanges)predicate).getRanges());
                 rangeBuilder.add(predicateRange);
             } else {
                 result.add(predicate);
@@ -637,7 +640,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         // If the compile-time range is defined, create a sargable from it.
         final var rangeMaybe = rangeBuilder.build();
-        rangeMaybe.ifPresent(compileTimeRange -> result.add(ValueWithRanges.sargable(value, compileTimeRange)));
+        rangeMaybe.ifPresent(compileTimeRange -> result.add(PredicateWithValueAndRanges.sargable(value, compileTimeRange)));
 
         return result.build();
     }

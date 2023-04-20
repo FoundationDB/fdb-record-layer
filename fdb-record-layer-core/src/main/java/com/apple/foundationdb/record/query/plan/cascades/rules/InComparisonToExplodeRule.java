@@ -149,7 +149,11 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 final var comparison = valuePredicate.getComparison();
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
                 final ExplodeExpression explodeExpression;
-                if (comparison instanceof Comparisons.ListComparison) {
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    final var comparisonValue = (Comparisons.ValueComparison)comparison;
+                    Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
+                    explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
+                } else if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {

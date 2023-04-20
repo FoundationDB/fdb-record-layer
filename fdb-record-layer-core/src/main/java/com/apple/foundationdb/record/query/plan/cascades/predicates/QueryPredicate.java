@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -74,7 +75,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Determines if this predicate implies some other predicate.
-     *
+     * <p>
      * Let's say that {@code EVAL(p)} denotes the outcome of the evaluation of a predicate. A predicate {@code p1}
      * implies some other predicate {@code p2} if
      *
@@ -83,25 +84,28 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     (EVAL(p1, recordBindings) == true) -> (EVAL(p2, recordBindings) == true)
      *     }
      * </pre>
-     *
+     * <p>
      * for all {@code recordBindings} possibly contained in a stream of records that are potentially being flowed at
      * execution time.
-     *
+     * <p>
      * If {@code p1} implies {@code p2}, this method returns an instance of class {@link PredicateMapping} which should
-     * give the caller all necessary info to change {@code p2} to {@code COMP(p2)} in a way make the opposite also true:
+     * give the caller all necessary info to change {@code p2} to {@code COMP(p2)} in a way make the opposite also
+     * true:
      *
      * <pre>
      *     {@code
      *     (EVAL(p1, recordBindings) == true) <-> (EVAL(COMP(p2), recordBindings) == true)
      *     }
      * </pre>
-     *
+     * <p>
      * Note that this method takes special care when placeholders are involved as this method is called during index
      * matching with candidates graphs. A placeholder by itself cannot be executed. In order for the place holder to
-     * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
-     * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
+     * match it has to partake in a relationship with a query predicate that tells the placeholder the specific
+     * comparison
+     * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is
+     * bound
      * to a specific predicate only in the presence of a sargable predicate
-     * ({@link ValueWithRanges}) on the query side.
+     * ({@link PredicateWithValueAndRanges}) on the query side.
      *
      * <h2>Examples:</h2>
      *
@@ -141,21 +145,25 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     }
      *     {@code p1} does not imply {@code p2}, i.e., {@code x = 5} does not imply {@code y COMPARISONRANGE}.
      * </pre>
-     *
+     * <p>
      * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
      * also represents a tautology.
      *
      * @param aliasMap the current alias map
      * @param candidatePredicate another predicate (usually in a match candidate)
+     * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
+     * implication.
+     *
      * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
-     *         {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
-     *         and compensation for {@code candidatePredicate}
-     *         such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
+     * {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
+     * and compensation for {@code candidatePredicate}
+     * such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
      */
     @Nonnull
     @SuppressWarnings("unused")
     default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
-                                                                 @Nonnull final QueryPredicate candidatePredicate) {
+                                                                 @Nonnull final QueryPredicate candidatePredicate,
+                                                                 @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isTautology()) {
             return Optional.of(new PredicateMapping(this,
                     candidatePredicate,
@@ -199,26 +207,28 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
-     * be found at all, this method will then call {@link #impliesCandidatePredicate(AliasMap, QueryPredicate)} using
+     * be found at all, this method will then call {@link #impliesCandidatePredicate(AliasMap, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param aliasMap the current alias map
      * @param candidatePredicates an {@link Iterable} of candiate predicates
+     * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty set of {@link PredicateMapping}s
      */
     default Set<PredicateMapping> findImpliedMappings(@NonNull AliasMap aliasMap,
-                                                      @Nonnull Iterable<? extends QueryPredicate> candidatePredicates) {
+                                                      @Nonnull Iterable<? extends QueryPredicate> candidatePredicates,
+                                                      @Nonnull final EvaluationContext evaluationContext) {
         final ImmutableSet.Builder<PredicateMapping> mappingBuilder = ImmutableSet.builder();
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {
             final Optional<PredicateMapping> impliedByQueryPredicateOptional =
-                    impliesCandidatePredicate(aliasMap, candidatePredicate);
+                    impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
             impliedByQueryPredicateOptional.ifPresent(mappingBuilder::add);
         }
 
         final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
         if (result.isEmpty()) {
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
-            return impliesCandidatePredicate(aliasMap, tautologyPredicate)
+            return impliesCandidatePredicate(aliasMap, tautologyPredicate, evaluationContext)
                     .map(ImmutableSet::of)
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }
@@ -239,6 +249,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     default boolean isContradiction() {
         return false;
+    }
+
+    @Nullable
+    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
+    default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
     }
 
     @Nullable
@@ -350,7 +366,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default Optional<ValueWithRanges> toValueWithRangesMaybe() {
+    default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
         return Optional.empty();
     }
 

@@ -130,7 +130,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             // index matching and other good stuff.
             return;
         }
-        
+
         final Optional<CorrelationIdentifier> referredAliasOptional;
         if (!isSimpleResultValue) {
             if (referredOwnedForEachAliases.size() > 1) {

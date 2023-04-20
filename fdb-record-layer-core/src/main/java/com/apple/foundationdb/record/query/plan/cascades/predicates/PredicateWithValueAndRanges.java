@@ -1,5 +1,5 @@
 /*
- * ValueWithRanges.java
+ * PredicateWithValueAndRanges.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -34,7 +36,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -72,7 +76,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class ValueWithRanges implements PredicateWithValue {
+public class PredicateWithValueAndRanges implements PredicateWithValue {
 
     /**
      * The value associated with the {@code ranges}.
@@ -86,15 +90,19 @@ public class ValueWithRanges implements PredicateWithValue {
     @Nonnull
     private final Set<RangeConstraints> ranges;
 
+    @Nonnull
+    private final Supplier<Boolean> rangesCompileTimeChecker;
+
     /**
-     * Creates a new instance of {@link ValueWithRanges}.
+     * Creates a new instance of {@link PredicateWithValueAndRanges}.
      *
      * @param value The value.
      * @param ranges A set of ranges defined on the value (can be empty).
      */
-    protected ValueWithRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+    protected PredicateWithValueAndRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
+        this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
     }
 
     @Override
@@ -105,14 +113,13 @@ public class ValueWithRanges implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public ValueWithRanges withValue(@Nonnull final Value value) {
-        return new ValueWithRanges(value, ranges);
+    public PredicateWithValueAndRanges withValue(@Nonnull final Value value) {
+        return new PredicateWithValueAndRanges(value, ranges);
     }
 
-    @Nullable
-    @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        throw new RecordCoreException("this method should not ever be reached");
+    @Nonnull
+    public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+        return new PredicateWithValueAndRanges(value, ranges);
     }
 
     @Nonnull
@@ -131,7 +138,7 @@ public class ValueWithRanges implements PredicateWithValue {
     }
 
     /**
-     * Performs algebraic equality between {@code this} and {@code other}, if {@code other} is also a {@link ValueWithRanges}.
+     * Performs algebraic equality between {@code this} and {@code other}, if {@code other} is also a {@link PredicateWithValueAndRanges}.
      *
      * @param other The other predicate
      * @param equivalenceMap The alias equivalence map.
@@ -142,7 +149,7 @@ public class ValueWithRanges implements PredicateWithValue {
         if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
-        final ValueWithRanges that = (ValueWithRanges)other;
+        final PredicateWithValueAndRanges that = (PredicateWithValueAndRanges)other;
         final var inverseEquivalenceMap = equivalenceMap.inverse();
         return value.semanticEquals(that.value, equivalenceMap) &&
                ranges.stream().allMatch(left -> that.ranges.stream().anyMatch(right -> left.semanticEquals(right, equivalenceMap))) &&
@@ -175,22 +182,22 @@ public class ValueWithRanges implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public ValueWithRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new ValueWithRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
+    public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 
     public boolean equalsValueOnly(@Nonnull final QueryPredicate other) {
-        return (other instanceof ValueWithRanges) && value.equals(((ValueWithRanges)other).value);
+        return (other instanceof PredicateWithValueAndRanges) && value.equals(((PredicateWithValueAndRanges)other).value);
     }
 
     @Nonnull
-    public static ValueWithRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
-        return new ValueWithRanges(value, ImmutableSet.of(range));
+    public static PredicateWithValueAndRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
+        return new PredicateWithValueAndRanges(value, ImmutableSet.of(range));
     }
 
     @Nonnull
-    public static ValueWithRanges constraint(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
-        return new ValueWithRanges(value, ranges);
+    public static PredicateWithValueAndRanges ofRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+        return new PredicateWithValueAndRanges(value, ranges);
     }
 
     /**
@@ -204,22 +211,27 @@ public class ValueWithRanges implements PredicateWithValue {
      *  mapping.</li>
      *  <li>If {@code candidatePredicate} is a tautology, we always have an implication, so we return a mapping with an application
      *  of residual on top</li>
-     *  <li>If {@code candidatePredicate} is a {@link ValueWithRanges} and the values on both sides are semantically equal
+     *  <li>If {@code candidatePredicate} is a {@link PredicateWithValueAndRanges} and the values on both sides are semantically equal
      *  to each other and the candidate's domain is unbounded, we have an implication, so
      *  we return a mapping with a residual application on top depending on whether the candidate's alias can be used in
      *  the index scan prefix or not.</li>
-     *  <li>If {@code candidatePredicate} is a {@link ValueWithRanges} and the values on both sides are semantically equal
+     *  <li>If {@code candidatePredicate} is a {@link PredicateWithValueAndRanges} and the values on both sides are semantically equal
      *  to each other and the candidate domain is bound, then we check if {@code this} range is enclosed by the candidate's
      *  range, if so, we have an implication and we proceed to create a mapping similar to the above logic.</li>
      * </ul>
+     *
      * @param aliasMap the current alias map
      * @param candidatePredicate another predicate (usually in a match candidate)
+     * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
+     * implication.
+     *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
     @Nonnull
     @Override
     public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
-                                                                @Nonnull final QueryPredicate candidatePredicate) {
+                                                                @Nonnull final QueryPredicate candidatePredicate,
+                                                                @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
             return Optional.empty();
         }
@@ -228,8 +240,8 @@ public class ValueWithRanges implements PredicateWithValue {
             return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
         }
 
-        if (candidatePredicate instanceof ValueWithRanges) {
-            final var candidate = (ValueWithRanges)candidatePredicate;
+        if (candidatePredicate instanceof PredicateWithValueAndRanges) {
+            final var candidate = (PredicateWithValueAndRanges)candidatePredicate;
 
             // the value on which the candidate is defined must be the same as the _this_'s value.
             if (!getValue().semanticEquals(candidate.getValue(), aliasMap)) {
@@ -252,7 +264,7 @@ public class ValueWithRanges implements PredicateWithValue {
             }
 
             final var candidateRanges = candidate.getRanges();
-            if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range).coalesce()))) {
+            if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
@@ -260,11 +272,11 @@ public class ValueWithRanges implements PredicateWithValue {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, alias));
+                    }, Optional.of(alias), Optional.of(captureConstraint(candidate))));
                 } else {
                     return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
-                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange).coalesce()))) {
+                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
                             return Optional.empty();
                         }
                         // check if ranges are semantically equal.
@@ -272,7 +284,7 @@ public class ValueWithRanges implements PredicateWithValue {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }));
+                    }, Optional.empty(), Optional.of(captureConstraint(candidate))));
                 }
             }
         }
@@ -328,12 +340,98 @@ public class ValueWithRanges implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public Optional<ValueWithRanges> toValueWithRangesMaybe() {
-        return Optional.of(this);
+    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final @Nonnull EvaluationContext evaluationContext) {
+        return Optional.of(compileTimeEvalRanges(evaluationContext));
     }
 
     @Override
     public String toString() {
         return "(" + getValue() + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
+    }
+
+    @Nonnull
+    private PredicateWithValueAndRanges compileTimeEvalRanges(@Nonnull final EvaluationContext evaluationContext) {
+        if (rangesCompileTimeChecker.get()) {
+            return this;
+        }
+        final var newRanges = ImmutableSet.<RangeConstraints>builder();
+        for (final var range : ranges) {
+            newRanges.add(range.compileTimeEval(evaluationContext));
+        }
+        return new PredicateWithValueAndRanges(value, newRanges.build());
+    }
+
+    /**
+     * Captures a given candidate predicate into a plan constraint that is added to the corresponding physical plan operator.
+     * This is important to make sure a logical expression's eligibility of using a physical plan containing this candidate
+     * predicate.
+     * <br>
+     * The construction is done by pulling _each_ stripped literal on the query predicate (i.e. a {@link ConstantObjectValue})
+     * and construct, for each one of them, a {@link PredicateWithValueAndRanges} having it on LHS, and the candidate predicate
+     * ranges on the RHS.
+     * The logical grouping of the {@link ConstantObjectValue} is preserved. Here is an example:
+     * <br>
+     * Query Predicate: (Value1, ( ((GT,#COV1) AND (LT,#COV4)) OR ((EQ,#COV5)) ) (note that the ranges in {@link PredicateWithValueAndRanges} is in DNF format).
+     * <br>
+     * Candidate Predicate: (Value1, ((LTE,1000) AND (LTE,2000)))
+     * <br>
+     * The resulting constraint: ((#COV1, ((LTE,1000) AND (LTE,2000))) AND (#COV4, ((LTE,1000) AND (LTE,2000))) OR (#COV5,((LTE,1000) AND (LTE,2000)))
+     *
+     * @param candidatePredicate The candidate predicate to capture as a {@link QueryPlanConstraint}.
+     * @return The resulting {@link QueryPlanConstraint}.
+     */
+    @Nonnull
+    private QueryPlanConstraint captureConstraint(@Nonnull final PredicateWithValueAndRanges candidatePredicate) {
+        // todo: add another constraint for semantic equality of the plans maybe, although semantic hashcode should do this for us I think.
+        final var candidateRanges = candidatePredicate.getRanges();
+        final ImmutableList.Builder<QueryPredicate> conjunctions = ImmutableList.builder();
+        for (final var queryRange : getRanges()) {
+            conjunctions.add(AndPredicate.and(queryRange.getComparisons()
+                    .stream()
+                    .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
+                    .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
+                    .filter(comparand -> comparand instanceof ConstantObjectValue)
+                    .map(constant -> PredicateWithValueAndRanges.ofRanges((ConstantObjectValue)constant, candidateRanges))
+                    .collect(Collectors.toList())));
+
+            // TODO
+            // conjunctions.add(AndPredicate.and(queryRange.getComparisons()
+            //         .stream()
+            //         .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
+            //         .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
+            //         .filter(comparand -> comparand instanceof ConstantObjectValue)
+            //                         .map(constantObjectValue -> PromoteValue.of(ConstantObjectValue.of(constantObjectValue.getAlias(), constantObjectValue.getOrdinal(), Type.nullType()), constantObjectValue.getResultType())
+            //         //.map(c -> PromoteValue.inject(c, ((ConstantObjectValue)c).getResultType())) // check.
+            //         .map(constant -> PredicateWithValueAndRanges.constraint((ConstantObjectValue)constant, candidateRanges))
+            //         .collect(Collectors.toList())));
+        }
+        final var orPredicate = OrPredicate.or(conjunctions.build());
+        return QueryPlanConstraint.ofPredicate(orPredicate);
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        if (!(value instanceof Value.CompileTimeValue)) {
+            throw new RecordCoreException("attempt to compile-time predicate with non-compile-time value.");
+        }
+        final var valueObject = value.eval(store, context);
+        if (valueObject == null) {
+            return null;
+        }
+        // lift value object to singleton range.x
+        final var builder = RangeConstraints.newBuilder();
+        builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, valueObject));
+        final var valueRange = builder.build().orElseThrow();
+        for (final var range : getRanges()) {
+            final var compiledRange = range.compileTimeEval(context);
+            if (!compiledRange.isCompileTimeEvaluable()) {
+                continue;
+            }
+            if (compiledRange.encloses(valueRange, context).coalesce()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

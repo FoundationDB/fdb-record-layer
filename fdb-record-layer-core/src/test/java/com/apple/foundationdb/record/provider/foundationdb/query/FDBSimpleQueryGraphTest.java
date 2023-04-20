@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -123,7 +123,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -168,7 +168,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan,
                 mapPlan(
                         typeFilterPlan(
@@ -182,7 +182,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         final Optional<Collection<String>> allowedIndexesOptional = Optional.empty();
-        final ParameterRelationshipGraph parameterRelationshipGraph = ParameterRelationshipGraph.empty();
+        final EvaluationContext parameterRelationshipGraph = EvaluationContext.empty();
 
         // with index hints ("review_rating"), cannot plan a query
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
@@ -259,7 +259,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 mapPlan(
@@ -337,7 +337,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -348,7 +348,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                         .where(indexName("RestaurantRecord$name"))
                                         .and(scanComparisons(range("[[name],[name]]")))));
 
-        assertMatchesExactly(plan, planMatcher);
+        assertMatchesExactly(plan.getPlan(), planMatcher);
     }
     
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -423,7 +423,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -539,10 +539,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty());
 
         // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
+        Assertions.assertTrue(plan.getPlan() instanceof RecordQueryFlatMapPlan);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -647,7 +647,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
@@ -690,7 +690,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
                 mapPlan(typeFilterPlan(

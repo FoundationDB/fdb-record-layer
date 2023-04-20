@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
@@ -100,7 +100,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         var rootExpression = index.getRootExpression();
         Verify.verify(rootExpression instanceof GroupingKeyExpression);
 
-        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
+        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         final var baseQuantifier = baseQuantifierSupplier.get();
@@ -229,7 +229,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 continue;
             }
 
-            final var placeholder = (ValueWithRanges)predicate;
+            final var placeholder = (PredicateWithValueAndRanges)predicate;
 
             if (!groupingPlaceholders.contains(placeholder)) {
                 continue;

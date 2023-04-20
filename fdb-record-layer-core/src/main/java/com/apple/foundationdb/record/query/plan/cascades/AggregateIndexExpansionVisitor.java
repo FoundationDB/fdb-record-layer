@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
@@ -169,7 +169,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                             .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
-                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
                     } else {
                         predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
                     }
@@ -243,7 +243,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingValueReference != null) {
             Values.deconstructRecord(groupingValueReference).forEach(v -> {
                 final var field = (FieldValue)v;
-                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(ValueWithRanges.class));
+                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(PredicateWithValueAndRanges.class));
                 placeholderAliases.add(placeholder.getParameterAlias());
                 selectHavingGraphExpansionBuilder
                         .addResultColumn(Column.unnamedOf(field))

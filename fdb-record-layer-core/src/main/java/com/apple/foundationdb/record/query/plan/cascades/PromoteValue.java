@@ -189,7 +189,7 @@ public class PromoteValue implements ValueWithChild {
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
-        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
+        if (currentType.isArray()) {
             final var targetArrayType = (Type.Array)targetType;
             final var currentArrayType = (Type.Array)currentType;
             final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
@@ -202,7 +202,7 @@ public class PromoteValue implements ValueWithChild {
                     elementsTrie == null ? null : ImmutableMap.of(-1, elementsTrie));
         }
 
-        Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
+        Verify.verify(currentType.isRecord());
         final var targetRecordType = (Type.Record)targetType;
         final var currentRecordType = (Type.Record)currentType;
         SemanticException.check(targetRecordType.getFields().size() == currentRecordType.getFields().size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);

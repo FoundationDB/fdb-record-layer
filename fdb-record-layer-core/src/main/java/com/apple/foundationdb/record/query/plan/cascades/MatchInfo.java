@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -61,6 +62,12 @@ public class MatchInfo {
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
+    /**
+     * Conjuncts the constraints from the predicate map into a single {@link QueryPlanConstraint}.
+     */
+    @Nonnull
+    private final Supplier<Optional<QueryPlanConstraint>> capturedConstraintsSupplier;
+
     @Nonnull
     private final PredicateMap predicateMap;
 
@@ -85,6 +92,7 @@ public class MatchInfo {
             quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
             return mapBuilder.build();
         });
+        this.capturedConstraintsSupplier = Suppliers.memoize(this::capturedConstraintCollectorMaybe);
         this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
             final PredicateMap.Builder targetBuilder = PredicateMap.builder();
@@ -119,6 +127,11 @@ public class MatchInfo {
     @Nonnull
     public PredicateMap getPredicateMap() {
         return predicateMap;
+    }
+
+    @Nonnull
+    public Optional<QueryPlanConstraint> getConstraintMaybe() {
+        return capturedConstraintsSupplier.get();
     }
 
     @Nonnull
@@ -224,6 +237,22 @@ public class MatchInfo {
                 predicateMap,
                 matchedOrderingParts,
                 remainingComputationValueOptional);
+    }
+
+    @Nonnull
+    private Optional<QueryPlanConstraint> capturedConstraintCollectorMaybe() {
+        final var childConstraints = quantifierToPartialMatchMap.values().stream().map(
+                partialMatch -> partialMatch.get().getMatchInfo().capturedConstraintCollectorMaybe()).flatMap(Optional::stream).collect(Collectors.toList());
+        final var constraints = predicateMap.getMap()
+                .values()
+                .stream()
+                .flatMap(predicate -> predicate.getConstraint().stream())
+                .collect(Collectors.toUnmodifiableList());
+        if (constraints.isEmpty() && childConstraints.isEmpty()) {
+            return Optional.empty();
+        }
+        final var allConstraints = ImmutableList.<QueryPlanConstraint>builder().addAll(constraints).addAll(childConstraints).build();
+        return Optional.of(QueryPlanConstraint.compose(allConstraints));
     }
 
     @Nonnull

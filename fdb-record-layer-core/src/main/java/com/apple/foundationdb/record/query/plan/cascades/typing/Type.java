@@ -104,6 +104,33 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
+     * Checks whether a {@link Type} is {@link Array}.
+     *
+     * @return <code>true</code> if the {@link Type} is {@link Array}, otherwise <code>false</code>.
+     */
+    default boolean isArray() {
+        return getTypeCode().equals(TypeCode.ARRAY);
+    }
+
+    /**
+     * Checks whether a {@link Type} is {@link Record}.
+     *
+     * @return <code>true</code> if the {@link Type} is {@link Record}, otherwise <code>false</code>.
+     */
+    default boolean isRecord() {
+        return getTypeCode().equals(TypeCode.RECORD);
+    }
+
+    /**
+     * Checks whether a {@link Type} is {@link Enum}.
+     *
+     * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.
+     */
+    default boolean isEnum() {
+        return getTypeCode().equals(TypeCode.ENUM);
+    }
+
+    /**
      * Checks whether a {@link Type} is nullable.
      *
      * @return <code>true</code> if the {@link Type} is nullable, otherwise <code>false</code>.
@@ -127,6 +154,51 @@ public interface Type extends Narrowable<Type> {
      */
     @Nonnull
     Type withNullability(boolean newIsNullable);
+
+    /**
+     * Safe-casts {@code this} into a {@link Array}.
+     *
+     * @return an {@code Optional} of {@code this} cast to array if {@code this} is an {@link Array}, otherwise an empty
+     * {@link Optional}.
+     */
+    @Nonnull
+    default Optional<Type.Array> narrowArrayMaybe() {
+        if (isArray()) {
+            return Optional.of((Type.Array)this);
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Safe-casts {@code this} into a {@link Record}.
+     *
+     * @return an {@code Optional} of {@code this} cast to array if {@code this} is an {@link Record}, otherwise an empty
+     * {@link Optional}.
+     */
+    @Nonnull
+    default Optional<Type.Record> narrowRecordMaybe() {
+        if (isRecord()) {
+            return Optional.of((Type.Record)this);
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Safe-casts {@code this} into a {@link Enum}.
+     *
+     * @return an {@code Optional} of {@code this} cast to array if {@code this} is an {@link Enum}, otherwise an empty
+     * {@link Optional}.
+     */
+    @Nonnull
+    default Optional<Type.Enum> narrowEnumMaybe() {
+        if (isEnum()) {
+            return Optional.of((Type.Enum)this);
+        } else {
+            return Optional.empty();
+        }
+    }
 
     /**
      * Checks whether a {@link Type} is numeric.
@@ -496,6 +568,65 @@ public interface Type extends Narrowable<Type> {
     }
 
     /**
+     * Returns an equivalent {@link Type} of a primitive object.
+     *
+     * @param o The object to determine the type of.
+     * @return An equivalent {@link Type}.
+     */
+    @Nonnull
+    static TypeCode typeCodeFromPrimitive(@Nullable final Object o) {
+        if (o instanceof ByteString) {
+            return TypeCode.BYTES;
+        }
+        return getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), TypeCode.UNKNOWN);
+    }
+
+    /**
+     * Returns an equivalent {@link Type} of a given Java object's type.
+     * @param object The object whose Java type to be checked for an equivalent {@link Type}.
+     * @return The equivalent {@link Type}.
+     */
+    @Nonnull
+    static Type fromObject(@Nullable final Object object) {
+        if (object instanceof Typed) {
+            return ((Typed)object).getResultType();
+        }
+        if (object == null) {
+            return Type.nullType();
+        }
+        if (object instanceof List) {
+            return new Type.Array(Type.fromListObject((List<?>)object));
+        }
+        final var typeCode = typeCodeFromPrimitive(object);
+        if (typeCode == TypeCode.NULL) {
+            return Type.nullType();
+        }
+        if (typeCode == TypeCode.UNKNOWN) {
+            return Type.any();
+        }
+        if (typeCode.isPrimitive()) {
+            return Type.primitiveType(typeCode);
+        }
+        throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
+    }
+
+    @Nonnull
+    private static Type fromListObject(@Nullable final List<?> list) {
+        if (list == null) {
+            return Type.nullType();
+        }
+        if (list.isEmpty()) {
+            return Type.any();
+        }
+        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
+        if (elementTypes.size() != 1) {
+            return Type.any();
+        } else {
+            return elementTypes.get(0);
+        }
+    }
+
+    /**
      * All supported {@link Type}s.
      */
     enum TypeCode {
@@ -511,7 +642,7 @@ public interface Type extends Narrowable<Type> {
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
-        ARRAY(Array.class, null, false, false),
+        ARRAY(List.class, null, false, false),
         RELATION(null, null, false, false);
 
         /**
@@ -749,6 +880,9 @@ public interface Type extends Narrowable<Type> {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
+        @Nonnull
+        private static final Any INSTANCE = new Any();
+
         private int computeHashCode() {
             return Objects.hash(getTypeCode().name().hashCode(), isNullable());
         }
@@ -816,6 +950,11 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return getTypeCode().toString();
         }
+    }
+
+    @Nonnull
+    static Any any() {
+        return Any.INSTANCE;
     }
 
     /**

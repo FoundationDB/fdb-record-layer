@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -281,6 +282,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var type = reset(groupByResultValue.getResultType());
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(type).build().newMessageBuilder(type);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
+        final var constraintMaybe = partialMatch.getMatchInfo().getConstraintMaybe();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
@@ -297,7 +299,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
                 messageDescriptor,
-                groupByResultValue);
+                groupByResultValue,
+                constraintMaybe.orElse(QueryPlanConstraint.tautology()));
     }
 
     @Nonnull

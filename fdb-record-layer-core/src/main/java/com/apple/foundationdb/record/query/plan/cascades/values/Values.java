@@ -45,8 +45,7 @@ public class Values {
      */
     @Nonnull
     public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
-        Verify.verify(recordValue.getResultType().getTypeCode() == Type.TypeCode.RECORD);
-        Verify.verify(recordValue.getResultType() instanceof Type.Record);
+        Verify.verify(recordValue.getResultType().isRecord());
         final Type.Record resultType = (Type.Record)recordValue.getResultType();
 
         if (recordValue instanceof RecordConstructorValue) {
