@@ -3269,6 +3269,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
+    public static CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
+        Subspace isSubspace = subspace.subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
+                .setContext(context)
+                .setRange(TupleRange.ALL)
+                .setContinuation(null)
+                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
+                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
+                        .build())
+                )
+                .build();
+        FDBStoreTimer timer = context.getTimer();
+        CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
+            Map<String, IndexState> indexStateMap;
+            if (list.isEmpty()) {
+                indexStateMap = Collections.emptyMap();
+            } else {
+                ImmutableMap.Builder<String, IndexState> indexStateMapBuilder = ImmutableMap.builder();
+
+                for (KeyValue kv : list) {
+                    String indexName = isSubspace.unpack(kv.getKey()).getString(0);
+                    Object code = Tuple.fromBytes(kv.getValue()).get(0);
+                    indexStateMapBuilder.put(indexName, IndexState.fromCode(code));
+                    if (timer != null) {
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY);
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY_BYTES, kv.getKey().length);
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_VALUE_BYTES, kv.getValue().length);
+                    }
+                }
+
+                indexStateMap = indexStateMapBuilder.build();
+            }
+            return indexStateMap;
+        });
+        if (timer != null) {
+            result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INDEX_META_DATA, result, context.getExecutor());
+        }
+        return result;
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
         Subspace isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
