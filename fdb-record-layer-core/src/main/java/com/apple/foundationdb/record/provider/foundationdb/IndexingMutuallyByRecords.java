@@ -608,5 +608,4 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         throw new ValidationException("Mutual inline rebuild doesn't make any sense");
     }
-
 }
