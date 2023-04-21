@@ -1839,7 +1839,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      *      is pulled above the UNION the fetch can also be deferred until after the UNION which may be beneficial
      *      (according to the current cost model which is probably correct).
      */
-    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @DualPlannerTest
     void testComplexOrQueryToDistinctUnion() throws Exception {
         complexQuerySetup(null);
         setDeferFetchAfterUnionAndIntersection(true);

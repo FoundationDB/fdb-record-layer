@@ -83,6 +83,11 @@ public class AndPredicate extends AndOrPredicate {
     }
 
     @Override
+    public int hashCodeWithoutChildren() {
+        return BASE_HASH.planHash();
+    }
+
+    @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:

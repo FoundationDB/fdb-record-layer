@@ -67,7 +67,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -295,17 +294,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      *         incorporate the children of this value
      */
     int hashCodeWithoutChildren();
-
-    /**
-     * Overridden method to compute the semantic hash code of this tree of values. This method uses
-     * {@link #hashCodeWithoutChildren()} to fold over the tree.
-     * @return the semantic hash code
-     */
-    @Override
-    default int semanticHashCode() {
-        return fold(Value::hashCodeWithoutChildren,
-                (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
-    }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

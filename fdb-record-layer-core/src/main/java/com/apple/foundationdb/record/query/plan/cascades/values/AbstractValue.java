@@ -27,6 +27,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -38,8 +39,11 @@ public abstract class AbstractValue implements Value {
 
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
+    private final Supplier<Integer> semanticHashCodeSupplier;
+
     protected AbstractValue() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
+        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
     }
 
     @Nonnull
@@ -63,5 +67,15 @@ public abstract class AbstractValue implements Value {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return semanticHashCodeSupplier.get();
+    }
+
+    private int computeSemanticHashCode() {
+        return fold(Value::hashCodeWithoutChildren,
+                (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
     }
 }

@@ -26,6 +26,7 @@ import com.google.common.base.Equivalence;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -195,8 +196,9 @@ public interface Correlated<S extends Correlated<S>> {
     /**
      * Helper class to wrap extenders of {@link Correlated} to provide standard equivalence and hash code
      * functionality under a given {@link AliasMap}.
+     * @param <S> type parameter
      */
-    class BoundEquivalence extends Equivalence<Correlated<?>> {
+    class BoundEquivalence<S extends Correlated<S>> extends Equivalence<S> {
         @Nonnull
         private final AliasMap aliasMap;
 
@@ -205,13 +207,30 @@ public interface Correlated<S extends Correlated<S>> {
         }
 
         @Override
-        protected boolean doEquivalent(final Correlated<?> a, final Correlated<?> b) {
+        protected boolean doEquivalent(final S a, @Nonnull final S b) {
             return a.semanticEquals(b, aliasMap);
         }
 
         @Override
-        protected int doHash(final Correlated<?> correlated) {
+        protected int doHash(final S correlated) {
             return correlated.semanticHashCode();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof BoundEquivalence)) {
+                return false;
+            }
+            final BoundEquivalence<?> that = (BoundEquivalence<?>)o;
+            return Objects.equals(aliasMap, that.aliasMap);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(aliasMap);
         }
     }
 }

@@ -108,12 +108,12 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias);
+        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override
@@ -122,7 +122,12 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     }
 
     @Override
-    public int semanticHashCode() {
+    public int computeSemanticHashCode() {
+        return LeafQueryPredicate.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return planHash();
     }
 

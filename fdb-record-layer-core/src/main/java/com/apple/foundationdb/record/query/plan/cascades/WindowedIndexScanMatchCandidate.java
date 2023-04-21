@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -366,7 +367,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
-                                baseRecordType));
+                                baseRecordType,
+                                QueryPlanConstraint.tautology()));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -407,8 +409,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
-                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
-                        baseRecordType);
+                        partialMatch.getMatchCandidate(),
+                        baseRecordType,
+                        QueryPlanConstraint.tautology());
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),
