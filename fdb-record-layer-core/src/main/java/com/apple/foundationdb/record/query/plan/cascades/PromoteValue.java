@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -39,7 +38,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -58,10 +56,8 @@ public class PromoteValue implements ValueWithChild {
                     Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
                     Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
                     Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in),
-                    Pair.of(Type.TypeCode.STRING, Type.TypeCode.VERSION), (descriptor, in) -> FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) in)),
-                    Pair.of(Type.TypeCode.STRING, Type.TypeCode.BYTES), (descriptor, in) -> Base64.getDecoder().decode((String) in),
-                    Pair.of(Type.TypeCode.BYTES, Type.TypeCode.VERSION), (descriptor, in) -> FDBRecordVersion.fromBytes((byte[]) in));
+                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in)
+            );
     /**
      * The hash value of this expression.
      */

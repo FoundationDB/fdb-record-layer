@@ -186,7 +186,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
             return GraphExpansion.ofExists(rankComparisonQuantifier);
         } else if (function instanceof StoreRecordFunction<?> && FunctionNames.VERSION.equals(function.getName())) {
-            VersionValue versionValue = new VersionValue(baseQuantifier.getAlias());
+            final VersionValue versionValue = new VersionValue(baseQuantifier.getAlias());
             return GraphExpansion.builder()
                     .addPredicate(new ValuePredicate(versionValue, comparison))
                     .build();

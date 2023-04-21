@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -40,10 +41,12 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -141,7 +144,29 @@ public class FieldValue implements ValueWithChild {
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
         //
-        return NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType());
+        return wrapPrimitive(getResultType(), NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType()));
+    }
+
+    @Nullable
+    private static Object wrapPrimitive(@Nonnull Type type, @Nullable Object fieldValue) {
+        if (fieldValue == null) {
+            return null;
+        }
+        if (type instanceof Type.Array) {
+            Verify.verify(fieldValue instanceof List<?>);
+            List<?> list = (List<?>) fieldValue;
+            Type elementType = Objects.requireNonNull(((Type.Array)type).getElementType());
+            List<Object> returnList = new ArrayList<>(list.size());
+            for (Object elem : list) {
+                returnList.add(wrapPrimitive(elementType, elem));
+            }
+            return returnList;
+        } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
+            return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
+        } else {
+            // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
+            return fieldValue;
+        }
     }
 
     @Override

@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.metadata.Index;
@@ -35,11 +38,28 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 
@@ -47,22 +67,40 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapResult;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.versionValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -161,7 +199,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(allOf(indexName(VERSION_INDEX.getName()), unbounded())));
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName(VERSION_INDEX.getName()))
+                    .and(scanComparisons(unbounded())));
 
             List<FDBQueriedRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .asList()
@@ -186,7 +226,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(allOf(indexName(VERSION_INDEX.getName()), unbounded())));
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName(VERSION_INDEX.getName()))
+                    .and(scanComparisons(unbounded())));
 
             List<FDBQueriedRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .asList()
@@ -212,7 +254,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(allOf(indexName(VERSION_INDEX.getName()), bounds(hasTupleString("([" + versionForQuery.toVersionstamp(false) + "],>")))));
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName(VERSION_INDEX.getName()))
+                    .and(scanComparisons(range("([" + versionForQuery.toVersionstamp(false) + "],>"))));
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .map(FDBQueriedRecord::getStoredRecord)
                     .asList()
@@ -246,7 +290,16 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(Query.version().greaterThan(versionForQuery), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded()))));
+            BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
+                    .where(indexName("MySimpleRecord$num_value_unique"))
+                    .and(scanComparisons(unbounded()));
+            if (planner instanceof RecordQueryPlanner) {
+                assertMatchesExactly(plan, filterPlan(indexPlanMatcher)
+                        .where(queryComponents(exactly(equalsObject(Query.version().greaterThan(versionForQuery))))));
+            } else {
+                assertMatchesExactly(plan, predicatesFilterPlan(indexPlanMatcher)
+                        .where(predicates(valuePredicate(versionValue(), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, versionForQuery)))));
+            }
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .map(FDBQueriedRecord::getStoredRecord)
                     .asList()
@@ -282,7 +335,17 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(Query.version().greaterThan(versionForQuery), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded()))));
+            BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
+                    .where(indexName("MySimpleRecord$num_value_unique"))
+                    .and(scanComparisons(unbounded()));
+            if (planner instanceof RecordQueryPlanner) {
+                assertMatchesExactly(plan, filterPlan(indexPlanMatcher)
+                        .where(queryComponents(exactly(equalsObject(Query.version().greaterThan(versionForQuery))))));
+            } else {
+                assertMatchesExactly(plan, predicatesFilterPlan(indexPlanMatcher)
+                        .where(predicates(valuePredicate(versionValue(), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, versionForQuery)))));
+            }
+
             List<Long> queried = typedStore.executeQuery(plan)
                     .map(rec -> rec.getRecord().getRecNo())
                     .asList()
@@ -316,7 +379,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(allOf(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()), bounds(hasTupleString("[[1],[1]]")))));
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()))
+                    .and(scanComparisons(range("[[1],[1]]"))));
+
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .map(FDBQueriedRecord::getStoredRecord)
                     .asList()
@@ -351,7 +417,16 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
             RecordQueryPlan plan = planner.plan(query);
             // Should be able to push down version filter onto index the index entries when planner can better reason about version field
-            assertThat(plan, filter(Query.version().notEquals(excludedVersion), indexScan(allOf(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()), bounds(hasTupleString("[[1],[1]]"))))));
+            BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
+                    .where(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()))
+                    .and(scanComparisons(range("[[1],[1]]")));
+            if (planner instanceof RecordQueryPlanner) {
+                assertMatchesExactly(plan, filterPlan(indexPlanMatcher)
+                        .where(queryComponents(exactly(equalsObject(Query.version().notEquals(excludedVersion))))));
+            } else {
+                assertMatchesExactly(plan, predicatesFilterPlan(indexPlanMatcher)
+                        .where(predicates(valuePredicate(versionValue(), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, excludedVersion)))));
+            }
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .map(FDBQueriedRecord::getStoredRecord)
                     .asList()
@@ -382,7 +457,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
             RecordQueryPlan plan = planner.plan(query);
             // Should be able to push down version filter onto index the index entries when planner can better reason about version field
-            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))));
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName("MySimpleRecord$str_value_indexed"))
+                    .and(scanComparisons(range("[[even],[even]]")))
+            );
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
                     .map(FDBQueriedRecord::getStoredRecord)
                     .asList()
@@ -394,6 +472,137 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .sorted(Comparator.comparing(FDBStoredRecord::getPrimaryKey))
                     .collect(Collectors.toList());
             assertEquals(expected, queried);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void versionGraphQuery() {
+        List<FDBStoredRecord<MySimpleRecord>> records = populateRecords();
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context);
+
+            // Plan a query approximating:
+            //    SELECT recordVersion(MySimpleRecord) AS version, MySimpleRecord.rec_no AS number FROM MySimpleRecord ORDER BY version ASC
+            RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
+                var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                final var graphExpansionBuilder = GraphExpansion.builder();
+                graphExpansionBuilder.addQuantifier(qun);
+
+                var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
+                var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
+
+                graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
+                graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
+
+                var select = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+
+                AliasMap aliasMap = AliasMap.of(select.getAlias(), Quantifier.current());
+                return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
+            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, false, EvaluationContext.empty()).getPlan();
+
+            assertMatchesExactly(plan, mapPlan(
+                    indexPlan()
+                            .where(indexName("versionIndex"))
+                            .and(scanComparisons(unbounded()))
+                    )
+                    .where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no"))))));
+
+            FDBRecordVersion previousVersion = null;
+            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+                for (RecordCursorResult<QueryResult> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
+                    QueryResult underlying = Objects.requireNonNull(result.get());
+                    // Make sure that the version is serialized into the RecordConstructor as bytes correctly
+                    ByteString versionObj = FDBSimpleQueryGraphTest.getField(underlying, ByteString.class, "version");
+                    assertNotNull(versionObj);
+                    FDBRecordVersion version = FDBRecordVersion.fromBytes(versionObj.toByteArray(), false);
+                    if (previousVersion != null) {
+                        assertThat(version, greaterThan(previousVersion));
+                    }
+                    long number = Objects.requireNonNull(FDBSimpleQueryGraphTest.getField(underlying, Long.class, "number"));
+                    long expectedRecNo = records.stream()
+                            .filter(rec -> version.equals(rec.getVersion()))
+                            .findFirst()
+                            .map(rec -> rec.getRecord().getRecNo())
+                            .orElse(-1L);
+                    assertEquals(expectedRecNo, number);
+
+                    previousVersion = version;
+                }
+            }
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void versionInSubSelectQuery() {
+        List<FDBStoredRecord<MySimpleRecord>> records = populateRecords();
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context);
+
+            final FDBRecordVersion versionForQuery = Objects.requireNonNull(records.get(records.size() / 2).getVersion());
+
+            // Plan a query approximating:
+            //    SELECT *
+            //        FROM (SELECT recordVersion(MySimpleRecord) AS version, MySimpleRecord.rec_no AS number FROM MySimpleRecord)
+            //        WHERE version <= ?versionForQuery
+            // Use this to test how processing a version through sub-selects works
+            RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
+                var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                final var innerGraphBuilder = GraphExpansion.builder();
+                innerGraphBuilder.addQuantifier(qun);
+
+                var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
+                var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
+
+                innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
+                innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
+
+                var innerSelect = Quantifier.forEach(GroupExpressionRef.of(innerGraphBuilder.build().buildSelect()));
+
+                final var outerGraphBuilder = GraphExpansion.builder();
+                outerGraphBuilder.addQuantifier(innerSelect);
+
+                outerGraphBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "version"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, versionForQuery)));
+
+                outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "version"));
+                outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "number"));
+                var select = Quantifier.forEach(GroupExpressionRef.of(outerGraphBuilder.build().buildSelect()));
+
+                return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, select));
+            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, false, EvaluationContext.empty()).getPlan();
+
+            assertMatchesExactly(plan, mapPlan(
+                    predicatesFilterPlan(
+                            mapPlan(
+                                    typeFilterPlan(
+                                            scanPlan()
+                                                    .where(scanComparisons(unbounded()))
+                                    ).where(recordTypes(PrimitiveMatchers.containsAll(Set.of("MySimpleRecord"))))
+                            )
+                            .where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no")))))
+                    ).where(predicates(exactly(valuePredicate(fieldValueWithFieldNames("version"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, versionForQuery)))))
+            ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("version"), fieldValueWithFieldNames("number"))))));
+
+            Set<Long> expectedNumbers = records.stream()
+                    .filter(rec -> rec.getVersion() != null && rec.getVersion().compareTo(versionForQuery) <= 0)
+                    .map(rec -> rec.getRecord().getRecNo())
+                    .collect(Collectors.toSet());
+            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+                Set<Long> actualNumbers = new HashSet<>();
+                for (RecordCursorResult<QueryResult> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
+                    QueryResult underlying = Objects.requireNonNull(result.get());
+                    ByteString versionObj = FDBSimpleQueryGraphTest.getField(underlying, ByteString.class, "_0");
+                    assertNotNull(versionObj);
+                    FDBRecordVersion version = FDBRecordVersion.fromBytes(versionObj.toByteArray(), false);
+                    assertThat(version, lessThanOrEqualTo(versionForQuery));
+                    long number = Objects.requireNonNull(FDBSimpleQueryGraphTest.getField(underlying, Long.class, "_1"));
+                    actualNumbers.add(number);
+                }
+                assertEquals(expectedNumbers, actualNumbers);
+            }
         }
     }
 

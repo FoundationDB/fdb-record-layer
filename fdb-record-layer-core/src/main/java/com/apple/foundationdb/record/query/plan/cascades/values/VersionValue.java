@@ -25,9 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -62,8 +61,7 @@ public class VersionValue implements QuantifiedValue {
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         QueryResult binding = (QueryResult) context.getBinding(baseAlias);
         return binding.getQueriedRecordMaybe()
-                .map(FDBQueriedRecord::getStoredRecord)
-                .map(FDBStoredRecord::getVersion)
+                .map(FDBRecord::getVersion)
                 .orElse(null);
     }
 

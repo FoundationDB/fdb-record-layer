@@ -51,7 +51,6 @@ import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -468,7 +467,6 @@ public class RelOpValue implements BooleanValue {
         // TODO think about equality epsilon for floating-point types.
         EQ_BU(Comparisons.Type.EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_BB(Comparisons.Type.EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l == (boolean)r),
-        EQ_BV(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes((byte[]) l, false)).equals(r)),
         EQ_IU(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_II(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l == (int)r),
         EQ_IL(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l == (long)r),
@@ -499,7 +497,6 @@ public class RelOpValue implements BooleanValue {
         // EQ_SD(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         EQ_SU(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> l.equals(r)), // TODO: locale-aware comparison
-        EQ_SV(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).equals(r)),
         EQ_UU(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_UB(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         EQ_UI(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -509,13 +506,10 @@ public class RelOpValue implements BooleanValue {
         EQ_US(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         EQ_UV(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         EQ_VU(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        EQ_VB(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> l.equals(FDBRecordVersion.fromBytes((byte[]) r, false))),
-        EQ_VS(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> l.equals(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false))),
         EQ_VV(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, Object::equals),
 
         NEQ_BU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_BB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l != (boolean)r),
-        NEQ_BV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> !(FDBRecordVersion.fromBytes((byte[]) l)).equals(r)),
         NEQ_IU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_II(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l != (int)r),
         NEQ_IL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l != (long)r),
@@ -547,20 +541,16 @@ public class RelOpValue implements BooleanValue {
         NEQ_SU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_SS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> !l.equals(r)), // TODO: locale-aware comparison
         NEQ_UU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        NEQ_SV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> !(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).equals(r)),
         NEQ_UB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         NEQ_UI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
         NEQ_UL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.LONG, (l, r) -> null),
         NEQ_UF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         NEQ_UD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
-        NEQ_UV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         NEQ_US(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        NEQ_UV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         NEQ_VU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        NEQ_VB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> !l.equals(FDBRecordVersion.fromBytes((byte[]) r, false))),
-        NEQ_VS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> !l.equals(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false))),
         NEQ_VV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> !l.equals(r)),
 
-        LT_BV(Comparisons.Type.LESS_THAN, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes((byte[]) l, false)).compareTo((FDBRecordVersion) r) < 0),
         LT_IU(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_II(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l < (int)r),
         LT_IL(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l < (long)r),
@@ -591,7 +581,6 @@ public class RelOpValue implements BooleanValue {
         // LT_SD(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         LT_SU(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_SS(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) < 0), // TODO: locale-aware comparison
-        LT_SV(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).compareTo((FDBRecordVersion) r) < 0),
         LT_UU(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_UB(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         LT_UI(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -601,11 +590,8 @@ public class RelOpValue implements BooleanValue {
         LT_US(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         LT_UV(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         LT_VU(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        LT_VB(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes((byte[]) r, false)) < 0),
-        LT_VS(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false)) < 0),
         LT_VV(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) < 0),
 
-        LTE_BV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes((byte[]) l, false)).compareTo((FDBRecordVersion) r) <= 0),
         LTE_IU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_II(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l <= (int)r),
         LTE_IL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l <= (long)r),
@@ -636,7 +622,6 @@ public class RelOpValue implements BooleanValue {
         // LTE_SD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         LTE_SU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_SS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) <= 0), // TODO: locale-aware comparison
-        LTE_SV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).compareTo((FDBRecordVersion) r) <= 0),
         LTE_UU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_UB(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         LTE_UI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -646,11 +631,8 @@ public class RelOpValue implements BooleanValue {
         LTE_US(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         LTE_UV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         LTE_VU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        LTE_VB(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes((byte[]) r, false)) <= 0),
-        LTE_VS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false)) <= 0),
         LTE_VV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) <= 0),
 
-        GT_BV(Comparisons.Type.GREATER_THAN, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes((byte[]) l, false)).compareTo((FDBRecordVersion) r) > 0),
         GT_IU(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_II(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l > (int)r),
         GT_IL(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l > (long)r),
@@ -681,7 +663,6 @@ public class RelOpValue implements BooleanValue {
         // GT_SD(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         GT_SU(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_SS(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) > 0), // TODO: locale-aware comparison
-        GT_SV(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).compareTo((FDBRecordVersion) r) > 0),
         GT_UU(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_UB(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         GT_UI(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -691,11 +672,8 @@ public class RelOpValue implements BooleanValue {
         GT_US(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         GT_UV(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GT_VU(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        GT_VB(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes((byte[]) r, false)) > 0),
-        GT_VS(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false)) > 0),
         GT_VV(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) > 0),
 
-        GTE_BV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes((byte[]) l, false)).compareTo((FDBRecordVersion) r) >= 0),
         GTE_IU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_II(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l >= (int)r),
         GTE_IL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l >= (long)r),
@@ -726,18 +704,15 @@ public class RelOpValue implements BooleanValue {
         // GTE_SD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         GTE_SU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_SS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) >= 0), // TODO: locale-aware comparison
-        GTE_SV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.VERSION, (l, r) -> (FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) l), false)).compareTo((FDBRecordVersion) r) >= 0),
         GTE_UU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        GTE_UV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GTE_UB(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         GTE_UI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
         GTE_UL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.LONG, (l, r) -> null),
         GTE_UF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         GTE_UD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         GTE_US(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        GTE_UV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GTE_VU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        GTE_VB(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.BYTES, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes((byte[]) r, false)) >= 0),
-        GTE_VS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.STRING, (l, r) -> ((FDBRecordVersion)l).compareTo(FDBRecordVersion.fromBytes(Base64.getDecoder().decode((String) r), false)) >= 0),
         GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),
         ;
 
