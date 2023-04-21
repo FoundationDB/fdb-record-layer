@@ -588,7 +588,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet()));
 
-        final var boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
+        final var boundEquivalence = new BoundEquivalence<Value>(boundIdentitiesMap);
 
         final var partitionedPredicatesWithValues =
                 predicateWithValues

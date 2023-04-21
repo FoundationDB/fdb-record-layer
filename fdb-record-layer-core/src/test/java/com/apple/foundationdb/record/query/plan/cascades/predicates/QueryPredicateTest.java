@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -32,12 +33,17 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.field;
+import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.rcv;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the {@link QueryPredicate} implementations.
  */
+@SuppressWarnings("SimplifiableAssertion")
 public class QueryPredicateTest {
     private Boolean evaluate(@Nonnull QueryPredicate predicate) {
         return evaluate(predicate, Bindings.EMPTY_BINDINGS);
@@ -77,7 +83,12 @@ public class QueryPredicateTest {
         }
 
         @Override
-        public int semanticHashCode() {
+        public int computeSemanticHashCode() {
+            return LeafQueryPredicate.super.computeSemanticHashCode();
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
             return 31;
         }
     }
@@ -107,7 +118,7 @@ public class QueryPredicateTest {
     };
 
     @Test
-    public void testAnd() throws Exception {
+    public void testAnd() {
         assertNull(evaluate(and(TRUE, NULL)));
         // Use equals here, because assertTrue/False would throw nullPointerException if and() returns null
         assertEquals(true, evaluate(and(TRUE, TRUE)));
@@ -117,7 +128,7 @@ public class QueryPredicateTest {
     }
 
     @Test
-    public void testOr() throws Exception {
+    public void testOr() {
         final ExpressionTestsProto.TestScalarFieldAccess val = ExpressionTestsProto.TestScalarFieldAccess.newBuilder().build();
         assertNull(evaluate(or(FALSE, NULL)));
         // Use equals here, because assertTrue/False would throw nullPointerException if or() returns null
@@ -125,5 +136,75 @@ public class QueryPredicateTest {
         assertEquals(true, evaluate(or(TRUE, FALSE)));
         assertEquals(false, evaluate(or(FALSE, FALSE)));
         assertEquals(true, evaluate(or(NULL, TRUE)));
+    }
+
+    @Test
+    public void testOrEquivalence() {
+        final var rcv = rcv();
+
+        final var a = field(rcv, "a");
+        final var b = field(rcv, "b");
+        final var c = field(rcv, "c");
+
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "World"));
+        final var p3 = new ValuePredicate(c, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Castro"));
+
+        assertTrue(OrPredicate.or(p1, p2, p3).hashCode() == OrPredicate.or(p3, p2, p1).hashCode());
+        assertTrue(OrPredicate.or(p1, p2, p3).equals(OrPredicate.or(p3, p2, p1)));
+
+        assertTrue(OrPredicate.or(p1, p1, p2, p3).hashCode() == OrPredicate.or(p3, p3, p3, p2, p1).hashCode());
+        assertTrue(OrPredicate.or(p1, p1, p2, p3).equals(OrPredicate.or(p3, p3, p3, p2, p1)));
+        assertTrue(OrPredicate.or(p1, p3, p2).hashCode() == OrPredicate.or(p1, p2, p3).hashCode());
+        assertTrue(OrPredicate.or(p1, p3, p2).equals(OrPredicate.or(p1, p2, p3)));
+        assertTrue(OrPredicate.or(p3, p1, p2).hashCode() == OrPredicate.or(p2, p3, p1).hashCode());
+        assertTrue(OrPredicate.or(p3, p1, p2).equals(OrPredicate.or(p2, p3, p1)));
+
+        assertFalse(OrPredicate.or(p1, p2).equals(OrPredicate.or(p2, p3, p1)));
+        assertFalse(OrPredicate.or(p1, p2, p3).equals(OrPredicate.or(p2, p2)));
+    }
+
+    @Test
+    public void testAndEquivalence() {
+        final var rcv = rcv();
+
+        final var a = field(rcv, "a");
+        final var b = field(rcv, "b");
+        final var c = field(rcv, "c");
+
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "World"));
+        final var p3 = new ValuePredicate(c, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Castro"));
+
+        assertTrue(AndPredicate.and(p1, p2, p3).hashCode() == AndPredicate.and(p3, p2, p1).hashCode());
+        assertTrue(AndPredicate.and(p1, p2, p3).equals(AndPredicate.and(p3, p2, p1)));
+        assertTrue(AndPredicate.and(p1, p1, p2, p3).hashCode() == AndPredicate.and(p3, p3, p3, p2, p1).hashCode());
+        assertTrue(AndPredicate.and(p1, p1, p2, p3).equals(AndPredicate.and(p3, p3, p3, p2, p1)));
+        assertTrue(AndPredicate.and(p1, p3, p2).hashCode() == AndPredicate.and(p1, p2, p3).hashCode());
+        assertTrue(AndPredicate.and(p1, p3, p2).equals(AndPredicate.and(p1, p2, p3)));
+        assertTrue(AndPredicate.and(p3, p1, p2).hashCode() == AndPredicate.and(p2, p3, p1).hashCode());
+        assertTrue(AndPredicate.and(p3, p1, p2).equals(AndPredicate.and(p2, p3, p1)));
+
+        assertFalse(AndPredicate.and(p1, p2).equals(AndPredicate.and(p2, p3, p1)));
+        assertFalse(AndPredicate.and(p1, p2, p3).equals(AndPredicate.and(p2, p2)));
+    }
+
+    @Test
+    public void testAndOrEquivalence() {
+        final var rcv = rcv();
+
+        final var a = field(rcv, "a");
+        final var b = field(rcv, "b");
+        final var c = field(rcv, "c");
+
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "World"));
+        final var p3 = new ValuePredicate(c, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Castro"));
+
+        assertTrue(AndPredicate.and(p1, OrPredicate.or(p2, p3)).equals(AndPredicate.and(OrPredicate.or(p3, p2), p1)));
+        assertTrue(AndPredicate.and(p1, OrPredicate.or(p2, p3, p3), p1).equals(AndPredicate.and(OrPredicate.or(p3, p2), p1)));
+
+        assertFalse(AndPredicate.and(p1, OrPredicate.or(p2, p3)).equals(AndPredicate.and(OrPredicate.or(p3, p2, p1), p1)));
+
     }
 }

@@ -141,18 +141,18 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * Performs algebraic equality between {@code this} and {@code other}, if {@code other} is also a {@link PredicateWithValueAndRanges}.
      *
      * @param other The other predicate
-     * @param equivalenceMap The alias equivalence map.
+     * @param aliasMap The alias equivalence map.
      * @return {@code true} if both predicates are equal, otherwise {@code false}.
      */
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!PredicateWithValue.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final PredicateWithValueAndRanges that = (PredicateWithValueAndRanges)other;
-        final var inverseEquivalenceMap = equivalenceMap.inverse();
-        return value.semanticEquals(that.value, equivalenceMap) &&
-               ranges.stream().allMatch(left -> that.ranges.stream().anyMatch(right -> left.semanticEquals(right, equivalenceMap))) &&
+        final var inverseEquivalenceMap = aliasMap.inverse();
+        return value.semanticEquals(that.value, aliasMap) &&
+               ranges.stream().allMatch(left -> that.ranges.stream().anyMatch(right -> left.semanticEquals(right, aliasMap))) &&
                that.ranges.stream().allMatch(left -> ranges.stream().anyMatch(right -> left.semanticEquals(right, inverseEquivalenceMap)));
     }
 
@@ -162,7 +162,12 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     }
 
     @Override
-    public int semanticHashCode() {
+    public int computeSemanticHashCode() {
+        return PredicateWithValue.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return value.semanticHashCode();
     }
 

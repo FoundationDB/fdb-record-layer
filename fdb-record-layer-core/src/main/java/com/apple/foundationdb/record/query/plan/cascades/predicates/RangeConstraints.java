@@ -85,7 +85,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * Creates a new instance of the {@link RangeConstraints}.
      *
      * @param evaluableRange the compile-time evaluable range.
-     * @param deferredRanges a list of none compile-time evaluable ranges but can still be used in a scan prefix.
+     * @param deferredRanges a list of ranges that are not compile-time evaluable but can still be used in a scan prefix.
      */
     private RangeConstraints(@Nullable final CompilableRange evaluableRange,
                              @Nonnull final Set<Comparisons.Comparison> deferredRanges) {

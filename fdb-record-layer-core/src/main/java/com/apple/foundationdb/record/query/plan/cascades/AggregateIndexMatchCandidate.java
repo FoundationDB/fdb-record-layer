@@ -291,7 +291,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
-                baseRecordType);
+                baseRecordType,
+                QueryPlanConstraint.tautology());
 
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),

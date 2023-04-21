@@ -86,8 +86,8 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ConstantPredicate that = (ConstantPredicate)other;
@@ -95,7 +95,12 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     }
 
     @Override
-    public int semanticHashCode() {
+    public int computeSemanticHashCode() {
+        return LeafQueryPredicate.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(value);
     }
 

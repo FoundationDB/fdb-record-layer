@@ -285,7 +285,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
-                        Optional.of((ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()),
+                        partialMatch.getMatchCandidate(),
                         baseRecordType,
                         partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
 

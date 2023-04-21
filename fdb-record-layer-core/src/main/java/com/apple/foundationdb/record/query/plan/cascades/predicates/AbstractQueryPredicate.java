@@ -37,8 +37,11 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
+    private final Supplier<Integer> semanticHashCodeSupplier;
+
     protected AbstractQueryPredicate() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
+        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
     }
 
     @Nonnull
@@ -63,4 +66,11 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
+
+    @Override
+    public int semanticHashCode() {
+        return semanticHashCodeSupplier.get();
+    }
+
+    protected abstract int computeSemanticHashCode();
 }

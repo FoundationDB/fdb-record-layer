@@ -64,7 +64,6 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate> {
-
     @Nonnull
     @Override
     default QueryPredicate getThis() {
@@ -266,6 +265,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Override
+    int semanticHashCode();
+
+    int hashCodeWithoutChildren();
+
+    @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {
@@ -277,17 +281,22 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return true;
         }
 
-        if (!(other instanceof QueryPredicate)) {
+        if (this.getClass() != other.getClass()) {
             return false;
         }
 
-        final QueryPredicate otherAndOrPred = (QueryPredicate)other;
-        if (!equalsWithoutChildren(otherAndOrPred, aliasMap)) {
+        final QueryPredicate otherPred = (QueryPredicate)other;
+        if (!equalsWithoutChildren(otherPred, aliasMap)) {
             return false;
         }
 
+        return equalsForChildren(otherPred, aliasMap);
+    }
+
+    default boolean equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                      @Nonnull final AliasMap aliasMap) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
-        final Iterator<? extends QueryPredicate> otherPreds = otherAndOrPred.getChildren().iterator();
+        final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
         while (preds.hasNext()) {
             if (!otherPreds.hasNext()) {
@@ -304,7 +313,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
     default boolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                          @Nonnull final AliasMap equivalenceMap) {
+                                          @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }

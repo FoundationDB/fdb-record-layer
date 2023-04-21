@@ -97,8 +97,8 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
 
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);

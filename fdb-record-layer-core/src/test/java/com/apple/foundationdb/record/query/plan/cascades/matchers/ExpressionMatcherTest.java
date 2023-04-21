@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -232,7 +233,8 @@ public class ExpressionMatcherTest {
                         Optional.empty(),
                         Type.Record.fromFields(false,
                                 ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
-                                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2"))))));
+                                        Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
+                        QueryPlanConstraint.tautology()));
         final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
                 new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),

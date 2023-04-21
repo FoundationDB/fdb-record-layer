@@ -98,8 +98,13 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     }
 
     @Override
-    public int semanticHashCode() {
-        return Objects.hash(getChild());
+    public int computeSemanticHashCode() {
+        return Objects.hash(hashCodeWithoutChildren(), getChild());
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return BASE_HASH.planHash();
     }
 
     @Override
