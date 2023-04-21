@@ -24,6 +24,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -211,7 +212,8 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             try {
                 return new RecordLayerResultSet(metaData,
                         // Deserialize the continuation that was provided in the query
-                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection, planContext);
+                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection, planContext,
+                        physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             } catch (InvalidProtocolBufferException ex) {
                 throw ExceptionUtil.toRelationalException(ex);
             }

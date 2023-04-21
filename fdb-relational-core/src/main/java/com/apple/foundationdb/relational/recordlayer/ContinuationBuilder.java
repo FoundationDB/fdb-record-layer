@@ -53,6 +53,11 @@ public class ContinuationBuilder {
         return this;
     }
 
+    public ContinuationBuilder withPlanHash(int hash) {
+        proto.setPlanHash(hash);
+        return this;
+    }
+
     public Continuation build() {
         return new ContinuationImpl(proto.build());
     }

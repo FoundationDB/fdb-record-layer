@@ -32,4 +32,6 @@ message ContinuationProto {
   optional bytes underlyingBytes = 2;
   // The parameter binding hash for the given query
   optional int32 bindingHash = 3;
+  // The plan hash for the query
+  optional int32 planHash = 4;
 }

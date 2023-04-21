@@ -93,6 +93,22 @@ public final class ContinuationImpl implements Continuation {
         }
     }
 
+    /**
+     * Hash code for the plan for the continuation.
+     * The plan hash represents the plan that was used to execute the query. This would detect changes to the plan (either
+     * because the query changed or because the environment changed). Once a query is attempted with a continuation where
+     * the plan hash does not match that of the continuation, the query gets rejected.
+     * @return the hash of the plan
+     */
+    @Nullable
+    public Integer getPlanHash() {
+        if (proto.hasPlanHash()) {
+            return proto.getPlanHash();
+        } else {
+            return null;
+        }
+    }
+
     // factory methods.
 
     /**

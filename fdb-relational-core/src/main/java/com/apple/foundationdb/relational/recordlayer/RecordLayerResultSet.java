@@ -44,21 +44,25 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Nullable
     private PlanContext planContext;
+    @Nullable
+    private Integer planHash;
 
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
-        this(metaData, iterator, connection, null);
+        this(metaData, iterator, connection, null, null);
     }
 
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection,
-                                @Nullable PlanContext planContext) {
+                                @Nullable PlanContext planContext,
+                                @Nullable Integer planHash) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
         this.planContext = planContext;
+        this.planHash = planHash;
     }
 
     @Override
@@ -100,10 +104,13 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             if (planContext == null) {
                 return currentCursor.getContinuation();
             } else {
-                // When we have plan context, record the parameter binding hash in the continuation
+                // When we have plan context, record the parameter binding and plan hash in the continuation
                 ContinuationBuilder builder = ContinuationImpl.copyOf(currentCursor.getContinuation())
                         .asBuilder()
                         .withBindingHash(planContext.getPreparedStatementParameters().stableHash());
+                if (planHash != null) {
+                    builder.withPlanHash(planHash);
+                }
                 return builder.build();
             }
         } catch (RelationalException e) {

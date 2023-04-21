@@ -94,3 +94,4 @@ public class ContinuationTest {
         Assertions.assertThat(continuation.getVersion()).isEqualTo(ContinuationImpl.CURRENT_VERSION);
     }
 }
+
