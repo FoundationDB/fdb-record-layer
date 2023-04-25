@@ -145,4 +145,9 @@ public class YamlIntegrationTests {
     void booleanTypes() throws Exception {
         doRun("boolean.yaml");
     }
+
+    @Test
+    void custom() throws Exception {
+        doRun("catalog.yaml");
+    }
 }
