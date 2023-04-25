@@ -75,7 +75,6 @@ public final class ContinuationImpl implements Continuation {
         }
     }
 
-
     /**
      * Hash code for the parameter binding for the continuation.
      * Once the query gets a continuation, a stable hash of the parameter binding  (both explicit - from the customer and

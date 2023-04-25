@@ -63,6 +63,7 @@ public interface Schema extends Metadata {
      * Returns a list of all table-scoped {@link Index}es in the schema template.
      *
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
+     * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     default Multimap<String, String> getIndexes() throws RelationalException {

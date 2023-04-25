@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
+
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;

@@ -219,7 +219,6 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
-
     @Override
     public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
         // a read-modify-write loop, done in 1 transaction

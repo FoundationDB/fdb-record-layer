@@ -112,7 +112,7 @@ public final class PreparedStatementParameters {
             // Sort the entries by key, to fix the iteration order
             Map<? extends Comparable<?>, Object> sorted = new TreeMap<>(map);
 
-            for (Map.Entry<?, Object> entry: sorted.entrySet()) {
+            for (Map.Entry<?, Object> entry : sorted.entrySet()) {
                 mapHash = 31 * mapHash + Objects.hash(entry.getKey(), entry.getValue());
             }
         }
