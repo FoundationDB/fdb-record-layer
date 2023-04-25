@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
@@ -158,6 +159,11 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         } else {
             this.currentSchemaLabel = schema;
         }
+    }
+
+    @Nonnull
+    public SchemaTemplate getSchemaTemplate() throws RelationalException {
+        return backingCatalog.loadSchema(transaction, getPath(), getSchema()).getSchemaTemplate();
     }
 
     @Override

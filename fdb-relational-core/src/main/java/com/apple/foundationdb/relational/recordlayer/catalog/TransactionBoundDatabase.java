@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
@@ -59,7 +59,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     @Nonnull
     final Options options;
 
-    public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable PlanCache planCache) {
+    public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
         super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, planCache);
         this.uri = uri;
         this.options = options;
@@ -70,8 +70,10 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         if (!(transaction instanceof RecordStoreAndRecordContextTransaction)) {
             throw new RelationalException("TransactionBoundDatabase.connect expects a RecordStoreAndRecordContextTransaction", ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
         }
-        store = BackingRecordStore.fromTransactionWithStore(transaction.unwrap(RecordStoreAndRecordContextTransaction.class));
-        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, HollowStoreCatalog.INSTANCE, ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
+        final var recordStoreAndRecordContextTx = transaction.unwrap(RecordStoreAndRecordContextTransaction.class);
+        store = BackingRecordStore.fromTransactionWithStore(recordStoreAndRecordContextTx);
+        final var boundSchemaTemplate = recordStoreAndRecordContextTx.getBoundSchemaTemplate();
+        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate), ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
         setConnection(connection);
         return connection;
     }

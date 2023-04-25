@@ -32,7 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CachedMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.StoreConfig;
 
@@ -77,7 +77,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                RelationalKeyspaceProvider.RelationalDatabasePath databasePath,
                                @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                @Nonnull final DdlQueryFactory ddlQueryFactory,
-                               @Nullable PlanCache planCache,
+                               @Nullable RelationalPlanCache planCache,
                                @Nullable String defaultSchema,
                                @Nonnull Options options) {
         super(metadataOperationsFactory, ddlQueryFactory, planCache);

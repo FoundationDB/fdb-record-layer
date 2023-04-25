@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -237,6 +236,6 @@ public class TransactionBoundDatabaseWithEnumTest {
                 .unwrap(FDBRecordStoreBase.class)
                 .getSubspaceProvider();
         FDBRecordStoreBase<Message> recordStore = createRecordStore(context, subspaceProvider);
-        return new RecordStoreAndRecordContextTransaction(recordStore, context);
+        return new RecordStoreAndRecordContextTransaction(recordStore, context, connection.getSchemaTemplate());
     }
 }

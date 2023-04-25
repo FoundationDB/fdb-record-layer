@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -83,6 +82,7 @@ public class PlanGenerationStackTest {
             return Stream.of(
                     Arguments.of(0, "select count(*) from restaurant", null),
                     Arguments.of(1, "select * from restaurant", null),
+                    Arguments.of(1, "select * from restaurant where rest_no > -10", null),
                     Arguments.of(2, "sElEct * FrOm rESTaurant", null),
                     Arguments.of(3, "   select *   from     restaurant", null),
                     Arguments.of(4, "sElEct * FrOm \"RestaUrantRecord\"", "Unknown table RestaUrantRecord"),
@@ -159,17 +159,23 @@ public class PlanGenerationStackTest {
 
     @ParameterizedTest(name = "[{0}] {1}")
     @ArgumentsSource(RandomQueryProvider.class)
-    void queryTestHarness(final int index, @Nonnull final String query, @Nullable String error) throws Exception {
+    void queryTestHarness(final int ignored, @Nonnull final String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
-        final AbstractDatabase database = ((EmbeddedRelationalConnection) connection.connection).frl;
+        final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection.connection;
+        final AbstractDatabase database = embeddedConnection.frl;
         final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
-        final PlanContext planContext = PlanContext.Builder.create().fromDatabase(database).fromRecordStore(store).build();
+        final PlanContext planContext = PlanContext.Builder
+                .create()
+                .fromDatabase(database)
+                .fromRecordStore(store)
+                .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
+                .build();
         if (error == null) {
             final Plan<?> generatedPlan1 = Plan.generate(query, planContext);
-            final var topExpression1 = ((QueryPlan.LogicalQueryPlan)generatedPlan1).getRelationalExpression();
+            final var topExpression1 = ((QueryPlan.LogicalQueryPlan) generatedPlan1).getRelationalExpression();
             final var queryHash1 = topExpression1.semanticHashCode();
             final Plan<?> generatedPlan2 = Plan.generate(query, planContext);
-            final var topExpression2 = ((QueryPlan.LogicalQueryPlan)generatedPlan2).getRelationalExpression();
+            final var topExpression2 = ((QueryPlan.LogicalQueryPlan) generatedPlan2).getRelationalExpression();
             final var queryHash2 = topExpression2.semanticHashCode();
             Assertions.assertEquals(queryHash1, queryHash2);
         } else {

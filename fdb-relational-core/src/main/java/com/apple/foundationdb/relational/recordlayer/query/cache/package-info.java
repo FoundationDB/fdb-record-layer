@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query.cache;
 /**
- * Code related to a Query Plan Cache.
+ * This package contains logic related to plan caching.
  */
+package com.apple.foundationdb.relational.recordlayer.query.cache;

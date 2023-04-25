@@ -39,7 +39,8 @@ public interface Index extends Metadata {
     String getTableName();
 
     /**
-     * Returns the type of the index. An index type could be
+     * Returns the type of the index. An index type could be one of the types defined in
+     * {@link com.apple.foundationdb.record.metadata.IndexTypes}.
      *
      * @return the type of the index.
      *

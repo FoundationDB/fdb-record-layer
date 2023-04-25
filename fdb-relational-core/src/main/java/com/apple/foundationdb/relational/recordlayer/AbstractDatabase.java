@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 
 import javax.annotation.Nonnull;
@@ -46,11 +46,11 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
     @Nullable
-    private final PlanCache planCache;
+    private final RelationalPlanCache planCache;
 
     public AbstractDatabase(@Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                             @Nonnull DdlQueryFactory ddlQueryFactory,
-                            @Nullable PlanCache planCache) {
+                            @Nullable RelationalPlanCache planCache) {
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.planCache = planCache;
@@ -105,7 +105,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     public abstract TransactionManager getTransactionManager();
 
     @Nullable
-    public PlanCache getPlanCache() {
+    public RelationalPlanCache getPlanCache() {
         return planCache;
     }
 }

@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,9 +39,9 @@ import java.net.URI;
  */
 public class TransactionBoundStorageCluster implements StorageCluster {
     @Nullable
-    private final PlanCache planCache;
+    private final RelationalPlanCache planCache;
 
-    public TransactionBoundStorageCluster(@Nullable PlanCache planCache) {
+    public TransactionBoundStorageCluster(@Nullable RelationalPlanCache planCache) {
         this.planCache = planCache;
     }
 

@@ -29,13 +29,7 @@ import java.util.Map;
 public class StableHashTest {
     @Test
     public void testEmpty() {
-        PreparedStatementParameters classUnderTest = new PreparedStatementParameters();
-        Assertions.assertThat(classUnderTest.stableHash()).isEqualTo(-1626848275);
-    }
-
-    @Test
-    public void testNull() {
-        PreparedStatementParameters classUnderTest = new PreparedStatementParameters(null, null);
+        PreparedStatementParameters classUnderTest = PreparedStatementParameters.empty();
         Assertions.assertThat(classUnderTest.stableHash()).isEqualTo(-1626848275);
     }
 
@@ -43,8 +37,8 @@ public class StableHashTest {
     public void testValue1SameValue2() {
         Map<Integer, Object> m1 = Map.of(1, "Hello");
         Map<String, Object> m2 = Map.of("1", "Hello");
-        PreparedStatementParameters p1 = new PreparedStatementParameters(m1, null);
-        PreparedStatementParameters p2 = new PreparedStatementParameters(null, m2);
+        PreparedStatementParameters p1 = PreparedStatementParameters.ofUnnamed(m1);
+        PreparedStatementParameters p2 = PreparedStatementParameters.ofNamed(m2);
         Assertions.assertThat(p1.stableHash()).isNotEqualTo(p2.stableHash());
     }
 
@@ -54,8 +48,8 @@ public class StableHashTest {
         Map<Integer, Object> m2 = Map.of(2, "World", 3, "!", 1, "Hello");
         Map<String, Object> m3 = Map.of("1", "Hello", "2", "World", "3", "!");
         Map<String, Object> m4 = Map.of("2", "World", "3", "!", "1", "Hello");
-        PreparedStatementParameters p1 = new PreparedStatementParameters(m1, m3);
-        PreparedStatementParameters p2 = new PreparedStatementParameters(m2, m4);
+        PreparedStatementParameters p1 = PreparedStatementParameters.of(m1, m3);
+        PreparedStatementParameters p2 = PreparedStatementParameters.of(m2, m4);
         Assertions.assertThat(p1.stableHash()).isEqualTo(p2.stableHash());
     }
 
@@ -65,8 +59,8 @@ public class StableHashTest {
         Map<Integer, Object> m2 = new HashMap(m1);
         Map<String, Object> m3 = Map.of("1", "Hello", "2", "World", "3", "!");
         Map<String, Object> m4 = new HashMap<>(m3);
-        PreparedStatementParameters p1 = new PreparedStatementParameters(m1, m3);
-        PreparedStatementParameters p2 = new PreparedStatementParameters(m2, m4);
+        PreparedStatementParameters p1 = PreparedStatementParameters.of(m1, m3);
+        PreparedStatementParameters p2 = PreparedStatementParameters.of(m2, m4);
         Assertions.assertThat(p1.stableHash()).isEqualTo(p2.stableHash());
     }
 }

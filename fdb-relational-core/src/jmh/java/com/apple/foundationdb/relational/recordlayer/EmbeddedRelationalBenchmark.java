@@ -29,14 +29,14 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
@@ -79,7 +79,7 @@ public abstract class EmbeddedRelationalBenchmark {
         private final String templateName;
         private final String templateDef;
 
-        private final PlanCache planCache;
+        private final RelationalPlanCache planCache;
         public StoreCatalog catalog;
 
 
@@ -87,7 +87,7 @@ public abstract class EmbeddedRelationalBenchmark {
             this(schemaTemplateName, templateDefinition);
         }
 
-        public Driver(PlanCache planCache) {
+        public Driver(RelationalPlanCache planCache) {
             this(schemaTemplateName,templateDefinition,planCache);
         }
 
@@ -97,7 +97,7 @@ public abstract class EmbeddedRelationalBenchmark {
             this.planCache = null;
         }
 
-        public Driver(String templateName, String templateDef, PlanCache planCache) {
+        public Driver(String templateName, String templateDef, RelationalPlanCache planCache) {
             this.templateName = templateName;
             this.templateDef = templateDef;
             this.planCache = planCache;

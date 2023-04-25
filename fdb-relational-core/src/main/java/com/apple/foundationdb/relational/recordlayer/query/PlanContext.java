@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
-import com.apple.foundationdb.relational.recordlayer.query.cache.SchemaState;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.protobuf.Message;
@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 
-public final class PlanContext implements SchemaState {
+public final class PlanContext {
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
@@ -50,36 +50,33 @@ public final class PlanContext implements SchemaState {
     private final URI dbUri;
     @Nonnull
     private final PreparedStatementParameters preparedStatementParameters;
-    @Nullable
-    private final PlanCache planCache;
+
+    @Nonnull
+    private final SchemaTemplate schemaTemplate;
 
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
-     * @param metaData              The record store metadata.
-     * @param storeState            The record store state.
+     * @param metaData                  The record store metadata.
+     * @param schemaTemplate            The schema template.
+     * @param storeState                The record store state.
      * @param metadataOperationsFactory The constant action factory used for DDL and metadata queries
-     * @param dbUri                 The URI of the database.
+     * @param dbUri                     The URI of the database.
      **/
     private PlanContext(@Nonnull final RecordMetaData metaData,
+                        @Nonnull final SchemaTemplate schemaTemplate,
                         @Nonnull final RecordStoreState storeState,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                         @Nonnull final DdlQueryFactory ddlQueryFactory,
-                        @Nullable final PlanCache planCache,
                         @Nonnull final URI dbUri,
                         @Nonnull final PreparedStatementParameters preparedStatementParameters) {
         this.metaData = metaData;
+        this.schemaTemplate = schemaTemplate;
         this.storeState = storeState;
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
-        this.planCache = planCache;
-    }
-
-    @Nullable
-    public PlanCache getPlanCache() {
-        return planCache;
     }
 
     @Nonnull
@@ -112,18 +109,13 @@ public final class PlanContext implements SchemaState {
         return preparedStatementParameters;
     }
 
-    public SchemaState getSchemaState() {
-        return this;
+    @Nonnull
+    public SchemaTemplate getSchemaTemplate() {
+        return schemaTemplate;
     }
 
-    @Override
     public RecordStoreState getState() {
         return storeState;
-    }
-
-    @Override
-    public RecordMetaData getSchemaMetaData() {
-        return metaData;
     }
 
     public static final class Builder {
@@ -132,13 +124,15 @@ public final class PlanContext implements SchemaState {
 
         private RecordStoreState storeState;
 
+        private SchemaTemplate schemaTemplate;
+
         private MetadataOperationsFactory metadataOperationsFactory;
 
         private DdlQueryFactory ddlQueryFactory;
 
         private URI dbUri;
         @Nullable
-        private PlanCache planCache;
+        private RelationalPlanCache planCache;
 
         private PreparedStatementParameters preparedStatementParameters;
 
@@ -148,6 +142,12 @@ public final class PlanContext implements SchemaState {
         @Nonnull
         public Builder withMetadata(@Nonnull final RecordMetaData metadata) {
             this.metaData = metadata;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+            this.schemaTemplate = schemaTemplate;
             return this;
         }
 
@@ -169,7 +169,8 @@ public final class PlanContext implements SchemaState {
             return this;
         }
 
-        public Builder withPlanCache(@Nullable PlanCache planCache) {
+        @Nonnull
+        public Builder withPlanCache(@Nullable final RelationalPlanCache planCache) {
             this.planCache = planCache;
             return this;
         }
@@ -201,19 +202,20 @@ public final class PlanContext implements SchemaState {
 
         private void verify() throws RelationalException {
             Assert.notNull(metaData);
+            Assert.notNull(schemaTemplate);
             Assert.notNull(storeState);
             Assert.notNull(metadataOperationsFactory);
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);
             if (preparedStatementParameters == null) {
-                preparedStatementParameters = new PreparedStatementParameters();
+                preparedStatementParameters = PreparedStatementParameters.empty();
             }
         }
 
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, storeState, metadataOperationsFactory, ddlQueryFactory, planCache, dbUri, preparedStatementParameters);
+            return new PlanContext(metaData, schemaTemplate, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters);
         }
 
         @Nonnull
@@ -225,6 +227,7 @@ public final class PlanContext implements SchemaState {
             return create().withConstantActionFactory(planContext.metadataOperationsFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)
+                    .withSchemaTemplate(planContext.schemaTemplate)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withStoreState(planContext.storeState);
         }

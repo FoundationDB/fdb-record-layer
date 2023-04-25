@@ -51,7 +51,7 @@
 ---
 # LONG value matched against IN list of only LONG values
 - query: select a, b from ta where b in (1, 3, 5, 7)
-- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+- result: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
 ---
 # LONG value matched against singleton IN list
 - query: select a, b from ta where b in (6)
@@ -66,12 +66,16 @@
 - result: []
 ---
 # LONG value matched against IN list of LONG and DOUBLE values
+# this is not supported at the moment. We do not support
+# promotions within a prepared parameter array, it is not
+# clear whether we want to support it as it would probably
+# make plan lookup in the cache much more expensive.
 - query: select a, b from ta where b in (1, 3.0, 5, 7.0)
-- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+- error: "42804"
 ---
 # LONG value matched against IN list of LONG-resultant arithmetic values
 - query: select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
-- result: [{A: 8, 1}, {A: 6, 3}, {A: 4, 5}, {A: 2, 7}]
+- result: [{A: 2, 7}, {A: 4, 5}, {A: 6, 3}, {A: 8, 1}]
 ---
 # LONG value matched against IN list of repeated LONG values
 - query: select a, b from ta where b in (1, 1, 1, 1)
@@ -79,16 +83,15 @@
 ---
 # LONG value matched against IN list of repeated LONG values
 - query: select a, b from ta where b in (1, 2, 1, 3)
-- result: [{A: 8, 1}, {A: 7, 2}, {A: 6, 3}]
+- result: [{A: 6, 3}, {A: 7, 2}, {A: 8, 1}]
 ---
 # LONG value matched against IN list of repeated LONG-resultant simple arithmetic values
 - query: select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
 - result: [{A: 8, 1}]
 ---
 # LONG value matched against IN list of repeated LONG-resultant simple expressions
-# cannot be de-duplicated in compile time
 - query: select a, b from ta where b in (1 + 0, 0 + 1)
-- result: [{A: 8, 1}, {A: 8, 1}]
+- result: [{A: 8, 1}]
 ---
 # _ matched against IN list containing NULL value
 - query: select a, b from ta where b in (1, null, 2, 1, 3, null)
@@ -141,23 +144,23 @@
 ---
 # Values of incompatible types in the IN list
 - query: select a, e from ta where e in ('foo' , 35)
-- error: "XX000"
+- error: "42804"
 ---
 # Values of incompatible types in the IN list
 - query: select a, e from ta where e in (35, '23')
-- error: "XX000"
+- error: "42804"
 ---
 # Values of incompatible types in the IN list
 - query: select a, e from ta where e in (true, 75.34)
-- error: "XX000"
+- error: "42804"
 ---
 # Left type (STRING) is not compatible with right type (type of the IN List)
 - query: select a, e from ta where e in (35, 75.34)
-- error: "XX000"
+- error: "42804"
 ---
 # Left type (STRING) is not compatible with right type (type of the IN List)
 - query: select a, e from ta where e in (35.34, 32)
-- error: "XX000"
+- error: "42804"
 ---
 # Complex (STRUCT) left type matched against IN list
 - query: select a, e from ta where f in (34, 23)

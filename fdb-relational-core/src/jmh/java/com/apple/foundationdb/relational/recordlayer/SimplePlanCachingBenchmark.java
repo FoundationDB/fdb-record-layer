@@ -25,8 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.cache.ChainedPlanCache;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Message;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -78,7 +77,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
 
     final int dbSize = 5;
 
-    @Param({"NONE", "CHAINED"})
+    @Param({"NONE", "MULTI-STAGED"})
     String cacheType;
 
     int dbCount = 1;
@@ -122,12 +121,12 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private PlanCache getPlanCache() {
+    private RelationalPlanCache getPlanCache() {
         switch (cacheType) {
             case "NONE":
                 return null;
-            case "CHAINED":
-                return new ChainedPlanCache(16);
+            case "MULTI-STAGED":
+                return RelationalPlanCache.buildWithDefaults();
             default:
                 throw new IllegalArgumentException("Unexpected cache name: " + cacheType);
         }

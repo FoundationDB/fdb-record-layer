@@ -49,8 +49,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.ChainedPlanCache;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.ByteString;
@@ -102,8 +101,6 @@ public class FRL implements AutoCloseable {
                 .setBaseKeySpace(keySpace)
                 .setStoreCatalog(storeCatalog).build();
 
-        //TODO(bfines) configuration here
-        PlanCache planCache = new ChainedPlanCache(128);
         this.engine = RecordLayerEngine.makeEngine(
                 rlConfig,
                 Collections.singletonList(fdbDb),
@@ -111,7 +108,7 @@ public class FRL implements AutoCloseable {
                 storeCatalog,
                 null,
                 ddlFactory,
-                planCache);
+                RelationalPlanCache.buildWithDefaults());
 
         // Throws ErrorCode.PROTOCOL_VIOLATION if driver already registered.
         // TODO: Clean up driver registration/get registered driver. Should it register w/ DriverManager?

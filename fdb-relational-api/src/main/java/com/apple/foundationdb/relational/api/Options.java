@@ -59,6 +59,7 @@ public final class Options {
 
         /**
          * Capacity limit of Relational's plan cache. Entries will be evicted from the cache following an LRU model.
+         * Settings the limit to value less or equal to zero effectively disables the plan cache.
          */
         PLAN_CACHE_MAX_ENTRIES,
 

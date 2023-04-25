@@ -323,7 +323,7 @@ queryExpression
 // done
 querySpecification
     : SELECT DISTINCT? selectElements
-      fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause?
+      fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause? queryOptions?
     ;
 
 unionParenthesis
@@ -374,13 +374,20 @@ groupByItem
 
 // done
 limitClause
-    : LIMIT
-    limit=limitClauseAtom (OFFSET offset=limitClauseAtom)?
+    : LIMIT limit=limitClauseAtom (OFFSET offset=limitClauseAtom)?
     ;
 
 limitClauseAtom
-    : DECIMAL_LITERAL | ZERO_DECIMAL | ONE_DECIMAL | TWO_DECIMAL
+    : decimalLiteral
     | preparedStatementParameter
+    ;
+
+queryOptions
+    : OPTIONS '(' queryOption (',' queryOption)? ')'
+    ;
+
+queryOption
+    : NOCACHE
     ;
 
 // Transaction's Statements
@@ -1115,7 +1122,7 @@ keywordsCanBeId
     | MAX_USER_CONNECTIONS | MEDIUM | MEMBER | MEMORY | MERGE | MESSAGE | MESSAGE_TEXT
     | MID | MIGRATE
     | MIN | MIN_ROWS | MODE | MODIFY | MUTEX | MYSQL | MYSQL_ERRNO | NAME | NAMES
-    | NCHAR | NDB_STORED_USER | NEVER | NEXT | NO | NOCOPY | NODEGROUP | NONE | NOWAIT | NUMBER | ODBC | OFFLINE | OFFSET
+    | NCHAR | NDB_STORED_USER | NEVER | NEXT | NO | NOCOPY | NODEGROUP | NOCACHE | NONE | NOWAIT | NUMBER | ODBC | OFFLINE | OFFSET
     | OF | OJ | OLD_PASSWORD | ONE | ONLINE | ONLY | OPEN | OPTIMIZER_COSTS
     | OPTIONAL | OPTIONS | ORDER | OWNER | PACK_KEYS | PAGE | PARSER | PARTIAL
     | PARTITIONING | PARTITIONS | PASSWORD | PERSIST_RO_VARIABLES_ADMIN | PHASE | PLUGINS
@@ -1131,7 +1138,7 @@ keywordsCanBeId
     | SESSION | SESSION_VARIABLES_ADMIN | SET_USER_ID | SHARE | SHARED | SHOW_ROUTINE | SIGNED | SIMPLE | SLAVE
     | SLOW | SNAPSHOT | SOCKET | SOME | SONAME | SOUNDS | SOURCE
     | SQL_AFTER_GTIDS | SQL_AFTER_MTS_GAPS | SQL_BEFORE_GTIDS
-    | SQL_BUFFER_RESULT | SQL_CACHE | SQL_NO_CACHE | SQL_THREAD
+    | SQL_BUFFER_RESULT | SQL_THREAD
     | STACKED | START | STARTS | STATS_AUTO_RECALC | STATS_PERSISTENT
     | STATS_SAMPLE_PAGES | STATUS | STD | STDDEV | STDDEV_POP | STDDEV_SAMP | STOP | STORAGE | STRING
     | SUBCLASS_ORIGIN | SUBJECT | SUBPARTITION | SUBPARTITIONS | SUM | SUSPEND | SWAPS

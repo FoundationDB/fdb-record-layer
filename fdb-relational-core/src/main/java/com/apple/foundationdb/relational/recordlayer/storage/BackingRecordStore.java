@@ -96,9 +96,10 @@ public final class BackingRecordStore implements BackingStore {
         final var planContext = PlanContext.Builder.create()
                 .fromRecordStore(recordStore)
                 .fromDatabase(conn.getRecordLayerDatabase())
+                .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();
         final Plan<?> plan = Plan.generate(query, planContext);
-        final var executionContext = Plan.ExecutionContext.of(transaction, options, conn, planContext);
+        final var executionContext = Plan.ExecutionContext.of(transaction, options, conn);
         if (plan instanceof QueryPlan) {
             return Optional.of(((QueryPlan) plan).execute(executionContext));
         } else {

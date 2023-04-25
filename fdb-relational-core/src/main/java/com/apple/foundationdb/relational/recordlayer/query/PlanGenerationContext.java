@@ -21,8 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
@@ -36,13 +45,16 @@ import com.google.common.base.Verify;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Context keeping state related to plan generation.
  */
-public class PlanGenerationContext {
+public class PlanGenerationContext implements QueryExecutionParameters {
 
     @Nullable
     private AbstractContext context;
@@ -53,10 +65,51 @@ public class PlanGenerationContext {
     @Nonnull
     private final PreparedStatementParameters preparedStatementParameters;
 
+    @Nonnull
+    private final LiteralsBuilder literals;
+
+    @Nonnull
+    private final List<ConstantObjectValue> constantObjectValues;
+
+    private boolean forExplain;
+
+    @Nullable
+    private byte[] continuation;
+
+    private boolean shouldProcessLiteral;
+
     PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters) {
         this.context = null;
         this.metadataFactory = metadataFactory;
         this.preparedStatementParameters = preparedStatementParameters;
+        this.literals = LiteralsBuilder.newBuilder();
+        this.constantObjectValues = new LinkedList<>();
+        this.forExplain = false;
+        this.setContinuation(null);
+        this.shouldProcessLiteral = true;
+    }
+
+    public int startArrayLiteral() {
+        return literals.startArrayLiteral();
+    }
+
+    public void finishArrayLiteral() {
+        literals.finishArrayLiteral();
+    }
+
+    public int addStrippedLiteral(@Nullable final Object literal) {
+        return literals.addLiteral(literal);
+    }
+
+    public void addLiteralReference(@Nonnull final ConstantObjectValue constantObjectValue) {
+        if (!literals.isAddingArrayLiteral()) {
+            constantObjectValues.add(constantObjectValue);
+        }
+    }
+
+    @Nonnull
+    public List<Object> getLiterals() {
+        return literals.getLiterals();
     }
 
     @Nonnull
@@ -135,13 +188,102 @@ public class PlanGenerationContext {
         return context.getType() == AbstractContext.TYPE.DDL;
     }
 
+    public boolean hasDdlAncestor() {
+        var runner = context;
+        while (true) {
+            if (runner == null) {
+                return false;
+            }
+            if (runner.type == AbstractContext.TYPE.DDL) {
+                return true;
+            }
+            runner = runner.parent;
+        }
+    }
+
     public boolean isDql() {
         Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DQLContext.class.getName()));
         return context.getType() == AbstractContext.TYPE.DQL;
     }
 
+    @Nonnull
+    @Override
+    public EvaluationContext getEvaluationContext(@Nonnull final TypeRepository typeRepository) {
+        if (literals.isEmpty()) {
+            return EvaluationContext.forTypeRepository(typeRepository);
+        }
+        final var builder = EvaluationContext.newBuilder();
+        builder.setConstant(Quantifier.constant(), getLiterals());
+        return builder.build(typeRepository);
+    }
+
+    @Nonnull
+    @Override
+    public ExecuteProperties getExecutionProperties(@Nonnull final EvaluationContext evaluationContext) {
+        final var builder = ExecuteProperties.newBuilder();
+        if (context != null) {
+            context.setExecuteProperties(builder);
+        }
+        return builder.build();
+    }
+
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentional")
+    @Nullable
+    @Override
+    public byte[] getContinuation() {
+        return continuation;
+    }
+
+    @Nonnull
+    @Override
     public PreparedStatementParameters getPreparedStatementParameters() {
         return preparedStatementParameters;
+    }
+
+    @Override
+    public boolean isForExplain() {
+        return forExplain;
+    }
+
+    @Nonnull
+    public QueryPlanConstraint getLiteralReferencesConstraint() {
+        return QueryPlanConstraint.ofPredicates(constantObjectValues.stream()
+                .map(parameter -> new ValuePredicate(OfTypeValue.from(parameter),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
+                .collect(Collectors.toList()));
+    }
+
+    public void setForExplain(boolean forExplain) {
+        this.forExplain = forExplain;
+    }
+
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentional")
+    public void setContinuation(@Nullable byte[] continuation) {
+        this.continuation = continuation;
+    }
+
+    public boolean shouldProcessLiteral() {
+        return shouldProcessLiteral && !hasDdlAncestor();
+    }
+
+    private void setShouldProcessLiteral(boolean shouldProcessLiteral) {
+        this.shouldProcessLiteral = shouldProcessLiteral;
+    }
+
+    /**
+     * Runs a closure without literal processing, i.e. without translating a literal found in the
+     * AST into a {@link ConstantObjectValue}. This is necessary in cases where the literal is found
+     * in a context that does not contribute to the logical plan such as {@code limit} and {@code continuation}.
+     * @param supplier The closure to run with literal processing disabled.
+     * @return The result of the closure
+     * @param <T> The type of the result of the closure.
+     */
+    @Nullable
+    public <T> T withDisabledLiteralProcessing(@Nonnull final Supplier<T> supplier) {
+        setShouldProcessLiteral(false);
+        @Nullable final T result = supplier.get();
+        setShouldProcessLiteral(true);
+        return result;
     }
 
     public static final class Builder {
@@ -206,9 +348,12 @@ public class PlanGenerationContext {
         TYPE getType() {
             return type;
         }
+
+        abstract void setExecuteProperties(@Nonnull ExecuteProperties.Builder builder);
     }
 
     public static class DQLContext extends AbstractContext {
+
         private int limit;
 
         private int offset;
@@ -233,19 +378,19 @@ public class PlanGenerationContext {
             return recordLayerSchemaTemplate;
         }
 
-        public void setLimit(@Nonnull Integer limit) {
+        public void setLimit(int limit) {
             this.limit = limit;
         }
 
-        public void setOffset(@Nonnull Integer offset) {
+        public void setOffset(int offset) {
             this.offset = offset;
         }
 
-        public Integer getLimit() {
+        public int getLimit() {
             return limit;
         }
 
-        public Integer getOffset() {
+        public int getOffset() {
             return offset;
         }
 
@@ -257,6 +402,12 @@ public class PlanGenerationContext {
         @Nonnull
         public Set<String> getIndexNames() {
             return new HashSet<>(recordLayerSchemaTemplate.getIndexes().values()); // refactor and cache.
+        }
+
+        @Override
+        protected void setExecuteProperties(@Nonnull final ExecuteProperties.Builder builder) {
+            builder.setReturnedRowLimit(getLimit());
+            builder.setSkip(getOffset());
         }
     }
 
@@ -281,6 +432,11 @@ public class PlanGenerationContext {
         @Nonnull
         public MetadataOperationsFactory getMetadataOperationsFactory() {
             return metadataOperationsFactory;
+        }
+
+        @Override
+        void setExecuteProperties(@Nonnull ExecuteProperties.Builder builder) {
+            // no-op
         }
     }
 
@@ -326,6 +482,10 @@ public class PlanGenerationContext {
         public boolean hasTargetTypeReorderings() {
             return targetTypeReorderings != null;
         }
-    }
 
+        @Override
+        void setExecuteProperties(@Nonnull ExecuteProperties.Builder builder) {
+            // no-op
+        }
+    }
 }

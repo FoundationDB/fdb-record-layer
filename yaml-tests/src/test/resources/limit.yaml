@@ -47,15 +47,15 @@
 ---
 # limit value is not of type Long
 - query: select ta.* from ta LIMIT 2.3;
-- error: "42601"
+- error: "42804"
 ---
 # limit value is 0
 - query: select ta.* from ta LIMIT 0;
-- error: "XX000"
+- error: "2201W"
 ---
 # limit value > MAX_INTEGER
 - query: select ta.* from ta LIMIT 2325325245245;
-- error: "XXXXX"
+- error: "42804"
 ---
 # limit value is negative
 - query: select ta.* from ta LIMIT -27525;
@@ -69,10 +69,10 @@
 - query: select ta.* from ta limit 15;
 - result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
 ---
-## offset value is not of type Long
-#- query: select ta.* from ta LIMIT 2 OFFSET 2.3;
-#- error: "42601"
-#---
+# offset value is not supported
+- query: select ta.* from ta LIMIT 2 OFFSET 2;
+- error: "XX000"
+---
 ## offset value is negative
 #- query: select ta.* from ta LIMIT 2 OFFSET -27525;
 #- error: "42601"

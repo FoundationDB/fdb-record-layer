@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -34,9 +36,26 @@ public final class ProceduralPlan implements Plan<Void> {
     }
 
     @Override
+    public Plan<Void> optimize(@Nonnull CascadesPlanner planner) {
+        return this;
+    }
+
+    @Override
     public Void execute(@Nonnull final ExecutionContext context) throws RelationalException {
         action.executeAction(context.transaction);
         return null;
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlanConstraint getConstraint() {
+        return QueryPlanConstraint.tautology();
+    }
+
+    @Nonnull
+    @Override
+    public Plan<Void> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+        return this;
     }
 
     public static ProceduralPlan of(@Nonnull final ConstantAction action) {

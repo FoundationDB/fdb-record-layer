@@ -30,10 +30,9 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
 
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.base.Suppliers;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -47,22 +46,14 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
 
-    private final Supplier<PlanCache> planCacheSupplier;
-
     public EmbeddedRelationalExtension() {
         this(RecordLayerMetadataOperationsFactory::defaultFactory);
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
-        this(ddlFactory, Suppliers.ofInstance(null));
-    }
-
-    public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory,
-                                     Supplier<PlanCache> planCacheSupplier) {
         RelationalKeyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = RelationalKeyspaceProvider.getKeySpace();
         this.ddlFactoryBuilder = ddlFactory;
-        this.planCacheSupplier = planCacheSupplier;
     }
 
     @Override
@@ -108,7 +99,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
                 storeCatalog,
                 storeTimer,
                 ddlFactory,
-                planCacheSupplier.get());
+                RelationalPlanCache.buildWithDefaults());
         engine.registerDriver(); //register the engine driver
     }
 

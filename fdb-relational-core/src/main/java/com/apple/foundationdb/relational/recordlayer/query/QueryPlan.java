@@ -20,16 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
-import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -38,48 +36,135 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesPro
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.recordlayer.QueryExecutor;
+import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
-import com.apple.foundationdb.relational.recordlayer.ValueTuple;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
+
+    class PhysicalQueryPlan implements QueryPlan {
+
+        @Nonnull
+        private final RecordQueryPlan recordQueryPlan;
+
+        @Nonnull
+        private final QueryPlanConstraint constraint;
+
+        @Nonnull
+        private final QueryExecutionParameters queryExecutionParameters;
+
+        public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                 @Nonnull final QueryPlanConstraint constraint,
+                                 @Nonnull final QueryExecutionParameters queryExecutionParameters) {
+            this.recordQueryPlan = recordQueryPlan;
+            this.constraint = constraint;
+            this.queryExecutionParameters = queryExecutionParameters;
+        }
+
+        @Nonnull
+        @Override
+        public Type getResultType() {
+            return Assert.notNullUnchecked(recordQueryPlan.getResultType().getInnerType());
+        }
+
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        @Override
+        @Nonnull
+        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
+            if (parameters == this.queryExecutionParameters) {
+                return this;
+            }
+            return new PhysicalQueryPlan(recordQueryPlan, constraint, parameters);
+        }
+
+        @Override
+        @Nonnull
+        public QueryPlanConstraint getConstraint() {
+            return constraint;
+        }
+
+        @Override
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner) {
+            return this;
+        }
+
+        @Override
+        public RelationalResultSet execute(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+            if (!(executionContext.connection instanceof EmbeddedRelationalConnection)) {
+                //this is required until TODO is resolved
+                throw new RelationalException("Cannot execute a QueryPlan without an EmbeddedRelationalConnection", ErrorCode.INTERNAL_ERROR);
+            }
+
+            final EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) executionContext.connection;
+            final String schemaName = conn.getSchema();
+            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
+                final TypeRepository.Builder builder = TypeRepository.newBuilder();
+                final Set<Type> usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+                usedTypes.forEach(builder::addTypeIfNeeded);
+                final var evaluationContext = queryExecutionParameters.getEvaluationContext();
+                final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
+                final var  executionProperties = queryExecutionParameters.getExecutionProperties(typedEvaluationContext);
+                if (queryExecutionParameters.isForExplain()) {
+                    return Plan.explainPhysicalPlan(recordQueryPlan, executionProperties);
+                } else {
+                    return executePhysicalPlan(recordQueryPlan,
+                            recordLayerSchema,
+                            typedEvaluationContext,
+                            executionProperties,
+                            queryExecutionParameters,
+                            conn);
+                }
+            }
+        }
+
+        @Nonnull
+        private static RelationalResultSet executePhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
+                                                             @Nonnull final RecordLayerSchema recordLayerSchema,
+                                                             @Nonnull final EvaluationContext evaluationContext,
+                                                             @Nonnull final ExecuteProperties executeProperties,
+                                                             @Nonnull final QueryExecutionParameters executionParameters,
+                                                             @Nullable final EmbeddedRelationalConnection connection) throws RelationalException {
+            Type type = physicalPlan.getResultType().getInnerType();
+            Assert.notNull(type);
+            Assert.that(type instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", type.getTypeCode()));
+            StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
+            final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
+            final RecordCursor<QueryResult> cursor;
+            try {
+                cursor = physicalPlan.executePlan(fdbRecordStore, evaluationContext, ContinuationImpl.parseContinuation(executionParameters.getContinuation()).getUnderlyingBytes(), executeProperties);
+            } catch (InvalidProtocolBufferException ipbe) {
+                throw ExceptionUtil.toRelationalException(ipbe);
+            }
+            final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
+            return new RecordLayerResultSet(metaData, iterator, connection,executionParameters.getPreparedStatementParameters(),
+                    physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        }
+    }
 
     /**
      * This represents a logical query plan that can be executed to produce a {@link java.sql.ResultSet}.
@@ -89,134 +174,54 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Nonnull
         private final RelationalExpression relationalExpression;
 
-        private final int limit;
-
-        private final int offset;
+        @Nonnull
+        private final PlanGenerationContext context;
 
         @Nonnull
-        private final String query;
-
-        private final boolean forExplain;
-
-        @Nullable
-        byte[] continuation;
+        private Optional<PhysicalQueryPlan> optimizedPlan;
 
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
-                                 @Nonnull final String query,
-                                 boolean forExplain,
-                                 int limit,
-                                 int offset,
-                                 @Nullable byte[] continuation) {
+                                 @Nonnull final PlanGenerationContext context) {
             this.relationalExpression = relationalExpression;
-            this.query = query;
-            this.forExplain = forExplain;
-            this.continuation = continuation;
-            this.limit = limit;
-            this.offset = offset;
-        }
-
-        @Nonnull
-        public RelationalExpression getRelationalExpression() {
-            return relationalExpression;
-        }
-
-        /**
-         * Parses a query, generates an equivalent logical plan and calls the planner to generate an execution plan.
-         *
-         * @param planContext           the plan context
-         * @return The execution plan of the query.
-         * @throws RelationalException if something goes wrong.
-         */
-        @Nonnull
-        @VisibleForTesting
-        private RecordQueryPlan generatePhysicalPlan(@Nonnull final PlanContext planContext, Options options) throws RelationalException {
-            PlanCache cache = planContext.getPlanCache();
-            RecordQueryPlan plan = null;
-            LogicalQuery logicalQuery = LogicalQuery.of(query, relationalExpression);
-            if (cache != null) {
-                //TODO(bfines) this is where we input the stripped literals
-                plan = cache.getPlan(logicalQuery, planContext.getSchemaState());
-            }
-            if (plan == null) {
-                final CascadesPlanner planner = createPlanner(planContext, options);
-                try {
-                    plan = planner.planGraph(
-                            () -> GroupExpressionRef.of(relationalExpression),
-                            Optional.empty(),
-                            IndexQueryabilityFilter.TRUE,
-                            ((LogicalSortExpression) relationalExpression).isReverse(), ParameterRelationshipGraph.empty());
-                } catch (UncheckedRelationalException uve) {
-                    throw uve.unwrap();
-                }
-
-                if (cache != null) {
-                    cache.cacheEntry(logicalQuery, plan);
-                }
-            }
-            return plan;
+            this.context = context;
+            this.optimizedPlan = Optional.empty();
         }
 
         @Override
-        public RelationalResultSet execute(@Nonnull final ExecutionContext context) throws RelationalException {
-            if (!(context.connection instanceof EmbeddedRelationalConnection)) {
-                //this is required until TODO is resolved
-                throw new RelationalException("Cannot execute a QueryPlan without an EmbeddedRelationalConnection", ErrorCode.INTERNAL_ERROR);
-            }
-            EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) context.connection;
-            final String schemaName = conn.getSchema();
-            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                final FDBRecordStoreBase<Message> store = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
-                final var planContext = PlanContext.Builder.create().fromDatabase(conn.getRecordLayerDatabase()).fromRecordStore(store).build();
-                RecordQueryPlan recordQueryPlan = generatePhysicalPlan(planContext, context.options);
-                if (forExplain) {
-                    return explainPhysicalPlan(recordQueryPlan);
-                } else {
-                    return executePhysicalPlan(recordQueryPlan, recordLayerSchema, conn, context.planContext);
-                }
-            }
-        }
-
         @Nonnull
-        private RelationalResultSet explainPhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan) {
-            List<String> explainComponents = new ArrayList<>();
-            explainComponents.add(physicalPlan.toString());
-            if (limit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
-                explainComponents.add(String.format("(limit=%d)", limit));
+        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner) {
+            if (optimizedPlan.isPresent()) {
+                return optimizedPlan.get();
             }
-            if (offset != 0) {
-                explainComponents.add(String.format("(offset=%d)", offset));
-            }
-            Row printablePlan = new ValueTuple(String.join(" ", explainComponents));
-            StructMetaData metaData = new RelationalStructMetaData(
-                    FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-            );
-            return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
-        }
-
-        @Nonnull
-        private RelationalResultSet executePhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
-                                                      @Nonnull final RecordLayerSchema recordLayerSchema,
-                                                      @Nonnull final EmbeddedRelationalConnection connection,
-                                                      @Nonnull final PlanContext planContext) throws RelationalException {
-            final Type innerType = relationalExpression.getResultType().getInnerType();
-            Assert.notNull(innerType);
-            Assert.that(innerType instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", innerType.getTypeCode()));
             final TypeRepository.Builder builder = TypeRepository.newBuilder();
-            final Set<Type> usedTypes = UsedTypesProperty.evaluate(physicalPlan);
+            final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
             usedTypes.forEach(builder::addTypeIfNeeded);
-            final String[] fieldNames = Objects.requireNonNull(((Type.Record) innerType).getFields()).stream().sorted(Comparator.comparingInt(Type.Record.Field::getFieldIndex)).map(Type.Record.Field::getFieldName).collect(Collectors.toUnmodifiableList()).toArray(String[]::new);
-            final QueryExecutor queryExecutor = new QueryExecutor(physicalPlan, fieldNames, EvaluationContext.forTypeRepository(builder.build()), recordLayerSchema, false /* get this information from the query plan */);
-            Type type = queryExecutor.getQueryResultType();
-            StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
-            var executeProperties = ExecuteProperties.newBuilder().setSkip(offset).setReturnedRowLimit(limit).build();
-            try {
-                return new RecordLayerResultSet(metaData,
-                        // Deserialize the continuation that was provided in the query
-                        queryExecutor.execute(ContinuationImpl.parseContinuation(continuation), executeProperties), connection, planContext,
-                        physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            } catch (InvalidProtocolBufferException ex) {
-                throw ExceptionUtil.toRelationalException(ex);
-            }
+            final var evaluationContext = context.getEvaluationContext();
+            final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
+            final var planResult = planner.planGraph(
+                    () -> GroupExpressionRef.of(relationalExpression),
+                    Optional.empty(),
+                    IndexQueryabilityFilter.TRUE,
+                    ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
+            optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
+            return optimizedPlan.get();
+        }
+
+        @Nonnull
+        @Override
+        public QueryPlanConstraint getConstraint() {
+            return context.getLiteralReferencesConstraint();
+        }
+
+        @Nonnull
+        @Override
+        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+            return this;
+        }
+
+        @Override
+        public RelationalResultSet execute(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+            return this.optimizedPlan.get().execute(executionContext);
         }
 
         @Nonnull
@@ -226,67 +231,15 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Nonnull
-        public LogicalQueryPlan forExplain() {
-            return new LogicalQueryPlan(relationalExpression, query.stripLeading().substring(7), true, limit, offset, continuation);
+        public RelationalExpression getRelationalExpression() {
+            return relationalExpression;
         }
 
         @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final String query,
-                                          int limit,
-                                          int offset) {
-            return LogicalQueryPlan.of(relationalExpression, query, false, limit, offset);
+                                          @Nonnull final PlanGenerationContext context) {
+            return new LogicalQueryPlan(relationalExpression, context);
         }
-
-        @Nonnull
-        public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final String query,
-                                          boolean forExplain,
-                                          int limit,
-                                          int offset) {
-            return LogicalQueryPlan.of(relationalExpression, query, forExplain, limit, offset, null);
-        }
-
-        @Nonnull
-        public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final
-                                          String query,
-                                          boolean forExplain,
-                                          int limit,
-                                          int offset,
-                                          @Nullable final byte[] continuation) {
-            return new LogicalQueryPlan(relationalExpression, query, forExplain, limit, offset, continuation);
-        }
-    }
-
-    private static IndexFetchMethod toRecLayerIndexFetchMethod(Options.IndexFetchMethod method) throws RelationalException {
-        if (method == null) {
-            return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
-        }
-        switch (method) {
-            case SCAN_AND_FETCH:
-                return IndexFetchMethod.SCAN_AND_FETCH;
-            case USE_REMOTE_FETCH:
-                return IndexFetchMethod.USE_REMOTE_FETCH;
-            case USE_REMOTE_FETCH_WITH_FALLBACK:
-                return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
-            default:
-                throw new RelationalException("Index Fetch Method mismatch when converting the option from Relational to the Record Layer",
-                        ErrorCode.INTERNAL_ERROR);
-        }
-    }
-
-    private static CascadesPlanner createPlanner(PlanContext planContext, Options options) throws RelationalException {
-        Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
-        CascadesPlanner planner = new CascadesPlanner(planContext.getMetaData(), planContext.getStoreState());
-        // TODO: TODO (Expose planner configuration parameters like index scan preference)
-        RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
-                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
-                .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
-                .build();
-        planner.setConfiguration(configuration);
-
-        return planner;
     }
 
     class MetadataQueryPlan implements QueryPlan {
@@ -307,8 +260,25 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner) {
+            return this;
+        }
+
+        @Override
         public RelationalResultSet execute(@Nonnull final ExecutionContext context) throws RelationalException {
             return query.apply(context.transaction);
+        }
+
+        @Nonnull
+        @Override
+        public QueryPlanConstraint getConstraint() {
+            return QueryPlanConstraint.tautology();
+        }
+
+        @Nonnull
+        @Override
+        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+            return this;
         }
 
         @Nonnull
@@ -317,6 +287,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             return rowType;
         }
 
+        @Nonnull
         public static MetadataQueryPlan of(DdlQuery ddlQuery) {
             return new MetadataQueryPlan(ddlQuery::executeAction, ddlQuery.getResultSetMetadata());
         }

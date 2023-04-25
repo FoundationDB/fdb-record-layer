@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -52,16 +53,21 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     @Nonnull
     private final EmbeddedRelationalConnection conn;
 
+    // (yhatem) this is to set Cascades configurations, not sure if this is supposed to be the same as in EmbeddedRelationalConnection.Options.
+    @Nonnull
+    private final Options options;
+
     public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) {
         this.sql = sql;
         this.conn = conn;
+        this.options = Options.NONE;
     }
 
     @Override
     public RelationalResultSet executeQuery() throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
             if (resultSet.isPresent()) {
                 return new ErrorCapturingResultSet(resultSet.get());
             } else {
@@ -163,22 +169,26 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
         }
     }
 
-    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
-                                                             @Nonnull Options options) throws RelationalException, SQLException {
+    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
         conn.ensureTransactionActive();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
             final FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-            final var preparedStatementParameters = new PreparedStatementParameters(parameters, namedParameters);
+            final var preparedStatementParameters = PreparedStatementParameters.of(parameters, namedParameters);
+            final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
+                    store.getRecordMetaData(),
+                    store.getRecordStoreState(),
+                    options);
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store)
                     .fromDatabase(conn.getRecordLayerDatabase())
                     .withPreparedParameters(preparedStatementParameters)
+                    .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
-            final Plan<?> plan = Plan.generate(query, planContext);
-            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, planContext);
+            final Plan<?> plan = planGenerator.getPlan(query, planContext);
+            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
             if (plan instanceof QueryPlan) {
                 return Optional.of(((QueryPlan) plan).execute(executionContext));
             } else {

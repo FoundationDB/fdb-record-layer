@@ -104,7 +104,7 @@
 # partial message matching which can make life easier in certain scenarios, e.g. verify that
 # the third struct field of the second column is ordered, without caring about the result of
 # the results.
-- query: select * from t1;
+- query: select * from t1
 - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"

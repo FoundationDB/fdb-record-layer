@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
@@ -32,7 +33,10 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
+import com.apple.foundationdb.relational.recordlayer.query.Plan;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -57,19 +61,34 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Nullable
     private RelationalResultSet currentResultSet;
 
+    // (yhatem) this is to set Cascades configurations, not sure if this is supposed to be the same as in EmbeddedRelationalConnection.Options.
+    @Nonnull
+    private final Options options;
+
     public EmbeddedRelationalStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
+        this.options = Options.NONE;
     }
 
-    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query,
-                                                             @Nonnull Options options) throws RelationalException, SQLException {
+    @Nonnull
+    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
         conn.ensureTransactionActive();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
-        try (RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
-            final BackingStore store = schema.loadStore();
-            return store.executeQuery(conn, query, options);
+        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+            final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
+            final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
+                    store.getRecordMetaData(), store.getRecordStoreState(), options);
+            final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).withSchemaTemplate(conn.getSchemaTemplate()).build();
+            final Plan<?> plan = planGenerator.getPlan(query, planContext);
+            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
+            if (plan instanceof QueryPlan) {
+                return Optional.of(((QueryPlan) plan).execute(executionContext));
+            } else {
+                plan.execute(executionContext);
+                return Optional.empty();
+            }
         }
     }
 
@@ -77,7 +96,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
             if (resultSet.isPresent()) {
                 currentResultSet = new ErrorCapturingResultSet(resultSet.get());
                 return true;
@@ -97,7 +116,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
             if (resultSet.isPresent()) {
                 return new ErrorCapturingResultSet(resultSet.get());
             } else {
@@ -112,7 +131,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeUpdate(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql, Options.NONE);
+            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
             if (resultSet.isEmpty()) {
                 if (getConnection().getAutoCommit()) {
                     getConnection().commit();

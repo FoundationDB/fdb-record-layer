@@ -27,8 +27,7 @@ import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
-
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
@@ -45,7 +44,7 @@ public final class RecordLayerEngine {
                                                     @Nonnull StoreCatalog schemaCatalog,
                                                     @Nullable MetricRegistry metricsEngine,
                                                     @Nonnull RecordLayerMetadataOperationsFactory ddlFactory,
-                                                    @Nullable PlanCache planCache
+                                                    @Nullable RelationalPlanCache planCache
                                                     ) {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);

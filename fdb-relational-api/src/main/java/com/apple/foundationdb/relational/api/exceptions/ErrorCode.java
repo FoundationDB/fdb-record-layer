@@ -78,7 +78,9 @@ public enum ErrorCode {
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
+    INVALID_ROW_COUNT_IN_LIMIT_CLAUSE("2201W"),
     INVALID_PARAMETER("22023"),
+
 
 
     // Class 23 - Integrity Constraint Violation

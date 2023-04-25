@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -38,9 +40,19 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
     FDBRecordStoreBase<Message> store;
     RecordContextTransaction transaction;
 
-    public RecordStoreAndRecordContextTransaction(FDBRecordStoreBase<Message> store, FDBRecordContext context) {
+    /**
+     * the schema template this transaction is bound to. This is mainly needed when accessing the plan cache
+     * as the plan cache key is bound to schema template (see {@link com.apple.foundationdb.relational.recordlayer.query.cache.CachedQuery}).
+     */
+
+    SchemaTemplate boundSchemaTemplate;
+
+    public RecordStoreAndRecordContextTransaction(FDBRecordStoreBase<Message> store,
+                                                  FDBRecordContext context,
+                                                  SchemaTemplate boundSchemaTemplate) {
         this.store = store;
         this.transaction = new RecordContextTransaction(context);
+        this.boundSchemaTemplate = boundSchemaTemplate;
     }
 
     @Override
@@ -64,5 +76,10 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
 
     public FDBRecordStoreBase<Message> getRecordStore() {
         return store;
+    }
+
+    @Nonnull
+    public SchemaTemplate getBoundSchemaTemplate() {
+        return boundSchemaTemplate;
     }
 }

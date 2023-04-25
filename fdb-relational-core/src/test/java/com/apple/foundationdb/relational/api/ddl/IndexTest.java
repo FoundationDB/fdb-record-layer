@@ -74,6 +74,7 @@ public class IndexTest {
                 .withDbUri(URI.create("/IndexTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
+                .withSchemaTemplate(schemaTemplate)
                 .build();
     }
 

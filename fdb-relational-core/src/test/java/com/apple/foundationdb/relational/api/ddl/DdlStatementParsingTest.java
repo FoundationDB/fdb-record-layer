@@ -80,20 +80,21 @@ public class DdlStatementParsingTest {
     };
 
     public DdlStatementParsingTest() throws RelationalException {
-        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
-        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(schemaBuilder);
-        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(schemaBuilder);
-        RecordMetaDataProto.MetaData md = schemaBuilder
+        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder();
+        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(schemaTemplateBuilder);
+        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(schemaTemplateBuilder);
+        final var schemaTemplate = schemaTemplateBuilder
                 .setVersion(1)
                 .setName("CATALOG_TEMPLATE")
-                .build()
-                .toRecordMetadata().toProto();
+                .build();
+        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
                 .withDbUri(URI.create("/DdlStatementParsingTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
+                .withSchemaTemplate(schemaTemplate)
                 .build();
     }
 

@@ -146,7 +146,7 @@ class QueryCommand extends Command {
         final var resultSet = (RelationalResultSet) queryResults;
         final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.RESULT_AS_SET);
         if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
-            Assertions.fail(String.format("‼️ result mismatch:%n" +
+            logger.error(String.format("‼️ result mismatch:%n" +
                     Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                     "↪ expected result:%n" +
@@ -155,6 +155,7 @@ class QueryCommand extends Command {
                     "↩ actual result:%n" +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                     Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set")));
+            Assertions.fail("incorrect results!");
         } else {
             logger.debug("✔️ results match!");
         }

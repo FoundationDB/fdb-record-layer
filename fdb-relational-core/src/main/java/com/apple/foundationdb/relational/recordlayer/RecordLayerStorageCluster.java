@@ -32,7 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQueryFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
@@ -54,13 +54,13 @@ public class RecordLayerStorageCluster implements StorageCluster {
     private final RecordLayerMetadataOperationsFactory ddlFactory;
 
     @Nullable
-    private final PlanCache planCache;
+    private final RelationalPlanCache planCache;
 
     public RecordLayerStorageCluster(FdbConnection connection,
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
-                                     PlanCache planCache,
+                                     RelationalPlanCache planCache,
                                      RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;

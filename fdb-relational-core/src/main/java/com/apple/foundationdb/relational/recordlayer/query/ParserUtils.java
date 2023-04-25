@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
@@ -57,7 +58,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +74,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -159,31 +158,27 @@ public final class ParserUtils {
     /**
      * Attempt to parse an input value into the corresponding numerical literal {@link Value}.
      * @param valueAsString The value to parse.
-     * @param makeNegative <code>true</code> if the result should be negative, otherwise <code>false</code>.
      * @return The corresponding typed and literal {@link Value} object
      */
     @Nonnull
-    public static Value parseDecimal(@Nonnull final String valueAsString, final boolean makeNegative) {
+    public static LiteralValue<?> parseDecimal(@Nonnull final String valueAsString) {
         if (valueAsString.contains(".")) {
             final var lastCharacter = valueAsString.charAt(valueAsString.length() - 1);
             switch (lastCharacter) {
                 case 'f':
                 case 'F':
                     float floatValue = Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), makeNegative ? -floatValue : floatValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), floatValue);
                 case 'd':
                 case 'D':
                     double doubleValue = Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), makeNegative ? -doubleValue : doubleValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), doubleValue);
                 default:
                     doubleValue = Double.parseDouble(valueAsString);
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), makeNegative ? -doubleValue : doubleValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), doubleValue);
             }
         } else {
             long result = Long.parseLong(valueAsString);
-            if (makeNegative) {
-                result *= -1;
-            }
             if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
                 return new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), Math.toIntExact(result));
             } else {
@@ -192,16 +187,31 @@ public final class ParserUtils {
         }
     }
 
+    @Nonnull
+    public static Value unstripLiterals(@Nonnull final Value value, @Nonnull final PlanGenerationContext context) {
+        return value.<Value>mapMaybe((current, mappedChildren) -> {
+            if (current instanceof ConstantObjectValue) {
+                final var constantObjectValue = (ConstantObjectValue) current;
+                return LiteralValue.ofScalar(constantObjectValue.eval(null, context.getEvaluationContext(EMPTY_TYPE_REPOSITORY))).withChildren(mappedChildren);
+            }
+            return value;
+        }).orElseThrow();
+    }
+
     public static int parseBoundInteger(@Nonnull final String valueAsString,
                                         @Nullable Integer lowerbound, @Nullable Integer upperbound) {
         int value = Integer.parseInt(valueAsString);
+        verifyIntegerBounds(value, lowerbound, upperbound);
+        return value;
+    }
+
+    public static void verifyIntegerBounds(int value, @Nullable Integer lowerbound, @Nullable Integer upperbound) {
         if (lowerbound != null) {
             Assert.thatUnchecked(value >= lowerbound, String.format("Parsed Integer cannot be less than %d", lowerbound));
         }
         if (upperbound != null) {
             Assert.thatUnchecked(value <= upperbound, String.format("Parsed Integer cannot be greater than %d", upperbound));
         }
-        return value;
     }
 
     public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
@@ -672,7 +682,6 @@ public final class ParserUtils {
 
     @Nonnull
     public static List<? extends Typed> validateInValuesList(List<? extends Value> values) {
-        final Set<Value> valueSet = new HashSet<>();
         final List<Value> toReturn = new ArrayList<>();
         for (final Value value : values) {
             if (value.getResultType() == Type.NULL) {
@@ -682,12 +691,7 @@ public final class ParserUtils {
                 Assert.failUnchecked(String.format("Type cannot be determined for element `%s` in the IN list", value),
                         ErrorCode.UNKNOWN_TYPE);
             }
-            // compile-time de-duplication
-            if (valueSet.contains(value)) {
-                continue;
-            }
             toReturn.add(value);
-            valueSet.add(value);
         }
         return toReturn;
     }
@@ -768,5 +772,22 @@ public final class ParserUtils {
         } else {
             return value;
         }
+    }
+
+    public static boolean isConstant(@Nonnull final RelationalParser.ExpressionsContext expressionsContext) {
+        for (final var exp : expressionsContext.expression()) {
+            if (!(exp instanceof RelationalParser.PredicateExpressionContext)) {
+                return false;
+            }
+            final var predicate = (RelationalParser.PredicateExpressionContext) exp;
+            if (!(predicate.predicate() instanceof RelationalParser.ExpressionAtomPredicateContext)) {
+                return false;
+            }
+            final var expressionAtom = ((RelationalParser.ExpressionAtomPredicateContext) predicate.predicate()).expressionAtom();
+            if (!(expressionAtom instanceof RelationalParser.ConstantExpressionAtomContext)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

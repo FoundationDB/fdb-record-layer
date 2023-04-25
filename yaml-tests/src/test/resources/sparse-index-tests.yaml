@@ -23,17 +23,17 @@
 - query: drop schema template sparse_index_tests_template
 ---
 - query: create schema template sparse_index_tests_template
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create table t1(id integer, col1 integer, col2 integer, primary key(id))
     create index i1 as select col1 from t1 where col1 < 200
-    create index i2 as select col1 from t1 where col1 < 500
+    create index i2 as select col1 from t1 where col1 < 500 
       
-    create table t2(id bigint, tombstone boolean, primary key(id))
+    create table t2(id integer, tombstone boolean, primary key(id))
     create index i3 as select tombstone from t2 where tombstone = true or tombstone is not null
       
-    create table t3(id bigint, tombstone boolean, primary key(id))
+    create table t3(id integer, tombstone boolean, primary key(id))
     create index i4 as select id from t3 where tombstone = true or tombstone is not null
   
-    create table t5(id bigint, col1 bigint, primary key(id))
+    create table t5(id integer, col1 integer, primary key(id))
     create index i6 as select id from t5 where col1 < 40 or col1 > 90
 ---
 - query: drop database /FRL/SPARSE_YAML
@@ -47,17 +47,32 @@
 - query: select id from t3 where tombstone = true or tombstone is not null
 - explain: [{!sc "map(Covering(Index(I4 <,>"}]
 ---
+- query: select id from t3 where tombstone = true or tombstone is not null
+- explain: [{!sc "map(Covering(Index(I4 <,>"}]
+---
+- query: select id from t3 where tombstone = true or tombstone is not null
+- explain: [{!sc "map(Covering(Index(I4 <,>"}]
+---
 - query: select col1 from t1 where col1 > 55 and col1 < 100
-- explain: [{!sc "map(Covering(Index(I1 ([55],[100]))"}]
+- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
+---
+- query: select col1 from t1 where col1 > 55 and col1 < 199
+- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
 ---
 - query: select col1 from t1 where col1 > 50 and col1 < 350
-- explain: [{!sc "map(Covering(Index(I2 ([50],[350]))"}]
+- explain: [{!sc "map(Covering(Index(I2 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
 ---
 - query: select tombstone from t2 where tombstone is null
 - explain: [{!sc "map(Scan("}]
 ---
 - query: select tombstone from t2 where tombstone is not null
 - explain: [{!sc "map(Covering(Index(I3 ([null],>)"}]
+---
+- query: select id from t5 where col1 < 40 or col1 > 90
+- explain: [{!sc "map(Covering(Index(I6 <,>"}]
+---
+- query: select id from t5 where col1 < 40 or col1 > 90
+- explain: [{!sc "map(Covering(Index(I6 <,>"}]
 ---
 - query: select id from t5 where col1 < 40 or col1 > 90
 - explain: [{!sc "map(Covering(Index(I6 <,>"}]

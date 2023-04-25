@@ -20,20 +20,37 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
+import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public interface Plan<T> {
 
@@ -44,29 +61,32 @@ public interface Plan<T> {
         final Options options;
         @Nonnull
         final RelationalConnection connection;
-        @Nonnull
-        final PlanContext planContext;
 
         ExecutionContext(@Nonnull Transaction transaction,
                          @Nonnull Options options,
-                         @Nonnull RelationalConnection connection,
-                         @Nonnull PlanContext planContext) {
+                         @Nonnull RelationalConnection connection) {
             this.transaction = transaction;
             this.options = options;
             this.connection = connection;
-            this.planContext = planContext;
         }
 
         @Nonnull
         public static ExecutionContext of(@Nonnull Transaction transaction,
                                           @Nonnull Options options,
-                                          @Nonnull RelationalConnection connection,
-                                          @Nonnull PlanContext planContext) {
-            return new ExecutionContext(transaction, options, connection, planContext);
+                                          @Nonnull RelationalConnection connection) {
+            return new ExecutionContext(transaction, options, connection);
         }
     }
 
+    Plan<T> optimize(@Nonnull final CascadesPlanner planner);
+
     T execute(@Nonnull final ExecutionContext c) throws RelationalException;
+
+    @Nonnull
+    QueryPlanConstraint getConstraint();
+
+    @Nonnull
+    Plan<T> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters);
 
     /**
      * Parses a query and generates an equivalent logical plan.
@@ -77,14 +97,15 @@ public interface Plan<T> {
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
-    static Plan<?>  generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
+    @VisibleForTesting
+    static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
                 .build();
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         final var ast = AstVisitor.parseQuery(query);
-        final var astWalker = new AstVisitor(context, query, planContext.getDdlQueryFactory(), planContext.getDbUri());
+        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {
 
             final Object maybePlan = astWalker.visit(ast);
@@ -98,5 +119,23 @@ public interface Plan<T> {
         } catch (VerifyException | SemanticException ve) {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
         }
+    }
+
+    @Nonnull
+    static RelationalResultSet explainPhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
+                                                 @Nonnull final ExecuteProperties executeProperties) {
+        List<String> explainComponents = new ArrayList<>();
+        explainComponents.add(physicalPlan.toString());
+        if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
+            explainComponents.add(String.format("(limit=%d)", executeProperties.getReturnedRowLimit()));
+        }
+        if (executeProperties.getSkip() != 0) {
+            explainComponents.add(String.format("(offset=%d)", executeProperties.getSkip()));
+        }
+        Row printablePlan = new ValueTuple(String.join(" ", explainComponents));
+        StructMetaData metaData = new RelationalStructMetaData(
+                FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+        );
+        return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
     }
 }

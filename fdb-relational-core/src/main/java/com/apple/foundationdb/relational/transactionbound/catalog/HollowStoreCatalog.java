@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
@@ -36,7 +37,12 @@ import java.net.URI;
 @ExcludeFromJacocoGeneratedReport
 public class HollowStoreCatalog implements StoreCatalog {
 
-    public static final HollowStoreCatalog INSTANCE = new HollowStoreCatalog();
+    @Nonnull
+    public final SchemaTemplate schemaTemplate;
+
+    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate) {
+        this.schemaTemplate = schemaTemplate;
+    }
 
     @Override
     public SchemaTemplateCatalog getSchemaTemplateCatalog() {
@@ -46,7 +52,7 @@ public class HollowStoreCatalog implements StoreCatalog {
     @Nonnull
     @Override
     public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
-        throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
+        return schemaTemplate.generateSchema(databaseId.toString(), schemaName);
     }
 
     @Override

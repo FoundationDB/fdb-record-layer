@@ -37,7 +37,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.stream.Stream;
 
 /**
  * A query executor that executes a plan and returns its results.
@@ -45,49 +44,29 @@ import java.util.stream.Stream;
 public class QueryExecutor {
     private final RecordLayerSchema schema;
     private final RecordQueryPlan plan;
-    private final String[] expectedFieldNames;
     private final EvaluationContext evaluationContext;
-    private final boolean isExplain;
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
     public QueryExecutor(@Nonnull final RecordQueryPlan plan,
-                         @Nonnull final String[] expectedFieldNames,
                          @Nonnull final EvaluationContext evaluationContext,
-                         @Nonnull final RecordLayerSchema schema,
-                         boolean isExplain) {
+                         @Nonnull final RecordLayerSchema schema) {
         this.schema = schema;
-        this.expectedFieldNames = expectedFieldNames;
         this.evaluationContext = evaluationContext;
-        this.isExplain = isExplain;
         this.plan = plan;
     }
 
     @Nonnull
-    public ResumableIterator<Row> execute(@Nullable Continuation continuation,
-                                          @Nonnull ExecuteProperties executeProperties) throws RelationalException {
-        if (!isExplain) {
-            final FDBRecordStoreBase<Message> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
-            final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
-                    evaluationContext,
-                    continuation == null ? null : continuation.getUnderlyingBytes(), executeProperties);
+    public ResumableIterator<Row> execute(@Nullable final Continuation continuation,
+                                          @Nonnull final ExecuteProperties executeProperties) throws RelationalException {
+        final FDBRecordStoreBase<Message> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
+        final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
+                evaluationContext,
+                continuation == null ? null : continuation.getUnderlyingBytes(), executeProperties);
 
-            return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-        } else {
-            return new ResumableIteratorImpl<>(Stream.of(plan.toString())
-                            .map(ValueTuple::new)
-                            .map(Row.class::cast)
-                            .iterator(),
-                    continuation);
-        }
+        return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
     }
 
     public Type getQueryResultType() {
         return plan.getResultType().getInnerType();
-    }
-
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP",
-            justification = "class is internal implementation, this shouldn't escape proper usage")
-    public String[] getFieldNames() {
-        return expectedFieldNames;
     }
 }

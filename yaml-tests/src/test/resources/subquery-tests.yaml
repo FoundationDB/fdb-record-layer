@@ -23,11 +23,11 @@
 - query: drop schema template subquery_tests_template
 ---
 - query: create schema template subquery_tests_template
-    create table a(ida bigint, x bigint, primary key(ida))
-    create table x(idx bigint, y bigint, primary key(idx))
-    CREATE TYPE AS STRUCT s(f bigint)
-    create table r(idr bigint, nr s array, primary key(idr))
-    create table b(idb bigint, q bigint, r bigint, primary key(idb))
+    create table a(ida integer, x integer, primary key(ida))
+    create table x(idx integer, y integer, primary key(idx))
+    CREATE TYPE AS STRUCT s(f integer)
+    create table r(idr integer, nr s array, primary key(idr))
+    create table b(idb integer, q integer, r integer, primary key(idb))
     create index ib as select q from b
     create index ir as select sq.f from r, (select f from r.nr) sq;
 ---
@@ -53,21 +53,21 @@
 ---
 # non correlated subquery, resolving alias should be fine.
 - query: select ida from a where exists (select ida from a where ida = 1);
-- result: [{!l 1}, {!l 2}, {!l 3}]
+- result: [{1}, {2}, {3}]
 ---
 # this should work albeit being seemingly ambiguous
 # upper query block resolution should kick in _iff_ we fail to resolve
 # the identifier in current query block.
 - query: select idx from x where exists (select x from a where ida = 1);
-- result: [{!l 4}, {!l 5}, {!l 6}]
+- result: [{4}, {5}, {6}]
 ---
 # PartiQL resolution.
 - query: select idr from r, r.nr as NEST where NEST.f = 23;
-- result: [{!l 2}]
+- result: [{2}]
 ---
 # PartiQL resolution, another flavour (TODO check whether this still use the IR index).
 - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
-- result: [{!l 2}]
+- result: [{2}]
 ---
 # correlation should _not_ be allowed in from-subquery.
 - query: select x from a, (select * from r where r.idr = a.x) sq;
@@ -75,19 +75,19 @@
 ---
 # correlations are allowed inside a nested subquery with group by
 - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-- result: [{!l 1}, {!l 2}, {!l 3}]
+- result: [{1}, {2}, {3}]
 ---
 # correlations are allowed inside a nested subquery with group by, not necessarily qualified
 - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-- result: [{!l 1}, {!l 2}, {!l 3}]
+- result: [{1}, {2}, {3}]
 ---
 # correlations inside aggregations are allowed inside a nested subquery with group by
 - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
-- result: [{!l 1}, {!l 2}, {!l 3}]
+- result: [{1}, {2}, {3}]
 ---
 # correlations inside aggregations are allowed inside a nested subquery with group by
 - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
-- result: [{!l 1}, {!l 2}, {!l 3}]
+- result: [{1}, {2}, {3}]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
