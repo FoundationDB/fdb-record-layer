@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
@@ -43,7 +44,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
 
-    EmbeddedRelationalConnection connection;
+    protected EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
     @Nullable
     private final RelationalPlanCache planCache;
@@ -58,6 +59,11 @@ public abstract class AbstractDatabase implements RelationalDatabase {
 
     protected void setConnection(@Nonnull EmbeddedRelationalConnection conn) {
         this.connection = conn;
+    }
+
+    @Nullable
+    protected Transaction getCurrentTransaction() {
+        return connection.transaction;
     }
 
     @Override

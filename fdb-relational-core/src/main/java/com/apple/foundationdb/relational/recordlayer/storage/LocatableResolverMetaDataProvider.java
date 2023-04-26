@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.storage;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
@@ -52,6 +53,7 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
     static final String VALUE_FIELD_NAME = "value";
     static final String META_DATA_FIELD_NAME = "meta_data";
     static final String VERSION_FIELD_NAME = "version";
+    static final String LOCK_FIELD_NAME = "lock";
 
     static final String REVERSE_INDEX_NAME = "reverse_interning";
 
@@ -93,7 +95,7 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
                     .setName(RESOLVER_STATE_TYPE_NAME)
                     .addColumn(RecordLayerColumn.newBuilder()
                             .setDataType(WRITE_LOCK_ENUM)
-                            .setName("lock")
+                            .setName(LOCK_FIELD_NAME)
                             .build())
                     .addColumn(RecordLayerColumn.newBuilder()
                             .setDataType(DataType.Primitives.INTEGER.type())
@@ -135,10 +137,11 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
     }
 
     @Nonnull
-    Message wrapResolverVersion(int version) {
+    Message wrapResolverState(ResolverStateProto.State state) {
         Descriptors.Descriptor descriptor = metaData.getRecordType(RESOLVER_STATE_TYPE_NAME).getDescriptor();
         return DynamicMessage.newBuilder(descriptor)
-                .setField(descriptor.findFieldByName(VERSION_FIELD_NAME), version)
+                .setField(descriptor.findFieldByName(VERSION_FIELD_NAME), state.getVersion())
+                .setField(descriptor.findFieldByName("lock"), descriptor.getFile().findEnumTypeByName(WRITE_LOCK_ENUM.getName()).findValueByName(state.getLock().name()))
                 .build();
     }
 

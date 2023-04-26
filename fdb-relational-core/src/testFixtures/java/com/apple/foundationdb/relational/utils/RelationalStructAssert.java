@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
+import com.google.protobuf.Descriptors;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
@@ -260,6 +261,8 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                 RelationalStructAssert.assertThat((RelationalStruct) object).isEqualTo(value);
             } else if (object instanceof Array) {
                 ArrayAssert.assertThat((Array) object).isEqualTo(value);
+            } else if (object instanceof Descriptors.EnumValueDescriptor) {
+                Assertions.assertThat(((Descriptors.EnumValueDescriptor) object).getName()).isEqualTo(value);
             } else {
                 Assertions.assertThat(object).isEqualTo(value);
             }

@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
@@ -51,7 +52,10 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +74,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 /**
  * Tests of the {@link BackingLocatableResolverStore}.
@@ -81,9 +88,11 @@ public class BackingLocatableResolverStoreTest {
 
     private StorageCluster storageCluster;
     private KeySpacePath path;
+    private URI dbPath;
+    private StoreCatalog catalog;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws RelationalException {
         storageCluster = relationalExtension.getEngine()
                 .getStorageClusters()
                 .stream()
@@ -93,6 +102,14 @@ public class BackingLocatableResolverStoreTest {
                 .addSubdirectory(new KeySpaceDirectory("test_id", KeySpaceDirectory.KeyType.UUID)));
         path = keySpace.path("test")
                 .add("test_id", UUID.randomUUID());
+
+        catalog = new InMemoryCatalog();
+        dbPath = URI.create("blah/blah");
+        try (Transaction transaction = createTransaction()) {
+            SchemaTemplate template = LocatableResolverMetaDataProvider.getSchemaTemplate();
+            catalog.saveSchema(transaction, template.generateSchema(dbPath.toString(), "dl"), true);
+            transaction.commit();
+        }
     }
 
     @AfterEach
@@ -108,47 +125,30 @@ public class BackingLocatableResolverStoreTest {
         private final URI dbPath;
         private final TransactionManager transactionManager;
         private final LocatableResolver resolver;
-        private final ResolverCreateHooks resolverCreateHooks;
         private final StoreCatalog catalog;
-        private final SchemaTemplate schemaTemplate;
         private Transaction txn;
-        private boolean ownsTransaction;
 
         public TransactionBoundLocatableResolverDatabase(@Nonnull URI dbPath,
                                                          @Nonnull StorageCluster cluster,
                                                          @Nonnull LocatableResolver resolver,
-                                                         @Nonnull ResolverCreateHooks createHooks) {
+                                                         @Nonnull StoreCatalog catalog) {
             super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null);
             this.dbPath = dbPath;
             this.transactionManager = cluster.getTransactionManager();
             this.resolver = resolver;
-            this.resolverCreateHooks = createHooks;
-            this.catalog = new InMemoryCatalog();
-            this.schemaTemplate = LocatableResolverMetaDataProvider.getSchemaTemplate();
+            this.catalog = catalog;
         }
 
         @Override
         public RelationalConnection connect(@Nullable Transaction sharedTransaction) throws RelationalException {
-            Transaction transaction;
-            if (sharedTransaction == null) {
-                transaction = transactionManager.createTransaction(Options.NONE);
-                ownsTransaction = true;
-            } else {
-                transaction = sharedTransaction;
-            }
-            if (!catalog.doesDatabaseExist(transaction, getURI())) {
-                catalog.createDatabase(transaction, getURI());
-                catalog.saveSchema(transaction, schemaTemplate.generateSchema(getURI().getPath(), "dl"), false);
-            }
-            this.txn = transaction;
-            EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, catalog, transaction, Options.NONE);
+            EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, catalog, sharedTransaction, Options.NONE);
             setConnection(connection);
             return connection;
         }
 
         @Override
         public void close() throws RelationalException {
-            if (txn != null && ownsTransaction) {
+            if (txn != null) {
                 txn.close();
             }
             txn = null;
@@ -156,7 +156,8 @@ public class BackingLocatableResolverStoreTest {
 
         @Override
         public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-            return BackingLocatableResolverStore.create(resolver, resolverCreateHooks, txn);
+            connection.ensureTransactionActive();
+            return BackingLocatableResolverStore.create(resolver, getCurrentTransaction());
         }
 
         @Override
@@ -184,12 +185,8 @@ public class BackingLocatableResolverStoreTest {
     }
 
     private RelationalDatabase createScopedInterningDatabase() throws RelationalException {
-        return createScopedInterningDatabase(ResolverCreateHooks.getDefault());
-    }
-
-    private RelationalDatabase createScopedInterningDatabase(ResolverCreateHooks createHooks) throws RelationalException {
         ScopedInterningLayer interningLayer = createScopedInterningLayer();
-        return new TransactionBoundLocatableResolverDatabase(URI.create("blah/blah"), storageCluster, interningLayer, createHooks);
+        return new TransactionBoundLocatableResolverDatabase(dbPath, storageCluster, interningLayer, catalog);
     }
 
     @Test
@@ -207,45 +204,7 @@ public class BackingLocatableResolverStoreTest {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 for (Map.Entry<String, Long> entry : mappings.entrySet()) {
-                    KeySet key = new KeySet()
-                            .setKeyColumn("key", entry.getKey());
-                    try (RelationalResultSet resultSet = statement.executeGet("Interning", key, Options.NONE)) {
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNextRow()
-                                .row()
-                                .hasValue("key", entry.getKey())
-                                .hasValue("value", entry.getValue());
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNoNextRow();
-                    }
-                }
-            }
-        }
-    }
-
-    @Test
-    void resolveReverse() throws RelationalException, SQLException {
-        RelationalDatabase db = createScopedInterningDatabase();
-        Map<String, Long> mappings = resolveMappings(db, 15);
-
-        try (RelationalConnection connection = db.connect(null)) {
-            connection.setSchema("dl");
-            try (RelationalStatement statement = connection.createStatement()) {
-                Options options = Options.builder()
-                        .withOption(Options.Name.INDEX_HINT, LocatableResolverMetaDataProvider.REVERSE_INDEX_NAME)
-                        .build();
-                for (Map.Entry<String, Long> entry : mappings.entrySet()) {
-                    KeySet keySet = new KeySet()
-                            .setKeyColumn("value", entry.getValue());
-                    try (RelationalResultSet resultSet = statement.executeGet("Interning", keySet, options)) {
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNextRow()
-                                .row()
-                                .hasValue("key", entry.getKey())
-                                .hasValue("value", entry.getValue());
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNoNextRow();
-                    }
+                    assertMapping(statement, entry.getKey(), entry.getValue(), null);
                 }
             }
         }
@@ -319,68 +278,124 @@ public class BackingLocatableResolverStoreTest {
     }
 
     @Test
-    void withCreateHooks() throws RelationalException, SQLException {
+    void withMetaData() throws RelationalException, SQLException {
         // Use resolver create hooks to insert the name into the meta-data field
-        ResolverCreateHooks.MetadataHook metadataHook = name -> name.getBytes(StandardCharsets.UTF_8);
-        ResolverCreateHooks hooks = new ResolverCreateHooks(Collections.emptyList(), metadataHook);
-        RelationalDatabase db = createScopedInterningDatabase(hooks);
-        Map<String, Long> mappings = resolveMappings(db, 10);
+        RelationalDatabase db = createScopedInterningDatabase();
+        Map<String, Long> mappings = resolveMappings(db, 10, name -> name.getBytes(StandardCharsets.UTF_8));
 
         try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
-                for (Map.Entry<String, Long> entry : mappings.entrySet()) {
-                    KeySet keySet = new KeySet()
-                            .setKeyColumn("key", entry.getKey());
-                    try (RelationalResultSet resultSet = statement.executeGet("Interning", keySet, Options.NONE)) {
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNextRow()
-                                .row()
-                                .hasValue("key", entry.getKey())
-                                .hasValue("value", entry.getValue());
-                        byte[] metaData = resultSet.getBytes("meta_data");
-                        Assertions.assertThat(metaData)
-                                .containsExactly(entry.getKey().getBytes(StandardCharsets.UTF_8));
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNoNextRow();
-                    }
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    assertMapping(statement, mapping.getKey(), mapping.getValue(), mapping.getKey().getBytes(StandardCharsets.UTF_8));
                 }
             }
         }
 
         // Change the meta-data hooks to instead put the length of the name
-        ResolverCreateHooks.MetadataHook newMetaDataHook = name -> ("" + name.length()).getBytes(StandardCharsets.UTF_8);
-        ResolverCreateHooks newHooks = new ResolverCreateHooks(Collections.emptyList(), newMetaDataHook);
-        RelationalDatabase newDb = createScopedInterningDatabase(newHooks);
-        Map<String, Long> newMappings = resolveMappings(newDb, 20);
+        Map<String, Long> newMappings = resolveMappings(db, 20, name -> ("" + name.length()).getBytes(StandardCharsets.UTF_8));
         Assertions.assertThat(newMappings)
                 .containsAllEntriesOf(mappings);
 
         // Go through and validate that any entry which was written in the first pass retains its original
         // meta-data value, and that values written in the second pass get the new meta-data value
-        try (RelationalConnection connection = newDb.connect(null)) {
+        try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 for (Map.Entry<String, Long> entry : newMappings.entrySet()) {
-                    KeySet keySet = new KeySet()
-                            .setKeyColumn("key", entry.getKey());
-                    try (RelationalResultSet resultSet = statement.executeGet("Interning", keySet, Options.NONE)) {
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNextRow()
-                                .row()
-                                .hasValue("key", entry.getKey())
-                                .hasValue("value", entry.getValue());
-                        byte[] metaData = resultSet.getBytes("meta_data");
-                        if (mappings.containsKey(entry.getKey())) {
-                            Assertions.assertThat(metaData)
-                                    .containsExactly(entry.getKey().getBytes(StandardCharsets.UTF_8));
-                        } else {
-                            Assertions.assertThat(metaData)
-                                    .containsExactly(("" + entry.getKey().length()).getBytes(StandardCharsets.UTF_8));
-                        }
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNoNextRow();
+                    String metaDataBasis = mappings.containsKey(entry.getKey()) ? entry.getKey() : ("" + entry.getKey().length());
+                    byte[] expectedMetaData = metaDataBasis.getBytes(StandardCharsets.UTF_8);
+                    assertMapping(statement, entry.getKey(), entry.getValue(), expectedMetaData);
+                }
+            }
+        }
+    }
+
+    @Test
+    void updateMapping() throws RelationalException, SQLException {
+        // Use resolver create hooks to insert the name into the meta-data field
+        RelationalDatabase db = createScopedInterningDatabase();
+        Map<String, Long> mappings = resolveMappings(db, 10, name -> name.getBytes(StandardCharsets.UTF_8));
+
+        try (RelationalConnection connection = db.connect(null)) {
+            connection.setSchema("dl");
+            try (RelationalStatement statement = connection.createStatement()) {
+                // Update a few mappings by changing their meta-data
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    if (mapping.getValue() % 2 == 0) {
+                        var message = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
+                                .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFromUtf8("foo_" + mapping.getKey()))
+                                .build();
+
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message))
+                                .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+
+                        Options options = Options.builder()
+                                .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
+                                .build();
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message, options))
+                                .hasMessageContaining("Cannot update table");
                     }
+                }
+
+                // Validate meta-data has not changed as all updates failed
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    assertMapping(statement, mapping.getKey(), mapping.getValue(), mapping.getKey().getBytes(StandardCharsets.UTF_8));
+                }
+
+                // Change the actual values for some mappings
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    if (mapping.getValue() % 2 != 0) {
+                        var message = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
+                                .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .setField(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, 1000L + mapping.getValue())
+                                .build();
+
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message))
+                                .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+
+                        Options options = Options.builder()
+                                .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
+                                .build();
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message, options))
+                                .hasMessageContaining("Cannot update table");
+                    }
+                }
+
+                // Validate mappings have changed
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    assertMapping(statement, mapping.getKey(), mapping.getValue(), mapping.getKey().getBytes(StandardCharsets.UTF_8));
+                }
+            }
+        }
+    }
+
+    @Test
+    void insertPreAllocated() throws RelationalException, SQLException {
+        // Pre-allocate a mapping from values to longs. This represents something like copying data from one locatable resolver to another
+        Map<String, Long> mappings = LongStream.range(1, 20)
+                .boxed()
+                .collect(Collectors.toMap(v -> String.format("val_%d", v), Function.identity()));
+        RelationalDatabase db = createScopedInterningDatabase();
+
+        try (RelationalConnection connection = db.connect(null)) {
+            connection.setSchema("dl");
+            try (RelationalStatement statement = connection.createStatement()) {
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    var builder = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
+                            .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                            .setField(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, mapping.getValue());
+                    if (mapping.getValue() % 2 == 0) {
+                        builder.setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFromUtf8(mapping.getKey()));
+                    }
+                    RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, builder.build()))
+                            .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+                }
+
+                for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
+                    assertNoMapping(statement, mapping.getKey());
+                    assertNoReverseMapping(statement, mapping.getValue());
                 }
             }
         }
@@ -395,34 +410,62 @@ public class BackingLocatableResolverStoreTest {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 long version = interningLayer.getVersion(null).join();
-                assertVersionMatches(statement, version);
+                assertStateMatches(statement, version, "UNLOCKED");
 
                 interningLayer.incrementVersion().join();
-                interningLayer.getDatabase().clearCaches();
-                assertVersionMatches(statement, version + 1L);
+                assertStateMatches(statement, version + 1L, "UNLOCKED");
+
+                insertResolverState(statement, version + 2L, "UNLOCKED");
+                assertStateMatches(statement, version + 2L, "UNLOCKED");
 
                 interningLayer.enableWriteLock().join();
-                interningLayer.getDatabase().clearCaches();
-                assertVersionMatches(statement, version + 1L);
+                assertStateMatches(statement, version + 2L, "WRITE_LOCKED");
 
                 interningLayer.disableWriteLock().join();
-                interningLayer.getDatabase().clearCaches();
-                assertVersionMatches(statement, version + 1L);
+                assertStateMatches(statement, version + 2L, "UNLOCKED");
 
                 interningLayer.retireLayer().join();
-                interningLayer.getDatabase().clearCaches();
-                assertVersionMatches(statement, version + 1L);
+                assertStateMatches(statement, version + 2L, "RETIRED");
+
+                insertResolverState(statement, version + 3L, "RETIRED");
+                assertStateMatches(statement, version + 3L, "RETIRED");
+
+                insertResolverState(statement, version + 3L, "UNLOCKED");
+                assertStateMatches(statement, version + 3L, "UNLOCKED");
+
+                RelationalAssertions.assertThrowsSqlException(() -> insertResolverState(statement, version + 2L, "UNLOCKED"))
+                        .hasMessageContaining("resolver state version must monotonically increase");
+                assertStateMatches(statement, version + 3L, "UNLOCKED");
             }
         }
     }
 
     private Map<String, Long> resolveMappings(RelationalDatabase db, int count) throws RelationalException, SQLException {
+        return resolveMappings(db, count, ignore -> null);
+    }
+
+    private Map<String, Long> resolveMappings(RelationalDatabase db, int count, ResolverCreateHooks.MetadataHook metadataHook) throws RelationalException, SQLException {
         Map<String, Long> mappings = new HashMap<>();
         try (RelationalConnection connection = db.connect(null)) {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 for (int i = 0; i < count; i++) {
                     String name = String.format("val_%02d", i);
+                    var builder = statement.getDataBuilder("Interning", Collections.emptyList())
+                            .setField("key", name);
+                    byte[] metaData = metadataHook.apply(name);
+                    if (metaData != null) {
+                        builder.setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFrom(metaData));
+                    }
+                    try {
+                        statement.executeInsert("Interning", builder.build());
+                    } catch (SQLException err) {
+                        // Ignore duplicate primary keys, as previous runs can insert the data
+                        if (!err.getSQLState().equals(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION.getErrorCode())) {
+                            throw err;
+                        }
+                    }
+
                     KeySet key = new KeySet()
                             .setKeyColumn("key", name);
                     try (RelationalResultSet resultSet = statement.executeGet("Interning", key, Options.NONE)) {
@@ -455,23 +498,90 @@ public class BackingLocatableResolverStoreTest {
         return mappings;
     }
 
-    private void assertVersionMatches(RelationalStatement statement, long version) throws SQLException {
-        try (RelationalResultSet resultSet = statement.executeGet("ResolverState", new KeySet(), Options.NONE)) {
+    private void assertNoMapping(RelationalStatement statement, String key) throws SQLException {
+        KeySet keySet = new KeySet()
+                .setKeyColumn(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, key);
+        try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, keySet, Options.NONE)) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNoNextRow();
+        }
+    }
+
+    private void assertNoReverseMapping(RelationalStatement statement, long value) throws SQLException {
+        KeySet keySet = new KeySet()
+                .setKeyColumn(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, value);
+        Options reverseLookupOptions = Options.builder()
+                .withOption(Options.Name.INDEX_HINT, LocatableResolverMetaDataProvider.REVERSE_INDEX_NAME)
+                .build();
+        try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, keySet, reverseLookupOptions)) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNoNextRow();
+        }
+    }
+
+    private void assertMapping(RelationalStatement statement, String key, long value, @Nullable byte[] metaData) throws SQLException {
+        KeySet keySet = new KeySet()
+                .setKeyColumn(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, key);
+        try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, keySet, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .row()
-                    .hasValue("version", version);
+                    .hasValue(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, key)
+                    .hasValue(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, value)
+                    .hasValue(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, metaData);
             ResultSetAssert.assertThat(resultSet)
                     .hasNoNextRow();
         }
 
-        try (RelationalResultSet resultSet = statement.executeScan("ResolverState", new KeySet(), Options.NONE)) {
+        KeySet reverseKeySet = new KeySet()
+                .setKeyColumn(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, value);
+        Options reverseLookupOptions = Options.builder()
+                .withOption(Options.Name.INDEX_HINT, LocatableResolverMetaDataProvider.REVERSE_INDEX_NAME)
+                .build();
+        try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, reverseKeySet, reverseLookupOptions)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .row()
-                    .hasValue("version", version);
+                    .hasValue(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, key)
+                    .hasValue(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, value);
             ResultSetAssert.assertThat(resultSet)
                     .hasNoNextRow();
         }
+    }
+
+    private void assertStateMatches(RelationalStatement statement, long version, String lock) throws SQLException {
+        try (RelationalResultSet resultSet = statement.executeGet(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, new KeySet(), Options.NONE)) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .row()
+                    .hasValue(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version)
+                    .hasValue(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock);
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNoNextRow();
+        }
+
+        try (RelationalResultSet resultSet = statement.executeScan(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, new KeySet(), Options.NONE)) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .row()
+                    .hasValue(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version)
+                    .hasValue(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock);
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNoNextRow();
+        }
+    }
+
+    private void insertResolverState(RelationalStatement statement, long version, String lock) throws SQLException {
+        var builder = statement.getDataBuilder(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, Collections.emptyList())
+                .setField(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version);
+        Descriptors.EnumValueDescriptor lockValue = builder.getDescriptor()
+                .findFieldByName(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME)
+                .getEnumType()
+                .findValueByName(lock);
+        builder.setField(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lockValue);
+        Options options = Options.builder()
+                .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
+                .build();
+        statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, builder.build(), options);
     }
 }

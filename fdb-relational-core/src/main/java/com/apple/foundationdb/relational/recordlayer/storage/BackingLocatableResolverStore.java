@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.metadata.Index;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -49,26 +51,26 @@ import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.QueryPropertiesUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public final class BackingLocatableResolverStore implements BackingStore {
     private final LocatableResolver locatableResolver;
-    private final ResolverCreateHooks resolverCreateHooks;
     private final Transaction txn;
     private final LocatableResolverMetaDataProvider metaDataProvider;
 
     private BackingLocatableResolverStore(LocatableResolver locatableResolver,
-                                          ResolverCreateHooks resolverCreateHooks,
                                           Transaction txn,
                                           LocatableResolverMetaDataProvider metaDataProvider) {
         this.locatableResolver = locatableResolver;
-        this.resolverCreateHooks = resolverCreateHooks;
         this.txn = txn;
         this.metaDataProvider = metaDataProvider;
     }
@@ -86,12 +88,12 @@ public final class BackingLocatableResolverStore implements BackingStore {
             Object typeKey = key.getObject(0);
             if (metaDataProvider.getInterningTypeKey().equals(typeKey)) {
                 String name = key.getString(1);
-                CompletableFuture<ResolverResult> resultFuture = locatableResolver.resolveWithMetadata(context, name, resolverCreateHooks);
+                CompletableFuture<ResolverResult> resultFuture = locatableResolver.readInTransaction(context, name);
                 ResolverResult result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, resultFuture);
                 return result == null ? null : new MessageTuple(metaDataProvider.wrapResolverResult(name, result));
             } else if (metaDataProvider.getResolverStateTypeKey().equals(typeKey)) {
-                Integer version = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.getVersion(context.getTimer()));
-                return version == null ? null : new MessageTuple(metaDataProvider.wrapResolverVersion(version));
+                ResolverStateProto.State state = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.loadResolverState(context));
+                return state == null ? null : new MessageTuple(metaDataProvider.wrapResolverState(state));
             } else {
                 throw new TypeNotPresentException("" + typeKey, null);
             }
@@ -108,11 +110,15 @@ public final class BackingLocatableResolverStore implements BackingStore {
         }
         final FDBRecordContext context = txn.unwrap(FDBRecordContext.class);
         long value = key.getLong(0);
-        String name = context.asyncToSync(FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_LOOKUP, locatableResolver.reverseLookup(context, value));
-        if (name == null) {
+        try {
+            String name = context.asyncToSync(FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_LOOKUP, locatableResolver.reverseLookupInTransaction(context, value));
+            if (name == null) {
+                return null;
+            }
+            return new MessageTuple(metaDataProvider.wrapInterning(name, value, null));
+        } catch (NoSuchElementException noSuchElementException) {
             return null;
         }
-        return new MessageTuple(metaDataProvider.wrapInterning(name, value, null));
     }
 
     @Override
@@ -127,7 +133,68 @@ public final class BackingLocatableResolverStore implements BackingStore {
 
     @Override
     public boolean insert(String tableName, Message message, boolean replaceOnDuplicate) throws RelationalException {
-        throw new OperationUnsupportedException("Cannot insert value into interning layer store");
+        if (LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME.equals(tableName)) {
+            // The "Interning" type is the main type mapping string keys to long values. Each key also can have an
+            // associated "meta-data" byte[] field. This value can be cached in in-memory caches maintained by the
+            // FDBDirectory, and to avoid reading stale data from the cache, the ability to update existing records
+            // is restricted. Instead, this limits the writes to (1) new keys (i.e., keys that do not have pre-existing
+            // mappings) with (2) unset values (i.e., values that will be allocated by the underlying data structure).
+            // The values are all guaranteed to be unique (once committed), and they will be generally increasing
+            // in size over time.
+            Descriptors.Descriptor interningDescriptor = message.getDescriptorForType();
+            String name = (String) message.getField(interningDescriptor.findFieldByName(LocatableResolverMetaDataProvider.KEY_FIELD_NAME));
+            long value = (Long) message.getField(interningDescriptor.findFieldByName(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME));
+            ByteString metaDataByteString = (ByteString) message.getField(interningDescriptor.findFieldByName(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME));
+            byte[] metaData = metaDataByteString.isEmpty() ? null : metaDataByteString.toByteArray();
+
+            FDBRecordContext context = txn.unwrap(FDBRecordContext.class);
+            ResolverResult result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.readInTransaction(context, name));
+
+            if (result != null) {
+                if (replaceOnDuplicate) {
+                    throw new RelationalException("Cannot update table <" + tableName + "> as entry with key " + name + " already exists", ErrorCode.UNSUPPORTED_OPERATION);
+                } else {
+                    throw new RelationalException("Duplicate primary key for message (" + message + ") on table <" + tableName + ">", ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+                }
+            }
+
+            // Insert a new value into the store. This will allocate a new value for the mapping
+            if (value != 0L)  {
+                throw new RelationalException("Must use automatically allocated value for " + tableName + " rows", ErrorCode.UNSUPPORTED_OPERATION);
+            }
+
+            // Use the meta-data hook to ensure the value is created with the specified meta-data value
+            ResolverCreateHooks.MetadataHook metadataHook = ignore -> metaData;
+            ResolverCreateHooks createHooks = new ResolverCreateHooks(ResolverCreateHooks.DEFAULT_CHECK, metadataHook);
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.createInTransaction(context, name, createHooks));
+
+            return true;
+        } else if (LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME.equals(tableName)) {
+            // Resolver state record is more straightforward. There is one resolver state per LocatableResolver, which
+            // contains information like whether the resolver has been locked (i.e., should not accept additional
+            // writes while data is copied) or retired (i.e., is not expected to be used again). It also contains
+            // a "version", which is used as a cache invalidation key
+            if (!replaceOnDuplicate) {
+                throw new RelationalException("Duplicate primary key for message (" + message + ") on table <" + tableName + ">", ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
+            }
+            Descriptors.Descriptor stateDescriptor = message.getDescriptorForType();
+            int version = (Integer) message.getField(stateDescriptor.findFieldByName(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME));
+            Descriptors.EnumValueDescriptor lockEnum = (Descriptors.EnumValueDescriptor) message.getField(stateDescriptor.findFieldByName(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME));
+            String lock = lockEnum == null ? null : lockEnum.getName();
+
+            var builder = ResolverStateProto.State.newBuilder()
+                    .setVersion(version);
+            if (lock != null) {
+                builder.setLock(ResolverStateProto.WriteLock.valueOf(lock));
+            }
+            ResolverStateProto.State protoState = builder.build();
+
+            FDBRecordContext context = txn.unwrap(FDBRecordContext.class);
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOCATABLE_RESOLVER_MAPPING_COPY, locatableResolver.saveResolverState(context, protoState));
+            return true;
+        } else {
+            throw new TypeNotPresentException(tableName, null);
+        }
     }
 
     @Override
@@ -142,9 +209,9 @@ public final class BackingLocatableResolverStore implements BackingStore {
         }
 
         if (type.getName().equals(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME)) {
-            CompletableFuture<FDBStoredRecord<Message>> future = locatableResolver.getVersion(context.getTimer())
-                    .thenApply(version -> {
-                        Message msg = metaDataProvider.wrapResolverVersion(version);
+            CompletableFuture<FDBStoredRecord<Message>> future = locatableResolver.loadResolverState(context)
+                    .thenApply(state -> {
+                        Message msg = metaDataProvider.wrapResolverState(state);
                         return FDBStoredRecord.newBuilder(msg)
                                 .setRecordType(type)
                                 .setPrimaryKey(TupleHelpers.EMPTY)
@@ -185,7 +252,7 @@ public final class BackingLocatableResolverStore implements BackingStore {
         return BackingStore.super.unwrap(type);
     }
 
-    public static BackingStore create(LocatableResolver resolver, ResolverCreateHooks resolverCreateHooks, Transaction txn) throws RelationalException {
-        return new BackingLocatableResolverStore(resolver, resolverCreateHooks, txn, LocatableResolverMetaDataProvider.instance());
+    public static BackingStore create(LocatableResolver resolver, Transaction txn) throws RelationalException {
+        return new BackingLocatableResolverStore(resolver, txn, LocatableResolverMetaDataProvider.instance());
     }
 }
