@@ -58,6 +58,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

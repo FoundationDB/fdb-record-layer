@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.memory;
 
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -48,12 +47,12 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
 
     private final URI databaseUri;
-    private final RecordMetaData recordMetaData;
+    private final SchemaTemplate schemaTemplate;
 
     public InMemoryRelationalConnection(InMemoryCatalog catalog, URI databaseUri) throws RelationalException {
         this.databaseUri = databaseUri;
         this.catalog = catalog;
-        this.recordMetaData = createRecordMetaData();
+        this.schemaTemplate = createSchemaTemplate();
     }
 
     @Override
@@ -192,15 +191,14 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         return databaseUri;
     }
 
-    public RecordMetaData getRecordMetaData() {
-        return recordMetaData;
+    public SchemaTemplate getSchemaTemplate() {
+        return schemaTemplate;
     }
 
-    private RecordMetaData createRecordMetaData() throws RelationalException {
+    private SchemaTemplate createSchemaTemplate() throws RelationalException {
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
         SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
         SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
-        final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1).build();
-        return schemaTemplate.toRecordMetadata();
+        return schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1).build();
     }
 }

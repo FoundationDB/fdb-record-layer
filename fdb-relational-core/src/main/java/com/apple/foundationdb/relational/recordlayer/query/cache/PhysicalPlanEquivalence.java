@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -147,8 +148,8 @@ public final class PhysicalPlanEquivalence {
                 if (evaluationContext.isEmpty() || other.evaluationContext.isEmpty()) {
                     return false;
                 }
-                final var constantBindings1 = (List<?>)evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
-                final var constantBindings2 = (List<?>)other.evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
+                final var constantBindings1 = (List<?>) evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
+                final var constantBindings2 = (List<?>) other.evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
                 return Objects.equals(constantBindings1, constantBindings2);
             }
         } else {
@@ -158,8 +159,8 @@ public final class PhysicalPlanEquivalence {
                         seenIndexesDuringPlanning.containsAll(other.seenIndexesDuringPlanning);
             } else {
                 // member-wise equality.
-                return other.seenIndexesDuringPlanning.equals(seenIndexesDuringPlanning)
-                        && other.constraint.equals(constraint);
+                return other.seenIndexesDuringPlanning.equals(seenIndexesDuringPlanning) &&
+                        other.constraint.equals(constraint);
             }
         }
     }

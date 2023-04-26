@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.base.Ticker;
 
 import javax.annotation.Nonnull;

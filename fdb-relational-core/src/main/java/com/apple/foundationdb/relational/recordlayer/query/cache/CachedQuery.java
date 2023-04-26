@@ -124,9 +124,9 @@ public final class CachedQuery {
             return false;
         }
         CachedQuery that = (CachedQuery) other;
-        return hash == that.hash
-                && schemaTemplateName.equals(((CachedQuery) other).schemaTemplateName)
-                && canonicalQueryString.equals(that.canonicalQueryString);
+        return hash == that.hash &&
+                schemaTemplateName.equals(((CachedQuery) other).schemaTemplateName) &&
+                canonicalQueryString.equals(that.canonicalQueryString);
     }
 
     public int getHash() {

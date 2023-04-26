@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+
 import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;

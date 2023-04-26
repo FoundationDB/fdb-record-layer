@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;

@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
@@ -70,11 +71,12 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     @Override
     public boolean execute(String sql) throws SQLException {
         try {
-            PlanContext ctx = PlanContext.Builder.create()
+            final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(relationalConn.getConstantActionFactory())
                     .withDdlQueryFactory(relationalConn.getDdlQueryFactory())
                     .withDbUri(relationalConn.getDatabaseUri())
-                    .withMetadata(relationalConn.getRecordMetaData())
+                    .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
+                    .withSchemaTemplate(relationalConn.getSchemaTemplate())
                     .withStoreState(new RecordStoreState(null, null))
                     .build();
 

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;

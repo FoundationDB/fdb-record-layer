@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.CachedQuery;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -195,12 +196,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         if (ctx.preparedStatementParameter() != null) {
             final var parameter = visit(ctx.preparedStatementParameter());
             Assert.thatUnchecked(parameter instanceof Integer, "argument for LIMIT must be integer", ErrorCode.DATATYPE_MISMATCH);
-            Assert.thatUnchecked((Integer)parameter > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            Assert.thatUnchecked((Integer) parameter > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
             context.setLimit((Integer) parameter);
         } else {
             final var limit = ParserUtils.parseDecimal(ctx.getText());
             Assert.thatUnchecked(limit.getLiteralValue() instanceof Integer, "argument for LIMIT must be integer", ErrorCode.DATATYPE_MISMATCH);
-            final var limitAsInteger = (Integer)limit.getLiteralValue();
+            final var limitAsInteger = (Integer) limit.getLiteralValue();
             Assert.thatUnchecked(limitAsInteger > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
             context.setLimit(limitAsInteger);
         }

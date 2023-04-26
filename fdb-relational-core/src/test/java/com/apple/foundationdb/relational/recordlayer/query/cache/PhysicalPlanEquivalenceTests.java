@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

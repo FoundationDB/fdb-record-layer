@@ -162,7 +162,7 @@ public class MultiStageCacheTests {
         // ... leaving space for the new entry of "Japan".
         result = testCache.get("Japan", "Train", () -> produceTrain("Japan"), MultiStageCacheTests::fetchFromCache);
         Assertions.assertThat(result).isEqualTo("Shinkansen");
-        shouldBe(testCache, Map.of( "U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "Japan", Map.of("Train", "Shinkansen")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "Japan", Map.of("Train", "Shinkansen")));
     }
 
     @Test
@@ -203,7 +203,7 @@ public class MultiStageCacheTests {
         // we're over the max size limit of secondary -> evication should take place.
         // i.e. adding train evicts the _expired_ element, which is U.S. -> Animal -> American Alligator.
         // let's verify that
-        shouldBe(testCache, Map.of("U.S.", Map.of( "Landform", "Colorado River", "Train", "the Acela")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Landform", "Colorado River", "Train", "the Acela")));
     }
 
     @Test

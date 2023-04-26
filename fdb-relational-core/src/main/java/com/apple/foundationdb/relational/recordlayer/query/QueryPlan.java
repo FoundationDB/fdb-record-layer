@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -161,7 +162,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 throw ExceptionUtil.toRelationalException(ipbe);
             }
             final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-            return new RecordLayerResultSet(metaData, iterator, connection,executionParameters.getPreparedStatementParameters(),
+            return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getPreparedStatementParameters(),
                     physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         }
     }

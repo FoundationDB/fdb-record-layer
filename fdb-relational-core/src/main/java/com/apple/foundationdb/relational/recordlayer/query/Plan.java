@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 
