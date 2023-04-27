@@ -383,7 +383,11 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
     @Nonnull
     private QueryPlanConstraint captureConstraint(@Nonnull final PredicateWithValueAndRanges candidatePredicate) {
         // todo: add another constraint for semantic equality of the plans maybe, although semantic hashcode should do this for us I think.
-        final var candidateRanges = candidatePredicate.getRanges();
+        final var candidateRanges = candidatePredicate.getRanges().stream().map(constraint -> {
+            final var builder = RangeConstraints.newBuilder();
+            constraint.getComparisons().stream().map(PredicateWithValueAndRanges::exclusiveToInclusive).forEach(builder::addComparisonMaybe);
+            return builder.build();
+        }).flatMap(Optional::stream).collect(Collectors.toSet());
         final ImmutableList.Builder<QueryPredicate> conjunctions = ImmutableList.builder();
         for (final var queryRange : getRanges()) {
             conjunctions.add(AndPredicate.and(queryRange.getComparisons()
@@ -391,22 +395,39 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
                     .filter(comparand -> comparand instanceof ConstantObjectValue)
-                    .map(constant -> PredicateWithValueAndRanges.ofRanges((ConstantObjectValue)constant, candidateRanges))
+                    .map(constant -> PredicateWithValueAndRanges.ofRanges(constant, candidateRanges))
                     .collect(Collectors.toList())));
-
-            // TODO
-            // conjunctions.add(AndPredicate.and(queryRange.getComparisons()
-            //         .stream()
-            //         .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
-            //         .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
-            //         .filter(comparand -> comparand instanceof ConstantObjectValue)
-            //                         .map(constantObjectValue -> PromoteValue.of(ConstantObjectValue.of(constantObjectValue.getAlias(), constantObjectValue.getOrdinal(), Type.nullType()), constantObjectValue.getResultType())
-            //         //.map(c -> PromoteValue.inject(c, ((ConstantObjectValue)c).getResultType())) // check.
-            //         .map(constant -> PredicateWithValueAndRanges.constraint((ConstantObjectValue)constant, candidateRanges))
-            //         .collect(Collectors.toList())));
         }
         final var orPredicate = OrPredicate.or(conjunctions.build());
         return QueryPlanConstraint.ofPredicate(orPredicate);
+    }
+
+    @Nonnull
+    private static Comparisons.Comparison exclusiveToInclusive(@Nonnull final Comparisons.Comparison comparison) {
+        switch (comparison.getType()) {
+            case LESS_THAN:
+                return comparison.withType(Comparisons.Type.LESS_THAN_OR_EQUALS);
+            case GREATER_THAN:
+                return comparison.withType(Comparisons.Type.GREATER_THAN_OR_EQUALS);
+            case NOT_EQUALS: // fallthrough
+            case LESS_THAN_OR_EQUALS: // fallthrough
+            case EQUALS: // fallthough
+            case GREATER_THAN_OR_EQUALS: // fallthrough
+            case STARTS_WITH: // fallthrough
+            case NOT_NULL: // fallthrough
+            case IS_NULL: // fallthrough
+            case IN: // fallthrough
+            case TEXT_CONTAINS_ALL: // fallthrough
+            case TEXT_CONTAINS_ALL_WITHIN: // fallthrough
+            case TEXT_CONTAINS_ANY: // fallthrough
+            case TEXT_CONTAINS_PHRASE: // fallthrough
+            case TEXT_CONTAINS_PREFIX: // fallthrough
+            case TEXT_CONTAINS_ALL_PREFIXES: // fallthrough
+            case TEXT_CONTAINS_ANY_PREFIX: // fallthrough
+            case SORT: // fallthrough
+            default:
+                return comparison;
+        }
     }
 
     @Nullable

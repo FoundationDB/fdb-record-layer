@@ -671,6 +671,9 @@ public class Comparisons {
         @Nonnull
         Type getType();
 
+        @Nonnull
+        Comparison withType(@Nonnull final Type newType);
+
         /**
          * Get the comparison value without any bindings.
          * @return the value to be compared
@@ -823,6 +826,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new SimpleComparison(newType, comparand);
+        }
+
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -971,6 +983,15 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ParameterComparison(newType, parameter, internal, parameterRelationshipGraph);
         }
 
         public boolean isCorrelation() {
@@ -1206,6 +1227,15 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ValueComparison(newType, comparandValue, parameterRelationshipGraph);
+        }
+
+        @Nonnull
         public Value getComparandValue() {
             return comparandValue;
         }
@@ -1426,6 +1456,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ListComparison(newType, comparand);
+        }
+
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -1526,6 +1565,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new NullComparison(newType);
+        }
+
         @Nullable
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
@@ -1605,6 +1653,12 @@ public class Comparisons {
         @Override
         public Type getType() {
             return Type.EQUALS;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            return this;
         }
 
         @Nullable
@@ -1764,6 +1818,19 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            if (tokenList == null) {
+                return new TextComparison(newType, Objects.requireNonNull(tokenStr), tokenizerName, fallbackTokenizerName);
+            } else {
+                return new TextComparison(newType, tokenList, tokenizerName, fallbackTokenizerName);
+            }
         }
 
         @Nullable
@@ -2083,6 +2150,16 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            final var newInner = inner.withType(newType);
+            if (newInner == inner) {
+                return this;
+            }
+            return new MultiColumnComparison(newInner);
+        }
+
+        @Nonnull
+        @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             final var translatedInner = inner.translateCorrelations(translationMap);
@@ -2245,6 +2322,11 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        public Comparison withType(@Nonnull final Type newType) {
+            return from(function, originalComparison.withType(newType));
         }
 
         @Nullable

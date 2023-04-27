@@ -180,6 +180,12 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             return Comparisons.Type.EQUALS;
         }
 
+        @Nonnull
+        @Override
+        public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
+            return this;
+        }
+
         @Nullable
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {

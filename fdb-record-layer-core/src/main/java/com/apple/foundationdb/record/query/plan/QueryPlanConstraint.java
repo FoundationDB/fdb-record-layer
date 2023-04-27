@@ -77,6 +77,11 @@ public class QueryPlanConstraint {
         return Objects.hash(predicate);
     }
 
+    @Override
+    public String toString() {
+        return predicate.toString();
+    }
+
     @Nonnull
     public static QueryPlanConstraint compose(@Nonnull final Collection<QueryPlanConstraint> constraints) {
         return new QueryPlanConstraint(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));

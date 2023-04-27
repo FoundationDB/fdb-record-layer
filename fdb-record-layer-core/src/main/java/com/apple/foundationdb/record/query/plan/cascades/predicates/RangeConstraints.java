@@ -528,6 +528,11 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
             return range;
         }
+
+        @Override
+        public String toString() {
+            return compilableComparisons.stream().map(Objects::toString).collect(Collectors.joining("∩"));
+        }
     }
 
     /**
