@@ -376,13 +376,15 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
      * Candidate Predicate: (Value1, ((LTE,1000) AND (LTE,2000)))
      * <br>
      * The resulting constraint: ((#COV1, ((LTE,1000) AND (LTE,2000))) AND (#COV4, ((LTE,1000) AND (LTE,2000))) OR (#COV5,((LTE,1000) AND (LTE,2000)))
+     * <br>
+     * Any candidate range that is exclusive is turned into inclusive, this is necessary, so we can match, for example, query
+     * predicates with exactly the same range boundaries.
      *
      * @param candidatePredicate The candidate predicate to capture as a {@link QueryPlanConstraint}.
      * @return The resulting {@link QueryPlanConstraint}.
      */
     @Nonnull
     private QueryPlanConstraint captureConstraint(@Nonnull final PredicateWithValueAndRanges candidatePredicate) {
-        // todo: add another constraint for semantic equality of the plans maybe, although semantic hashcode should do this for us I think.
         final var candidateRanges = candidatePredicate.getRanges().stream().map(constraint -> {
             final var builder = RangeConstraints.newBuilder();
             constraint.getComparisons().stream().map(PredicateWithValueAndRanges::exclusiveToInclusive).forEach(builder::addComparisonMaybe);
@@ -411,7 +413,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
                 return comparison.withType(Comparisons.Type.GREATER_THAN_OR_EQUALS);
             case NOT_EQUALS: // fallthrough
             case LESS_THAN_OR_EQUALS: // fallthrough
-            case EQUALS: // fallthough
+            case EQUALS: // fallthrough
             case GREATER_THAN_OR_EQUALS: // fallthrough
             case STARTS_WITH: // fallthrough
             case NOT_NULL: // fallthrough
