@@ -672,7 +672,7 @@ public class Comparisons {
         Type getType();
 
         @Nonnull
-        Comparison withType(@Nonnull final Type newType);
+        Comparison withType(@Nonnull Type newType);
 
         /**
          * Get the comparison value without any bindings.
@@ -2150,6 +2150,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison withType(@Nonnull final Type newType) {
             final var newInner = inner.withType(newType);
             if (newInner == inner) {
@@ -2325,6 +2326,7 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
         public Comparison withType(@Nonnull final Type newType) {
             return from(function, originalComparison.withType(newType));
         }
