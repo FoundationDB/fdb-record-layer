@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -183,7 +184,12 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Nonnull
         @Override
         public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
-            return this;
+            if (newType == Comparisons.Type.EQUALS) {
+                return this;
+            }
+            throw new RecordCoreException(String.format("'%s' expects '%s' comparison only",
+                    RecordTypeKeyComparison.class.getSimpleName(),
+                    Comparisons.Type.EQUALS.name()));
         }
 
         @Nullable
