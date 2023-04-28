@@ -86,6 +86,7 @@ public class OfTypeValue extends AbstractValue implements Value.CompileTimeValue
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
         return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
