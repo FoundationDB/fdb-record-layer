@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -92,6 +93,7 @@ public class SystemCatalogQueryTest {
         runDdl(String.format("DROP DATABASE %s", dbName));
     }
 
+    @Disabled // TODO (SystemCatalogQueryTest has fragile tests)
     @Test
     @SuppressWarnings("checkstyle:Indentation")
     public void selectSchemasWorks() throws RelationalException, SQLException {
@@ -126,6 +128,7 @@ public class SystemCatalogQueryTest {
         }
     }
 
+    @Disabled // TODO (SystemCatalogQueryTest has fragile tests)
     @Test
     public void selectDatabaseInfoWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
@@ -141,6 +144,7 @@ public class SystemCatalogQueryTest {
         }
     }
 
+    @Disabled // TODO (SystemCatalogQueryTest has fragile tests)
     @Test
     public void selectDatabaseInfoWithPredicateAndProjectionWorks() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {

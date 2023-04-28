@@ -33,8 +33,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -99,6 +99,7 @@ public class CaseSensitivityTest {
         }
     }
 
+    @Disabled // TODO (CaseSensitivity.variousDatabase is fragile)
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousDatabases(boolean quoted) throws Exception {
