@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -74,6 +75,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
         return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
