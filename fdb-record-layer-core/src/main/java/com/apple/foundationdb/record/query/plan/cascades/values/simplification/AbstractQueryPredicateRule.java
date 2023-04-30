@@ -1,5 +1,5 @@
 /*
- * ValueSimplificationRule.java
+ * AbstractValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,18 +21,24 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 
 /**
- * Intermediate class that fixes the base type of the {@link AbstractRuleCall} to be {@link Value}.
- * @param <TYPE> the type of the object that this rule helps simplify
+ * Tag class to bind the base {@code BASE} to {@link Value}.
+ * @param <RESULT> the type of the result being yielded by rule implementations
+ * @param <CALL> the type of rule call that is used in calls to {@link #onMatch(PlannerRuleCall)} )}
+ * @param <TYPE> a value type of all possible subclasses of {@link Value} that this rule could match
+ * @see com.apple.foundationdb.record.query.plan.cascades
+ * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueSimplificationRule<TYPE extends Value> extends AbstractValueRule<Value, ValueSimplificationRuleCall, TYPE> {
-    public ValueSimplificationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
+public abstract class AbstractQueryPredicateRule<RESULT, CALL extends AbstractQueryPredicateRuleCall<RESULT, CALL>, TYPE extends QueryPredicate> extends AbstractRule<RESULT, CALL, QueryPredicate, TYPE> {
+    public AbstractQueryPredicateRule(@Nonnull BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

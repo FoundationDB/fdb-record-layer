@@ -76,7 +76,7 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            return executeRuleSet(root,
+            return executeValueRuleSet(root,
                     current,
                     ruleSet,
                     (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
@@ -126,7 +126,7 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            return executeRuleSet(root,
+            return executeValueRuleSet(root,
                     current,
                     ruleSet,
                     (rule, r, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get),
@@ -198,13 +198,44 @@ public class Simplification {
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeRuleSet(@Nonnull final Value root,
-                                                                                   @Nonnull Value current,
-                                                                                   @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
-                                                                                   @Nonnull final RuleCallCreator<R, C> ruleCallCreator,
-                                                                                   @Nonnull final Function<Collection<R>, Value> onResultsFunction) {
+    private static <R, C extends AbstractValueRuleCall<R, C>> Value executeValueRuleSet(@Nonnull final Value root,
+                                                                                        @Nonnull Value current,
+                                                                                        @Nonnull final AbstractValueRuleSet<R, C> ruleSet,
+                                                                                        @Nonnull final RuleCallCreator<R, C, Value> ruleCallCreator,
+                                                                                        @Nonnull final Function<Collection<R>, Value> onResultsFunction) {
+        return executeRuleSet2(root, current, ruleSet, ruleCallCreator, onResultsFunction);
+    }
+
+    /**
+     * Execute a set of rules on the current {@link Value}. This method assumes that all children of the current value
+     * have already been simplified, that is, the rules set has already been exhaustively applied to the entire subtree
+     * underneath the current value. In contrast to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
+     * which creates new variations for yielded new expressions, the logic in this method applies the rule set in a
+     * destructive manner meaning that the last yield wins and all previous yields on the current values were merely
+     * interim stepping stones in transforming the original value to the final value. Thus, the order of the rules in
+     * the rule set is important.
+     * @param <RESULT> type parameter for results
+     * @param <CALL> type parameter for the rule call object to be used
+     * @param <BASE> type parameter ths rule set matches
+     * @param root the root value of the simplification/computation. This information is needed for some rules as
+     *             they may only fire if {@code current} is/is not the root.
+     * @param current the current value that the rule set should be executed on
+     * @param ruleSet the rule set
+     * @param ruleCallCreator a function that creates an instance of {@code C} which is some derivative of
+     *        {@link AbstractValueRuleCall}
+     * @param onResultsFunction a function that is called to manage and unwrap a computational result of a yield. This
+     *                          function is trivial for simplifications.
+     * @return a resulting {@link Value} after all rules in the rule set have been exhaustively applied
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> BASE executeRuleSet2(@Nonnull final BASE root,
+                                                                                                          @Nonnull BASE current,
+                                                                                                          @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
+                                                                                                          @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
+                                                                                                          @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
-        Value newCurrent = current;
+        BASE newCurrent = current;
         do {
             current = newCurrent;
             final var ruleIterator =
@@ -212,7 +243,7 @@ public class Simplification {
 
             while (ruleIterator.hasNext()) {
                 final var rule = ruleIterator.next();
-                final BindingMatcher<? extends Value> matcher = rule.getMatcher();
+                final BindingMatcher<? extends BASE> matcher = rule.getMatcher();
 
                 final var matchIterator = matcher.bindMatches(PlannerBindings.empty(), current).iterator();
 
@@ -250,15 +281,16 @@ public class Simplification {
 
     /**
      * Functional interface to create a specific rule call object.
-     * @param <R> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yield(Object)}
-     * @param <C> the type parameter extending {@link AbstractValueRuleCall}
+     * @param <RESULT> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yield(Object)}
+     * @param <CALL> the type parameter extending {@link AbstractValueRuleCall}
+     * @param <BASE> the type of entity the rule matches
      */
     @FunctionalInterface
-    public interface RuleCallCreator<R, C extends AbstractValueRuleCall<R, C>> {
-        C create(@Nonnull AbstractValueRule<R, C, ? extends Value> rule,
-                 @Nonnull Value root,
-                 @Nonnull Value current,
-                 @Nonnull PlannerBindings plannerBindings);
+    public interface RuleCallCreator<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> {
+        CALL create(@Nonnull AbstractRule<RESULT, CALL, BASE, ? extends BASE> rule,
+                    @Nonnull BASE root,
+                    @Nonnull BASE current,
+                    @Nonnull PlannerBindings plannerBindings);
     }
 }
 
