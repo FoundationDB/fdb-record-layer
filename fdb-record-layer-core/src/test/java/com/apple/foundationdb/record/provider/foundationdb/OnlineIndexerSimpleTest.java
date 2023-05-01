@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -41,7 +40,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.logging.log4j.ThreadContext;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -51,9 +49,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -73,7 +69,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -378,92 +373,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void run() {
-        Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
-                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
-                .setMaxAttempts(2)
-                .build()) {
-
-            AtomicInteger attempts = new AtomicInteger();
-
-            // Non-FDB error
-            attempts.set(0);
-            runAndHandleLessenWorkCodes(indexBuilder, store -> {
-                attempts.incrementAndGet();
-                throw new IllegalStateException("illegal state");
-            }).handle((val, e) -> {
-                assertNotNull(e);
-                assertThat(e, instanceOf(IllegalStateException.class));
-                assertEquals("illegal state", e.getMessage());
-                assertNull(e.getCause());
-                assertEquals(1, attempts.get());
-                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
-                return null;
-            }).join();
-
-            // Retriable error that is not in lessen work codes.
-            attempts.set(0);
-            runAndHandleLessenWorkCodes(indexBuilder, store -> {
-                attempts.incrementAndGet();
-                throw new RecordCoreRetriableTransactionException("Retriable", new FDBException("commit_unknown_result", 1021));
-            }).handle((val, e) -> {
-                assertNotNull(e);
-                assertThat(e, instanceOf(RecordCoreRetriableTransactionException.class));
-                assertEquals("Retriable", e.getMessage());
-                assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("commit_unknown_result", e.getCause().getMessage());
-                assertEquals(FDBError.COMMIT_UNKNOWN_RESULT.code(), ((FDBException)e.getCause()).getCode());
-                assertEquals(2, attempts.get());
-                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
-                return null;
-            }).join();
-
-            // Non-retriable error that is in lessen work codes.
-            attempts.set(0);
-            runAndHandleLessenWorkCodes(indexBuilder, store -> {
-                attempts.incrementAndGet();
-                throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
-            }).handle((val, e) -> {
-                assertNotNull(e);
-                assertThat(e, instanceOf(RecordCoreException.class));
-                assertEquals("Non-retriable", e.getMessage());
-                assertNotNull(e.getCause());
-                assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("transaction_too_large", e.getCause().getMessage());
-                assertEquals(FDBError.TRANSACTION_TOO_LARGE.code(), ((FDBException)e.getCause()).getCode());
-                assertEquals(4, attempts.get()); // lessenWorkCodes is maxRetries
-                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
-                return null;
-            }).join();
-
-            // Retriable error that is in lessen work codes.
-            attempts.set(0);
-            runAndHandleLessenWorkCodes(indexBuilder, store -> {
-                attempts.incrementAndGet();
-                throw new RecordCoreRetriableTransactionException("Retriable and lessener", new FDBException("not_committed", 1020));
-            }).handle((val, e) -> {
-                assertNotNull(e);
-                assertThat(e, instanceOf(RecordCoreRetriableTransactionException.class));
-                assertEquals("Retriable and lessener", e.getMessage());
-                assertNotNull(e.getCause());
-                assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
-                assertEquals(8, attempts.get());
-                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
-                return null;
-            }).join();
-        }
-    }
-
-    private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
-        return indexBuilder.throttledRunAsync(function, Pair::of, null);
-    }
-
-    @Test
     public void lessenLimits() {
         Index index = runAsyncSetup();
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
@@ -489,114 +398,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 return null;
             }).join();
             assertEquals(31, attempts.get());
-        }
-    }
-
-    @Test
-    void notReincreaseLimit() {
-        // Non-retriable error that is in lessen work codes.
-        Supplier<RuntimeException> createException =
-                () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
-
-        Queue<Pair<Integer, Supplier<RuntimeException>>> queue = new LinkedList<>();
-        // failures until it hits 42
-        for (int i = 100; i > 42; i = (3 * i) / 4) {
-            queue.add(Pair.of(i, createException));
-        }
-        // a whole bunch of successes
-        for (int i = 0; i < 100; i++) {
-            queue.add(Pair.of(42, null));
-        }
-        reincreaseLimit(queue, index ->
-                newIndexerBuilder()
-                        .setIndex(index)
-                        .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
-                        .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
-                        .setMaxAttempts(3)
-                        .build());
-    }
-
-    @Test
-    public void reincreaseLimit() {
-        // Non-retriable error that is in lessen work codes.
-        Supplier<RuntimeException> createException =
-                () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
-
-        Queue<Pair<Integer, Supplier<RuntimeException>>> queue = new LinkedList<>();
-        // failures until it hits 1
-        for (int i = 100; i > 1; i = (3 * i) / 4) {
-            queue.add(Pair.of(i, createException));
-        }
-        // queue size = 13
-        // success for a while
-        for (int i = 0; i < 10; i++) {
-            queue.add(Pair.of(1, null));
-        }
-        // queue size = 23
-        // now starts re-increasing
-        queue.add(Pair.of(2, null));
-        queue.add(Pair.of(3, null));
-        queue.add(Pair.of(4, null));
-        for (int i = 5; i < 100; i = (i * 4) / 3) {
-            queue.add(Pair.of(i, null));
-        }
-        // queue size = 38
-        // does not pass original max
-        queue.add(Pair.of(100, null));
-        queue.add(Pair.of(100, null));
-        queue.add(Pair.of(100, null));
-        for (int i = 100; i > 42; i = (3 * i) / 4) {
-            queue.add(Pair.of(i, createException));
-        }
-        // queue size = 44
-        // success for a while
-        for (int i = 0; i < 10; i++) {
-            queue.add(Pair.of(42, null));
-        }
-        // queue size = 54
-        // fail once
-        queue.add(Pair.of(56, createException));
-        for (int i = 0; i < 10; i++) {
-            queue.add(Pair.of(42, null));
-        }
-        // queue size = 65
-        queue.add(Pair.of(56, createException));
-        queue.add(Pair.of(42, null));
-
-        reincreaseLimit(queue, index ->
-                newIndexerBuilder()
-                        .setIndex(index)
-                        .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
-                        .setIncreaseLimitAfter(10)
-                        .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
-                        .setMaxAttempts(3)
-                        .setProgressLogIntervalMillis(0)
-                        .build());
-    }
-
-    private void reincreaseLimit(Queue<Pair<Integer, Supplier<RuntimeException>>> queue,
-                                 final Function<Index, OnlineIndexer> buildOnlineIndexer) {
-        Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = buildOnlineIndexer.apply(index)) {
-
-            AtomicInteger attempts = new AtomicInteger();
-            attempts.set(0);
-            AsyncUtil.whileTrue(() ->
-                    indexBuilder.buildCommitRetryAsync((store, recordsScanned) -> {
-                        Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
-                        if (behavior == null) {
-                            return AsyncUtil.READY_FALSE;
-                        } else {
-                            int currentAttempt = attempts.getAndIncrement();
-                            assertEquals(behavior.getLeft().intValue(), indexBuilder.getLimit(),
-                                    "Attempt " + currentAttempt);
-                            if (behavior.getRight() != null) {
-                                throw behavior.getRight().get();
-                            }
-                            return AsyncUtil.READY_TRUE;
-                        }
-                    }, null)).join();
-            assertNull(queue.poll());
         }
     }
 
@@ -657,58 +458,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             ).join();
             assertNull(queue.poll());
             assertEquals(5L, indexBuilder.getTotalRecordsScanned());
-        }
-    }
-
-    @Test
-    public void runWithWeakReadSemantics() throws InterruptedException, ExecutionException {
-        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
-        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
-        try {
-            fdb.setTrackLastSeenVersion(true);
-            Index index = runAsyncSetup();
-
-            FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
-            try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                    .setIndex(index)
-                    .setWeakReadSemantics(weakReadSemantics)
-                    .build()) {
-                long readVersion = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
-                    assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
-                    assertTrue(recordStore.getContext().hasReadVersion());
-                    return recordStore.getContext().getReadVersionAsync();
-                }).get();
-                long readVersion2 = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
-                    assertTrue(recordStore.getContext().hasReadVersion());
-                    return recordStore.getContext().getReadVersionAsync();
-                }).get();
-                assertEquals(readVersion, readVersion2, "weak read semantics did not preserve read version");
-            }
-        } finally {
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
-            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
-        }
-    }
-
-    @Test
-    public void runWithPriorities() throws InterruptedException, ExecutionException {
-        Index index = runAsyncSetup();
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
-            runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
-                assertEquals(FDBTransactionPriority.BATCH, recordStore.getContext().getPriority());
-                return AsyncUtil.DONE;
-            }).get();
-        }
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .setPriority(FDBTransactionPriority.DEFAULT)
-                .build()) {
-            runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
-                assertEquals(FDBTransactionPriority.DEFAULT, recordStore.getContext().getPriority());
-                return AsyncUtil.DONE;
-            }).get();
         }
     }
 

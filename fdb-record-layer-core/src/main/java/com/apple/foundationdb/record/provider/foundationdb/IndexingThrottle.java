@@ -58,9 +58,8 @@ public class IndexingThrottle {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
     @Nonnull private final IndexingCommon common;
+    @Nonnull private final Booker booker;
     private final IndexState expectedIndexState;
-
-    private int limit;
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -72,95 +71,184 @@ public class IndexingThrottle {
             FDBError.COMMIT_READ_INCOMPLETE.code(),
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
-    /**
-     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, Function, List)}.
-     */
-    private int successCount = 0;
+    private class Booker {
+        /**
+         * Keep track of success/failures and adjust transaction's canned records limit when needed.
+         * Note that when duringRangesIteration=true,  a single thread processing is assumed.
+         */
+        private long recordsLimit;
+        private long lastFailureRecordsScanned;
+        private long totalRecordsScannedSuccess = 0;
+        private long totalRecordsScannedFailure = 0;
+        private long countSuccessfulTransactions = 0;
+        private long countFailedTransactions = 0;
+        private long countRunnerFailedTransactions = 0;
+        private int consecutiveSuccessCount = 0;
+        private long waitPointTime = 0;
+        private long waitPointCount = 0;
 
-    IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
-        this.common = common;
-        this.limit = common.config.getInitialLimit();
-        this.expectedIndexState = expectedIndexState;
-    }
+        Booker() {
+            this.recordsLimit = common.config.getInitialLimit();
+        }
 
-    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
-                                                          @Nullable List<Object> additionalLogMessageKeyValues) {
-        AtomicLong recordsScanned = new AtomicLong(0);
-        return throttledRunAsync(store -> buildFunction.apply(store, recordsScanned),
-                // Run after a single transactional call within runAsync.
-                (result, exception) -> {
-                    tryToIncreaseLimit(exception);
-                    // Update records scanned.
-                    if (exception == null) {
-                        common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
-                    } else {
-                        recordsScanned.set(0);
+        long getRecordsLimit() {
+            return recordsLimit;
+        }
+
+        long waitTimeMilliseconds() {
+            // let delta = transaction(s) actual time in millis
+            // let count = transaction(s) actual count
+            // keeping the ratio:
+            //   count / ((delta + waitMillis) / 1000) = recordsPerSecond
+            //   --> waitMillis = 1000 * count / recordsPerSecond - delta
+            // Notes:
+            // - For simplicity and locality, assume that the next chunk starts at nowMillis+waitMillis
+            // - Avoiding negative delta and restricting toWait's range implies self initialization
+            // - Ignore failed transactions (they should be rare, and limited in number)
+            int recordsPerSecond = common.config.getRecordsPerSecond();
+            if (recordsPerSecond == IndexingCommon.UNLIMITED) {
+                waitPointCount = waitPointTime = 0; // in case config loaders changes from UNLIMITED to limit
+                return 0;
+            }
+            final long now = System.currentTimeMillis();
+            final long delta = Math.max(0, now - waitPointTime);
+            final long toWait = Math.min(999, Math.max(0, (1000 * waitPointCount) / recordsPerSecond -  delta)); // to avoid floor we could have added (recordsPerSecond / 2) to the numerator, but it's neglectable here
+            waitPointTime = now + toWait;
+            waitPointCount = 0;
+            return toWait;
+        }
+
+        public List<Object> logMessageKeyValues() {
+            return Arrays.asList(LogMessageKeys.LIMIT, recordsLimit,
+                    LogMessageKeys.RECORDS_PER_SECOND, common.config.getRecordsPerSecond(),
+                    LogMessageKeys.SUCCESSFUL_TRANSACTIONS_COUNT, countSuccessfulTransactions,
+                    LogMessageKeys.FAILED_TRANSACTIONS_COUNT, countFailedTransactions,
+                    LogMessageKeys.FAILED_TRANSACTIONS_COUNT_IN_RUNNER, countRunnerFailedTransactions,
+                    LogMessageKeys.TOTAL_RECORDS_SCANNED, totalRecordsScannedSuccess,
+                    LogMessageKeys.TOTAL_RECORDS_SCANNED_DURING_FAILURES, totalRecordsScannedFailure
+                    );
+        }
+
+        void decreaseLimit(@Nonnull FDBException fdbException,
+                           @Nullable List<Object> additionalLogMessageKeyValues,
+                           final boolean duringRangesIteration) {
+            // TODO: decrease the limit only for certain errors
+            if (!duringRangesIteration) {
+                return; // no accounting for endpoints operations
+            }
+            countFailedTransactions++;
+            long oldLimit = recordsLimit;
+            recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * 9) / 10)));
+            if (LOGGER.isInfoEnabled()) {
+                final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
+                                LogMessageKeys.ERROR, fdbException.getMessage(),
+                                LogMessageKeys.ERROR_CODE, fdbException.getCode(),
+                                LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                                LogMessageKeys.OLD_LIMIT, oldLimit)
+                        .addKeysAndValues(logMessageKeyValues());
+                if (additionalLogMessageKeyValues != null) {
+                    message.addKeysAndValues(additionalLogMessageKeyValues);
+                }
+                LOGGER.info(message.toString(), fdbException);
+            }
+        }
+
+        private void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
+                                                       @Nonnull final AtomicLong recordsScanned,
+                                                       final boolean duringRangesIteration) {
+            final long recordsScannedThisTransaction = recordsScanned.get();
+            if (!duringRangesIteration) {
+                if (exception == null) {
+                    synchronized (this) { // In this mode, multi threads are allowed
+                        totalRecordsScannedSuccess += recordsScannedThisTransaction;
                     }
-                    return Pair.of(result, exception);
-                },
-                shouldReturnQuietly,
-                additionalLogMessageKeyValues
-        );
-    }
+                }
+                return; // no adjustments here
+            }
+            // Here: assuming a single thread
+            if (exception == null) {
+                countSuccessfulTransactions++;
+                totalRecordsScannedSuccess += recordsScannedThisTransaction;
+                waitPointCount += recordsScannedThisTransaction;
+                if (consecutiveSuccessCount >= common.config.getIncreaseLimitAfter()) {
+                    increaseLimit();
+                    consecutiveSuccessCount = 0; // do not increase again immediately after the next success
+                } else {
+                    consecutiveSuccessCount++;
+                }
+            } else {
+                // Here: memorize the actual records count for the decrease limit function (if applicable) and reset the counter
+                countRunnerFailedTransactions++;
+                lastFailureRecordsScanned = recordsScannedThisTransaction;
+                totalRecordsScannedFailure += recordsScannedThisTransaction;
+                recordsScanned.set(0);
+            }
+        }
 
-    private synchronized void loadConfig() {
-        if (common.loadConfig()) {
-            final int maxLimit = common.config.getMaxLimit();
-            if (limit > maxLimit) {
+        private void increaseLimit() {
+            final long maxLimit = common.config.getMaxLimit();
+            if (recordsLimit >= maxLimit) {
+                return; // quietly
+            }
+            final long oldLimit = recordsLimit;
+            recordsLimit = Math.min(maxLimit, Math.max(recordsLimit + 1, getIncreasedLimit(oldLimit)));
+
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Re-increasing limit of online index build",
+                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                                LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                                LogMessageKeys.OLD_LIMIT, oldLimit)
+                        .addKeysAndValues(logMessageKeyValues())
+                        .toString());
+            }
+        }
+
+        private long getIncreasedLimit(long oldLimit) {
+            if (oldLimit < 5) {
+                return oldLimit + 5;
+            }
+            if (oldLimit < 100) {
+                return oldLimit * 2;
+            }
+            return (4 * oldLimit) / 3;
+        }
+
+        void refreshConfigLimits() {
+            // this is a rare event, called synchronized
+            long maxLimit = common.config.getMaxLimit();
+            if (recordsLimit > maxLimit) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
                             KeyValueLogMessage.build("Decreasing the limit to the new max limit.",
                                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                                    LogMessageKeys.LIMIT, limit,
+                                    LogMessageKeys.OLD_LIMIT, recordsLimit,
+                                    LogMessageKeys.LIMIT, maxLimit,
                                     LogMessageKeys.MAX_LIMIT, maxLimit).toString());
                 }
-                limit = maxLimit;
+                recordsLimit = maxLimit;
             }
         }
     }
 
-    private void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
-        limit = Math.max(1, (3 * limit) / 4);
-        if (LOGGER.isInfoEnabled()) {
-            final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
-                    LogMessageKeys.ERROR, fdbException.getMessage(),
-                    LogMessageKeys.ERROR_CODE, fdbException.getCode(),
-                    LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid()
-                    );
-            if (additionalLogMessageKeyValues != null) {
-                message.addKeysAndValues(additionalLogMessageKeyValues);
-            }
-            LOGGER.info(message.toString(), fdbException);
-        }
+    IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
+        this.common = common;
+        this.expectedIndexState = expectedIndexState;
+        this.booker = new Booker();
     }
 
-    private void tryToIncreaseLimit(@Nullable Throwable exception) {
-        final int increaseLimitAfter = common.config.getIncreaseLimitAfter();
-        final int maxLimit = common.config.getMaxLimit();
-        if (increaseLimitAfter > 0) {
-            if (exception == null) {
-                successCount++;
-                if (successCount >= increaseLimitAfter && limit < maxLimit) {
-                    increaseLimit();
-                }
-            } else {
-                successCount = 0;
-            }
-        }
+    public long waitTimeMilliseconds() {
+        return booker.waitTimeMilliseconds();
     }
 
-    private void increaseLimit() {
-        final int maxLimit = common.config.getMaxLimit();
-        limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("Re-increasing limit of online index build",
-                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid(),
-                    LogMessageKeys.LIMIT, limit));
+    public List<Object> logMessageKeyValues() {
+        return booker.logMessageKeyValues();
+    }
+
+    private synchronized void loadConfig() {
+        if (common.loadConfig()) {
+            booker.refreshConfigLimits();
         }
     }
 
@@ -169,22 +257,15 @@ public class IndexingThrottle {
     // example, the error code associated with this FDBException.
     @Nullable
     private FDBException getFDBException(@Nullable Throwable e) {
-        Throwable curr = e;
-        while (curr != null) {
-            if (curr instanceof FDBException) {
-                return (FDBException)curr;
-            } else {
-                curr = curr.getCause();
-            }
-        }
-        return null;
+        return IndexingBase.findException(e, FDBException.class);
     }
 
+    @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     @Nonnull
-    <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
-                                               @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
-                                               @Nullable final List<Object> additionalLogMessageKeyValues) {
+    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull final BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+                                                          @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
+                                                          @Nullable final List<Object> additionalLogMessageKeyValues,
+                                                          final boolean duringRangesIteration) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                 LogMessageKeys.INDEXER_ID, common.getUuid()));
@@ -193,35 +274,22 @@ public class IndexingThrottle {
         }
 
         AtomicInteger tries = new AtomicInteger(0);
+        AtomicLong recordsScanned = new AtomicLong(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         final ExponentialDelay delay = new ExponentialDelay(common.getRunner().getDatabase().getFactory().getInitialDelayMillis(),
                 common.getRunner().getDatabase().getFactory().getMaxDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
-                List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
-                if (indexStates.stream().anyMatch(state -> state != expectedIndexState)) {
-                    // possible exceptions:
-                    // 1. All the indexes are now readable.
-                    // 2. Some indexes are built, but all the others are in the expected state.
-                    // 3. Some indexes are not in the expected state (disabled?).
-                    // During mutual indexing, the first two may be part of the valid path
-                    if (indexStates.stream().allMatch(state -> (state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING))) {
-                        throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
-                    }
-                    if (indexStates.stream().allMatch(state -> state == expectedIndexState || state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING)) {
-                        throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
-                    }
-                    throw new RecordCoreStorageException("Unexpected index state(s)",
-                            common.getRecordStoreBuilder().getSubspaceProvider().logKey(), common.getRecordStoreBuilder().getSubspaceProvider().toString(context),
-                            LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                            LogMessageKeys.INDEX_STATE, indexStates,
-                            LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
-                }
-                return function.apply(store);
-            }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                expectedIndexStatesOrThrow(store, context);
+                return buildFunction.apply(store, recordsScanned);
+            }), (result, exception) -> {
+                booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, duringRangesIteration);
+                return Pair.of(result, exception);
+            }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                 if (e == null) {
                     // Here: success path - also the common path (or so we hope)
+                    common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                     ret.complete(value);
                     return AsyncUtil.READY_FALSE;
                 }
@@ -241,30 +309,54 @@ public class IndexingThrottle {
                     return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                 }
                 // Here: decrease limit, log, delay continue
-                decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
+                booker.decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues, duringRangesIteration);
                 if (LOGGER.isWarnEnabled()) {
                     final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
-                            LogMessageKeys.INDEXER_CURR_RETRY, currTries,
-                            LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                            LogMessageKeys.DELAY, delay.getNextDelayMillis(),
-                            LogMessageKeys.LIMIT, limit);
-                    message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
+                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
+                                    LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
+                                    LogMessageKeys.DELAY, delay.getNextDelayMillis())
+                            .addKeysAndValues(onlineIndexerLogMessageKeyValues)
+                            .addKeysAndValues(logMessageKeyValues());
                     LOGGER.warn(message.toString(), e);
                 }
-                CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(vignore3 -> true);
+                CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
                 if (common.getRunner().getTimer() != null) {
                     delayedContinue = common.getRunner().getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY,
                             delayedContinue, common.getRunner().getExecutor());
                 }
                 return delayedContinue;
             }).thenCompose(Function.identity());
-        }, common.getRunner().getExecutor()).whenComplete((vignore, e) -> {
+        }, common.getRunner().getExecutor()).whenComplete((ignore, e) -> {
             if (e != null) {
                 // Just update ret and ignore the returned future.
                 completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
             }
         });
         return ret;
+    }
+
+    private void expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
+        List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
+        if (indexStates.stream().anyMatch(state -> state == expectedIndexState)) {
+            return;
+        }
+        // possible exceptions:
+        // 1. All the indexes are now readable.
+        // 2. Some indexes are built, but all the others are in the expected state.
+        // 3. Some indexes are not in the expected state (disabled?).
+        // During mutual indexing, the first two may be part of the valid path
+        if (indexStates.stream().allMatch(state -> (state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING))) {
+            throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
+        }
+        if (indexStates.stream().allMatch(state -> state == expectedIndexState || state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING)) {
+            throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
+        }
+        final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
+        throw new RecordCoreStorageException("Unexpected index state(s)",
+                subspaceProvider == null ? "nullSubspaceProvider" : subspaceProvider.logKey(), subspaceProvider == null ? "" : subspaceProvider.toString(context),
+                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
+                LogMessageKeys.INDEX_STATE, indexStates,
+                LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
     }
 
     private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e, List<Object> additionalLogMessageKeyValues) {
@@ -276,7 +368,7 @@ public class IndexingThrottle {
     }
 
     public int getLimit() {
-        return limit;
+        return (int) booker.getRecordsLimit();
     }
 }
 

@@ -269,12 +269,18 @@ public enum LogMessageKeys {
 
     // record count limits for reading/indexing
     LIMIT,
+    OLD_LIMIT,
     RECORD_COUNT,
     RECORDS_SIZE_ESTIMATE,
     REBUILD_RECORD_COUNTS,
     SCANNED_SO_FAR,
     MAX_LIMIT,
     NEXT_CONTINUATION,
+    SUCCESSFUL_TRANSACTIONS_COUNT,
+    FAILED_TRANSACTIONS_COUNT,
+    FAILED_TRANSACTIONS_COUNT_IN_RUNNER,
+    TOTAL_RECORDS_SCANNED,
+    TOTAL_RECORDS_SCANNED_DURING_FAILURES,
 
     // time limits milliseconds
     TIME_LIMIT_MILLIS("time_limit_milliseconds"),
