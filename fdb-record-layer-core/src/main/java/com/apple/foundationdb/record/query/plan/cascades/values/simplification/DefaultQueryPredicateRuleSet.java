@@ -22,7 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerConstraint;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableSet;
@@ -37,13 +38,19 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class DefaultQueryPredicateRuleSet extends QueryPredicateComputationRuleSet<EvaluationContext, List<PlannerConstraint<?>>> {
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<PlannerConstraint<?>>, OrPredicate> matchValueRule = new OrWithTautologyRule();
+public class DefaultQueryPredicateRuleSet extends QueryPredicateComputationRuleSet<EvaluationContext, List<QueryPlanConstraint>> {
+    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> identityOrRule = new IdentityOrRule();
+    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> annulmentOrRule = new AnnulmentOrRule();
+    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> identityAndRule = new IdentityAndRule();
+    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> annulmentAndRule = new AnnulmentAndRule();
 
-    protected static final Set<QueryPredicateComputationRule<EvaluationContext, List<PlannerConstraint<?>>, ? extends QueryPredicate>> COMPUTATION_RULES =
-            ImmutableSet.of(matchValueRule);
+    protected static final Set<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_RULES =
+            ImmutableSet.of(identityOrRule,
+                    annulmentOrRule,
+                    identityAndRule,
+                    annulmentAndRule);
 
-    protected static final SetMultimap<QueryPredicateComputationRule<EvaluationContext, List<PlannerConstraint<?>>, ? extends QueryPredicate>, QueryPredicateComputationRule<EvaluationContext, List<PlannerConstraint<?>>, ? extends QueryPredicate>> COMPUTATION_DEPENDS_ON =
+    protected static final SetMultimap<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>, QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
     public DefaultQueryPredicateRuleSet() {

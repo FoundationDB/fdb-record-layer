@@ -26,7 +26,10 @@ import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultQueryPredicateRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
@@ -206,5 +209,25 @@ public class QueryPredicateTest {
 
         assertFalse(AndPredicate.and(p1, OrPredicate.or(p2, p3)).equals(AndPredicate.and(OrPredicate.or(p3, p2, p1), p1)));
 
+    }
+
+    @Test
+    public void testQueryPredicateOptimization() {
+        final var rcv = rcv();
+
+        final var a = field(rcv, "a");
+
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ConstantPredicate(true);
+
+        final var predicate = OrPredicate.or(p1, p2);
+
+        final var result = Simplification.optimize(predicate,
+                EvaluationContext.empty(),
+                AliasMap.emptyMap(),
+                ImmutableSet.of(),
+                DefaultQueryPredicateRuleSet.ofComputationRules());
+
+        System.out.println(result.getLeft());
     }
 }

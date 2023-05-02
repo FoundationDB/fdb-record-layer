@@ -22,11 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerConstraint;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -40,26 +43,30 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class OrWithTautologyRule extends QueryPredicateComputationRule<EvaluationContext, List<PlannerConstraint<?>>, OrPredicate> {
+public class AnnulmentAndRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> {
+    @Nonnull
+    private static final BindingMatcher<QueryPredicate> andTermMatcher = anyPredicate();
 
     @Nonnull
-    private static final BindingMatcher<QueryPredicate> orTermMatcher = anyPredicate();
+    private static final BindingMatcher<AndPredicate> rootMatcher = QueryPredicateMatchers.andPredicate(all(andTermMatcher));
 
-    @Nonnull
-    private static final BindingMatcher<OrPredicate> rootMatcher = QueryPredicateMatchers.orPredicate(all(orTermMatcher));
-
-    public OrWithTautologyRule() {
+    public AnnulmentAndRule() {
         super(rootMatcher);
     }
 
     @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
-        return Optional.of(OrPredicate.class);
+        return Optional.of(AndPredicate.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<PlannerConstraint<?>>> call) {
-        //call.yield(call.getRoot(), ImmutableList.of());
+    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+        final var bindings = call.getBindings();
+        final var terms = bindings.getAll(andTermMatcher);
+
+        if (terms.stream().anyMatch(QueryPredicate::isContradiction)) {
+            call.yield(new ConstantPredicate(false), ImmutableList.of());
+        }
     }
 }

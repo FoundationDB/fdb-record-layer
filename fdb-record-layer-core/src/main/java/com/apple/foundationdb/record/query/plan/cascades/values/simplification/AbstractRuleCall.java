@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -59,6 +60,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     private final Set<CorrelationIdentifier> constantAliases;
     @Nonnull
     private final LinkedIdentitySet<RESULT> results;
+    private boolean shouldReExplore;
 
     public AbstractRuleCall(@Nonnull final AbstractRule<RESULT, CALL, ? extends BASE, ? extends BASE> rule,
                             @Nonnull final BASE root,
@@ -73,6 +75,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         this.equivalenceMap = equivalenceMap;
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
+        this.shouldReExplore = false;
     }
 
     @Nonnull
@@ -121,8 +124,18 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         results.add(value);
     }
 
+    public void yieldAndReExplore(@Nonnull RESULT value) {
+        Verify.verify(value != current);
+        results.add(value);
+        shouldReExplore = true;
+    }
+
     @Nonnull
     public Collection<RESULT> getResults() {
         return Collections.unmodifiableCollection(results);
+    }
+
+    public boolean shouldReExplore() {
+        return shouldReExplore;
     }
 }
