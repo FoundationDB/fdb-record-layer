@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -239,6 +240,13 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryInValuesJoinPlan.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getInListValues()), name -> "values(" + name + ")"),
                 downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryPlan> reverse(boolean reverse) {
+        return typedWithDownstream(RecordQueryPlan.class,
+                Extractor.of(QueryPlan::isReverse, name -> "isReverse(" + name + ")"),
+                PrimitiveMatchers.equalsObject(reverse));
     }
 
     @Nonnull

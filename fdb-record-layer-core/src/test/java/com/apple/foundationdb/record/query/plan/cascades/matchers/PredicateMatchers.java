@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.matchers;
 
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.view.FieldValueMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.view.ValueMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import org.hamcrest.Matcher;
 

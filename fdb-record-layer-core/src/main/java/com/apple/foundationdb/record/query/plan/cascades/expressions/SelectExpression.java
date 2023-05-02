@@ -24,16 +24,20 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -51,6 +55,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
@@ -299,9 +305,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                           @Nonnull final AliasMap aliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        // TODO This method should be simplified by adding some structure to it.
-        final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
-
         Verify.verify(this != candidateExpression);
 
         if (getClass() != candidateExpression.getClass()) {
@@ -309,6 +312,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
         final var candidateSelectExpression = (SelectExpression)candidateExpression;
 
+        // TODO This method should be simplified by adding some structure to it.
+        final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
         // merge parameter maps -- early out if a binding clashes
         final var parameterBindingMaps =
                 matchInfos
@@ -396,6 +401,45 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // case we MUST not create a match.
         //
         final var predicateMappingsBuilder = ImmutableList.<Iterable<PredicateMapping>>builder();
+        final ImmutableMap.Builder<CorrelationIdentifier, ComparisonRange> typeKeyBindingsBuilder = ImmutableMap.builder();
+
+        // Look for any record type value predicates in the candidate query that can be bound
+        for (QueryPredicate candidatePredicate : candidateSelectExpression.getPredicates()) {
+            if (!(candidatePredicate instanceof Placeholder)) {
+                continue;
+            }
+            Placeholder placeholder = (Placeholder) candidatePredicate;
+            if (!(placeholder.getValue() instanceof RecordTypeValue)) {
+                continue;
+            }
+            RecordTypeValue recordTypeValue = (RecordTypeValue) placeholder.getValue();
+            Set<String> recordTypes = RecordTypesProperty.evaluate(GroupExpressionRef.of(candidateExpression));
+            if (recordTypes.size() != 1) {
+                continue;
+            }
+            String recordType = Iterables.getOnlyElement(recordTypes);
+
+            CorrelationIdentifier recordTypeTarget = recordTypeValue.getAlias();
+            if (!aliasMap.containsTarget(recordTypeTarget)) {
+                continue;
+            }
+            CorrelationIdentifier recordTypeSource = aliasMap.getSource(recordTypeTarget);
+            if (recordTypeSource == null) {
+                continue;
+            }
+            Comparisons.Comparison comparison = new RecordTypeKeyComparison.RecordTypeComparison(recordType);
+            Optional<ComparisonRange> rangeMaybe = ComparisonRange.from(comparison);
+            if (rangeMaybe.isEmpty()) {
+                continue;
+            }
+            ComparisonRange range = rangeMaybe.get();
+            typeKeyBindingsBuilder.put(placeholder.getParameterAlias(), range);
+            QueryPredicate predicate = new ValuePredicate(new RecordTypeValue(recordTypeSource), comparison);
+            PredicateMapping mapping = new PredicateMapping(predicate, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded(), Optional.of(placeholder.getParameterAlias()));
+            predicateMappingsBuilder.add(ImmutableList.of(mapping));
+        }
+
+        final Map<CorrelationIdentifier, ComparisonRange> typeKeyBindings = typeKeyBindingsBuilder.build();
 
         //
         // Handle the "on empty" case, i.e., the case where there are no predicates on the query side that can
@@ -404,11 +448,28 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // produce a match is that the candidate side MUST NOT be filtering at all, as the query side is not either.
         //
         if (getPredicates().isEmpty()) {
+            List<Iterable<PredicateMapping>> mappings = predicateMappingsBuilder.build();
+            final PredicateMap predicateMap;
+            if (mappings.isEmpty()) {
+                predicateMap = PredicateMap.empty();
+            } else {
+                var predicateMapBuilder = PredicateMap.builder();
+                for (Iterable<PredicateMapping> mappingList : mappings) {
+                    for (PredicateMapping mapping : mappingList) {
+                        predicateMapBuilder.put(mapping.getQueryPredicate(), mapping);
+                    }
+                }
+                predicateMap = predicateMapBuilder.buildMaybe()
+                        .map(PredicateMap.class::cast)
+                        .orElse(PredicateMap.empty());
+            }
+
             final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
                     .allMatch(queryPredicate -> queryPredicate instanceof PredicateWithValueAndRanges || queryPredicate.isTautology());
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
+                return MatchInfo.tryMergeParameterBindings(List.of(mergedParameterBindingMap, typeKeyBindings))
+                        .flatMap(newParameterBindings -> MatchInfo.tryMerge(partialMatchMap, newParameterBindings, predicateMap, remainingValueComputationOptional))
                         .map(ImmutableList::of)
                         .orElse(ImmutableList.of());
             } else {
@@ -512,7 +573,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     return predicateMapOptional
                             .map(predicateMap -> {
                                 final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
-                                        MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
+                                        MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap, typeKeyBindings));
 
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap, remainingValueComputationOptional))

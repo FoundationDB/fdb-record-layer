@@ -146,12 +146,12 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         throw new UnsupportedOperationException("Cannot change comparison");
     }
 
-    static class RecordTypeComparison implements Comparisons.Comparison {
+    public static class RecordTypeComparison implements Comparisons.Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Comparison");
 
         private final String recordTypeName;
 
-        RecordTypeComparison(String recordTypeName) {
+        public RecordTypeComparison(String recordTypeName) {
             this.recordTypeName = recordTypeName;
         }
 
@@ -173,6 +173,11 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Override
         public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
+        }
+
+        @Nonnull
+        public String getRecordTypeName() {
+            return recordTypeName;
         }
 
         @Nonnull
