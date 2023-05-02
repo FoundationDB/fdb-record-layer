@@ -1,5 +1,5 @@
 /*
- * ValueComputationRuleCall.java
+ * QueryPredicateComputationRuleCall.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -38,22 +39,22 @@ import java.util.function.Function;
  * @param <RESULT> the type of result this rule call produces
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRuleCall<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>> {
+public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends AbstractQueryPredicateRuleCall<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>> {
 
     @Nullable
     private final ARGUMENT argument;
 
     @Nonnull
-    private final Function<Value, Pair<Value, RESULT>> retrieveResultFunction;
+    private final Function<QueryPredicate, Pair<QueryPredicate, RESULT>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final AbstractRule<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>, Value, ? extends Value> rule,
-                                    @Nonnull final Value root,
-                                    @Nonnull final Value current,
-                                    @Nullable final ARGUMENT argument,
-                                    @Nonnull final PlannerBindings bindings,
-                                    @Nonnull final AliasMap aliasMap,
-                                    @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                    @Nonnull final Function<Value, Pair<Value, RESULT>> retrieveResultFunction) {
+    public QueryPredicateComputationRuleCall(@Nonnull final AbstractRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, QueryPredicate, ? extends QueryPredicate> rule,
+                                             @Nonnull final QueryPredicate root,
+                                             @Nonnull final QueryPredicate current,
+                                             @Nullable final ARGUMENT argument,
+                                             @Nonnull final PlannerBindings bindings,
+                                             @Nonnull final AliasMap aliasMap,
+                                             @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                             @Nonnull final Function<QueryPredicate, Pair<QueryPredicate, RESULT>> retrieveResultFunction) {
         super(rule, root, current, bindings, aliasMap, constantAliases);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
@@ -65,11 +66,11 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     }
 
     @Nullable
-    public Pair<Value, RESULT> getResult(@Nonnull final Value value) {
-        return retrieveResultFunction.apply(value);
+    public Pair<QueryPredicate, RESULT> getResult(@Nonnull final QueryPredicate predicate) {
+        return retrieveResultFunction.apply(predicate);
     }
 
-    public void yield(@Nonnull final Value value, @Nonnull final RESULT result) {
-        super.yield(Pair.of(value, result));
+    public void yield(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
+        super.yield(Pair.of(predicate, result));
     }
 }

@@ -22,20 +22,20 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
- * @param <A> the type of object that functions as the argument to this rule
- * @param <R> the type of object that this rule produces as result
- * @param <T> the type of object that this rule helps simplify
+ * @param <ARGUMENT> the type of object that functions as the argument to this rule
+ * @param <RESULT> the type of object that this rule produces as result
+ * @param <TYPE> the type of object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, T> {
-    public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
+public abstract class QueryPredicateComputationRule<ARGUMENT, RESULT, TYPE extends QueryPredicate> extends AbstractQueryPredicateRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, TYPE> {
+    public QueryPredicateComputationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * ValueComputationRuleSet.java
+ * AbstractValueRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,24 +21,26 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.SetMultimap;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
- * @param <A> the type of argument that rules in this set consume
- * @param <R> the type of result that rules in this set (or subclasses thereof) produce
+ * @param <R> the type that {@link AbstractValueRule}s in this set yield
+ * @param <C> the type of the call rules in this set will receive
+ *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet<Pair<Value, R>, ValueComputationRuleCall<A, R>> {
-
-    public ValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
-                                   @Nonnull final SetMultimap<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
-        super(abstractValueSimplificationRules, dependsOn);
+public class AbstractQueryPredicateRuleSet<R, C extends AbstractQueryPredicateRuleCall<R, C>> extends AbstractRuleSet<R, C, QueryPredicate> {
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    protected AbstractQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> rules,
+                                            @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> dependencies) {
+        super(rules, dependencies);
     }
 }

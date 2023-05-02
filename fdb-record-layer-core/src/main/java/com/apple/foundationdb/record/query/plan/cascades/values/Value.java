@@ -465,13 +465,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .identitiesFor(correlatedToIntersection)
                 .build();
 
-        final var valueWitResult =
+        final var resultPair =
                 Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
-        if (valueWitResult == null) {
+        if (resultPair == null) {
             return ImmutableMap.of();
         }
 
-        final var matchedValuesMap = valueWitResult.getResult();
+        final var matchedValuesMap = resultPair.getRight();
         final var resultsMap = new LinkedIdentityMap<Value, Value>();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);

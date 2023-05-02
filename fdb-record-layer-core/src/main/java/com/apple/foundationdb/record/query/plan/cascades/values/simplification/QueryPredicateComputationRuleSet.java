@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.SetMultimap;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -35,10 +35,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet<Pair<Value, R>, ValueComputationRuleCall<A, R>> {
+public abstract class QueryPredicateComputationRuleSet<A, R> extends AbstractQueryPredicateRuleSet<Pair<QueryPredicate, R>, QueryPredicateComputationRuleCall<A, R>> {
 
-    public ValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
-                                   @Nonnull final SetMultimap<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
-        super(abstractValueSimplificationRules, dependsOn);
+    public QueryPredicateComputationRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, R>, QueryPredicateComputationRuleCall<A, R>, ? extends QueryPredicate>> rules,
+                                            @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, R>, QueryPredicateComputationRuleCall<A, R>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<Pair<QueryPredicate, R>, QueryPredicateComputationRuleCall<A, R>, ? extends QueryPredicate>> dependsOn) {
+        super(rules, dependsOn);
     }
 }
