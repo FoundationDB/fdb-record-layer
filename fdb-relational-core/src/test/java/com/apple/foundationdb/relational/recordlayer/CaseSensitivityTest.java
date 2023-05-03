@@ -34,7 +34,6 @@ import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -43,9 +42,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class CaseSensitivityTest {
 
@@ -99,7 +101,6 @@ public class CaseSensitivityTest {
         }
     }
 
-    @Disabled // TODO (CaseSensitivity.variousDatabase is fragile)
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousDatabases(boolean quoted) throws Exception {
@@ -113,13 +114,18 @@ public class CaseSensitivityTest {
                         statement.executeUpdate("CREATE DATABASE " + quote(db, quoted));
                     }
                 }
+                List<String> result = new ArrayList<>();
                 try (RelationalStatement statement = conn.createStatement()) {
                     try (RelationalResultSet rs = statement.executeQuery("SELECT * FROM \"DATABASES\"")) {
-                        List<Row> expectedResults = databases.stream().map(db -> quoted ? db : db.toUpperCase(Locale.ROOT)).map(ValueTuple::new).collect(Collectors.toList());
-                        expectedResults.add(new ValueTuple("/__SYS"));
-                        ResultSetAssert.assertThat(rs)
-                                .isExactlyInAnyOrder(new IteratorResultSet(rs.getMetaData().unwrap(StructMetaData.class), expectedResults.listIterator(), 0));
+                        while (rs.next()) {
+                            result.add(rs.getString(1));
+                        }
                     }
+                }
+                if (quoted) {
+                    assertThat(result).containsAll(databases);
+                } else {
+                    assertThat(result).containsAll(databases.stream().map(s -> s.toUpperCase(Locale.ROOT)).collect(Collectors.toList()));
                 }
             } finally {
                 try (Statement statement = conn.createStatement()) {
@@ -296,7 +302,7 @@ public class CaseSensitivityTest {
                             statement.executeUpdate(String.format("CREATE SCHEMA \"%s/%s\" WITH TEMPLATE \"%s_template\"", database, schema, schema));
                         }
                     }
-                    int value = 0;
+                    long value = 0;
                     // Data insertion
                     try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:" + database), Options.NONE)) {
                         try (RelationalStatement statement = dbConn.createStatement()) {
@@ -314,21 +320,20 @@ public class CaseSensitivityTest {
                     }
                     value = 0;
                     // Data retrieval
-                    // Disabled until TODO is fixed
-                    //try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:" + database), Options.NONE)) {
-                    //    try (RelationalStatement statement = dbConn.createStatement()) {
-                    //        for (String schema : schemas) {
-                    //            dbConn.setSchema(schema);
-                    //            for (String table : tables) {
-                    //                for (String column : columns) {
-                    //                    try (RelationalResultSet rs = statement.executeQuery(String.format("SELECT \"%s\" from \"%s\"", column, table))) {
-                    //                        ResultSetAssert.assertThat(rs).hasNextRow().hasColumn(column, value++);
-                    //                    }
-                    //                }
-                    //            }
-                    //        }
-                    //    }
-                    //}
+                    try (RelationalConnection dbConn = Relational.connect(URI.create("jdbc:embed:" + database), Options.NONE)) {
+                        try (RelationalStatement statement = dbConn.createStatement()) {
+                            for (String schema : schemas) {
+                                dbConn.setSchema(schema);
+                                for (String table : tables) {
+                                    for (String column : columns) {
+                                        try (RelationalResultSet rs = statement.executeQuery(String.format("SELECT \"%s\" from \"%s\"", column, table))) {
+                                            ResultSetAssert.assertThat(rs).hasNextRow().hasColumn(column, value++);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             } finally {
                 // Cleanup
