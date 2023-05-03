@@ -112,4 +112,14 @@
 ---
 - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1' and template_version < 1;
 - result: []
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop database /FRL/TEST_DB_2;
+---
+- query: drop database /FRL/TEST_DB_1;
+---
+- query: drop schema template test_template_2;
+---
+- query: drop schema template test_template_1;
 ...
