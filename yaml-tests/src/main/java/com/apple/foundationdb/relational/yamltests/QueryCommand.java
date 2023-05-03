@@ -205,6 +205,9 @@ class QueryCommand extends Command {
 
     @Override
     public void invoke(@Nonnull final List<?> region, @Nonnull final CliCommandFactory factory) throws Exception {
+        if (Debugger.getDebugger() != null) {
+            Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
+        }
         final var queryString = Matchers.string(Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "query string").getValue(), "query string"), "query string");
         final var regionWithoutQuery = region.stream().skip(1).collect(Collectors.toList());
         boolean queryHasRun = false;
