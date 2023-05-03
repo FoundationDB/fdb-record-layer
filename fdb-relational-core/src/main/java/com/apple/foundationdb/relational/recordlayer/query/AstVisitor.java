@@ -331,7 +331,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by and having) columns.
             selectElements.accept(this);
             if (havingClauseContext != null) {
-                havingClauseContext.accept(this);
+                context.withDisabledLiteralProcessing(() -> havingClauseContext.accept(this));
             }
             // (yhatem) resolve order-by columns _now_ because we need them to build using the same resolution rules for group by
             if (orderByClause != null) {
