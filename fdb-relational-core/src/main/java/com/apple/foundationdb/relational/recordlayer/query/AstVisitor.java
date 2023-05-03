@@ -1488,6 +1488,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));
         updateScope.addQuantifier(quantifier);
 
+        context.pushDmlContext();
+
+        Assert.thatUnchecked(!updatedElementCtxs.isEmpty());
+        final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
+        for (final var updatedElementCtx : updatedElementCtxs) {
+            final var updatedElementsPair = visitUpdatedElement(updatedElementCtx);
+            transformMapBuilder.put(updatedElementsPair.getKey(), updatedElementsPair.getValue());
+        }
+
+        context.pop();
+
         if (expressionCtx != null) {
             final var predicateObj = expressionCtx.accept(this);
             Assert.notNullUnchecked(predicateObj);
@@ -1519,17 +1530,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
         Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
         final var targetType = (Type.Record) maybeTargetType.get();
-
-        context.pushDmlContext();
-
-        Assert.thatUnchecked(!updatedElementCtxs.isEmpty());
-        final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
-        for (final var updatedElementCtx : updatedElementCtxs) {
-            final var updatedElementsPair = visitUpdatedElement(updatedElementCtx);
-            transformMapBuilder.put(updatedElementsPair.getKey(), updatedElementsPair.getValue());
-        }
-
-        context.pop();
 
         scopes.pop();
 
