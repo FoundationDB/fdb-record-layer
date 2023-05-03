@@ -58,6 +58,7 @@ public class FDBRecordContextConfig {
     private final RecordLayerPropertyStorage propertyStorage;
     @Nonnull
     private final Set<String> tags;
+    private final boolean reportConflictingKeys;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -74,6 +75,7 @@ public class FDBRecordContextConfig {
         this.listener = builder.listener;
         this.propertyStorage = builder.recordContextProperties;
         this.tags = builder.tags;
+        this.reportConflictingKeys = builder.reportConflictingKeys;
     }
 
     /**
@@ -224,6 +226,14 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get whether to report conflicting key ranges on commit conflict.
+     * @return {@code true} to report conflicting keys
+     */
+    public boolean isReportConflictingKeys() {
+        return reportConflictingKeys;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -258,6 +268,7 @@ public class FDBRecordContextConfig {
         private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
         @Nonnull
         private Set<String> tags = Collections.emptySet();
+        private boolean reportConflictingKeys = false;
 
         private Builder() {
         }
@@ -277,6 +288,7 @@ public class FDBRecordContextConfig {
             this.listener = config.listener;
             this.recordContextProperties = config.propertyStorage;
             this.tags = config.tags;
+            this.reportConflictingKeys = config.reportConflictingKeys;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -294,6 +306,7 @@ public class FDBRecordContextConfig {
             this.listener = config.listener;
             this.recordContextProperties = config.recordContextProperties;
             this.tags = config.tags;
+            this.reportConflictingKeys = config.reportConflictingKeys;
         }
 
         /**
@@ -630,6 +643,22 @@ public class FDBRecordContextConfig {
          */
         public void setTags(@Nonnull final Set<String> tags) {
             this.tags = tags;
+        }
+
+        /**
+         * Get whether to report conflicting key ranges on commit conflict.
+         * @return {@code true} to report conflicting keys
+         */
+        public boolean isReportConflictingKeys() {
+            return reportConflictingKeys;
+        }
+
+        /**
+         * Set whether to report conflicting key rangs on commit conflict.
+         * @param reportConflictingKeys {@code true} to report conflicting keys
+         */
+        public void setReportConflictingKeys(final boolean reportConflictingKeys) {
+            this.reportConflictingKeys = reportConflictingKeys;
         }
 
         /**

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -52,6 +53,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +62,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -159,6 +162,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private long trackOpenTimeNanos;
     @Nonnull
     private final Map<Object, Object> session = new LinkedHashMap<>();
+    @Nullable
+    private List<Range> notCommittedConflictingKeys = null;
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -188,6 +193,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             for (String tag : config.getTags()) {
                 tr.options().setTag(tag);
             }
+        }
+
+        if (config.isReportConflictingKeys()) {
+            tr.options().setReportConflictingKeys();
         }
 
         this.config = config;
@@ -468,6 +477,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 return AsyncUtil.DONE;
             }
         });
+        if (config.isReportConflictingKeys()) {
+            // Do this before the close (below).
+            commit = MoreAsyncUtil.composeWhenCompleteAndHandle(commit, (v, ex) -> {
+                if (ex instanceof CompletionException) {
+                    final Throwable cause = ex.getCause();
+                    if (cause instanceof FDBException) {
+                        final FDBException fdbException = (FDBException)cause;
+                        if (FDBError.fromCode(fdbException.getCode()) == FDBError.NOT_COMMITTED) {
+                            return readConflictingKeys();
+                        }
+                    }
+                }
+                return AsyncUtil.DONE;
+            }, ex -> ex instanceof RuntimeException ? (RuntimeException)ex : new RecordCoreException(ex));
+        }
         return commit.whenComplete((v, ex) -> {
             StoreTimer.Event event = FDBStoreTimer.Events.COMMIT;
             try {
@@ -1403,4 +1427,31 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return config.getPropertyStorage();
     }
 
+    /**
+     * Get key ranges that encountered conflicts when trying to {@link #commit} failed due to {@code NOT_COMMITTED}.
+     * @return list of conflict ranges
+     */
+    @Nullable
+    public List<Range> getNotCommittedConflictingKeys() {
+        return notCommittedConflictingKeys;
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private CompletableFuture<Void> readConflictingKeys() {
+        notCommittedConflictingKeys = new ArrayList<>();
+        final Transaction tr = ensureActive();
+        tr.options().setReadSystemKeys();
+        return AsyncUtil.forEach(tr.getRange(Range.startsWith(SystemKeyspace.TRANSACTION_CONFLICTING_KEYS_PREFIX)),
+                kv -> {
+                    final boolean state = kv.getValue()[0] == '1';
+                    final byte[] key = Arrays.copyOfRange(kv.getKey(), SystemKeyspace.TRANSACTION_CONFLICTING_KEYS_PREFIX.length, kv.getKey().length);
+                    if (state) {
+                        notCommittedConflictingKeys.add(Range.startsWith(key));
+                    } else if (!notCommittedConflictingKeys.isEmpty()) {
+                        final int pos = notCommittedConflictingKeys.size() - 1;
+                        final Range started = notCommittedConflictingKeys.get(pos);
+                        notCommittedConflictingKeys.set(pos, new Range(started.begin, key));
+                    }
+                }, getExecutor());
+    }
 }
