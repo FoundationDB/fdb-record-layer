@@ -591,6 +591,27 @@ public class Comparisons {
     }
 
     @Nullable
+    public static Type invertComparisonType(@Nonnull final Comparisons.Type type) {
+        if (type.isUnary()) {
+            return null;
+        }
+        switch (type) {
+            case EQUALS:
+                return Type.NOT_EQUALS;
+            case LESS_THAN:
+                return Type.GREATER_THAN_OR_EQUALS;
+            case LESS_THAN_OR_EQUALS:
+                return Type.GREATER_THAN;
+            case GREATER_THAN:
+                return Type.LESS_THAN_OR_EQUALS;
+            case GREATER_THAN_OR_EQUALS:
+                return Type.LESS_THAN;
+            default:
+                return null;
+        }
+    }
+
+    @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     public static Boolean evalComparison(@Nonnull Type type, @Nullable Object value, @Nullable Object comparand) {
         if (value == null) {

@@ -65,8 +65,14 @@ public class IdentityOrRule extends QueryPredicateComputationRule<EvaluationCont
         final var terms = bindings.getAll(orTermMatcher);
 
         final var resultTermsBuilder = ImmutableList.<QueryPredicate>builder();
+        int count = 0;
         for (final var term : terms) {
             if (!term.isContradiction()) {
+                count ++;
+                if (count == terms.size()) {
+                    return;
+                }
+
                 // term is still needed
                 resultTermsBuilder.add(term);
             }

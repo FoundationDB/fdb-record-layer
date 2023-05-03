@@ -74,7 +74,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
                 BooleanPredicateNormalizer.Mode.CNF,
                 call.getContext().getPlannerConfiguration());
 
-        cnfNormalizer.normalize(conjunctedPredicate, false)
+        cnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
                         call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
@@ -84,7 +84,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
                 BooleanPredicateNormalizer.Mode.DNF,
                 call.getContext().getPlannerConfiguration());
 
-        dnfNormalizer.normalize(conjunctedPredicate, false)
+        dnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false)
                 .ifPresent(dnfPredicate ->
                         call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),

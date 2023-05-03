@@ -638,7 +638,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         // If the compile-time range is defined, create a sargable from it.
         final var rangeMaybe = rangeBuilder.build();
-        rangeMaybe.ifPresent(compileTimeRange -> result.add(PredicateWithValueAndRanges.sargable(value, compileTimeRange)));
+        rangeMaybe.ifPresent(range -> result.add(PredicateWithValueAndRanges.sargable(value, range)));
 
         return result.build();
     }

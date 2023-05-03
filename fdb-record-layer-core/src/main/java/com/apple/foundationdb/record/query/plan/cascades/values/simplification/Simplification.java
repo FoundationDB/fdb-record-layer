@@ -322,7 +322,11 @@ public class Simplification {
                 simplifiedChildren.add(simplifyWithReExploration(child, resultsMap, ruleSet, ruleCallCreator));
             }
 
-            current = computeCurrent(current, simplifiedChildren);
+            final var computedCurrent = computeCurrent(current, simplifiedChildren);
+            if (computedCurrent != current && resultsMap.containsKey(current)) {
+                resultsMap.put(computedCurrent, resultsMap.get(current));
+            }
+            current = computedCurrent;
 
             executionResult =
                     Simplification.executeRuleSet(root,

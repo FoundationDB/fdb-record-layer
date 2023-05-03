@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,22 +51,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * This class associates a {@link Value} with a set of ranges ({@link RangeConstraints}). Each one of the ranges refers
- * to a conjunction of:
- *  - a contiguous compile-time evaluable range.
- *  - a set of non-compile-time (deferred) ranges.
- *<br>
+ * This class associates a {@link Value} with a set of range constraints ({@link RangeConstraints}). Each one of these
+ * range constraints refers to a conjunction of:
+ * <ul>
+ *  <li> a contiguous compile-time evaluable range. </li>
+ *  <li> a set of non-compile-time (deferred) ranges. </li>
+ * </ul>
+ * <br>
  * The set here represents a disjunction of these ranges. So, in a way, this class represents a boolean expression in
  * DNF form defined on the associated {@link Value}.
- *<br>
+ * <br>
  * It is mainly used for index matching, i.e. it is not evaluable at runtime. On the query side it is normally used to
  * represent a search-argument (sargable). On the candidate side, it is normally used to either represent a restriction
  * on a specific attribute of a scan.
  * <br>
- * If the attribute is indexes, we use the {@link Placeholder} subtype to represent it along with its alias used later
+ * If the attribute is indexed, we use the {@link Placeholder} subtype to represent it along with its alias used later
  * on for substituting one of the index scan search prefix) and an (optional) range(s) defined on it to semantically
  * represent the filtering nature of the associated index and use it to plan accordingly.
  * <br>
@@ -85,7 +87,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     private final Value value;
 
     /**
-     * A list of ranges, implicitly defining a boolean predicate in DNF form defined on the {@code value}.
+     * A set of ranges, implicitly defining a boolean predicate in DNF form defined on the {@code value}.
      */
     @Nonnull
     private final Set<RangeConstraints> ranges;

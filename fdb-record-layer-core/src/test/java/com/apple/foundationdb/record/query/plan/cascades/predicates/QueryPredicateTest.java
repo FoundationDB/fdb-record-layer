@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import static com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not;
 import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.field;
 import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.rcv;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -212,15 +213,32 @@ public class QueryPredicateTest {
     }
 
     @Test
-    public void testQueryPredicateOptimization() {
+    public void testQueryPredicateIdentityLawOptimization() {
         final var rcv = rcv();
-
         final var a = field(rcv, "a");
-
         final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
-        final var p2 = new ConstantPredicate(true);
+        final var p2 = new ConstantPredicate(false);
 
         final var predicate = OrPredicate.or(p1, p2);
+
+        final var result = Simplification.optimize(predicate,
+                EvaluationContext.empty(),
+                AliasMap.emptyMap(),
+                ImmutableSet.of(),
+                DefaultQueryPredicateRuleSet.ofComputationRules());
+
+        System.out.println(result.getLeft());
+    }
+
+    @Test
+    public void testQueryPredicateNotPushDownOptimization() {
+        final var rcv = rcv();
+        final var a = field(rcv, "a");
+        final var b = field(rcv, "b");
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "World"));
+
+        final var predicate = not(OrPredicate.or(p1, p2));
 
         final var result = Simplification.optimize(predicate,
                 EvaluationContext.empty(),

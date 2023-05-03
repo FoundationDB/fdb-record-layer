@@ -199,26 +199,21 @@ public class BooleanPredicateNormalizer {
     }
 
     /**
-     * Convert the given predicate to a normal form, if necessary. If the size of the normal form would exceed the
-     * size limit, return {@code Optional.empty()}.
+     * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
+     * exceed the size limit, throw a {@link NormalFormTooLargeException}.
      * @param predicate the query predicate to be normalized
-     * @return the predicate in normal form if it does not exceed the size limit or {@code Optional.empty()} otherwise
-     */
-    @Nonnull
-    public Optional<QueryPredicate> normalizeIfPossible(@Nullable final QueryPredicate predicate) {
-        return normalize(predicate, false);
-    }
-
-    /**
-     * Convert the given predicate to a normal form, if necessary. If the size of the normal form would exceed the
-     * size limit, throw a {@link NormalFormTooLargeException}.
-     * @param predicate the query predicate to be normalized
+     * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
+     *        (beyond {@link #sizeLimit}).
      * @return the predicate in normal form
      * @throws NormalFormTooLargeException if the normal form would exceed the size limit
      */
     @Nonnull
-    public Optional<QueryPredicate> normalize(@Nullable final QueryPredicate predicate) {
-        return normalize(predicate, true);
+    public Optional<QueryPredicate> normalizeAndSimplify(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
+        return normalizeInternal(predicate, failIfTooLarge)
+                .map(majorOfMinor -> {
+                    applyAbsorptionLaw(majorOfMinor);
+                    return mode.majorWithChildren(majorOfMinor.stream().map(mode::minorWithChildren).collect(Collectors.toList()));
+                });
     }
 
     /**
@@ -232,6 +227,21 @@ public class BooleanPredicateNormalizer {
      */
     @Nonnull
     public Optional<QueryPredicate> normalize(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
+        return normalizeInternal(predicate, failIfTooLarge)
+                .map(majorOfMinor -> mode.majorWithChildren(majorOfMinor.stream().map(mode::minorWithChildren).collect(Collectors.toList())));
+    }
+
+    /**
+     * Convert the given predicate to its respective normal form, if necessary. If the size of the normal form would
+     * exceed the size limit, throw a {@link NormalFormTooLargeException}.
+     * @param predicate the query predicate to be normalized
+     * @param failIfTooLarge indicates whether we should throw an exception if the normalization is too big
+     *        (beyond {@link #sizeLimit}).
+     * @return the predicate in normal form
+     * @throws NormalFormTooLargeException if the normal form would exceed the size limit
+     */
+    @Nonnull
+    private Optional<List<Collection<? extends QueryPredicate>>> normalizeInternal(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
         if (!needsNormalize(predicate)) {
             return Optional.empty();
         } else if (!shouldNormalize(predicate)) {
@@ -241,9 +251,7 @@ public class BooleanPredicateNormalizer {
                 return Optional.empty();
             }
         } else {
-            final List<Collection<? extends QueryPredicate>> majorOfMinor = toNormalized(Objects.requireNonNull(predicate), false);
-            trimTerms(majorOfMinor);
-            return Optional.of(mode.majorWithChildren(majorOfMinor.stream().map(mode::minorWithChildren).collect(Collectors.toList())));
+            return Optional.of(toNormalized(Objects.requireNonNull(predicate), false));
         }
     }
 
@@ -361,7 +369,7 @@ public class BooleanPredicateNormalizer {
     }
 
     @SuppressWarnings({"java:S1119", "java:S135", "java:S1066", "SuspiciousMethodCalls"})
-    private void trimTerms(final List<Collection<? extends QueryPredicate>> majorOfMinor) {
+    public static void applyAbsorptionLaw(final List<Collection<? extends QueryPredicate>> majorOfMinor) {
         int size = majorOfMinor.size();
         if (size < 2) {
             return;
@@ -371,11 +379,8 @@ public class BooleanPredicateNormalizer {
         // The following loop eliminates repetitions of an atom within a list of atoms to be minored, since
         // a ^ a == a and a v a == a
         //
-        for (int i = 0; i < majorOfMinor.size(); i++) {
-            final Collection<? extends QueryPredicate> minors = majorOfMinor.get(i);
-            // de-dup and put the terms back into the list of lists
-            majorOfMinor.set(i, new LinkedHashSet<>(minors));
-        }
+        // de-dup and put the terms back into the list of lists
+        majorOfMinor.replaceAll(LinkedHashSet::new);
         
         //
         // The following loop attempts to find a list of terms (to be minored) within another list of terms (to be minored)

@@ -66,8 +66,14 @@ public class IdentityAndRule extends QueryPredicateComputationRule<EvaluationCon
         final var terms = bindings.getAll(andTermMatcher);
 
         final var resultTermsBuilder = ImmutableList.<QueryPredicate>builder();
+        int count = 0;
         for (final var term : terms) {
             if (!term.isTautology()) {
+                count ++;
+                if (count == terms.size()) {
+                    return;
+                }
+
                 // term is still needed
                 resultTermsBuilder.add(term);
             }
