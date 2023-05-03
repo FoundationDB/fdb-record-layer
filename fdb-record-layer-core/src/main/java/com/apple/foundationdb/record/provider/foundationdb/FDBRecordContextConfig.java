@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A configuration struct that can be used to set various options on an {@link FDBRecordContext}. Instances
@@ -54,6 +56,8 @@ public class FDBRecordContextConfig {
     private final TransactionListener listener;
     @Nonnull
     private final RecordLayerPropertyStorage propertyStorage;
+    @Nonnull
+    private final Set<String> tags;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -69,6 +73,7 @@ public class FDBRecordContextConfig {
         this.saveOpenStackTrace = builder.saveOpenStackTrace;
         this.listener = builder.listener;
         this.propertyStorage = builder.recordContextProperties;
+        this.tags = builder.tags;
     }
 
     /**
@@ -210,6 +215,15 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get tags used for throttling.
+     * @return throttling tags
+     */
+    @Nonnull
+    public Set<String> getTags() {
+        return tags;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -242,6 +256,8 @@ public class FDBRecordContextConfig {
         private boolean saveOpenStackTrace = false;
         private TransactionListener listener = null;
         private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
+        @Nonnull
+        private Set<String> tags = Collections.emptySet();
 
         private Builder() {
         }
@@ -260,6 +276,7 @@ public class FDBRecordContextConfig {
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
             this.recordContextProperties = config.propertyStorage;
+            this.tags = config.tags;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -276,6 +293,7 @@ public class FDBRecordContextConfig {
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
             this.recordContextProperties = config.recordContextProperties;
+            this.tags = config.tags;
         }
 
         /**
@@ -595,6 +613,23 @@ public class FDBRecordContextConfig {
         public Builder setRecordContextProperties(@Nonnull final RecordLayerPropertyStorage recordContextProperties) {
             this.recordContextProperties = recordContextProperties;
             return this;
+        }
+
+        /**
+         * Get tags used for throttling.
+         * @return throttling tags
+         */
+        @Nonnull
+        public Set<String> getTags() {
+            return tags;
+        }
+
+        /**
+         * Set tags used for throttling.
+         * @param tags new set of tags
+         */
+        public void setTags(@Nonnull final Set<String> tags) {
+            this.tags = tags;
         }
 
         /**

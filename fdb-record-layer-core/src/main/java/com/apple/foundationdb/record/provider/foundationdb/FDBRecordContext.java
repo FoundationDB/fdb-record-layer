@@ -184,6 +184,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             tr.options().setServerRequestTracing();
         }
 
+        if (!config.getTags().isEmpty()) {
+            for (String tag : config.getTags()) {
+                tr.options().setTag(tag);
+            }
+        }
+
         this.config = config;
 
         // If a causal read risky is requested, we set the corresponding transaction option
