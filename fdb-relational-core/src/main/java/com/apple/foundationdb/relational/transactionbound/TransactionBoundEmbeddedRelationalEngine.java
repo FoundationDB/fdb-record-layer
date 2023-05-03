@@ -43,11 +43,19 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
 
     public TransactionBoundEmbeddedRelationalEngine(Options engineOptions) {
         super(List.of(new TransactionBoundStorageCluster(null)), NoOpMetricRegistry.INSTANCE);
-        Integer cacheEntries = engineOptions.getOption(Options.Name.PLAN_CACHE_MAX_ENTRIES);
-        if (cacheEntries == null || cacheEntries <= 0) {
+        final Integer primaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES);
+        final Integer secondaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES);
+        final Long primaryCacheTtlMillis = engineOptions.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS);
+        final Long secondaryCacheTtlMillis = engineOptions.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS);
+        if (primaryCacheSize == null || primaryCacheSize <= 0) {
             this.planCache = null;
         } else {
-            this.planCache = RelationalPlanCache.newRelationalCacheBuilder().setSize(cacheEntries).build();
+            this.planCache = RelationalPlanCache.newRelationalCacheBuilder()
+                    .setSize(primaryCacheSize)
+                    .setSecondarySize(secondaryCacheSize)
+                    .setTtl(primaryCacheTtlMillis)
+                    .setSecondaryTtl(secondaryCacheTtlMillis)
+                    .build();
         }
         this.clusters = List.of(new TransactionBoundStorageCluster(planCache));
     }

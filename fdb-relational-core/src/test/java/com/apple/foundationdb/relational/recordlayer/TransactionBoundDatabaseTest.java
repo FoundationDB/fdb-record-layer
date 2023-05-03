@@ -104,7 +104,7 @@ public class TransactionBoundDatabaseTest {
 
                 // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
-                TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.builder().withOption(Options.Name.PLAN_CACHE_MAX_ENTRIES, 1).build());
+                TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.builder().withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10L).build());
                 Assertions.assertThat(engine.getPlanCache()).isNotNull()
                         .extracting(planCache -> planCache.getStats().numEntries()).isEqualTo(0L);
                 EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);

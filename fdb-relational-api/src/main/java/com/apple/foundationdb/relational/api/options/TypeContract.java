@@ -23,9 +23,23 @@ package com.apple.foundationdb.relational.api.options;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public class TypeContract<T> implements OptionContract {
+
+    @Nonnull
+    private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class);
+
+    @Nonnull
+    private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class);
+
+    @Nonnull
+    private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class);
+
+    @Nonnull
+    private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class);
+
     private final Class<T> clazz;
 
     public TypeContract(Class<T> clazz) {
@@ -38,5 +52,30 @@ public class TypeContract<T> implements OptionContract {
         if (!clazz.isInstance(value)) {
             throw new SQLException("Option " + name + " should be of type " + clazz + " but is " + value.getClass(), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
+    }
+
+    @Nonnull
+    public static <T> TypeContract<T> of(@Nonnull final Class<T> clazz) {
+        return new TypeContract<>(clazz);
+    }
+
+    @Nonnull
+    public static TypeContract<Boolean> booleanType() {
+        return BOOLEAN_TYPE;
+    }
+
+    @Nonnull
+    public static TypeContract<String> stringType() {
+        return STRING_TYPE;
+    }
+
+    @Nonnull
+    public static TypeContract<Integer> intType() {
+        return INTEGER_TYPE;
+    }
+
+    @Nonnull
+    public static TypeContract<Long> longType() {
+        return LONG_TYPE;
     }
 }

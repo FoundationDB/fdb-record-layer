@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -36,37 +37,17 @@ import java.util.concurrent.TimeUnit;
 @ExcludeFromJacocoGeneratedReport
 public final class RelationalPlanCache extends MultiStageCache<CachedQuery, PhysicalPlanEquivalence, Plan<?>> {
 
-    /**
-     * The default time-to-live for a primary cache entry.
-     */
-    private static final int DEFAULT_TTL = 5000;
-
     @Nonnull
     private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
-
-    /**
-     * The default time-to-live for a secondary cache entry.
-     */
-    private static final int DEFAULT_SECONDARY_TTL = 3000;
 
     @Nonnull
     private static final TimeUnit DEFAULT_SECONDARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
-    /**
-     * The default size of the primary cache.
-     */
-    private static final int DEFAULT_SIZE = 128;
-
-    /**
-     * The default size of the secondary cache.
-     */
-    private static final int DEFAULT_SECONDARY_SIZE = 8;
-
     private RelationalPlanCache(int size,
                               int secondarySize,
-                              int ttl,
+                              long ttl,
                               @Nonnull final TimeUnit ttlTimeUnit,
-                              int secondaryTtl,
+                              long secondaryTtl,
                               @Nonnull final TimeUnit secondaryTtlTimeUnit,
                               @Nullable final Executor executor,
                               @Nullable final Executor secondaryExecutor,
@@ -78,11 +59,11 @@ public final class RelationalPlanCache extends MultiStageCache<CachedQuery, Phys
     public static final class RelationalCacheBuilder extends MultiStageCache.Builder<CachedQuery, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
 
         public RelationalCacheBuilder() {
-            size = DEFAULT_SIZE;
-            secondarySize = DEFAULT_SECONDARY_SIZE;
-            ttl = DEFAULT_TTL;
+            size = (Integer)(Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));
+            secondarySize = (Integer)(Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES));
+            ttl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS));
             ttlTimeUnit = DEFAULT_TTL_TIME_UNIT;
-            secondaryTtl = DEFAULT_SECONDARY_TTL;
+            secondaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS));
             secondaryTtlTimeUnit = DEFAULT_SECONDARY_TTL_TIME_UNIT;
             executor = null;
             secondaryExecutor = null;

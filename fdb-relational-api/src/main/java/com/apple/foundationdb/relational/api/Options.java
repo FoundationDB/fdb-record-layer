@@ -24,15 +24,18 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public final class Options {
+
     public enum Name {
         CONTINUATION,
         INDEX_HINT,
@@ -58,10 +61,25 @@ public final class Options {
         REPLACE_ON_DUPLICATE_PK,
 
         /**
-         * Capacity limit of Relational's plan cache. Entries will be evicted from the cache following an LRU model.
-         * Settings the limit to value less or equal to zero effectively disables the plan cache.
+         * Limit of Relational's primary plan cache.
+         * Settings the limit to zero effectively disables the plan cache.
          */
-        PLAN_CACHE_MAX_ENTRIES,
+        PLAN_CACHE_PRIMARY_MAX_ENTRIES,
+
+        /**
+         * Limit of Relational's secondary plan cache.
+         */
+        PLAN_CACHE_SECONDARY_MAX_ENTRIES,
+
+        /**
+         * Read time-to-live duration (in milliseconds) of items in the primary cache.
+         */
+        PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS,
+
+        /**
+         * Write time-to-live duration (in milliseconds) of items living in the secondary cache.
+         */
+        PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS,
 
         /**
          * An indicator for the index fetch method to use for a query or an index scan.
@@ -79,27 +97,50 @@ public final class Options {
 
     public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
 
-    private static final Map<Name, List<OptionContract>> contracts = Map.of(
-            Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)),
-            Name.INDEX_HINT, List.of(new TypeContract<>(String.class)),
-            Name.CONTINUATION_PAGE_SIZE, List.of(new TypeContract<>(Integer.class), new RangeContract<>(0, Integer.MAX_VALUE)),
-            Name.REQUIRED_METADATA_TABLE_VERSION, List.of(new TypeContract<>(Integer.class), new RangeContract<>(-1, Integer.MAX_VALUE)),
-            Name.TRANSACTION_TIMEOUT, List.of(new TypeContract<>(Long.class), new RangeContract<>(-1L, Long.MAX_VALUE)),
-            Name.REPLACE_ON_DUPLICATE_PK, List.of(new TypeContract<>(Boolean.class)),
-            Name.PLAN_CACHE_MAX_ENTRIES, List.of(new TypeContract<>(Integer.class)),
-            Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class))
-    );
+    @Nonnull
+    private static final Map<Name, List<OptionContract>> OPTIONS;
 
-    private static final Map<Name, Object> defaults = Map.of(
-            Name.CONTINUATION_PAGE_SIZE, Integer.MAX_VALUE,
-            Name.REPLACE_ON_DUPLICATE_PK, false,
-            Name.PLAN_CACHE_MAX_ENTRIES, 0,
-            Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+    static {
+        final var builder = ImmutableMap.<Name, List<OptionContract>>builder();
+        builder.put(Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)));
+        builder.put(Name.CONTINUATION_PAGE_SIZE, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
+        builder.put(Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class)));
+        builder.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
+        builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
+        builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
+        builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        builder.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
+        builder.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
+        builder.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
+        OPTIONS = builder.build();
+    }
+
+    @Nonnull
+    private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;
+
+    static {
+        final var builder = ImmutableMap.<Name, Object>builder();
+        builder.put(Name.CONTINUATION_PAGE_SIZE, Integer.MAX_VALUE);
+        builder.put(Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
+        builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 1024);
+        builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10_000L);
+        builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 8);
+        builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 30_000L);
+        builder.put(Name.REPLACE_ON_DUPLICATE_PK, false);
+        OPTIONS_DEFAULT_VALUES = builder.build();
+    }
+
 
     public static final Options NONE = Options.builder().build();
 
     private final Options parentOptions;
     private final Map<Name, Object> optionsMap;
+
+    @Nonnull
+    public static Map<Name, Object> defaultOptions() {
+        return OPTIONS_DEFAULT_VALUES;
+    }
 
     private Options(Map<Name, Object> optionsMap, Options parentOptions) {
         this.optionsMap = optionsMap;
@@ -110,12 +151,13 @@ public final class Options {
     public <T> T getOption(Name name) {
         T option = getOptionInternal(name);
         if (option == null) {
-            return (T) defaults.get(name);
+            return (T) OPTIONS_DEFAULT_VALUES.get(name);
         } else {
             return option;
         }
     }
 
+    @Nonnull
     @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
     public static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) throws SQLException {
         if (childOptions.parentOptions != null) {
@@ -129,23 +171,31 @@ public final class Options {
         return new Options(childOptions.optionsMap, parentOptions);
     }
 
+    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
     public static final class Builder {
-        ImmutableMap.Builder<Name, Object> optionsMapBuilder = ImmutableMap.builder();
-        Options parentOptions;
+
+        @Nonnull
+        private final ImmutableMap.Builder<Name, Object> optionsMapBuilder;
+
+        @Nullable
+        private Options parentOptions;
 
         private Builder() {
+            optionsMapBuilder = ImmutableMap.builder();
         }
 
+        @Nonnull
         public Builder withOption(Name name, Object value) throws SQLException {
             validateOption(name, value);
             optionsMapBuilder.put(name, value);
             return this;
         }
 
+        @Nonnull
         public Builder fromOptions(Options options) throws SQLException {
             optionsMapBuilder.putAll(options.optionsMap);
             if (parentOptions != null) {
@@ -157,13 +207,19 @@ public final class Options {
             return this;
         }
 
+        @VisibleForTesting
+        public void setParentOption(@Nullable final Options parentOptions) {
+            this.parentOptions = parentOptions;
+        }
+
+        @Nonnull
         public Options build() {
             return new Options(optionsMapBuilder.build(), parentOptions);
         }
     }
 
-    private static void validateOption(Name name, Object value) throws SQLException {
-        for (OptionContract contract : contracts.get(name)) {
+    private static void validateOption(@Nonnull final Name name, Object value) throws SQLException {
+        for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
             contract.validate(name, value);
         }
     }

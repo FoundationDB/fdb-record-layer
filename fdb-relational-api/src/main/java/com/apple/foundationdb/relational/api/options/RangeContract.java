@@ -23,13 +23,14 @@ package com.apple.foundationdb.relational.api.options;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
     private final T max;
 
-    public RangeContract(T min, T max) {
+    private RangeContract(T min, T max) {
         if (min == null) {
             throw new IllegalArgumentException("RangeContract: Min is null");
         }
@@ -48,5 +49,10 @@ public class RangeContract<T extends Comparable<T>> implements OptionContract {
         if (min.compareTo((T) value) > 0 || max.compareTo((T) value) < 0) {
             throw new SQLException("Option " + name + " should be in range [" + min + ", " + max + "] but is " + value, ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
+    }
+
+    @Nonnull
+    public static <T extends Comparable<T>> RangeContract of(@Nonnull final T min, @Nonnull final T max) {
+        return new RangeContract(min, max);
     }
 }

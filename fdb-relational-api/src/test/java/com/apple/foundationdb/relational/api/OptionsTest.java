@@ -65,7 +65,7 @@ class OptionsTest {
         // Build a child w/ non-zero parent opts... should throw.
         Options.Builder builder = Options.builder()
                 .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1);
-        builder.parentOptions = parent;
+        builder.setParentOption(parent);
         child = builder.build();
         SQLException re = null;
         try {

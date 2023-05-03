@@ -45,10 +45,10 @@ import java.util.stream.Collectors;
  * This is a simple generic cache of caches that employs LRU and TTL expiration policies. It uses the {@link Caffeine}
  * cache implementation internally for both primary and secondary caches.
  * <br>
- * Items stored in the primary cache expire after a duration (see {@link Builder#setTtl(int)}) of time, if an item is read
+ * Items stored in the primary cache expire after a duration (see {@link Builder#setTtl(long)}) of time, if an item is read
  * the duration is reset (read-TTL).
  * <br>
- * Similarly, items stored in the secondary cache expire after a duration (see {@link Builder#setSecondaryTtl(int)} of time).
+ * Similarly, items stored in the secondary cache expire after a duration (see {@link Builder#setSecondaryTtl(long)} of time).
  * The duration is set at the moment of loading the item in the cache (write-TTL).
  * <br>
  * If either primary or secondary caches reach its maximum capacity (see {@link Builder#setSize(int)}, resp. {@link Builder#setSecondarySize(int)})
@@ -90,7 +90,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
     private final int secondarySize;
 
-    private final int secondaryTtl;
+    private final long secondaryTtl;
 
     private final TimeUnit secondaryTtlTimeUnit;
 
@@ -102,9 +102,9 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
     protected MultiStageCache(int size,
                               int secondarySize,
-                              int ttl,
+                              long ttl,
                               TimeUnit ttlTimeUnit,
-                              int secondaryTtl,
+                              long secondaryTtl,
                               TimeUnit secondaryttlTimeUnit,
                               @Nullable final Executor executor,
                               @Nullable final Executor secondaryExecutor,
@@ -321,9 +321,9 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         protected int secondarySize;
 
-        protected int ttl;
+        protected long ttl;
 
-        protected int secondaryTtl;
+        protected long secondaryTtl;
 
         @Nonnull
         protected TimeUnit ttlTimeUnit;
@@ -371,12 +371,12 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
 
         @Nonnull
-        public B setTtl(int ttlMillis) {
+        public B setTtl(long ttlMillis) {
             return setTtl(ttlMillis, TimeUnit.MILLISECONDS);
         }
 
         @Nonnull
-        public B setTtl(int ttl, @Nonnull final TimeUnit timeUnit) {
+        public B setTtl(long ttl, @Nonnull final TimeUnit timeUnit) {
             Assert.thatUnchecked(ttl > 0, String.format("Invalid cache ttl '%d'", ttl), ErrorCode.INTERNAL_ERROR);
             this.ttl = ttl;
             this.ttlTimeUnit = timeUnit;
@@ -384,12 +384,12 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
         }
 
         @Nonnull
-        public B setSecondaryTtl(int secondaryTtlMillis) {
+        public B setSecondaryTtl(long secondaryTtlMillis) {
             return setSecondaryTtl(secondaryTtlMillis, TimeUnit.MILLISECONDS);
         }
 
         @Nonnull
-        public B setSecondaryTtl(int secondaryTtl, @Nonnull final TimeUnit timeUnit) {
+        public B setSecondaryTtl(long secondaryTtl, @Nonnull final TimeUnit timeUnit) {
             Assert.thatUnchecked(secondaryTtl > 0, String.format("Invalid cache secondaryTtl '%d'", secondaryTtl), ErrorCode.INTERNAL_ERROR);
             this.secondaryTtl = secondaryTtl;
             this.secondaryTtlTimeUnit = timeUnit;
