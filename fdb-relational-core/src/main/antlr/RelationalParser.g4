@@ -547,7 +547,6 @@ charsetName
     : BINARY
     | charsetNameBase
     | STRING_LITERAL
-    | CHARSET_REVERSE_QOUTE_STRING
     ;
 
 // done (unsupported)

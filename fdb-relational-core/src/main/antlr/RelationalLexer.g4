@@ -1234,20 +1234,11 @@ ONE_DECIMAL:                         '1';
 TWO_DECIMAL:                         '2';
 SINGLE_QUOTE_SYMB:                   '\'';
 DOUBLE_QUOTE_SYMB:                   '"';
-REVERSE_QUOTE_SYMB:                  '`';
 COLON_SYMB:                          ':';
 
 fragment QUOTE_SYMB
-    : SINGLE_QUOTE_SYMB | DOUBLE_QUOTE_SYMB | REVERSE_QUOTE_SYMB
+    : SINGLE_QUOTE_SYMB | DOUBLE_QUOTE_SYMB
     ;
-
-
-
-// Charsets
-
-CHARSET_REVERSE_QOUTE_STRING:        '`' CHARSET_NAME '`';
-
-
 
 // File's sizes
 
@@ -1290,7 +1281,6 @@ NAMED_PARAMETER:                     '?'[A-Za-z][A-Za-z0-9_/]*;
 
 ID:                                  ID_LITERAL;
 DOUBLE_QUOTE_ID:                     '"' ~'"'+ '"';
-REVERSE_QUOTE_ID:                    '`' ~'`'+ '`';
 STRING_USER_NAME:                    (
                                        DQUOTA_STRING
                                        | ID_LITERAL
@@ -1309,12 +1299,6 @@ LOCAL_ID:                            '@'
                                   [A-Z0-9._$]+
                                   | DQUOTA_STRING
                                 );
-GLOBAL_ID:                           '@' '@'
-                                (
-                                  [A-Z0-9._$]+
-                                  | BQUOTA_STRING
-                                );
-
 
 // Fragments for Literal primitives
 
@@ -1332,7 +1316,6 @@ fragment EXPONENT_NUM_PART:          'E' [-+]? DEC_DIGIT+;
 fragment ID_LITERAL:                 [A-Za-z/][A-Za-z0-9_/]*;
 fragment DQUOTA_STRING:              '"' ( '\\'. | '""' | ~('"'| '\\') )* '"';
 fragment SQUOTA_STRING:              '\'' ('\\'. | '\'\'' | ~('\'' | '\\'))* '\'';
-fragment BQUOTA_STRING:              '`' ( '\\'. | '``' | ~('`'|'\\'))* '`';
 fragment HEX_DIGIT:                  [0-9A-F];
 fragment DEC_DIGIT:                  [0-9];
 fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
