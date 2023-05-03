@@ -263,6 +263,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final FDBRecordStoreStateCache storeStateCache;
 
     @Nullable
+    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
+
+    @Nullable
     private Subspace cachedRecordsSubspace;
 
     @Nonnull
@@ -284,7 +287,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
                              @Nonnull PipelineSizer pipelineSizer,
-                             @Nullable FDBRecordStoreStateCache storeStateCache) {
+                             @Nullable FDBRecordStoreStateCache storeStateCache,
+                             @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
@@ -293,6 +297,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
         this.storeStateCache = storeStateCache;
+        this.userVersionChecker = userVersionChecker;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
     }
@@ -4711,6 +4716,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.metaDataProvider = store.metaDataProvider;
             this.context = store.context;
             this.subspaceProvider = store.subspaceProvider;
+            this.userVersionChecker = store.userVersionChecker;
             this.indexMaintainerRegistry = store.indexMaintainerRegistry;
             this.indexMaintenanceFilter = store.indexMaintenanceFilter;
             this.pipelineSizer = store.pipelineSizer;
@@ -4901,7 +4907,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw new RecordCoreException("serializer must be supplied");
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
-                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache);
+                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache,
+                    userVersionChecker);
         }
 
         @Override
