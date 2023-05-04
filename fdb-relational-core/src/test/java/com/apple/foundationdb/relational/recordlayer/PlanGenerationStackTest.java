@@ -153,7 +153,8 @@ public class PlanGenerationStackTest {
                     Arguments.of(68, "select X.rating from restaurant AS Rec, (select rating from Rec.reviews) X", null),
                     Arguments.of(79, "select COUNT(MAX(Y.rating)) FROM (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY Y.rest_no", "nested aggregate 'count(max_l([[]].Y.RATING))' is not supported"),
                     Arguments.of(70, "select rating from restaurant GROUP BY rest_no", "could not find field name 'RATING'"),
-                    Arguments.of(71, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null)
+                    Arguments.of(71, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null),
+                    Arguments.of(0, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "could not resolve column '[wrong]'")
             );
         }
     }
