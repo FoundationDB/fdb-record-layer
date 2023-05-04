@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 
 import com.google.protobuf.Message;
 
@@ -43,7 +44,7 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
 
     /**
      * the schema template this transaction is bound to. This is mainly needed when accessing the plan cache
-     * as the plan cache key is bound to schema template (see {@link com.apple.foundationdb.relational.recordlayer.query.cache.CachedQuery}).
+     * as the plan cache key is bound to schema template (see {@link QueryCacheKey}).
      */
 
     SchemaTemplate boundSchemaTemplate;

@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-
 import com.google.protobuf.DescriptorProtos;
 import com.ibm.icu.impl.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -32,10 +35,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
@@ -112,7 +117,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(expectedUnionFields, unionDesc.getFieldList().size());
 
         // Check if all generations are present in union descriptor
-        for (var unionField : unionDesc.getFieldList()) {
+        for (final var unionField : unionDesc.getFieldList()) {
             final var typeName = unionField.getTypeName();
             Assertions.assertTrue(testcase.containsKey(typeName));
             final var expectedGenerations = testcase.get(typeName);
@@ -120,6 +125,66 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
+    @Test
+    public void readableIndexBitsetWorksCorrectly() throws RelationalException {
+        final var template = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("t1")
+                        .addColumn(
+                                RecordLayerColumn
+                                        .newBuilder()
+                                        .setName("col1")
+                                        .setDataType(DataType.Primitives.INTEGER.type())
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i1")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i2")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i3")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i4")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .build())
+                .build();
+        // we have table "t1" with four indexes "i1, i2, i3, i4".
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000001}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000010}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000100}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001000}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3", "i2"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000101}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4", "i2", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i4", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3", "i4"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001111}), template.getIndexEntriesAsBitset(Optional.empty()));
+    }
+
+    @Nonnull
     public static Stream<Arguments> badSchemaTemplateGenerationsTestcaseProvider() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
@@ -145,6 +210,7 @@ public class SchemaTemplateSerDeTests {
                 Arguments.of(testcase4, UncheckedRelationalException.class, "Field number 2 has already been used")
         );
     }
+
 
     @ParameterizedTest
     @MethodSource("badSchemaTemplateGenerationsTestcaseProvider")

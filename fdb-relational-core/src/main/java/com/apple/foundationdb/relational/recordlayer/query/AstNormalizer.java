@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
-import com.apple.foundationdb.relational.recordlayer.query.cache.CachedQuery;
+import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.hash.Hasher;
@@ -42,6 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.math.BigInteger;
 import java.util.Base64;
+import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -351,14 +352,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     public static Result normalizeQuery(@Nonnull final SchemaTemplate schemaTemplate,
-                                        @Nonnull final String query) throws RelationalException {
-        return normalizeQuery(schemaTemplate, query, PreparedStatementParameters.empty());
+                                        @Nonnull final String query,
+                                        int userVersion,
+                                        @Nonnull final BitSet readableIndexes) throws RelationalException {
+        return normalizeQuery(schemaTemplate, query, PreparedStatementParameters.empty(), userVersion, readableIndexes);
     }
 
     @Nonnull
     public static Result normalizeQuery(@Nonnull final SchemaTemplate schemaTemplate,
                                         @Nonnull final String query,
-                                        @Nonnull final PreparedStatementParameters preparedStatementParameters) throws RelationalException {
+                                        @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                        int userVersion,
+                                        @Nonnull final BitSet readableIndexes) throws RelationalException {
         final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
         parser.removeErrorListeners();
@@ -368,16 +373,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         if (!listener.getSyntaxErrors().isEmpty()) {
             throw listener.getSyntaxErrors().get(0).toRelationalException();
         }
-        return normalizeAst(schemaTemplate, rootContext, preparedStatementParameters);
+        return normalizeAst(schemaTemplate, rootContext, preparedStatementParameters, userVersion, readableIndexes);
     }
 
     @Nonnull
     private static Result normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
                                        @Nonnull final RelationalParser.RootContext context,
-                                       @Nonnull final PreparedStatementParameters preparedStatementParameters) {
+                                       @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                       int userVersion,
+                                       @Nonnull final BitSet readableIndexes) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters);
         astNormalizer.visit(context);
-        return new Result(CachedQuery.of(schemaTemplate.getName(), astNormalizer.getCanonicalSqlString(), astNormalizer.getHash()),
+        return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags());
@@ -403,7 +410,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         @Nonnull
-        private final CachedQuery cachedQuery;
+        private final QueryCacheKey queryCacheKey;
 
         @Nonnull
         private final QueryExecutionParameters queryExecutionParameters;
@@ -414,19 +421,19 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final Set<QueryCachingFlags> queryCachingFlags;
 
-        public Result(@Nonnull final CachedQuery cachedQuery,
+        public Result(@Nonnull final QueryCacheKey queryCacheKey,
                       @Nonnull final QueryExecutionParameters queryExecutionParameters,
                       @Nonnull final ParseTree parseTree,
                       @Nonnull final Set<QueryCachingFlags> queryCachingFlags) {
-            this.cachedQuery = cachedQuery;
+            this.queryCacheKey = queryCacheKey;
             this.queryExecutionParameters = queryExecutionParameters;
             this.parseTree = parseTree;
             this.queryCachingFlags = queryCachingFlags;
         }
 
         @Nonnull
-        public CachedQuery getCachedQuery() {
-            return cachedQuery;
+        public QueryCacheKey getQueryCacheKey() {
+            return queryCacheKey;
         }
 
         @Nonnull

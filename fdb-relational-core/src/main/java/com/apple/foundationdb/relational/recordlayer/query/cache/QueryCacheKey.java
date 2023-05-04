@@ -1,5 +1,5 @@
 /*
- * CachedQuery.java
+ * QueryCacheKey.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
+import java.util.Objects;
 
 /**
  * This is used to look up a plan in the primary cache (see {@link MultiStageCache} for more information).
@@ -30,9 +32,9 @@ import javax.annotation.Nonnull;
  * <ul>
  *     <li>The schema template name to which the query is bound. It is necessary to use it so we can segregate
  *     the otherwise identical plans but coming from different schemas (see Example 1 below)</li>
+ *     <li>The schema template version, user version, and a bit-set of all readable indexes</li>
  *     <li>The canonical query string where all literals are removed and white spaces are normalised (see example 2)</li>
- *     <li>The hash of the query, see {@link AstNormalizer} for more information on
- *     how is this generated.</li>
+ *     <li>The hash of the query, see {@link AstNormalizer} for more information on how is this generated.</li>
  * </ul>
  * <b>Example1</b>
  * <br>
@@ -55,7 +57,7 @@ import javax.annotation.Nonnull;
  * }
  * </pre>
  * we would compile the query and return a result set comprising two columns {@code id, col1}.
- * we will also cache this query using a {@link CachedQuery} key of something like {@code "s1", "select * from t1 where col1 > ? ", 123456789}
+ * we will also cache this query using a {@link QueryCacheKey} key of something like {@code "s1", "select * from t1 where col1 > ? ", 123456789}
  * <br>
  * if we run the <i>same</i> query, however after connecting to a schema that uses a {@code s2} instead:
  * <pre>
@@ -66,9 +68,9 @@ import javax.annotation.Nonnull;
  * }
  * </pre>
  * we would correctly compile this query and return a result set comprising three columns {@code id, col1, col2}.
- * we will also cache this query using {@link CachedQuery} key of something like {@code "s2", "select * from t1 where col1 > ? ", 123456789}
+ * we will also cache this query using {@link QueryCacheKey} key of something like {@code "s2", "select * from t1 where col1 > ? ", 123456789}
  * <br>
- * Note that without having the schema template name as part of the {@link CachedQuery} both keys would be identical.
+ * Note that without having the schema template name as part of the {@link QueryCacheKey} both keys would be identical.
  * Therefore, we might incorrectly choose the compiled plan of the first query to execute the second query (because we find
  * a match in the cache) causing an error since the result set structure is different because table {@code T1} is defined
  * differently in {@code S1} and {@code S2}.
@@ -92,27 +94,35 @@ import javax.annotation.Nonnull;
  * </table>
  * For more information, examine the unit tests of {@link AstNormalizer}.
  */
-public final class CachedQuery {
-
-    @Nonnull
-    private final String schemaTemplateName;
+public final class QueryCacheKey {
 
     @Nonnull
     private final String canonicalQueryString;
 
     private final int hash;
 
-    private CachedQuery(@Nonnull final String schemaTemplateName,
-                        @Nonnull final String canonicalQueryString,
-                        int hash) {
-        this.schemaTemplateName = schemaTemplateName;
+    @Nonnull
+    private final String schemaTemplateName;
+
+    private final int schemaTemplateVersion;
+
+    @Nonnull
+    private final BitSet readableIndexes;
+
+    private final int userVersion;
+
+    private QueryCacheKey(@Nonnull final String canonicalQueryString,
+                          int hash,
+                          @Nonnull final String schemaTemplateName,
+                          int schemaTemplateVersion,
+                          @Nonnull final BitSet readableIndexes,
+                          int userVersion) {
         this.canonicalQueryString = canonicalQueryString;
         this.hash = hash;
-    }
-
-    @Override
-    public int hashCode() {
-        return hash;
+        this.schemaTemplateName = schemaTemplateName;
+        this.schemaTemplateVersion = schemaTemplateVersion;
+        this.readableIndexes = readableIndexes;
+        this.userVersion = userVersion;
     }
 
     @Override
@@ -123,10 +133,18 @@ public final class CachedQuery {
         if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        CachedQuery that = (CachedQuery) other;
+        final var that = (QueryCacheKey) other;
         return hash == that.hash &&
-                schemaTemplateName.equals(((CachedQuery) other).schemaTemplateName) &&
-                canonicalQueryString.equals(that.canonicalQueryString);
+                schemaTemplateVersion == that.schemaTemplateVersion &&
+                userVersion == that.userVersion &&
+                Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
+                Objects.equals(schemaTemplateName, that.schemaTemplateName) &&
+                Objects.equals(readableIndexes, that.readableIndexes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
     }
 
     public int getHash() {
@@ -138,13 +156,36 @@ public final class CachedQuery {
         return canonicalQueryString;
     }
 
+    @Nonnull
+    public String getSchemaTemplateName() {
+        return schemaTemplateName;
+    }
+
+    public int getSchemaTemplateVersion() {
+        return schemaTemplateVersion;
+    }
+
+    @Nonnull
+    public BitSet getReadableIndexes() {
+        return readableIndexes;
+    }
+
+    public int getUserVersion() {
+        return userVersion;
+    }
+
     @Override
     public String toString() {
         return schemaTemplateName + "||" + canonicalQueryString + "||" + hash;
     }
 
     @Nonnull
-    public static CachedQuery of(@Nonnull final String schemaTemplateName, @Nonnull final String query, int hash) {
-        return new CachedQuery(schemaTemplateName, query, hash);
+    public static QueryCacheKey of(@Nonnull final String query,
+                                   int hash,
+                                   @Nonnull final String schemaTemplateName,
+                                   int schemaTemplateVersion,
+                                   @Nonnull final BitSet readableIndexes,
+                                   int userVersion) {
+        return new QueryCacheKey(query, hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
     }
 }

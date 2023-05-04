@@ -401,7 +401,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
         @Nonnull
         public Set<String> getIndexNames() {
-            return new HashSet<>(recordLayerSchemaTemplate.getIndexes().values()); // refactor and cache.
+            return new HashSet<>(recordLayerSchemaTemplate.getTableIndexMapping().values()); // refactor and cache.
         }
 
         @Override

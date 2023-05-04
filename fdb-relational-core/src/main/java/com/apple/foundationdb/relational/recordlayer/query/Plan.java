@@ -79,7 +79,7 @@ public interface Plan<T> {
         }
     }
 
-    Plan<T> optimize(@Nonnull final CascadesPlanner planner);
+    Plan<T> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration);
 
     T execute(@Nonnull final ExecutionContext c) throws RelationalException;
 

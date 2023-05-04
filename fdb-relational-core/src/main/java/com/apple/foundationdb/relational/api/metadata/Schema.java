@@ -67,7 +67,7 @@ public interface Schema extends Metadata {
      */
     @Nonnull
     default Multimap<String, String> getIndexes() throws RelationalException {
-        return getSchemaTemplate().getIndexes();
+        return getSchemaTemplate().getTableIndexMapping();
     }
 
     @Override

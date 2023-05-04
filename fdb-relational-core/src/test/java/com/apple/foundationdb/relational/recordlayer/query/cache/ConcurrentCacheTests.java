@@ -34,15 +34,16 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 /**
  * This tests concurrent behavior of the secondary cache.
@@ -52,14 +53,19 @@ public class ConcurrentCacheTests {
     @Nonnull
     private static final TypeRepository EMPTY_TYPE_REPO = TypeRepository.empty();
 
+    @Nullable
+    private static <V> V pickFirst(@Nonnull final Stream<V> stream) {
+        return stream.findFirst().orElse(null);
+    }
+
     @Nonnull
     private static PhysicalPlanEquivalence ppeFor(@Nonnull final QueryPlanConstraint constraint) {
-        return new PhysicalPlanEquivalence(0, 0, Set.of("a", "b", "c"), Optional.of(constraint), Optional.empty());
+        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
     }
 
     @Nonnull
     private static PhysicalPlanEquivalence ppeFor(@Nonnull final EvaluationContext evaluationContext) {
-        return new PhysicalPlanEquivalence(0, 0, Set.of("a", "b", "c"), Optional.empty(), Optional.of(evaluationContext));
+        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
     }
 
     @Nonnull
@@ -93,16 +99,16 @@ public class ConcurrentCacheTests {
     }
 
     private static void getOrLoadT1lt300(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.get("T1", ppeFor(ecFor(300)), () -> Pair.of(ppeFor(lt500Constraint), generateIScan(500)), s -> s + " overriden with 300");
+        final var result = cache.reduce("T1", ppeFor(ecFor(300)), () -> Pair.of(ppeFor(lt500Constraint), generateIScan(500)), s -> s + " overriden with 300", ConcurrentCacheTests::pickFirst);
         Assertions.assertThat(result).doesNotContain("150"); // we must not scan index <150 as the returned results would be incorrect
     }
 
     private static void getOrLoadT1lt90(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        cache.get("T1", ppeFor(ecFor(90)), () -> Pair.of(ppeFor(lt150Constraint), generateIScan(150)), s -> s + " overriden with 90");
+        cache.reduce("T1", ppeFor(ecFor(90)), () -> Pair.of(ppeFor(lt150Constraint), generateIScan(150)), s -> s + " overriden with 90", ConcurrentCacheTests::pickFirst);
     }
 
     private static void getOrLoadT1lt1000(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.get("T1", ppeFor(ecFor(1000)), () -> Pair.of(ppeFor(lt1000Constraint), generateFullScan()), s -> s + " overriden with 1000");
+        final var result = cache.reduce("T1", ppeFor(ecFor(1000)), () -> Pair.of(ppeFor(lt1000Constraint), generateFullScan()), s -> s + " overriden with 1000", ConcurrentCacheTests::pickFirst);
         Assertions.assertThat(result).doesNotContain("150", "500"); // we must not scan index <150 or <500 as the returned results would be incorrect
     }
 

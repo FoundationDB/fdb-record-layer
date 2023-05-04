@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 public final class RecordLayerIndex implements Index  {
 
@@ -107,6 +108,28 @@ public final class RecordLayerIndex implements Index  {
                 .setPredicate(index.toProto().getPredicate())
                 .setUnique(index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false))
                 .build();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        RecordLayerIndex that = (RecordLayerIndex) o;
+        return isUnique == that.isUnique &&
+                Objects.equals(tableName, that.tableName) &&
+                Objects.equals(indexType, that.indexType) &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(keyExpression, that.keyExpression) &&
+                Objects.equals(predicate, that.predicate);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(tableName, indexType, name, keyExpression, isUnique, predicate);
     }
 
     public static class Builder {

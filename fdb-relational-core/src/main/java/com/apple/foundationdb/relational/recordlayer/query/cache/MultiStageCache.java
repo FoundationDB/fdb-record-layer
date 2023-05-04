@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This is a simple generic cache of caches that employs LRU and TTL expiration policies. It uses the {@link Caffeine}
@@ -131,23 +132,27 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
         this.ticker = ticker;
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     @Nonnull
-    public V get(@Nonnull final K key,
-                 @Nonnull final S secondaryKey,
-                 @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
-                 @Nonnull final Function<V, V> valueWithEnvironmentDecorator) {
+    public V reduce(@Nonnull final K key,
+                    @Nonnull final S secondaryKey,
+                    @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
+                    @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
+                    @Nonnull final Function<Stream<V>, V> reductionFunction) {
         final var secondaryCache = mainCache.get(key, newKey -> {
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
                     .removalListener((RemovalListener<S, V>) (k, v, i) -> {
                         final var value = mainCache.getIfPresent(key);
-                        if (value != null && value.asMap().size() == 1) {
+                        if (value != null && value.asMap().size() == 0) {
                             mainCache.invalidate(key); // best effort
                         }
                     });
-            secondaryCacheBuilder.expireAfterWrite(secondaryTtl, secondaryTtlTimeUnit);
+            if (secondaryTtl > 0) {
+                secondaryCacheBuilder.expireAfterWrite(secondaryTtl, secondaryTtlTimeUnit);
+            }
             if (secondaryExecutor != null) {
                 secondaryCacheBuilder.executor(secondaryExecutor);
             }
@@ -156,7 +161,8 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
             }
             return secondaryCacheBuilder.build();
         });
-        final var result = secondaryCache.getIfPresent(secondaryKey);
+
+        final var result = reductionFunction.apply(secondaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(secondaryKey)).map(Map.Entry::getValue));
         if (result != null) {
             return valueWithEnvironmentDecorator.apply(result);
         } else {

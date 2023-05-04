@@ -36,7 +36,7 @@ public final class ProceduralPlan implements Plan<Void> {
     }
 
     @Override
-    public Plan<Void> optimize(@Nonnull CascadesPlanner planner) {
+    public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
         return this;
     }
 

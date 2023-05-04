@@ -25,6 +25,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -56,7 +58,26 @@ public interface SchemaTemplate extends Metadata {
     Set<? extends Table> getTables() throws RelationalException;
 
     @Nonnull
-    Multimap<String, String> getIndexes() throws RelationalException;
+    Multimap<String, String> getTableIndexMapping() throws RelationalException;
+
+    @Nonnull
+    Set<String> getIndexes() throws RelationalException;
+
+    /**
+     * Returns a {@link BitSet} whose bits are set for each of passed index names.
+     * <br>
+     * <b>Example</b>
+     * for a given schema template {@code st} with indexes {@code i1, i2, i3, i4} whose order are as-defined, calling
+     * {@code st.getIndexEntriesAsBitset(Optiona.of(Set.of("i2", "i3"))} returns a bitset of {@code 0110}.
+     *
+     * @param readableIndexNames The readable index names, providing an {@link Optional#empty()} returns a bitset with
+     *                           bits set to {@code 1}.
+     * @return a bit set whose bits are set for each of the passed readable index names.
+     * @throws RelationalException If a readable index is not found.
+     */
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    BitSet getIndexEntriesAsBitset(@Nonnull Optional<Set<String>> readableIndexNames) throws RelationalException;
 
     /**
      * Creates a {@link Schema} instance using the specified.

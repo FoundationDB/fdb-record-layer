@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -38,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -70,7 +69,8 @@ public class IndexTest {
         final var metadataProto = schemaTemplate.toRecordMetadata();
         fakePlanContext = PlanContext.Builder.create()
                 .withMetadata(metadataProto)
-                .withStoreState(new RecordStoreState(RecordMetaDataProto.DataStoreInfo.newBuilder().build(), null))
+                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                .withUserVersion(0)
                 .withDbUri(URI.create("/IndexTest"))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.relational.api.Options;
@@ -47,6 +48,10 @@ import java.util.Set;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class PlanGenerator {
 
+    /**
+     * An optional plan cache used for improving performance by caching plans, so we can avoid planning them
+     * unnecessarily.
+     */
     @Nonnull
     private final Optional<RelationalPlanCache> cache;
 
@@ -60,12 +65,25 @@ public final class PlanGenerator {
         this.planner = planner;
     }
 
+    /**
+     * Returns for a given SQL query, a corresponding {@link Plan} that maybe executed to produce results. If a plan
+     * cache is available, it looks up the SQL query in the cache, and if a {@link Plan} is found it returns that
+     * plan directly from the cache without actually generating it. If no plan is found, it will generate it and store
+     * it in the cache.
+     *
+     * @param query The SQL query.
+     * @param context The context related for planning the query and looking it in the cache.
+     * @return a corresponding {@link Plan}.
+     * @throws RelationalException If planning was unsuccessful.
+     */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query,
                            @Nonnull final PlanContext context) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
-            final var astHashResult = AstNormalizer.normalizeQuery(context.getSchemaTemplate(), query, PreparedStatementParameters.of(context.getPreparedStatementParameters()));
+            final var astHashResult = AstNormalizer.normalizeQuery(context.getSchemaTemplate(), query, PreparedStatementParameters.of(context.getPreparedStatementParameters()),
+                    context.getUserVersion(),
+                    context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()));
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
@@ -73,15 +91,29 @@ public final class PlanGenerator {
             }
 
             // otherwise, lookup the query in the cache
-            final var planEquivalence = PhysicalPlanEquivalence.fromPlanContext(context, astHashResult.getQueryExecutionParameters().getEvaluationContext());
+            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
             return cache.get()
-                    .get(astHashResult.getCachedQuery(),
+                    .reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
                                 final var plan = generatePhysicalPlan(query, astHashResult, context, planner);
                                 return Pair.of(planEquivalence.withConstraint(plan.getConstraint()), plan);
                             },
-                            value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()));
+                            value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
+                            plans -> plans.reduce(null, (acc, candidate) -> {
+                                if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
+                                    final var result = (QueryPlan.PhysicalQueryPlan) candidate;
+                                    final var candidateQueryPlan = result.getRecordQueryPlan();
+                                    var bestQueryPlan = acc == null ? null : ((QueryPlan.PhysicalQueryPlan) acc).getRecordQueryPlan();
+                                    if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
+                                        return candidate;
+                                    } else {
+                                        return null;
+                                    }
+                                } else {
+                                    return candidate;
+                                }
+                            }));
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         } catch (MetaDataException mde) {
@@ -92,6 +124,15 @@ public final class PlanGenerator {
         }
     }
 
+    /**
+     * Creates a new instance of the plan generator.
+     * @param cache An optional plan cache.
+     * @param metaData The record store metadata
+     * @param recordStoreState The record store state
+     * @param options a set of planner options.
+     * @return a plan generator
+     * @throws RelationalException if creation of the plan generator fails.
+     */
     @Nonnull
     public static PlanGenerator of(@Nonnull final Optional<RelationalPlanCache> cache,
                                    @Nonnull final RecordMetaData metaData,
@@ -117,7 +158,7 @@ public final class PlanGenerator {
             final Object maybePlan = astWalker.visit(ast.getParseTree());
             Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
-            return logicalPlan.optimize(planner);
+            return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
         } catch (MetaDataException mde) {
             // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();

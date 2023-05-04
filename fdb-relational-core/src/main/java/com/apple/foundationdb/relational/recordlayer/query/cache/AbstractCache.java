@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * This represents a generic plan cache interface intended for streamlining interactions with the cache.
@@ -99,13 +100,15 @@ public abstract class AbstractCache<K, S, V> {
      * @param secondaryKey The secondary key of the item.
      * @param secondaryKeyValueSupplier supplier for a secondary key and value pair in case the item is not found.
      * @param valueWithEnvironmentDecorator decorates the retrieved value with an environment preparing it for execution.
+     * @param reductionFunction a function for choosing one matching value from a list of matches.
      * @return The value referenced {@code key} and {@code secondaryKey}.
      */
     @Nonnull
-    public abstract V get(@Nonnull final K key,
-                   @Nonnull final S secondaryKey,
-                   @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
-                   @Nonnull final Function<V, V> valueWithEnvironmentDecorator);
+    public abstract V reduce(@Nonnull final K key,
+                             @Nonnull final S secondaryKey,
+                             @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
+                             @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
+                             @Nonnull final Function<Stream<V>, V> reductionFunction);
 
     /**
      * Retrieves the statistics of the cache.

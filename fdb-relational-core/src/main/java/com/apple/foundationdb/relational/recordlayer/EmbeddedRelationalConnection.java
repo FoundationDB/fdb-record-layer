@@ -260,4 +260,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             }
         }
     }
+
+    @Override
+    @Nonnull
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        return iface.cast(this);
+    }
 }

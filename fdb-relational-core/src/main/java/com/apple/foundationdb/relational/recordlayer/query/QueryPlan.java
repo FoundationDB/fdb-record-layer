@@ -110,7 +110,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
             return this;
         }
 
@@ -141,6 +141,11 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                             conn);
                 }
             }
+        }
+
+        @Nonnull
+        public RecordQueryPlan getRecordQueryPlan() {
+            return recordQueryPlan;
         }
 
         @Nonnull
@@ -190,7 +195,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
 
         @Override
         @Nonnull
-        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner) {
+        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
             if (optimizedPlan.isPresent()) {
                 return optimizedPlan.get();
             }
@@ -201,7 +206,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
             final var planResult = planner.planGraph(
                     () -> GroupExpressionRef.of(relationalExpression),
-                    Optional.empty(),
+                    configuration.getReadableIndexes().map(s -> s),
                     IndexQueryabilityFilter.TRUE,
                     ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
             optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
@@ -261,7 +266,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
             return this;
         }
 

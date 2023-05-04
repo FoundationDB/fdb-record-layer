@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.query.cache.CachedQuery;
+import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import org.assertj.core.api.Assertions;
@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.Base64;
+import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,9 @@ public class AstNormalizerTests {
                             .build())
                     .build())
             .build();
+
+    @Nonnull
+    private static final BitSet emptyBitSet = new BitSet();
 
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
@@ -202,12 +206,12 @@ public class AstNormalizerTests {
         Assert.thatUnchecked(!queries.isEmpty());
         Assert.thatUnchecked(queries.size() == expectedParametersList.size());
         Integer queryHash = null;
-        CachedQuery cachedQuery = null;
+        QueryCacheKey queryCacheKey = null;
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, PreparedStatementParameters.of(preparedStatementParameters));
-            Assertions.assertThat(hashResults.getCachedQuery().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
+            final var hashResults = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet);
+            Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
             final var constantBindingName = Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId());
@@ -228,15 +232,15 @@ public class AstNormalizerTests {
             }
             // verify that all queries share exactly the same hash code.
             if (queryHash == null) {
-                queryHash = hashResults.getCachedQuery().getHash();
+                queryHash = hashResults.getQueryCacheKey().getHash();
             } else {
-                Assertions.assertThat(queryHash).isEqualTo(hashResults.getCachedQuery().getHash());
+                Assertions.assertThat(queryHash).isEqualTo(hashResults.getQueryCacheKey().getHash());
             }
             // verify that all queries are Object.equals == true
-            if (cachedQuery == null) {
-                cachedQuery = hashResults.getCachedQuery();
+            if (queryCacheKey == null) {
+                queryCacheKey = hashResults.getQueryCacheKey();
             } else {
-                Assertions.assertThat(cachedQuery).isEqualTo(hashResults.getCachedQuery());
+                Assertions.assertThat(queryCacheKey).isEqualTo(hashResults.getQueryCacheKey());
             }
             // verify query caching flags, if explicitly expected in the test.
             if (queryCachingFlags != null) {
@@ -247,7 +251,7 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeQuery(fakeSchemaTemplate, query);
+            AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, 0, emptyBitSet);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -262,9 +266,9 @@ public class AstNormalizerTests {
     private static void validateNotSameHash(@Nonnull final String query1,
                                             @Nonnull final String query2,
                                             @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams));
-        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams));
-        Assertions.assertThat(result1.getCachedQuery().getHash()).isNotEqualTo(result2.getCachedQuery().getHash());
+        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
     private static void validateNotEqual(@Nonnull final String query1,
@@ -275,9 +279,9 @@ public class AstNormalizerTests {
     private static void validateNotEqual(@Nonnull final String query1,
                                          @Nonnull final String query2,
                                          @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams));
-        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams));
-        Assertions.assertThat(result1.getCachedQuery()).isNotEqualTo(result2.getCachedQuery());
+        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
     private static void compareBindings(@Nonnull final Object actual, @Nonnull final Object expected) {

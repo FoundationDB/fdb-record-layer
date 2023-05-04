@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
@@ -38,8 +37,8 @@ import com.google.protobuf.DescriptorProtos;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -216,10 +215,10 @@ public final class RecordLayerTable implements Table {
         private Type.Record record;
 
         private Builder() {
-            this.indexes = new HashSet<>();
+            this.indexes = new LinkedHashSet<>();
             this.columns = ImmutableList.builder();
             this.primaryKeyParts = new ArrayList<>();
-            this.generations = new HashMap<>();
+            this.generations = new LinkedHashMap<>();
 
             this.primaryKeyParts.add(Key.Expressions.recordType());
         }

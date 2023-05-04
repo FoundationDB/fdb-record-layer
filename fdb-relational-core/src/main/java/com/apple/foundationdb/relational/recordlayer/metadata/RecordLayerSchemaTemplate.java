@@ -35,7 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescript
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
@@ -45,11 +45,13 @@ import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -68,14 +70,23 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Supplier<RecordMetaData> metaDataSupplier;
 
+    @Nonnull
+    private final Supplier<Multimap<String, String>> tableIndexMappingSupplier;
+
+    @Nonnull
+    private final Supplier<Map<String, Integer>> indexesSupplier;
+
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      int version, boolean enableLongRows) {
+                                      int version,
+                                      boolean enableLongRows) {
         this.name = name;
         this.version = version;
         this.tables = tables;
         this.enableLongRows = enableLongRows;
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
+        this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
+        this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
     }
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
@@ -88,6 +99,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = tables;
         this.enableLongRows = enableLongRows;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
+        this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
+        this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
     }
 
     @Nonnull
@@ -170,14 +183,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return Optional.empty();
     }
 
-    /**
-     * Returns a list of all table-scoped {@link Index}es in the schema template.
-     *
-     * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
-     */
-    @Override
     @Nonnull
-    public Multimap<String, String> getIndexes() {
+    private Multimap<String, String> computeTableIndexMapping() {
         final var result = ImmutableSetMultimap.<String, String>builder();
         for (final var table : getTables()) {
             for (final var index : table.getIndexes()) {
@@ -185,6 +192,53 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
         }
         return result.build();
+    }
+
+    /**
+     * Returns a list of all table-scoped {@link Index}es in the schema template.
+     *
+     * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
+     */
+    @Override
+    @Nonnull
+    public Multimap<String, String> getTableIndexMapping() {
+        return tableIndexMappingSupplier.get();
+    }
+
+    @Nonnull
+    private Map<String, Integer> computeIndexes() {
+        final Map<String, Integer> result = new LinkedHashMap<>();
+        int i = 0;
+        for (final var table : getTables()) {
+            for (final var index : table.getIndexes()) {
+                result.putIfAbsent(Objects.requireNonNull(index.getName()), i++);
+            }
+        }
+        return result;
+    }
+
+    @Nonnull
+    @Override
+    public Set<String> getIndexes() throws RelationalException {
+        return indexesSupplier.get().keySet();
+    }
+
+    @Nonnull
+    @Override
+    public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> indexNames) throws RelationalException {
+        final var indexMap = indexesSupplier.get();
+        final var result = new BitSet(indexMap.size());
+        if (indexNames.isEmpty()) { // all indexes are readable.
+            result.set(0, indexMap.size()); // set all to '1'.
+            return result;
+        }
+        for (final String indexName : indexNames.get()) {
+            if (!indexMap.containsKey(indexName)) {
+                throw new RelationalException(String.format("could not find index with name '%s'", indexName), ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            }
+            result.set(indexMap.get(indexName));
+        }
+        return result;
     }
 
     @Nonnull
@@ -477,5 +531,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    public Builder toBuilder() {
+        return newBuilder()
+                .setName(name)
+                .setVersion(version)
+                .setEnableLongRows(enableLongRows)
+                .addTables(getTables());
     }
 }

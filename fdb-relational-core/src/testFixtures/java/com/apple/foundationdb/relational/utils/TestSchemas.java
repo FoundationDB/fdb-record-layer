@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import javax.annotation.Nonnull;
+
 /**
  * A Set of commonly used schema template configurations, so that we aren't copy-and-pasting the same DDL logic
  * everywhere.
@@ -39,21 +41,38 @@ public final class TestSchemas {
                     "CREATE INDEX record_name_idx as select name from restaurant " +
                     "CREATE INDEX reviewer_name_idx as select name from restaurant_reviewer ";
 
+    @Nonnull
     public static String restaurant() {
         return RESTAURANT_SCHEMA;
     }
 
     //TODO(bfines) the Query engine can't handle INCLUDE statements yet(TODO)
+    @Nonnull
     public static String restaurantWithCoveringIndex() {
         return RESTAURANT_SCHEMA + " " + "CREATE INDEX record_type_covering as select rest_no, name from restaurant order by rest_no";
     }
 
-    private static String PLAYING_CARD =
+    @Nonnull
+    private static final String PLAYING_CARD =
             "CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
                     "CREATE TABLE card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
                     "CREATE INDEX suit_idx AS SELECT suit FROM card ORDER BY suit";
 
+    @Nonnull
     public static String playingCard() {
         return PLAYING_CARD;
+    }
+
+    @Nonnull
+    private static final String BOOKS_SCHEMAS =
+            "CREATE TABLE BOOKS(id integer, TITLE string, YEAR integer, primary key (id))" +
+                    "CREATE INDEX IDX_1970 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1970 AND YEAR <= 1979" +
+                    "CREATE INDEX IDX_1980 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1980 AND YEAR <= 1989" +
+                    "CREATE INDEX IDX_1990 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1990 AND YEAR <= 1999" +
+                    "CREATE INDEX IDX_2000 AS SELECT YEAR FROM BOOKS WHERE YEAR > 2000";
+
+    @Nonnull
+    public static String books() {
+        return BOOKS_SCHEMAS;
     }
 }

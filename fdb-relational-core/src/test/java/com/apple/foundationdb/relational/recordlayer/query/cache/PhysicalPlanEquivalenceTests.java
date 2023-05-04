@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -45,69 +43,6 @@ import java.util.Set;
  * and eviction behavior.
  */
 public class PhysicalPlanEquivalenceTests {
-
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private static class PPETestBuilder {
-        private int schemaTemplateVersion;
-
-        private int userVersion;
-
-        private Set<String> requiredIndexes;
-
-        private Optional<QueryPlanConstraint> constraint;
-
-        private Optional<EvaluationContext> evaluationContext;
-
-        public PPETestBuilder() {
-            this.schemaTemplateVersion = 42;
-            this.userVersion = 43;
-            this.requiredIndexes = Set.of("a", "b", "c");
-            this.evaluationContext = Optional.empty();
-            this.constraint = Optional.empty();
-        }
-
-        @Nonnull
-        public PPETestBuilder withConstraint(@Nonnull final QueryPlanConstraint constraint) {
-            this.constraint = Optional.of(constraint);
-            this.evaluationContext = Optional.empty();
-            return this;
-        }
-
-        @Nonnull
-        public PPETestBuilder withEvaluationContext(@Nonnull final EvaluationContext evaluationContext) {
-            this.constraint = Optional.empty();
-            this.evaluationContext = Optional.of(evaluationContext);
-            return this;
-        }
-
-        @Nonnull
-        public PPETestBuilder withIndexes(@Nonnull final Set<String> indexes) {
-            this.requiredIndexes = indexes;
-            return this;
-        }
-
-        @Nonnull
-        public PPETestBuilder withSchemaTemplateVerison(int schemaTemplateVersion) {
-            this.schemaTemplateVersion = schemaTemplateVersion;
-            return this;
-        }
-
-        @Nonnull
-        public PPETestBuilder withUserVersion(int userVersion) {
-            this.userVersion = userVersion;
-            return this;
-        }
-
-        @Nonnull
-        public PhysicalPlanEquivalence build() {
-            if (constraint.isPresent()) {
-                Assert.thatUnchecked(evaluationContext.isEmpty());
-            } else if (evaluationContext.isEmpty())  {
-                Assert.failUnchecked("neither constraint nor evaluation context is set.");
-            }
-            return new PhysicalPlanEquivalence(schemaTemplateVersion, userVersion, requiredIndexes, constraint, evaluationContext);
-        }
-    }
 
     @Nonnull
     private static final TypeRepository EMPTY_TYPE_REPO = TypeRepository.empty();
@@ -152,40 +87,35 @@ public class PhysicalPlanEquivalenceTests {
     @Nonnull
     private static final EvaluationContext ec120Dup = EvaluationContext.newBuilder().setConstant(Quantifier.constant(), List.of(120)).build(EMPTY_TYPE_REPO);
 
-    @Nonnull
-    private static PPETestBuilder newPPETestBuilder() {
-        return new PPETestBuilder();
-    }
-
     @Test
     void equalityOfPPEWithMatchingConstraintsWorks() {
         // basic check for reference equality.
-        final var ppe1 = newPPETestBuilder().withConstraint(trueConstraint).build();
+        final var ppe1 = PhysicalPlanEquivalence.of(trueConstraint);
         Assertions.assertThat(ppe1.equals(ppe1)).isTrue();
 
         // member-wise hashing / equality.
-        final var ppe2 = newPPETestBuilder().withConstraint(lt100Constraint).build();
-        final var ppe2Equal = newPPETestBuilder().withConstraint(lt100ConstraintDup).build();
+        final var ppe2 = PhysicalPlanEquivalence.of(lt100Constraint);
+        final var ppe2Equal = PhysicalPlanEquivalence.of(lt100ConstraintDup);
         Assertions.assertThat(ppe2).isEqualTo(ppe2Equal);
 
         // negative test
-        final var ppe3 = newPPETestBuilder().withConstraint(trueConstraint).build();
+        final var ppe3 = PhysicalPlanEquivalence.of(trueConstraint);
         Assertions.assertThat(ppe2).isNotEqualTo(ppe3);
     }
 
     @Test
     void equalityOfPPEWithMatchingEvaluationContextsWorks() {
         // basic check for reference equality.
-        final var ppe1 = newPPETestBuilder().withEvaluationContext(ec80).build();
+        final var ppe1 = PhysicalPlanEquivalence.of(ec80);
         Assertions.assertThat(ppe1.equals(ppe1)).isTrue();
 
         // member-wise hashing / equality.
-        final var ppe2 = newPPETestBuilder().withEvaluationContext(ec120).build();
-        final var ppe2Equal = newPPETestBuilder().withEvaluationContext(ec120Dup).build();
+        final var ppe2 = PhysicalPlanEquivalence.of(ec120);
+        final var ppe2Equal = PhysicalPlanEquivalence.of(ec120Dup);
         Assertions.assertThat(ppe2).isEqualTo(ppe2Equal);
 
         // negative test
-        final var ppe3 = newPPETestBuilder().withEvaluationContext(ec80).build();
+        final var ppe3 = PhysicalPlanEquivalence.of(ec80);
         Assertions.assertThat(ppe2).isNotEqualTo(ppe3);
     }
 
@@ -194,9 +124,9 @@ public class PhysicalPlanEquivalenceTests {
         // assume we have the following entry in the cache
         // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
         final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).build(), "Matching Plan",
-                newPPETestBuilder().withConstraint(gt400Constraint).build(), "Non Matching Plan");
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).build();
+                PhysicalPlanEquivalence.of(lt100Constraint), "Matching Plan",
+                PhysicalPlanEquivalence.of(gt400Constraint), "Non Matching Plan");
+        final var needle = PhysicalPlanEquivalence.of(ec80);
 
         // simulate cache lookup.
         final var found = haystack.get(needle);
@@ -208,10 +138,10 @@ public class PhysicalPlanEquivalenceTests {
         // assume we have the following entry in the cache
         // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
         final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).build(), "Matching Plan 1",
-                newPPETestBuilder().withConstraint(lt400Constraint).build(), "Matching Plan 2",
-                newPPETestBuilder().withConstraint(gt400Constraint).build(), "Non-matching Plan");
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).build();
+                PhysicalPlanEquivalence.of(lt100Constraint), "Matching Plan 1",
+                PhysicalPlanEquivalence.of(lt400Constraint), "Matching Plan 2",
+                PhysicalPlanEquivalence.of(gt400Constraint), "Non-matching Plan");
+        final var needle = PhysicalPlanEquivalence.of(ec80);
         // note that, in current behavior, we return _any_ matching plan for performance reasons.
         final var expectedAnswers = Set.of("Matching Plan 1", "Matching Plan2");
 
@@ -225,85 +155,12 @@ public class PhysicalPlanEquivalenceTests {
         // assume we have the following entry in the cache
         // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
         final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).build(), "Non-Matching Plan 1",
-                newPPETestBuilder().withConstraint(gt400Constraint).build(), "Non-Matching Plan 2");
-        final var needle = newPPETestBuilder().withEvaluationContext(ec120).build();
+                PhysicalPlanEquivalence.of(lt100Constraint), "Non-Matching Plan 1",
+                PhysicalPlanEquivalence.of(gt400Constraint), "Non-Matching Plan 2");
+        final var needle = PhysicalPlanEquivalence.of(ec120);
         // note that, in current behavior, we return _any_ matching plan for performance reasons.
         // simulate cache lookup.
         final var found = haystack.get(needle);
         Assertions.assertThat(found).isNull();
-    }
-
-    @Test
-    void lookupWithNonMatchingDueToEvolvedSchemaTemplateVersionWorks() {
-        // assume we have the following entry in the cache
-        // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
-        final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).withSchemaTemplateVerison(100).build(), "Non-Matching Plan 1",
-                newPPETestBuilder().withConstraint(gt400Constraint).withSchemaTemplateVerison(101).build(), "Non-Matching Plan 2");
-
-        // simulate a plan with a much more recent schema template version.
-        // notice that the evaluation context satisfies constraints in both plans otherwise.
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).withSchemaTemplateVerison(104).build();
-        // note that, in current behavior, we return _any_ matching plan for performance reasons.
-        // simulate cache lookup.
-        final var found = haystack.get(needle);
-        Assertions.assertThat(found).isNull();
-    }
-
-    @Test
-    void lookupWithNonMatchingDueToEvolvedUserVersionWorks() {
-        // assume we have the following entry in the cache
-        // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
-        final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).withUserVersion(100).build(), "Non-Matching Plan 1",
-                newPPETestBuilder().withConstraint(gt400Constraint).withUserVersion(101).build(), "Non-Matching Plan 2");
-
-        // simulate a plan with a much more recent user version.
-        // notice that the evaluation context satisfies constraints in both plans otherwise.
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).withUserVersion(104).build();
-        // note that, in current behavior, we return _any_ matching plan for performance reasons.
-        // simulate cache lookup.
-        final var found = haystack.get(needle);
-        Assertions.assertThat(found).isNull();
-    }
-
-    @Test
-    void lookupWithNonMatchingDueToMissingIndexesWorks() {
-        // assume we have the following entry in the cache
-        // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
-        final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).withIndexes(Set.of("a", "b")).build(), "Non-Matching Plan 1",
-                newPPETestBuilder().withConstraint(gt400Constraint).withIndexes(Set.of("b", "c")).build(), "Non-Matching Plan 2");
-
-        // simulate a plan with readable indexes in the record store that misses some of the seen indexes in both cached plans
-        // (index "a" in first cached plan, and index "b" in second cached plan).
-        // notice that the evaluation context satisfies constraints in both plans, along with schema template version
-        // and user version otherwise.
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).withIndexes(Set.of("c", "d")).build();
-        // note that, in current behavior, we return _any_ matching plan for performance reasons.
-        // simulate cache lookup.
-        final var found = haystack.get(needle);
-        Assertions.assertThat(found).isNull();
-    }
-
-    @Test
-    void lookupWithMatchingWithAllRequiredIndexesAndSomeExtraOnesWorks() {
-        // assume we have the following entry in the cache
-        // note that entries stored in the secondary cache _must_ not have an evaluation context, only a constraint.
-        final var haystack = Map.of(
-                newPPETestBuilder().withConstraint(lt100Constraint).withIndexes(Set.of("a", "b")).build(), "Matching Plan 1",
-                newPPETestBuilder().withConstraint(gt400Constraint).withIndexes(Set.of("b", "c")).build(), "Matching Plan 2");
-        final var expectedAnswers = Set.of("Matching Plan 1", "Matching Plan2");
-
-        // simulate a plan with readable indexes in the record store that misses some of the seen indexes in both cached plans
-        // (index "a" in first cached plan, and index "b" in second cached plan).
-        // notice that the evaluation context satisfies constraints in both plans, along with schema template version
-        // and user version otherwise.
-        final var needle = newPPETestBuilder().withEvaluationContext(ec80).withIndexes(Set.of("a", "b", "c", "d")).build();
-        // note that, in current behavior, we return _any_ matching plan for performance reasons.
-        // simulate cache lookup.
-        final var found = haystack.get(needle);
-        Assertions.assertThat(expectedAnswers).contains(found);
     }
 }

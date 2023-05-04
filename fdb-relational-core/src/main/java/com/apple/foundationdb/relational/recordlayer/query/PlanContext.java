@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -36,12 +37,18 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class PlanContext {
+
+    // todo (yhatem) remove this if possible.
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
-    private final RecordStoreState storeState;
+    private final PlannerConfiguration plannerConfiguration;
     @Nonnull
     private final MetadataOperationsFactory metadataOperationsFactory;
     @Nonnull
@@ -54,29 +61,36 @@ public final class PlanContext {
     @Nonnull
     private final SchemaTemplate schemaTemplate;
 
+    private final int userVersion;
+
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
-     * @param metaData                  The record store metadata.
-     * @param schemaTemplate            The schema template.
-     * @param storeState                The record store state.
-     * @param metadataOperationsFactory The constant action factory used for DDL and metadata queries
-     * @param dbUri                     The URI of the database.
+     * @param metaData                    The record store metadata.
+     * @param schemaTemplate              The schema template.
+     * @param plannerConfiguration        The planner configurations.
+     * @param metadataOperationsFactory   The constant action factory used for DDL and metadata queries
+     * @param dbUri                       The URI of the database.
+     * @param ddlQueryFactory             The DDL factory.
+     * @param preparedStatementParameters A list of prepared statement parameters.
+     * @param userVersion                 The user version bound to the opened record store.
      **/
     private PlanContext(@Nonnull final RecordMetaData metaData,
                         @Nonnull final SchemaTemplate schemaTemplate,
-                        @Nonnull final RecordStoreState storeState,
+                        @Nonnull final PlannerConfiguration plannerConfiguration,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                         @Nonnull final DdlQueryFactory ddlQueryFactory,
                         @Nonnull final URI dbUri,
-                        @Nonnull final PreparedStatementParameters preparedStatementParameters) {
+                        @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                        final int userVersion) {
         this.metaData = metaData;
         this.schemaTemplate = schemaTemplate;
-        this.storeState = storeState;
+        this.plannerConfiguration = plannerConfiguration;
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
+        this.userVersion = userVersion;
     }
 
     @Nonnull
@@ -85,8 +99,8 @@ public final class PlanContext {
     }
 
     @Nonnull
-    public RecordStoreState getStoreState() {
-        return storeState;
+    public PlannerConfiguration getPlannerConfiguration() {
+        return plannerConfiguration;
     }
 
     @Nonnull
@@ -114,15 +128,17 @@ public final class PlanContext {
         return schemaTemplate;
     }
 
-    public RecordStoreState getState() {
-        return storeState;
+    public int getUserVersion() {
+        return userVersion;
     }
 
     public static final class Builder {
 
         private RecordMetaData metaData;
 
-        private RecordStoreState storeState;
+        private PlannerConfiguration plannerConfiguration;
+
+        private int userVersion;
 
         private SchemaTemplate schemaTemplate;
 
@@ -152,8 +168,14 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder withStoreState(@Nonnull final RecordStoreState storeState) {
-            this.storeState = storeState;
+        public Builder withPlannerConfiguration(@Nonnull final PlannerConfiguration plannerConfiguration) {
+            this.plannerConfiguration = plannerConfiguration;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withUserVersion(final int userVersion) {
+            this.userVersion = userVersion;
             return this;
         }
 
@@ -189,7 +211,22 @@ public final class PlanContext {
 
         @Nonnull
         public Builder fromRecordStore(@Nonnull final FDBRecordStoreBase<Message> recordStore) {
-            return withStoreState(recordStore.getRecordStoreState()).withMetadata(recordStore.getRecordMetaData());
+            final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
+                    PlannerConfiguration.ofAllAvailableIndexes() :
+                    PlannerConfiguration.from(Optional.of(getReadableIndexes(recordStore.getRecordStoreState())));
+            return withPlannerConfiguration(plannerConfig)
+                    .withMetadata(recordStore.getRecordMetaData())
+                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());
+        }
+
+        @Nonnull
+        private static Set<String> getReadableIndexes(@Nonnull final RecordStoreState storeState) {
+            // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
+            if (storeState.allIndexesReadable()) {
+                return storeState.getIndexStates().keySet();
+            } else {
+                return storeState.getIndexStates().entrySet().stream().filter(pair -> pair.getValue() == IndexState.READABLE).map(Map.Entry::getKey).collect(Collectors.toSet());
+            }
         }
 
         @Nonnull
@@ -203,7 +240,7 @@ public final class PlanContext {
         private void verify() throws RelationalException {
             Assert.notNull(metaData);
             Assert.notNull(schemaTemplate);
-            Assert.notNull(storeState);
+            Assert.notNull(plannerConfiguration);
             Assert.notNull(metadataOperationsFactory);
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);
@@ -215,7 +252,7 @@ public final class PlanContext {
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, schemaTemplate, storeState, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters);
+            return new PlanContext(metaData, schemaTemplate, plannerConfiguration, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters, userVersion);
         }
 
         @Nonnull
@@ -229,7 +266,8 @@ public final class PlanContext {
                     .withMetadata(planContext.metaData)
                     .withSchemaTemplate(planContext.schemaTemplate)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
-                    .withStoreState(planContext.storeState);
+                    .withPlannerConfiguration(planContext.plannerConfiguration)
+                    .withUserVersion(planContext.userVersion);
         }
     }
 }

@@ -29,6 +29,8 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -74,7 +76,19 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Multimap<String, String> getIndexes() throws RelationalException {
+    public Multimap<String, String> getTableIndexMapping() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Set<String> getIndexes() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> readableIndexNames) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
     }
 

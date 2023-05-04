@@ -22,11 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -35,19 +33,14 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Represents a key in the secondary cache with special logic for look up.
  * <br>
- * It is designed to achieve two goals:
- * <ol>
- *     <li>hold key information about the plan in the secondary cache (schemaTemplate version, user version, ... etc)</li>
- *     <li>when used for lookup, hold {@link EvaluationContext} information as a needle and use it to check constraint
- *     implication ({@link QueryPlanConstraint#compileTimeEval(EvaluationContext)}) against other objects in the haystack.
- *     See how {@link PhysicalPlanEquivalence#equals(Object)} is implemented for more information.</li>
- * </ol>
+ * It is designed to hold <u>only</u> the items that can not be hashed or evaluated in constant-time. When used for
+ * lookup, its holds {@link EvaluationContext} information as a needle and use it to check constraint implication
+ * ({@link QueryPlanConstraint#compileTimeEval(EvaluationContext)}) against other objects in the haystack.
+ * See how {@link PhysicalPlanEquivalence#equals(Object)} is implemented for more information.
  * Therefore, this class accepts _either_ an {@link EvaluationContext} or a {@link QueryPlanConstraint} as a member.
  * <br>
  *
@@ -59,12 +52,6 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class PhysicalPlanEquivalence {
-    private final int schemaTemplateVersion;
-
-    private final int userVersion;
-
-    @Nonnull
-    private final Set<String> seenIndexesDuringPlanning;
 
     @Nonnull
     private final Optional<QueryPlanConstraint> constraint;
@@ -73,17 +60,11 @@ public final class PhysicalPlanEquivalence {
     private final Optional<EvaluationContext> evaluationContext;
 
     @VisibleForTesting
-    PhysicalPlanEquivalence(int schemaTemplateVersion,
-                                    int userVersion,
-                                    @Nonnull Set<String> seenIndexesDuringPlanning,
-                                    @Nonnull final Optional<QueryPlanConstraint> constraint,
-                                    @Nonnull final Optional<EvaluationContext> evaluationContext) {
+    PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
+                            @Nonnull final Optional<EvaluationContext> evaluationContext) {
         Assert.thatUnchecked(constraint.isPresent() ^ evaluationContext.isPresent(),
                 "Either constraint or evaluation context must be set (but not both)",
                 ErrorCode.INTERNAL_ERROR);
-        this.schemaTemplateVersion = schemaTemplateVersion;
-        this.userVersion = userVersion;
-        this.seenIndexesDuringPlanning = seenIndexesDuringPlanning;
         this.constraint = constraint;
         this.evaluationContext = evaluationContext;
     }
@@ -124,24 +105,12 @@ public final class PhysicalPlanEquivalence {
         }
         final var other = (PhysicalPlanEquivalence) object;
 
-        if (this.schemaTemplateVersion != other.schemaTemplateVersion) {
-            return false;
-        }
-
-        if (this.userVersion != other.userVersion) {
-            return false;
-        }
-
         if (other.constraint.isEmpty()) {
             if (constraint.isPresent()) {
                 // special semantics for cache lookup.
-                return constraint.get().compileTimeEval(other.evaluationContext.get()) &&
-                        other.seenIndexesDuringPlanning.containsAll(seenIndexesDuringPlanning);
+                return constraint.get().compileTimeEval(other.evaluationContext.get());
             } else {
                 // member-wise equality.
-                if (!other.seenIndexesDuringPlanning.equals(seenIndexesDuringPlanning)) {
-                    return false;
-                }
                 if (evaluationContext.isEmpty() && other.evaluationContext.isEmpty()) {
                     return true;
                 }
@@ -153,36 +122,35 @@ public final class PhysicalPlanEquivalence {
                 return Objects.equals(constantBindings1, constantBindings2);
             }
         } else {
-            if (evaluationContext.isPresent()) {
-                // special semantics for cache lookup.
-                return other.constraint.get().compileTimeEval(evaluationContext.get()) &&
-                        seenIndexesDuringPlanning.containsAll(other.seenIndexesDuringPlanning);
-            } else {
-                // member-wise equality.
-                return other.seenIndexesDuringPlanning.equals(seenIndexesDuringPlanning) &&
-                        other.constraint.equals(constraint);
-            }
+            // special semantics for cache lookup.
+            // member-wise equality.
+            return evaluationContext.map(context -> other.constraint.get().compileTimeEval(context)).orElseGet(() -> other.constraint.equals(constraint));
         }
     }
 
     @Override
     public int hashCode() {
         // (yhatem): this is intentional, due to special semantics of equality. See equals() for more info.
-        return Objects.hash(schemaTemplateVersion, userVersion);
+        return 0;
     }
 
     @Nonnull
     public PhysicalPlanEquivalence withConstraint(@Nonnull final QueryPlanConstraint constraint) {
-        return new PhysicalPlanEquivalence(schemaTemplateVersion, userVersion, seenIndexesDuringPlanning, Optional.of(constraint), Optional.empty());
+        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
     }
 
     @Nonnull
-    public static PhysicalPlanEquivalence fromPlanContext(@Nonnull final PlanContext planContext,
-                                                          @Nonnull final EvaluationContext evaluationContext) {
-        // todo: how to tell whether the index is readable and usable by Cascades during planning?
-        final Set<String> readableIndexes = planContext.getMetaData().getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet());
-        int schemaTemplateVersion = planContext.getSchemaTemplate().getVersion();
-        int userVersion = planContext.getStoreState().getStoreHeader().getUserVersion();
-        return new PhysicalPlanEquivalence(schemaTemplateVersion, userVersion, readableIndexes, Optional.empty(), Optional.of(evaluationContext));
+    public static PhysicalPlanEquivalence of(@Nonnull final EvaluationContext evaluationContext) {
+        return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
+    }
+
+    @Nonnull
+    public static PhysicalPlanEquivalence of(@Nonnull final QueryPlanConstraint constraint) {
+        return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
+    }
+
+    @Override
+    public String toString() {
+        return constraint.map(queryPlanConstraint -> "constraint " + queryPlanConstraint).orElseGet(() -> "environment " + evaluationContext.get());
     }
 }

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.memory;
 
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -36,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
 
@@ -77,7 +77,8 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withDbUri(relationalConn.getDatabaseUri())
                     .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
                     .withSchemaTemplate(relationalConn.getSchemaTemplate())
-                    .withStoreState(new RecordStoreState(null, null))
+                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                    .withUserVersion(0)
                     .build();
 
             final Plan<?> plan = Plan.generate(sql, ctx);
