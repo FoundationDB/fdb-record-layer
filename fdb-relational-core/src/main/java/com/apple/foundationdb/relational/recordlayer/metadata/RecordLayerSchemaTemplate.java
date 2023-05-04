@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescript
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -51,9 +52,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
@@ -74,7 +75,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Supplier<Multimap<String, String>> tableIndexMappingSupplier;
 
     @Nonnull
-    private final Supplier<Map<String, Integer>> indexesSupplier;
+    private final Supplier<Set<String>> indexesSupplier;
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
@@ -206,12 +207,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    private Map<String, Integer> computeIndexes() {
-        final Map<String, Integer> result = new LinkedHashMap<>();
-        int i = 0;
+    private Set<String> computeIndexes() {
+        final Set<String> result = new TreeSet<>();
+
         for (final var table : getTables()) {
             for (final var index : table.getIndexes()) {
-                result.putIfAbsent(Objects.requireNonNull(index.getName()), i++);
+                result.add(index.getName());
             }
         }
         return result;
@@ -220,23 +221,28 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     @Override
     public Set<String> getIndexes() throws RelationalException {
-        return indexesSupplier.get().keySet();
+        return indexesSupplier.get();
     }
 
     @Nonnull
     @Override
     public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> indexNames) throws RelationalException {
-        final var indexMap = indexesSupplier.get();
-        final var result = new BitSet(indexMap.size());
+        final var indexSet = getIndexes(); // sorted (50)
+        final var result = new BitSet(indexSet.size());
         if (indexNames.isEmpty()) { // all indexes are readable.
-            result.set(0, indexMap.size()); // set all to '1'.
+            result.set(0, indexSet.size()); // set all to '1'.
             return result;
         }
-        for (final String indexName : indexNames.get()) {
-            if (!indexMap.containsKey(indexName)) {
-                throw new RelationalException(String.format("could not find index with name '%s'", indexName), ErrorCode.INVALID_SCHEMA_TEMPLATE);
+        final var allExists = indexSet.containsAll(indexNames.get());
+        if (!allExists) {
+            throw new RelationalException("could not find some of the provided index names ", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+        }
+        int i = 0;
+        for (final var index : indexSet) { // sorted
+            if (indexNames.get().contains(index)) {
+                result.set(i);
             }
-            result.set(indexMap.get(indexName));
+            i++;
         }
         return result;
     }

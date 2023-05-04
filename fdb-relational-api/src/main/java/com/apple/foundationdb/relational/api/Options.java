@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.options.OptionContract;
 import com.apple.foundationdb.relational.api.options.RangeContract;
 import com.apple.foundationdb.relational.api.options.TypeContract;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
@@ -119,7 +120,6 @@ public final class Options {
     }
 
     private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
-
 
     @Nonnull
     private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;

@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
-public class RangeContract<T extends Comparable<T>> implements OptionContract {
+public final class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
     private final T max;
 

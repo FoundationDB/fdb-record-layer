@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+
 import com.google.protobuf.DescriptorProtos;
 import com.ibm.icu.impl.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -171,17 +172,17 @@ public class SchemaTemplateSerDeTests {
                         .build())
                 .build();
         // we have table "t1" with four indexes "i1, i2, i3, i4".
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000001}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000010}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000100}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001000}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3", "i2"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00000101}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1", "i3"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4", "i2", "i3"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i4", "i3"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3", "i4"))));
-        Assertions.assertEquals(BitSet.valueOf(new long[] {0b00001111}), template.getIndexEntriesAsBitset(Optional.empty()));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000001}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000010}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000100}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001000}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i3", "i2"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000101}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i4", "i2", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i4", "i3"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001110}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2", "i3", "i4"))));
+        Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001111}), template.getIndexEntriesAsBitset(Optional.empty()));
     }
 
     @Nonnull
@@ -210,7 +211,6 @@ public class SchemaTemplateSerDeTests {
                 Arguments.of(testcase4, UncheckedRelationalException.class, "Field number 2 has already been used")
         );
     }
-
 
     @ParameterizedTest
     @MethodSource("badSchemaTemplateGenerationsTestcaseProvider")

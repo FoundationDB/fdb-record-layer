@@ -59,8 +59,8 @@ public final class RelationalPlanCache extends MultiStageCache<QueryCacheKey, Ph
     public static final class RelationalCacheBuilder extends MultiStageCache.Builder<QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
 
         public RelationalCacheBuilder() {
-            size = (Integer)(Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));
-            secondarySize = (Integer)(Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES));
+            size = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));
+            secondarySize = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES));
             ttl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS));
             ttlTimeUnit = DEFAULT_TTL_TIME_UNIT;
             secondaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS));

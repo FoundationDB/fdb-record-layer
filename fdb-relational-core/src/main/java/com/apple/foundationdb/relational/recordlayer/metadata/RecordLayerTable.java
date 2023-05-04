@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;

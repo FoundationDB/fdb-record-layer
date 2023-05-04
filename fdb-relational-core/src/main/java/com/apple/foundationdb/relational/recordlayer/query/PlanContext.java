@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -37,7 +36,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -213,19 +211,21 @@ public final class PlanContext {
         public Builder fromRecordStore(@Nonnull final FDBRecordStoreBase<Message> recordStore) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes() :
-                    PlannerConfiguration.from(Optional.of(getReadableIndexes(recordStore.getRecordStoreState())));
+                    PlannerConfiguration.from(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()));
             return withPlannerConfiguration(plannerConfig)
                     .withMetadata(recordStore.getRecordMetaData())
                     .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());
         }
 
         @Nonnull
-        private static Set<String> getReadableIndexes(@Nonnull final RecordStoreState storeState) {
+        private static Optional<Set<String>> getReadableIndexes(@Nonnull final RecordMetaData metaData,
+                                                                 @Nonnull final RecordStoreState storeState) {
             // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
             if (storeState.allIndexesReadable()) {
-                return storeState.getIndexStates().keySet();
+                return Optional.empty();
             } else {
-                return storeState.getIndexStates().entrySet().stream().filter(pair -> pair.getValue() == IndexState.READABLE).map(Map.Entry::getKey).collect(Collectors.toSet());
+                final var universalIndexes = metaData.getUniversalIndexes();
+                return Optional.of(metaData.getAllIndexes().stream().filter(storeState::isReadable).filter(index -> !universalIndexes.contains(index)).map(com.apple.foundationdb.record.metadata.Index::getName).collect(Collectors.toUnmodifiableSet()));
             }
         }
 
