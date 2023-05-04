@@ -108,7 +108,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return false;
             }
         } catch (RelationalException ve) {
-            getConnection().rollback();
+            if (getConnection().getAutoCommit()) {
+                getConnection().rollback();
+            }
             throw ve.toSqlException();
         }
     }
@@ -124,7 +126,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
             }
         } catch (RelationalException ve) {
-            getConnection().rollback();
+            if (getConnection().getAutoCommit()) {
+                getConnection().rollback();
+            }
             throw ve.toSqlException();
         }
     }
@@ -143,7 +147,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql));
             }
         } catch (RelationalException ve) {
-            getConnection().rollback();
+            if (getConnection().getAutoCommit()) {
+                getConnection().rollback();
+            }
             throw ve.toSqlException();
         }
     }
@@ -191,7 +197,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
                     source.openScan(row, options), conn));
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -220,7 +228,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
             return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -233,7 +243,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
             return schema.getDataBuilder(schemaAndTable[1]);
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -249,7 +261,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             typeAccessor.addAll(nestedFields);
             return schema.getDataBuilder(String.join(".", typeAccessor));
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -283,7 +297,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return rowCount;
             });
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -317,7 +333,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return rowCount;
             });
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -352,7 +370,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 return count;
             });
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
@@ -400,7 +420,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 } while (scannedRows.terminatedEarly());
             }
         } catch (RelationalException e) {
-            conn.rollback();
+            if (getConnection().getAutoCommit()) {
+                conn.rollback();
+            }
             throw e.toSqlException();
         }
     }
