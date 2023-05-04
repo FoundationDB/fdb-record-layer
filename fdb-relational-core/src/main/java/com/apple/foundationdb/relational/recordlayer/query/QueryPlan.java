@@ -241,6 +241,10 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             return relationalExpression;
         }
 
+        public PlanGenerationContext getGenerationContext() {
+            return context;
+        }
+
         @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
                                           @Nonnull final PlanGenerationContext context) {

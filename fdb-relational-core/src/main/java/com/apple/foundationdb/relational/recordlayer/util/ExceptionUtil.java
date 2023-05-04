@@ -22,11 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
+import com.google.common.base.VerifyException;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -41,6 +45,8 @@ public final class ExceptionUtil {
             return recordCoreToRelationalException((RecordCoreException) re);
         } else if (re instanceof UncheckedRelationalException) {
             return ((UncheckedRelationalException) re).unwrap();
+        } else if (re instanceof VerifyException) {
+            return new RelationalException(re.getMessage(), ErrorCode.INTERNAL_ERROR, re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }
@@ -60,7 +66,13 @@ public final class ExceptionUtil {
             code = ErrorCode.TRANSACTION_INACTIVE;
         } else if (re.getCause() instanceof RecordAlreadyExistsException) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
+        } else if (re instanceof MetaDataException) {
+            //TODO(bfines) map this to specific error codes based on the violation
+            code = ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
+        } else if (re instanceof SemanticException) {
+            code = ErrorCode.INTERNAL_ERROR;
         }
+
         Map<String, Object> extraContext = re.getLogInfo();
         return new RelationalException(code, re).withContext(extraContext);
     }

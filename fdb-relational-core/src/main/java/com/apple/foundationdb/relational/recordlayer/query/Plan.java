@@ -22,10 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
@@ -35,13 +34,13 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
@@ -107,18 +106,26 @@ public interface Plan<T> {
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         final var ast = AstVisitor.parseQuery(query);
         final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri());
+        long start = System.nanoTime();
         try {
 
             final Object maybePlan = astWalker.visit(ast);
             Assert.that(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
-            return (Plan<?>) maybePlan;
+
+            Plan<?> plan = (Plan<?>) maybePlan;
+
+            //log the plan time
+            long planTime = System.nanoTime() - start;
+            QueryLogger.instance().logPlan(plan, query, planTime);
+            return plan;
         } catch (UncheckedRelationalException uve) {
+            QueryLogger.instance().logPlanError(query, uve);
             throw uve.unwrap();
-        } catch (MetaDataException mde) {
+        } catch (VerifyException | RecordCoreException re) {
             // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
-            throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
-        } catch (VerifyException | SemanticException ve) {
-            throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
+            RelationalException ve = ExceptionUtil.toRelationalException(re);
+            QueryLogger.instance().logPlanError(query, ve);
+            throw ve;
         }
     }
 

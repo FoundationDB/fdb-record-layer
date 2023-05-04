@@ -45,8 +45,10 @@ public class RangeContract<T extends Comparable<T>> implements OptionContract {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void validate(Options.Name name, Object value) throws SQLException {
-        if (min.compareTo((T) value) > 0 || max.compareTo((T) value) < 0) {
+        T val = (T) value;
+        if (min.compareTo(val) > 0 || max.compareTo(val) < 0) {
             throw new SQLException("Option " + name + " should be in range [" + min + ", " + max + "] but is " + value, ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
     }

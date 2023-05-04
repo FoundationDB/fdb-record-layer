@@ -30,9 +30,12 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public final class Options {
 
@@ -46,7 +49,7 @@ public final class Options {
         /**
          * When set, only tables which were created at or before the specified version can be opened.
          * If this is set to -1, then it only requires that a version number exists.
-         *
+         * <p>
          * This is something of a weird carryover from development work which happened before Relational existed,
          * and should only be used sparingly except in those specific use-cases.
          */
@@ -92,29 +95,31 @@ public final class Options {
          * remote fetch mechanism is being tested</LI>
          * </UL>
          */
-        INDEX_FETCH_METHOD
+        INDEX_FETCH_METHOD,
+
+        /**
+         * The maximum throughput of queries to log, in samples/SAMPLING_TIME_UNIT.
+         */
+        MAX_QUERY_LOGGING_THROUGHPUT,
+
+        /**
+         * The unit of time to use when computing various sampling processes.
+         */
+        SAMPLING_TIME_UNIT,
+        /**
+         * The maximum size of the Query logging cache.
+         */
+        MAX_QUERY_LOGGING_CACHE_SIZE;
     }
 
-    public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
-
-    @Nonnull
-    private static final Map<Name, List<OptionContract>> OPTIONS;
-
-    static {
-        final var builder = ImmutableMap.<Name, List<OptionContract>>builder();
-        builder.put(Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)));
-        builder.put(Name.CONTINUATION_PAGE_SIZE, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
-        builder.put(Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class)));
-        builder.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
-        builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
-        builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
-        builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
-        builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
-        builder.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
-        builder.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
-        builder.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
-        OPTIONS = builder.build();
+    public enum IndexFetchMethod {
+        SCAN_AND_FETCH,
+        USE_REMOTE_FETCH,
+        USE_REMOTE_FETCH_WITH_FALLBACK
     }
+
+    private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
+
 
     @Nonnull
     private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;
@@ -128,9 +133,11 @@ public final class Options {
         builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 8);
         builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 30_000L);
         builder.put(Name.REPLACE_ON_DUPLICATE_PK, false);
+        builder.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, 1);
+        builder.put(Name.SAMPLING_TIME_UNIT, TimeUnit.MINUTES);
+        builder.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, 128);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
-
 
     public static final Options NONE = Options.builder().build();
 
@@ -232,5 +239,26 @@ public final class Options {
         } else {
             return option;
         }
+    }
+
+    private static Map<Name, List<OptionContract>> makeContracts() {
+        EnumMap<Name, List<OptionContract>> data = new EnumMap<>(Name.class);
+        data.put(Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)));
+        data.put(Name.CONTINUATION_PAGE_SIZE, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
+        data.put(Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class)));
+        data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
+        data.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        data.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
+        data.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
+        data.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
+        data.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, List.of(new TypeContract<>(Integer.class)));
+        data.put(Name.SAMPLING_TIME_UNIT, List.of(new TypeContract<>(TimeUnit.class)));
+        data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)))
+        ;
+
+        return Collections.unmodifiableMap(data);
     }
 }
