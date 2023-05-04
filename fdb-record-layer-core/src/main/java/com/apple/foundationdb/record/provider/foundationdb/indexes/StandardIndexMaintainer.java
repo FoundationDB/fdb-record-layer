@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -363,13 +364,35 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (savedRecord == null) {
             return null;
         }
+        // Apply both filters:
+        // 1. Index predicates (if exist)
+        // 2. IndexMaintenanceFilter
+        // In the longer term, we will probably think about deprecating the index maintenance filter.
+        final FDBStoreTimer timer = state.store.getTimer();
+        final IndexPredicate predicate = state.index.getPredicate();
+        if (predicate != null) {
+            final long startTime = System.nanoTime();
+            final boolean useMe = predicate.shouldIndexThisRecord(state.store, savedRecord);
+            // Note: for now, IndexPredicate will not support filtering of certain index entries
+            if (timer != null) {
+                final FDBStoreTimer.Events event =
+                        useMe ?
+                        FDBStoreTimer.Events.USE_INDEX_RECORD_BY_PREDICATE :
+                        FDBStoreTimer.Events.SKIP_INDEX_RECORD_BY_PREDICATE;
+                timer.recordSinceNanoTime(event, startTime);
+            }
+            if (!useMe) {
+                // Here: index predicate filters out this record
+                return null;
+            }
+        }
         final Message record = savedRecord.getRecord();
         long startTime = System.nanoTime();
         boolean filterIndexKeys = false;
         switch (state.filter.maintainIndex(state.index, record)) {
             case NONE:
-                if (state.store.getTimer() != null) {
-                    state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.SKIP_INDEX_RECORD, startTime);
+                if (timer != null) {
+                    timer.recordSinceNanoTime(FDBStoreTimer.Events.SKIP_INDEX_RECORD, startTime);
                 }
                 return null;
             case SOME:

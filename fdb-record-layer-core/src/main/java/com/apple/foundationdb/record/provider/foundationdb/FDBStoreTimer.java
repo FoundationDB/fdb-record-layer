@@ -139,6 +139,10 @@ public class FDBStoreTimer extends StoreTimer {
         DELETE_RECORD("delete record"),
         // TODO: Are these index maintenance related ones really DetailEvents?
         /** The amount of time spent maintaining an index when the entire record is skipped by the {@link IndexMaintenanceFilter}. */
+        SKIP_INDEX_RECORD_BY_PREDICATE("skip index record by index predicates"),
+        /** The amount of time spent at index predicates when an entry is skipped by the {@link IndexMaintenanceFilter}. */
+        USE_INDEX_RECORD_BY_PREDICATE("use index record by index predicates"),
+        /** The amount of time spent at index predicates when an entry is used by the {@link IndexMaintenanceFilter}. */
         SKIP_INDEX_RECORD("skip index record"),
         /** The amount of time spent maintaining an index when an entry is skipped by the {@link IndexMaintenanceFilter}. */
         SKIP_INDEX_ENTRY("skip index entry"),
