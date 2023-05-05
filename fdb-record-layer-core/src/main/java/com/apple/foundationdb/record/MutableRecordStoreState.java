@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,13 +43,21 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
-    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
-        super(storeHeader, indexStateMap);
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader,
+                                   @Nullable Map<String, IndexState> indexStateMap,
+                                   @Nullable RecordMetaData recordMetaData) {
+        super(storeHeader, indexStateMap, recordMetaData);
+    }
+
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader,
+                                   @Nullable Map<String, IndexState> indexStateMap,
+                                   @Nullable final BitSet readableIndexesBitSet) {
+        super(storeHeader, indexStateMap, readableIndexesBitSet);
     }
 
     // Copy constructor
     MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
-        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates(), recordStoreState.readableIndexes.get());
     }
 
     private static long readIncrement(long u) {
@@ -129,11 +138,12 @@ public class MutableRecordStoreState extends RecordStoreState {
      * @return the previous state of the given index
      */
     @Nonnull
-    public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state) {
+    public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state, @Nullable final RecordMetaData recordMetaData) {
         verifyWritable();
         IndexState previous;
         if (state == IndexState.READABLE) {
             previous = indexStateMap.get().remove(indexName);
+            readableIndexes.set(getReadableIndexesBitset(recordMetaData, indexStateMap.get()));
         } else {
             previous = indexStateMap.get().put(indexName, state);
         }
@@ -142,8 +152,8 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     @Nonnull
     @Override
-    public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
+    public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames, @Nullable final RecordMetaData recordMetaData) {
+        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames), recordMetaData);
     }
 
     /**
@@ -175,6 +185,6 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public RecordStoreState toImmutable() {
-        return new RecordStoreState(storeHeader.get(), indexStateMap.get());
+        return new RecordStoreState(storeHeader.get(), indexStateMap.get(), readableIndexes.get());
     }
 }
