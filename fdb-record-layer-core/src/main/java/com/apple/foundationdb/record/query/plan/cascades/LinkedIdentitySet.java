@@ -145,6 +145,15 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
         return newSet;
     }
 
+    public static <T> LinkedIdentitySet<T> copyOf(@Nonnull Iterable<T> iterable) {
+        if (iterable instanceof LinkedIdentitySet<?>) {
+            return (LinkedIdentitySet<T>)iterable;
+        }
+        final var newSet = new LinkedIdentitySet<T>();
+        iterable.forEach(newSet::add);
+        return newSet;
+    }
+
     /**
      * Simple implementation class for {@code Collector}.
      *

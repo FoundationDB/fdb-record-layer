@@ -35,9 +35,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A property that counts the number of {@link ValuePredicate}s that appear in a planner expression tree.
@@ -54,6 +57,14 @@ public class PredicateCountProperty implements ExpressionProperty<Integer>, Rela
         int total = 0;
         if (expression instanceof RelationalExpressionWithPredicates) {
             total = getValuePredicateCount(AndPredicate.and(((RelationalExpressionWithPredicates)expression).getPredicates())); // TODO shouldn't that just be getPredicates()?
+        }
+
+        if (expression instanceof RecordQuerySetPlan) {
+            return childResults.stream()
+                    .filter(Objects::nonNull)
+                    .mapToInt(r -> r)
+                    .max()
+                    .orElse(0);
         }
         for (Integer childCount : childResults) {
             if (childCount != null) {
@@ -87,17 +98,15 @@ public class PredicateCountProperty implements ExpressionProperty<Integer>, Rela
     @Nonnull
     @Override
     public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (int memberResult : memberResults) {
-            if (memberResult < min) {
-                min = memberResult;
-            }
-        }
-        return min;
+        return memberResults.stream()
+                .filter(Objects::nonNull)
+                .mapToInt(r -> r)
+                .max()
+                .orElse(0);
     }
 
     public static int evaluate(ExpressionRef<? extends RelationalExpression> ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
+        return Verify.verifyNotNull(ref.acceptPropertyVisitor(INSTANCE));
     }
 
     public static int evaluate(@Nonnull RelationalExpression expression) {
