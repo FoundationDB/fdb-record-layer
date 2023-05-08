@@ -64,6 +64,7 @@ public abstract class IndexPredicate {
      * Check if a given record should be indexed.
      * @param store record store
      * @param savedRecord the updated record
+     * @param <M> type of {@link Message} that underlying records will use
      * @return true if this index should generate index entries for this record
      *
      * Note that for now, IndexPredicate does not support filtering of certain index entries.
