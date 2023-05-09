@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
@@ -207,7 +208,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
             public Long numSecondaryEntriesSlow(@Nonnull final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
-                    return (long)secondary.asMap().size();
+                    return (long) secondary.asMap().size();
                 }
                 return null;
             }
@@ -374,7 +375,6 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
             this.secondarySize = secondarySize;
             return self();
         }
-
 
         @Nonnull
         public B setTtl(long ttlMillis) {

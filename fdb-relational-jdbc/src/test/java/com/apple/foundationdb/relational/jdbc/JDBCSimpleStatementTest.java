@@ -134,10 +134,12 @@ public class JDBCSimpleStatementTest {
         Assertions.assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
         Assertions.assertTrue(resultSet.next());
         Assertions.assertEquals(TESTDB, resultSet.getString(1));
-        Assertions.assertEquals(TESTDB, resultSet.getString(TESTDB));
+        Assertions.assertEquals(TESTDB, resultSet.getString(columnName));
+        // This should work too.
+        Assertions.assertEquals(TESTDB, resultSet.getString(columnName.toLowerCase()));
         Assertions.assertTrue(resultSet.next());
         Assertions.assertEquals(SYSDBPATH, resultSet.getString(1));
-        Assertions.assertEquals(SYSDBPATH, resultSet.getString(SYSDBPATH));
+        Assertions.assertEquals(SYSDBPATH, resultSet.getString(columnName));
         Assertions.assertFalse(resultSet.next());
         resultSet.clearWarnings(); // Does nothing.
         // For now they are empty.

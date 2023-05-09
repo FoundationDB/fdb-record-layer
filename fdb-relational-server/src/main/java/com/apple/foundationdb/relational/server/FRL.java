@@ -192,6 +192,9 @@ public class FRL implements AutoCloseable {
             case Types.BIGINT:
                 relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
                 break;
+            case Types.INTEGER:
+                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                break;
             case Types.DOUBLE:
                 relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
                 break;

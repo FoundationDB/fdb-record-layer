@@ -26,6 +26,12 @@
         </Console>
     </Appenders>
     <Loggers>
+        <Logger name="io.grpc.netty.shaded.io.grpc.netty.NettyServerHandler" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="io.grpc.Context" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <Root level="debug">
             <AppenderRef ref="Console" />
         </Root>

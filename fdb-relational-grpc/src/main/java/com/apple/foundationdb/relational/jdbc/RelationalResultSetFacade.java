@@ -38,6 +38,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalResultSet} view.
@@ -177,23 +178,27 @@ class RelationalResultSetFacade implements RelationalResultSet {
         });
     }
 
-    private static int columnLabelToColumnOneBasedIndex(java.util.List<Column> columns, String columnLabel) {
+    private static int columnLabelToColumnOneBasedIndex(java.util.List<ColumnMetadata> metadatas, String columnLabel)
+            throws SQLException {
         // TODO: make this better; cache a map.
         int index = 0;
-        for (Column column : columns) {
-            if (column.getString().equals(columnLabel)) {
+        for (ColumnMetadata metadata : metadatas) {
+            if (metadata.getName().equalsIgnoreCase(columnLabel)) {
                 return index + 1;/*1-based*/
             }
             index++;
         }
-        return -1;
+        throw new SQLException("Unknown " + columnLabel + " in " +
+                metadatas.stream().map(n -> n.getName()).collect(Collectors.toList()));
     }
 
     @Override
     public String getString(String columnLabel) throws SQLException {
         // TOOD: Do getName for now.
-        return getString(columnLabelToColumnOneBasedIndex(this.delegate.getRow(rowIndex).getColumns().getColumnList(),
-                columnLabel));
+        return getString(
+                columnLabelToColumnOneBasedIndex(
+                        this.delegate.getMetadata().getColumnMetadata().getColumnMetadataList(),
+                        columnLabel));
     }
 
     @Override
@@ -281,6 +286,8 @@ class RelationalResultSetFacade implements RelationalResultSet {
         switch (type) {
             case Types.VARCHAR:
                 return getString(oneBasedColumn);
+            case Types.INTEGER:
+                return getInt(oneBasedColumn);
             case Types.BIGINT:
                 return getLong(oneBasedColumn);
             case Types.STRUCT:
