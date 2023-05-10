@@ -111,6 +111,10 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return result.build();
     }
 
+    public boolean isConstraining() {
+        return evaluableRange != null || !deferredRanges.isEmpty();
+    }
+
     /**
      * Computes a list of {@link Comparisons.Comparison} from this {@link RangeConstraints}.
      *

@@ -64,13 +64,18 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return false;
     }
 
+    @Override
+    public boolean isTautology() {
+        return !isConstraining();
+    }
+
     @Nonnull
     public static Placeholder newInstance(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ImmutableSet.of(), parameterAlias);
     }
 
     public boolean isConstraining() {
-        return !getRanges().isEmpty();
+        return getRanges().stream().anyMatch(RangeConstraints::isConstraining);
     }
 
     @Nonnull

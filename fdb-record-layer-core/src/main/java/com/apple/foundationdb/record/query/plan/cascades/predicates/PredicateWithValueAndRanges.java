@@ -236,10 +236,6 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
             return Optional.empty();
         }
 
-        if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
-        }
-
         if (candidatePredicate instanceof PredicateWithValueAndRanges) {
             final var candidate = (PredicateWithValueAndRanges)candidatePredicate;
 
@@ -287,6 +283,10 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
                     }, Optional.empty(), Optional.of(captureConstraint(candidate))));
                 }
             }
+        }
+
+        if (candidatePredicate.isTautology()) {
+            return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
         }
 
         //
