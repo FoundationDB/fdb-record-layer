@@ -77,5 +77,44 @@
 - query: select id from t5 where col1 < 40 or col1 > 90
 - explain: [{!sc "map(Covering(Index(I6 <,>"}]
 ---
+- query: select id from t1 where col1 < 100
+- explain: [{!sc "map(Covering(Index(I1 "}]
+- result: []
+---
+- query: select id from t1 where col1 < 453
+- explain: [{!sc "map(Covering(Index(I2 "}]
+- result: []
+---
+- query: insert into T1
+    VALUES (1, 100, 7),
+           (2, 200, 7),
+           (3, 243, 7),
+           (4, 499, 7),
+           (5, 500, 7),
+           (6, 879, 7)
+---
+- query: select id from t1 where col1 < 200
+- explain: [{!sc "map(Covering(Index(I1 "}]
+- result: [{ID: 1}]
+---
+- query: select id from t1 where col1 < 201
+- explain: [{!sc "map(Covering(Index(I2 "}]
+- result: [{ID: 1}, {ID: 2}]
+---
+- query: select id from t1 where col1 < 250
+- explain: [{!sc "map(Covering(Index(I2 "}]
+- result: [{ID: 1}, {ID: 2}, {ID: 3}]
+---
+- query: select id from t1 where col1 < 500
+- explain: [{!sc "map(Covering(Index(I2"}]
+- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
+---
+- query: select id from t1 use index (i1)
+- result: [{ID: 1}]
+---
+- query: select id from t1 use index (i2)
+- explain: [{!sc "map(Covering(Index(I2"}]
+- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
+---
 - query: drop database /FRL/SPARSE_YAML
 ...
