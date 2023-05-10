@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -119,7 +120,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     }
 
     @Nonnull
-    private KeyExpression getComparisonKey() {
+    public KeyExpression getComparisonKey() {
         return comparisonKey;
     }
 
@@ -131,7 +132,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Override
     public String toString() {
-        return getInner() + " | UnorderedDistinct(" + getComparisonKey() + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ComparatorCursor;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -179,7 +180,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     @Nonnull
     @Override
     public String toString() {
-        return "COMPARATOR OF " + getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(" "));
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

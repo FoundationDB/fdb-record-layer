@@ -139,7 +139,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    String getDelimiter() {
+    public String getDelimiter() {
         return " " + UNION + (showComparisonKey ? comparisonKeyFunction.toString() : "") + " ";
     }
 

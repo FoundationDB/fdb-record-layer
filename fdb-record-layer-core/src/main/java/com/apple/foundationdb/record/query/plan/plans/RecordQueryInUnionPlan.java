@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -285,8 +286,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     @Nonnull
     @Override
     public String toString() {
-        return inSources.stream().map(Object::toString).collect(Collectors.joining(", ", "∪(", ") ")) +
-               getChild();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override

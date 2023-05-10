@@ -68,6 +68,12 @@ public class InComparandSource extends InSource {
         return false;
     }
 
+    @Nonnull
+    @Override
+    public String valuesString() {
+        return comparison.typelessString();
+    }
+
     @Override
     protected int size(@Nonnull final EvaluationContext context) {
         return getValues(context).size();
@@ -94,7 +100,7 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public String toString() {
-        return getBindingName() + comparison;
+        return getBindingName() + " " + comparison;
     }
 
     @Override
