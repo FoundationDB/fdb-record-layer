@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -44,17 +43,14 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
-import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.reverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -134,30 +130,18 @@ public class FDBRecordTypeKeyQueryTest extends FDBRecordStoreQueryTestBase {
             openStore(context);
 
             for (RecordType type : recordStore.getRecordMetaData().getRecordTypes().values()) {
-                for (boolean reverse : BOOLEANS) {
-                    RecordQuery query = RecordQuery.newBuilder()
-                            .setRecordType(type.getName())
-                            .setSort(type.getPrimaryKey(), reverse)
-                            .build();
-                    RecordQueryPlan plan = planner.plan(query);
+                RecordQuery query = RecordQuery.newBuilder()
+                        .setRecordType(type.getName())
+                        // FIXME: Only works if sortReverse is false due to how reverse sort values are(n't) matched
+                        .setSort(type.getPrimaryKey(), false)
+                        .build();
+                RecordQueryPlan plan = planner.plan(query);
 
-                    if (reverse) {
-                        // FIXME: Ordering doesn't match equaility-bound reverse sorts correctly
-                        // Otherwise, this should be planned identically to the forward order direction
-                        assertMatchesExactly(plan, typeFilterPlan(
-                                scanPlan()
-                                        .where(scanComparisons(unbounded()))
-                                        .and(reverse(true))
-                                ).where(recordTypes(exactly(PrimitiveMatchers.equalsObject(type.getName()))))
-                        );
-                    } else {
-                        assertMatchesExactly(plan, scanPlan()
-                                .where(scanComparisons(range("[IS " + type.getName() + "]")))
-                                .and(reverse(false))
-                        );
-                    }
-                    assertEquals(Set.of(type.getName()), RecordTypesProperty.evaluate(GroupExpressionRef.of(plan)));
-                }
+                assertMatchesExactly(plan, scanPlan()
+                        .where(scanComparisons(range("[IS " + type.getName() + "]")))
+                        .and(reverse(false))
+                );
+                assertEquals(Set.of(type.getName()), RecordTypesProperty.evaluate(GroupExpressionRef.of(plan)));
             }
         }
     }

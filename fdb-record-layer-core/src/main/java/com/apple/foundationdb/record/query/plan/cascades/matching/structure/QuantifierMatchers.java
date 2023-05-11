@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -76,6 +77,13 @@ public class QuantifierMatchers {
 
     public static BindingMatcher<Quantifier> anyQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
         return ofTypeRangingOverRef(Quantifier.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier> anyQuantifierWithAlias(@Nonnull final BindingMatcher<CorrelationIdentifier> alias) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Quantifier.class,
+                Extractor.of(Quantifier::getAlias, name -> "alias(" + name + ")"),
+                alias);
     }
 
     @Nonnull

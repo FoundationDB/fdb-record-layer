@@ -86,6 +86,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.reverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
@@ -842,6 +843,24 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     indexPlan().where(indexName("MyFieldsRecord$fint32")).and(scanComparisons(range("[[null],[null]]"))));
             assertEquals(uuids.subList(3, 4), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
+        }
+    }
+
+    @DualPlannerTest
+    void orderByFieldWithEqualityPredicate() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            for (boolean reverse : new boolean[]{false, true}) {
+                RecordQuery query = RecordQuery.newBuilder()
+                        .setRecordType("MySimpleRecord")
+                        .setFilter(Query.field("num_value_3_indexed").equalsValue(42))
+                        .setSort(field("num_value_3_indexed"), reverse)
+                        .build();
+                RecordQueryPlan plan = planner.plan(query);
+                assertMatchesExactly(plan,
+                        indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[42],[42]]")).and(reverse(reverse))));
+            }
         }
     }
 
