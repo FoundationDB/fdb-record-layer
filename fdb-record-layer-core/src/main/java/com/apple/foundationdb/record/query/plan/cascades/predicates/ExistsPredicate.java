@@ -142,7 +142,9 @@ public class ExistsPredicate implements LeafQueryPredicate {
     @Nonnull
     @Override
     public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate, final @Nonnull EvaluationContext evaluationContext) {
-        if (candidatePredicate instanceof ExistsPredicate) {
+        if (candidatePredicate instanceof Placeholder) {
+            return Optional.empty();
+        } else if (candidatePredicate instanceof ExistsPredicate) {
             final ExistsPredicate candidateExistsPredicate = (ExistsPredicate)candidatePredicate;
             if (!existentialAlias.equals(aliasMap.getTarget(candidateExistsPredicate.getExistentialAlias()))) {
                 return Optional.empty();
