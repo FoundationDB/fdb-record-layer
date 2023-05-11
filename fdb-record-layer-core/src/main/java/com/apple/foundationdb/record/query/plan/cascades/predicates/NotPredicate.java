@@ -55,7 +55,8 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Nonnull
     public final QueryPredicate child;
 
-    public NotPredicate(@Nonnull QueryPredicate child) {
+    private NotPredicate(@Nonnull final QueryPredicate child, final boolean isAtomic) {
+        super(isAtomic);
         this.child = child;
     }
 
@@ -104,7 +105,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash();
+        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
     }
 
     @Override
@@ -123,7 +124,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Nonnull
     @Override
     public NotPredicate withChild(@Nonnull final QueryPredicate newChild) {
-        return new NotPredicate(newChild);
+        return new NotPredicate(newChild, isAtomic());
     }
 
     @Nonnull
@@ -145,7 +146,18 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     }
 
     @Nonnull
+    @Override
+    public NotPredicate withAtomicity(final boolean isAtomic) {
+        return new NotPredicate(getChild(), isAtomic);
+    }
+
+    @Nonnull
     public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
-        return new NotPredicate(predicate);
+        return of(predicate, false);
+    }
+
+    @Nonnull
+    public static NotPredicate of(@Nonnull final QueryPredicate predicate, final boolean isAtomic) {
+        return new NotPredicate(predicate, isAtomic);
     }
 }

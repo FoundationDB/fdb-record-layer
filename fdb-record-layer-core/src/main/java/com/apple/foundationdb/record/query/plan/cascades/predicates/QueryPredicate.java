@@ -318,8 +318,17 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return true;
         }
 
-        return other.getClass() == getClass();
+        if (other.getClass() != getClass()) {
+            return false;
+        }
+
+        return other.isAtomic() == isAtomic();
     }
+
+    boolean isAtomic();
+
+    @Nonnull
+    QueryPredicate withAtomicity(boolean isAtomic);
 
     @Nonnull
     @Override

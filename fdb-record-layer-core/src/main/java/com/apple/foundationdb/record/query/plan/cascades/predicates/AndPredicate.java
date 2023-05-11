@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -55,8 +56,8 @@ import java.util.stream.Collectors;
 public class AndPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Predicate");
 
-    public AndPredicate(@Nonnull List<QueryPredicate> children) {
-        super(children);
+    private AndPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+        super(children, isAtomic);
     }
 
     @Nullable
@@ -84,7 +85,7 @@ public class AndPredicate extends AndOrPredicate {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash();
+        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
     }
 
     @Override
@@ -105,7 +106,7 @@ public class AndPredicate extends AndOrPredicate {
     @Nonnull
     @Override
     public AndPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
-        return new AndPredicate(ImmutableList.copyOf(newChildren));
+        return new AndPredicate(ImmutableList.copyOf(newChildren), isAtomic());
     }
 
     @Nonnull
@@ -127,13 +128,24 @@ public class AndPredicate extends AndOrPredicate {
                 .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 
+    @Nonnull
+    @Override
+    public AndPredicate withAtomicity(final boolean isAtomic) {
+        return new AndPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
+    }
+
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                      @Nonnull QueryPredicate... operands) {
-        return and(toList(first, second, operands));
+        return of(toList(first, second, operands), false);
     }
 
     @Nonnull
-    public static QueryPredicate and(@Nonnull Collection<? extends QueryPredicate> conjuncts) {
+    public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts) {
+        return of(conjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
         if (conjuncts.isEmpty()) {
             return ConstantPredicate.TRUE;
         }
@@ -141,7 +153,7 @@ public class AndPredicate extends AndOrPredicate {
             return Iterables.getOnlyElement(conjuncts);
         }
 
-        return new AndPredicate(ImmutableList.copyOf(conjuncts));
+        return new AndPredicate(ImmutableList.copyOf(conjuncts), isAtomic);
     }
 
     @Nonnull

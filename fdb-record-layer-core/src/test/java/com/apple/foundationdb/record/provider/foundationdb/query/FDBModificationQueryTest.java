@@ -591,7 +591,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         graphExpansionBuilder = GraphExpansion.builder();
                         graphExpansionBuilder.addQuantifier(outerQun);
                         graphExpansionBuilder.addQuantifier(innerQun);
-                        graphExpansionBuilder.addPredicate(new NotPredicate(new ExistsPredicate(innerQun.getAlias())));
+                        graphExpansionBuilder.addPredicate(NotPredicate.not(new ExistsPredicate(innerQun.getAlias())));
                         qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(outerQun.getFlowedObjectValue())));
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,

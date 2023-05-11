@@ -102,6 +102,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param ranges A set of ranges defined on the value (can be empty).
      */
     protected PredicateWithValueAndRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+        super(false);
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
         this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);

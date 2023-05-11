@@ -46,7 +46,8 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
 
     private final Supplier<Set<Equivalence.Wrapper<QueryPredicate>>> childrenAsSetSupplier;
 
-    protected AndOrPredicate(@Nonnull List<QueryPredicate> children) {
+    protected AndOrPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+        super(isAtomic);
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }

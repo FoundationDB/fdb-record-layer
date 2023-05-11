@@ -35,8 +35,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extractor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.LeafQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -51,6 +54,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
@@ -100,7 +104,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            RelationalExpressionMatchers.selectExpression(combinations(combinationPredicateMatcher), all(qunMatcher));
+            RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(combinations(combinationPredicateMatcher)), all(qunMatcher));
 
     public OrToLogicalUnionRule() {
         super(root);
@@ -148,6 +152,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final var fixedPredicates = LinkedIdentitySet.copyOf(bindings.get(combinationPredicateMatcher));
+        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size());
         final var toBeDnfPredicates =
                 selectExpression.getPredicates()
                         .stream()
@@ -163,19 +168,25 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         final var dnfPredicate =
                 Simplification.optimize(conjunctedPredicate, EvaluationContext.empty(), AliasMap.emptyMap(),
                         constantAliases, QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
-        if (!(dnfPredicate instanceof OrPredicate)) {
+        if (dnfPredicate.isAtomic() || !(dnfPredicate instanceof OrPredicate)) {
             // it can be that the dnf-predicate is trivial, i.e. it is only an AND of boolean variables
             return;
         }
+
+        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size() + "; creating new union");
 
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
         // there is definitely exactly one quantifier in the needed list
         final var onlyNeededForEachQuantifier = aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases));
         final Value lowerResultValue = onlyNeededForEachQuantifier.getFlowedObjectValue();
         final var fixedPredicatesCorrelatedTo = fixedPredicates.stream().flatMap(p -> p.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet());
-        final var orTermPredicates = dnfPredicate.getChildren();
+        final var fixedAtomicPredicates =
+                fixedPredicates.stream()
+                        .map(predicate -> predicate.withAtomicity(true))
+                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
         final var relationalExpressionReferences = Lists.<ExpressionRef<? extends RelationalExpression>>newArrayList();
-        for (final var orTermPredicate : orTermPredicates) {
+        for (final var orTermPredicate : dnfPredicate.getChildren()) {
             final var orTermCorrelatedTo = orTermPredicate.getCorrelatedTo();
 
             //
@@ -202,10 +213,12 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             final var unionLegExpression =
                     new SelectExpression(lowerResultValue,
                             ImmutableList.copyOf(Iterables.concat(neededForEachQuantifiers, neededAdditionalQuantifiers)),
-                            ImmutableList.<QueryPredicate>builder().addAll(fixedPredicates).add(orTermPredicate).build());
-            relationalExpressionReferences.add(call.memoizeExpression(unionLegExpression));
+                            ImmutableList.<QueryPredicate>builder().addAll(fixedAtomicPredicates).add(orTermPredicate).build());
+            final ExpressionRef<? extends RelationalExpression> memoizedReference = call.memoizeExpression(unionLegExpression);
+            relationalExpressionReferences.add(memoizedReference);
         }
-
+        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size());
+        
         var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
 
         if (!isSimpleResultValue) {
@@ -215,5 +228,18 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         }
 
         call.yield(unionReferenceBuilder.members());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static CollectionMatcher<QueryPredicate> nonTrivialPredicates(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+        return CollectionMatcher.fromBindingMatcher(
+                TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<QueryPredicate>>)(Class<?>)Collection.class,
+                        Extractor.of(predicates -> {
+                            if (predicates.stream().allMatch(predicate -> predicate.isAtomic() || (predicate instanceof LeafQueryPredicate))) {
+                                return ImmutableList.of();
+                            }
+                            return predicates;
+                        }, name -> "combinations(" + name + ")"),
+                        downstream));
     }
 }

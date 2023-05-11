@@ -58,14 +58,19 @@ public class QueryPredicateTest {
     }
 
     private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
-        return new AndPredicate(ImmutableList.copyOf(predicates));
+        return AndPredicate.and(ImmutableList.copyOf(predicates));
     }
 
     private QueryPredicate or(@Nonnull QueryPredicate... predicates) {
-        return new OrPredicate(ImmutableList.copyOf(predicates));
+        return OrPredicate.or(ImmutableList.copyOf(predicates));
     }
 
     private abstract static class TestPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
+
+        public TestPredicate() {
+            super(false);
+        }
+
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
             return 0;

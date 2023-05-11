@@ -273,7 +273,10 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
             for (final var commonReferencingExpression : commonReferencingExpressions) {
                 if (GroupExpressionRef.containsInMember(commonReferencingExpression, expression)) {
                     Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
-                    return Verify.verifyNotNull(expressionToReferenceMap.get(commonReferencingExpression));
+                    final var reference = expressionToReferenceMap.get(commonReferencingExpression);
+                    Verify.verifyNotNull(reference);
+                    Verify.verify(reference != this.root);
+                    return reference;
                 }
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));

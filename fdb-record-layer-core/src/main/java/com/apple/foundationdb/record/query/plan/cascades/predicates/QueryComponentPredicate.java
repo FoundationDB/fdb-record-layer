@@ -60,6 +60,7 @@ public class QueryComponentPredicate extends AbstractQueryPredicate implements L
     public final CorrelationIdentifier correlation;
 
     public QueryComponentPredicate(@Nonnull QueryComponent queryComponent, @Nonnull CorrelationIdentifier correlation) {
+        super(false);
         this.queryComponent = queryComponent;
         this.correlation = correlation;
     }

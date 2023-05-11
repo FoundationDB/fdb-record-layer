@@ -655,20 +655,24 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                          @Nonnull final QueryPredicate predicate) {
         final var result = ImmutableList.<QueryPredicate>builder();
 
-        if (classToLift.isInstance(predicate)) {
-            for (final var child : ((AndOrPredicate)predicate).getChildren()) {
-                result.addAll(flattenPredicate(classToLift, child));
-            }
+        if (predicate.isAtomic()) {
+            result.add(predicate);
         } else {
-            final QueryPredicate flattenedChildPredicate;
-            if (predicate instanceof AndPredicate) {
-                flattenedChildPredicate = AndPredicate.and(flattenPredicate(AndPredicate.class, predicate));
-            } else if (predicate instanceof OrPredicate) {
-                flattenedChildPredicate = OrPredicate.or(flattenPredicate(OrPredicate.class, predicate));
+            if (classToLift.isInstance(predicate)) {
+                for (final var child : ((AndOrPredicate)predicate).getChildren()) {
+                    result.addAll(flattenPredicate(classToLift, child));
+                }
             } else {
-                flattenedChildPredicate = predicate;
+                final QueryPredicate flattenedChildPredicate;
+                if (predicate instanceof AndPredicate) {
+                    flattenedChildPredicate = AndPredicate.and(flattenPredicate(AndPredicate.class, predicate));
+                } else if (predicate instanceof OrPredicate) {
+                    flattenedChildPredicate = OrPredicate.or(flattenPredicate(OrPredicate.class, predicate));
+                } else {
+                    flattenedChildPredicate = predicate;
+                }
+                result.add(flattenedChildPredicate);
             }
-            result.add(flattenedChildPredicate);
         }
         return result.build();
     }

@@ -61,6 +61,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     private final CorrelationIdentifier existentialAlias;
 
     public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias) {
+        super(false);
         this.existentialAlias = existentialAlias;
     }
 

@@ -51,4 +51,11 @@ public interface LeafQueryPredicate extends QueryPredicate {
     default int computeSemanticHashCode() {
         return hashCodeWithoutChildren();
     }
+
+    @Nonnull
+    @Override
+    default QueryPredicate withAtomicity(boolean isAtomic) {
+        return this;
+    }
+
 }

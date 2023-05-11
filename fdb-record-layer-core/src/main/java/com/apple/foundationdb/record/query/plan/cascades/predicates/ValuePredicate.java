@@ -49,6 +49,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     private final Comparison comparison;
 
     public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
+        super(false);
         this.value = value;
         this.comparison = comparison;
     }

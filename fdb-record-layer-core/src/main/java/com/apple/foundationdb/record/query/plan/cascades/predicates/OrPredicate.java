@@ -63,8 +63,8 @@ import java.util.stream.Collectors;
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
-    public OrPredicate(@Nonnull List<QueryPredicate> operands) {
-        super(operands);
+    private OrPredicate(@Nonnull final List<QueryPredicate> operands, final boolean isAtomic) {
+        super(operands, isAtomic);
     }
 
     @Nullable
@@ -92,7 +92,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash();
+        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
     }
 
     @Override
@@ -113,7 +113,7 @@ public class OrPredicate extends AndOrPredicate {
     @Nonnull
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
-        return new OrPredicate(ImmutableList.copyOf(newChildren));
+        return new OrPredicate(ImmutableList.copyOf(newChildren), isAtomic());
     }
 
     @Nonnull
@@ -281,18 +281,29 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
-    public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
-                                    @Nonnull QueryPredicate... operands) {
-        return or(toList(first, second, operands));
+    @Override
+    public OrPredicate withAtomicity(final boolean isAtomic) {
+        return new OrPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
     @Nonnull
-    public static QueryPredicate or(@Nonnull Collection<? extends QueryPredicate> children) {
+    public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
+                                    @Nonnull QueryPredicate... operands) {
+        return of(toList(first, second, operands), false);
+    }
+
+    @Nonnull
+    public static QueryPredicate or(@Nonnull final Collection<? extends QueryPredicate> children) {
+        return of(children, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> children, final boolean isAtomic) {
         Verify.verify(!children.isEmpty());
         if (children.size() == 1) {
             return Iterables.getOnlyElement(children);
         }
 
-        return new OrPredicate(ImmutableList.copyOf(children));
+        return new OrPredicate(ImmutableList.copyOf(children), isAtomic);
     }
 }

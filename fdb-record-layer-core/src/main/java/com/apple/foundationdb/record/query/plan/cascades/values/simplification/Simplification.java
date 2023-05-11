@@ -288,6 +288,7 @@ public class Simplification {
                                                                                       @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, Pair<QueryPredicate, List<QueryPlanConstraint>>>();
         final var simplifiedPredicate = simplifyWithReExploration(root,
+                root,
                 resultsMap,
                 ruleSet,
                 (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
@@ -311,15 +312,16 @@ public class Simplification {
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static <ELEMENT, CALL extends AbstractRuleCall<Pair<BASE, List<ELEMENT>>, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
+                                                                                                                                                               @Nonnull BASE current,
                                                                                                                                                                @Nonnull final Map<BASE, Pair<BASE, List<ELEMENT>>> resultsMap,
                                                                                                                                                                @Nonnull final AbstractRuleSet<Pair<BASE, List<ELEMENT>>, CALL, BASE> ruleSet,
                                                                                                                                                                @Nonnull final RuleCallCreator<Pair<BASE, List<ELEMENT>>, CALL, BASE> ruleCallCreator) {
-        var current = root;
+        final var isRoot = root == current;
         ExecutionResult<BASE> executionResult;
         do {
             final var simplifiedChildren = Lists.<BASE>newArrayList();
             for (final var child : current.getChildren()) {
-                simplifiedChildren.add(simplifyWithReExploration(child, resultsMap, ruleSet, ruleCallCreator));
+                simplifiedChildren.add(simplifyWithReExploration(isRoot ? current : root, child, resultsMap, ruleSet, ruleCallCreator));
             }
 
             final var computedCurrent = computeCurrent(current, simplifiedChildren);
@@ -329,7 +331,7 @@ public class Simplification {
             current = computedCurrent;
 
             executionResult =
-                    Simplification.executeRuleSet(root,
+                    Simplification.executeRuleSet(isRoot ? current : root,
                             current,
                             ruleSet,
                             ruleCallCreator,

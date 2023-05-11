@@ -54,6 +54,7 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     private final Boolean value;
 
     public ConstantPredicate(@Nullable Boolean value) {
+        super(false);
         this.value = value;
     }
 

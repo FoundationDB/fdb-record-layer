@@ -26,6 +26,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -35,11 +36,14 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractQueryPredicate implements QueryPredicate {
 
+    private final boolean isAtomic;
+
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
     private final Supplier<Integer> semanticHashCodeSupplier;
 
-    protected AbstractQueryPredicate() {
+    protected AbstractQueryPredicate(final boolean isAtomic) {
+        this.isAtomic = isAtomic;
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
     }
@@ -73,4 +77,14 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     }
 
     protected abstract int computeSemanticHashCode();
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(isAtomic);
+    }
+
+    @Override
+    public boolean isAtomic() {
+        return isAtomic;
+    }
 }
