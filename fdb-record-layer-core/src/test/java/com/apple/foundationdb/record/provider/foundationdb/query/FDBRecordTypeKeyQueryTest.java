@@ -56,6 +56,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests for queries that require matching a {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression}.
+ * Note that matching this expression can inform the set of available types, and so an explicit predicate on the record
+ * type key is not needed.
+ */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordTypeKeyQueryTest extends FDBRecordStoreQueryTestBase {
     private static final boolean[] BOOLEANS = new boolean[]{false, true};
@@ -132,7 +137,8 @@ public class FDBRecordTypeKeyQueryTest extends FDBRecordStoreQueryTestBase {
             for (RecordType type : recordStore.getRecordMetaData().getRecordTypes().values()) {
                 RecordQuery query = RecordQuery.newBuilder()
                         .setRecordType(type.getName())
-                        // FIXME: Only works if sortReverse is false due to how reverse sort values are(n't) matched
+                        // FIXME: Only works if sortReverse is false due to how reverse sort values are(n't) matched with equality predicates
+                        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2127
                         .setSort(type.getPrimaryKey(), false)
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
