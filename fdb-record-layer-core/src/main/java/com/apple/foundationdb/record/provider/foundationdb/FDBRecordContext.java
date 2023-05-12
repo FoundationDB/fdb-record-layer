@@ -62,10 +62,10 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -480,14 +480,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         if (config.isReportConflictingKeys()) {
             // Do this before the close (below).
             commit = MoreAsyncUtil.composeWhenCompleteAndHandle(commit, (v, ex) -> {
-                if (ex instanceof CompletionException) {
-                    final Throwable cause = ex.getCause();
-                    if (cause instanceof FDBException) {
-                        final FDBException fdbException = (FDBException)cause;
-                        if (FDBError.fromCode(fdbException.getCode()) == FDBError.NOT_COMMITTED) {
-                            return readConflictingKeys();
-                        }
-                    }
+                final FDBException fdbException = FDBExceptions.getFDBCause(ex);
+                if (fdbException != null && FDBError.fromCode(fdbException.getCode()) == FDBError.NOT_COMMITTED) {
+                    return readConflictingKeys(ensureActive(), getExecutor()).thenApply(keys -> {
+                        notCommittedConflictingKeys = keys;
+                        return null;
+                    });
                 }
                 return AsyncUtil.DONE;
             }, ex -> ex instanceof RuntimeException ? (RuntimeException)ex : new RecordCoreException(ex));
@@ -1436,22 +1434,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return notCommittedConflictingKeys;
     }
 
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> readConflictingKeys() {
-        notCommittedConflictingKeys = new ArrayList<>();
-        final Transaction tr = ensureActive();
-        tr.options().setReadSystemKeys();
+    private static CompletableFuture<List<Range>> readConflictingKeys(@Nonnull Transaction tr, @Nonnull Executor executor) {
+        final List<Range> result = new ArrayList<>();
         return AsyncUtil.forEach(tr.getRange(Range.startsWith(SystemKeyspace.TRANSACTION_CONFLICTING_KEYS_PREFIX)),
                 kv -> {
                     final boolean state = kv.getValue()[0] == '1';
                     final byte[] key = Arrays.copyOfRange(kv.getKey(), SystemKeyspace.TRANSACTION_CONFLICTING_KEYS_PREFIX.length, kv.getKey().length);
                     if (state) {
-                        notCommittedConflictingKeys.add(Range.startsWith(key));
-                    } else if (!notCommittedConflictingKeys.isEmpty()) {
-                        final int pos = notCommittedConflictingKeys.size() - 1;
-                        final Range started = notCommittedConflictingKeys.get(pos);
-                        notCommittedConflictingKeys.set(pos, new Range(started.begin, key));
+                        result.add(Range.startsWith(key));
+                    } else if (!result.isEmpty()) {
+                        final int pos = result.size() - 1;
+                        final Range started = result.get(pos);
+                        result.set(pos, new Range(started.begin, key));
                     }
-                }, getExecutor());
+                }, executor)
+                .thenApply(vignore -> result);
     }
 }

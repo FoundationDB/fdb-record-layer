@@ -640,9 +640,19 @@ public class FDBRecordContextConfig {
         /**
          * Set tags used for throttling.
          * @param tags new set of tags
+         * @return this builder
          */
-        public void setTags(@Nonnull final Set<String> tags) {
+        public Builder setTags(@Nonnull final Set<String> tags) {
+            if (tags.size() > 5) {
+                throw new IllegalArgumentException("At most 5 tags allowed");
+            }
+            for (String tag : tags) {
+                if (tag.length() > 16) {
+                    throw new IllegalArgumentException("Tag must be 16 characters or shorter");
+                }
+            }
             this.tags = tags;
+            return this;
         }
 
         /**
@@ -656,9 +666,11 @@ public class FDBRecordContextConfig {
         /**
          * Set whether to report conflicting key rangs on commit conflict.
          * @param reportConflictingKeys {@code true} to report conflicting keys
+         * @return this builder
          */
-        public void setReportConflictingKeys(final boolean reportConflictingKeys) {
+        public Builder setReportConflictingKeys(final boolean reportConflictingKeys) {
             this.reportConflictingKeys = reportConflictingKeys;
+            return this;
         }
 
         /**
