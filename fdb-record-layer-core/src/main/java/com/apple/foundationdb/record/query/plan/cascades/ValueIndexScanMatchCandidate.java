@@ -182,6 +182,11 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
+    public CorrelationIdentifier getBaseAlias() {
+        return baseAlias;
+    }
+
+    @Nonnull
     public List<Value> getIndexKeyValues() {
         return indexKeyValues;
     }
@@ -230,7 +235,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
-                                false,
+                                index.isUnique(),
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
                                 matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
@@ -284,7 +289,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
-                        false,
+                        index.isUnique(),
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
                         partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
