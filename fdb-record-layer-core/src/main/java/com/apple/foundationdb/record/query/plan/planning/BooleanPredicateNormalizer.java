@@ -301,7 +301,8 @@ public class BooleanPredicateNormalizer {
         return getMetrics(predicate).getNormalFormSize();
     }
 
-    PredicateMetrics getMetrics(@Nullable QueryPredicate predicate) {
+    @Nonnull
+    public PredicateMetrics getMetrics(@Nullable QueryPredicate predicate) {
         if (predicate == null) {
             return new PredicateMetrics(0, 0, 0);
         }
