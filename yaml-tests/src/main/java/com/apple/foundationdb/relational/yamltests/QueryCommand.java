@@ -47,7 +47,7 @@ class QueryCommand extends Command {
 
     private enum QueryConfig {
         RESULT("result"),
-        RESULT_AS_SET("resultSet"),
+        UNORDERED_RESULT("unorderedResult"),
         EXPLAIN("explain"),
         ERROR("error");
 
@@ -144,7 +144,7 @@ class QueryCommand extends Command {
         }
         logger.debug("matching results of query '{}'", query);
         final var resultSet = (RelationalResultSet) queryResults;
-        final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.RESULT_AS_SET);
+        final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.UNORDERED_RESULT);
         if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
             logger.error(String.format("‼️ result mismatch:%n" +
                     Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
@@ -187,7 +187,7 @@ class QueryCommand extends Command {
         var continuation = ContinuationImpl.END;
         switch (config) {
             case RESULT:
-            case RESULT_AS_SET:
+            case UNORDERED_RESULT:
                 continuation = checkForResult(queryResults, sqlException, queryConfigWithValue, query);
                 break;
             case EXPLAIN:

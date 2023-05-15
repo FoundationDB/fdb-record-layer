@@ -70,14 +70,14 @@
 ---
 # Get names of people working in Engineering:
 - query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
-- resultSet: [{"Jack", "Williams"},
+- unorderedResult: [{"Jack", "Williams"},
               {"Thomas", "Johnson"},
               {"Emily", "Martinez"},
               {"Amelia", "Johnson"}]
 ---
 # Get names of people working on a project
 - query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
-- resultSet: [{"Emily", "Martinez"},
+- unorderedResult: [{"Emily", "Martinez"},
               {"Daniel", "Miller"},
               {"Megan", "Miller"}]
 ---
@@ -86,23 +86,23 @@
              (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
              dept
          where sq.dept_id = dept.id and dept.name = 'Sales';
-- resultSet: [{"Daniel", "Miller"}]
+- unorderedResult: [{"Daniel", "Miller"}]
 ---
 # three-way join to find which departments' corresponding projects.
 - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
-- resultSet: [{"Engineering", "OLAP"},
+- unorderedResult: [{"Engineering", "OLAP"},
               {"Sales", "Feedback"},
               {"Marketing", "SEO"}]
 ---
 # two-level left-nested join to find which departments' corresponding projects.
 - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;
-- resultSet: [{"Engineering", "OLAP"},
+- unorderedResult: [{"Engineering", "OLAP"},
               {"Sales", "Feedback"},
               {"Marketing", "SEO"}]
 ---
 # two-level right-nested join to find which departments' corresponding projects.
 - query: select sq.name, project.name from project, (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq where project.emp_id = sq.id;
-- resultSet: [{"Engineering", "OLAP"},
+- unorderedResult: [{"Engineering", "OLAP"},
               {"Sales", "Feedback"},
               {"Marketing", "SEO"}]
 ---
