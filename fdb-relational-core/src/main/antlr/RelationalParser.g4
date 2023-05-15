@@ -388,6 +388,7 @@ queryOptions
 
 queryOption
     : NOCACHE
+    | LOG QUERY
     ;
 
 // Transaction's Statements

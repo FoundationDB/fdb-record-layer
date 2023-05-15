@@ -37,16 +37,23 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.recordlayer.util.KeyValueLoggingMessage;
 
 import com.google.common.base.VerifyException;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class PlanGenerator {
+    private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
 
     /**
      * An optional plan cache used for improving performance by caching plans, so we can avoid planning them
@@ -59,10 +66,18 @@ public final class PlanGenerator {
     @Nonnull
     private final CascadesPlanner planner;
 
+    private long beginTime = System.nanoTime();
+    private long currentTime = beginTime;
+
+    @Nonnull
+    private Options options;
+
     private PlanGenerator(@Nonnull final Optional<RelationalPlanCache> cache,
-                         @Nonnull final CascadesPlanner planner) {
+                          @Nonnull final CascadesPlanner planner,
+                          @Nonnull final Options options) {
         this.cache = cache;
         this.planner = planner;
+        this.options = options;
     }
 
     /**
@@ -79,24 +94,47 @@ public final class PlanGenerator {
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query,
                            @Nonnull final PlanContext context) throws RelationalException {
+        resetTimer();
+        boolean logThatQuery = false;
+        KeyValueLoggingMessage message = KeyValueLoggingMessage.create("PlanGenerator");
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context.getSchemaTemplate(), query, PreparedStatementParameters.of(context.getPreparedStatementParameters()),
                     context.getUserVersion(),
                     context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()));
+            message.append("normalizeQueryTime", stepTimeMicros());
+            options = Options.combine(astHashResult.getQueryOptions(), options);
+            logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                return generatePhysicalPlan(query, astHashResult, context, planner);
+                Plan<?> plan = generatePhysicalPlan(query, astHashResult, context, planner);
+                if (logThatQuery || logger.isDebugEnabled()) {
+                    message.append("planCache", "skip");
+                    message.append("generatePhysicalPlanTime", stepTimeMicros());
+                    message.append("plan", plan.explain());
+                }
+                return plan;
+            }
+
+            // Default is to cache hit. This is modified later if we cache miss
+            if (logThatQuery || logger.isDebugEnabled()) {
+                message.append("planCache", "hit");
             }
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
+            final boolean finalLogThatQuery = logThatQuery;
             return cache.get()
                     .reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
                                 final var plan = generatePhysicalPlan(query, astHashResult, context, planner);
+                                if (finalLogThatQuery || logger.isDebugEnabled()) {
+                                    message.append("planCache", "miss");
+                                    message.append("generatePhysicalPlanTime", stepTimeMicros());
+                                    message.append("plan", plan.explain());
+                                }
                                 return Pair.of(planEquivalence.withConstraint(plan.getConstraint()), plan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
@@ -121,6 +159,16 @@ public final class PlanGenerator {
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
         } catch (VerifyException | SemanticException ve) {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        } finally {
+            message.append("totalPlanTime", totalTimeMicros());
+            message.append("query", query);
+            if (logThatQuery) {
+                logger.info(message);
+            } else if (logger.isDebugEnabled()) {
+                logger.debug(message);
+            }
         }
     }
 
@@ -138,7 +186,7 @@ public final class PlanGenerator {
                                    @Nonnull final RecordMetaData metaData,
                                    @Nonnull final RecordStoreState recordStoreState,
                                    @Nonnull final Options options) throws RelationalException {
-        return new PlanGenerator(cache, createPlanner(metaData, recordStoreState, options));
+        return new PlanGenerator(cache, createPlanner(metaData, recordStoreState, options), options);
     }
 
     private static Plan<?> generatePhysicalPlan(@Nonnull final String query,
@@ -213,5 +261,21 @@ public final class PlanGenerator {
     private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) {
         return queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
                 queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT);
+    }
+
+    private void resetTimer() {
+        currentTime = System.nanoTime();
+        beginTime = currentTime;
+    }
+
+    private String stepTimeMicros() {
+        final long time = System.nanoTime();
+        final long result = TimeUnit.NANOSECONDS.toMicros(time - currentTime);
+        currentTime = time;
+        return Long.toString(result);
+    }
+
+    private String totalTimeMicros() {
+        return Long.toString(TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime));
     }
 }

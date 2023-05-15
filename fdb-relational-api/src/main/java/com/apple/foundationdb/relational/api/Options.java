@@ -99,6 +99,11 @@ public final class Options {
         INDEX_FETCH_METHOD,
 
         /**
+         * A boolean indicating if a query should be logged or not.
+         */
+        LOG_QUERY,
+
+        /**
          * The maximum throughput of queries to log, in samples/SAMPLING_TIME_UNIT.
          */
         MAX_QUERY_LOGGING_THROUGHPUT,
@@ -136,6 +141,7 @@ public final class Options {
         builder.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, 1);
         builder.put(Name.SAMPLING_TIME_UNIT, TimeUnit.MINUTES);
         builder.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, 128);
+        builder.put(Name.LOG_QUERY, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -256,8 +262,8 @@ public final class Options {
         data.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
         data.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, List.of(new TypeContract<>(Integer.class)));
         data.put(Name.SAMPLING_TIME_UNIT, List.of(new TypeContract<>(TimeUnit.class)));
-        data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)))
-        ;
+        data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
+        data.put(Name.LOG_QUERY, List.of(new TypeContract<>(Boolean.class)));
 
         return Collections.unmodifiableMap(data);
     }

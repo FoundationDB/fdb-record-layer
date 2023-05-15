@@ -219,7 +219,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
-    public ExecuteProperties getExecutionProperties(@Nonnull final EvaluationContext evaluationContext) {
+    public ExecuteProperties getExecutionProperties() {
         final var builder = ExecuteProperties.newBuilder();
         if (context != null) {
             context.setExecuteProperties(builder);

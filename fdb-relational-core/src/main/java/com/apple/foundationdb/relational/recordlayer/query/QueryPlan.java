@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -38,21 +39,25 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
+import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -61,6 +66,10 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.DatabaseMetaData;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -103,6 +112,21 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             return new PhysicalQueryPlan(recordQueryPlan, constraint, parameters);
         }
 
+        @Nonnull
+        @Override
+        public String explain() {
+            final var executeProperties = queryExecutionParameters.getExecutionProperties();
+            List<String> explainComponents = new ArrayList<>();
+            explainComponents.add(recordQueryPlan.toString());
+            if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
+                explainComponents.add(String.format("(limit=%d)", executeProperties.getReturnedRowLimit()));
+            }
+            if (executeProperties.getSkip() != 0) {
+                explainComponents.add(String.format("(offset=%d)", executeProperties.getSkip()));
+            }
+            return String.join(" ", explainComponents);
+        }
+
         @Override
         @Nonnull
         public QueryPlanConstraint getConstraint() {
@@ -129,9 +153,13 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = queryExecutionParameters.getEvaluationContext();
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
-                final var  executionProperties = queryExecutionParameters.getExecutionProperties(typedEvaluationContext);
+                final var  executionProperties = queryExecutionParameters.getExecutionProperties();
                 if (queryExecutionParameters.isForExplain()) {
-                    return Plan.explainPhysicalPlan(recordQueryPlan, executionProperties);
+                    Row printablePlan = new ValueTuple(explain());
+                    StructMetaData metaData = new RelationalStructMetaData(
+                            FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+                    );
+                    return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
                 } else {
                     return executePhysicalPlan(recordQueryPlan,
                             recordLayerSchema,
@@ -225,6 +253,14 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
             return this;
         }
 
+        @Nonnull
+        @Override
+        public String explain() {
+            // TODO: We should return something meaningful if `optimize` wasn't called
+            //  TODO (Revisit LogicalQueryPlan.explain)
+            return optimizedPlan.map(PhysicalQueryPlan::explain).orElse("Logical Query Plan");
+        }
+
         @Override
         public RelationalResultSet execute(@Nonnull final ExecutionContext executionContext) throws RelationalException {
             return this.optimizedPlan.get().execute(executionContext);
@@ -289,6 +325,13 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         @Override
         public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public String explain() {
+            // TODO: TODO (Implement MetadataQueryPlan.explain)
+            return "MetadataQueryPlan";
         }
 
         @Nonnull

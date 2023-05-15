@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -41,6 +43,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.math.BigInteger;
+import java.sql.SQLException;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -105,6 +108,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private final Set<Result.QueryCachingFlags> queryCachingFlags;
 
     @Nonnull
+    private Options.Builder queryOptions;
+
+    @Nonnull
     private static Map<Class<?>, Function<ParserRuleContext, Object>> literalNodes = new HashMap<>();
 
     static {
@@ -127,6 +133,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         allowTokenAddition = true;
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(Result.QueryCachingFlags.class);
+        queryOptions = Options.builder();
     }
 
     @Override
@@ -165,6 +172,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     public Set<Result.QueryCachingFlags> getQueryCachingFlags() {
         return queryCachingFlags;
+    }
+
+    @Nonnull
+    public Options getQueryOptions() {
+        return queryOptions.build();
     }
 
     @Nonnull
@@ -225,10 +237,17 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitQueryOption(RelationalParser.QueryOptionContext ctx) {
-        if (ctx.NOCACHE() != null) {
-            queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        try {
+            if (ctx.NOCACHE() != null) {
+                queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+            }
+            if (ctx.LOG() != null) {
+                queryOptions.withOption(Options.Name.LOG_QUERY, true);
+            }
+            return visitChildren(ctx);
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
-        return visitChildren(ctx);
     }
 
     @Override
@@ -387,7 +406,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
-                astNormalizer.getQueryCachingFlags());
+                astNormalizer.getQueryCachingFlags(),
+                astNormalizer.getQueryOptions());
     }
 
     public static class Result {
@@ -421,14 +441,19 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final Set<QueryCachingFlags> queryCachingFlags;
 
+        @Nonnull
+        private final Options queryOptions;
+
         public Result(@Nonnull final QueryCacheKey queryCacheKey,
                       @Nonnull final QueryExecutionParameters queryExecutionParameters,
                       @Nonnull final ParseTree parseTree,
-                      @Nonnull final Set<QueryCachingFlags> queryCachingFlags) {
+                      @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
+                      @Nonnull final Options queryOptions) {
             this.queryCacheKey = queryCacheKey;
             this.queryExecutionParameters = queryExecutionParameters;
             this.parseTree = parseTree;
             this.queryCachingFlags = queryCachingFlags;
+            this.queryOptions = queryOptions;
         }
 
         @Nonnull
@@ -450,5 +475,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         public Set<QueryCachingFlags> getQueryCachingFlags() {
             return queryCachingFlags;
         }
+
+        @Nonnull
+        public Options getQueryOptions() {
+            return queryOptions;
+        }
+
     }
 }

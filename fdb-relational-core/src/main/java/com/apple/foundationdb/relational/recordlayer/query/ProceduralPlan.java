@@ -58,6 +58,14 @@ public final class ProceduralPlan implements Plan<Void> {
         return this;
     }
 
+    @Nonnull
+    @Override
+    public String explain() {
+        // TODO: this implementation is not correct as a few actions don't implement toString
+        // TODO (Implement ProceduralPlan.explain)
+        return "ProceduralPlan(" + action + ")";
+    }
+
     public static ProceduralPlan of(@Nonnull final ConstantAction action) {
         return new ProceduralPlan(action);
     }

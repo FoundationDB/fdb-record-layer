@@ -79,7 +79,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
-    public ExecuteProperties getExecutionProperties(@Nonnull EvaluationContext evaluationContext) {
+    public ExecuteProperties getExecutionProperties() {
         return ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(offset).build();
     }
 

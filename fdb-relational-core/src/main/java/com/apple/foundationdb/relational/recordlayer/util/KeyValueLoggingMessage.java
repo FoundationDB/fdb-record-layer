@@ -23,7 +23,9 @@ package com.apple.foundationdb.relational.recordlayer.util;
 import org.apache.logging.log4j.message.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -76,13 +78,16 @@ public class KeyValueLoggingMessage implements Message {
         return new KeyValueLoggingMessage(staticMessage);
     }
 
-    public KeyValueLoggingMessage append(String key, String value) {
-        keyValueMap.put(key, value);
+    public KeyValueLoggingMessage append(@Nonnull final Object key, @Nullable Object value) {
+        keyValueMap.put(sanitizeKey(key.toString()), sanitizeValue(Optional.ofNullable(value).orElse("null").toString()));
         return this;
     }
 
-    public KeyValueLoggingMessage appendKeyValues(@Nonnull Map<String, String> keysAndValues) {
-        keyValueMap.putAll(keysAndValues);
-        return this;
+    public static String sanitizeKey(@Nonnull final String key) {
+        return key.replace("=", "");
+    }
+
+    public static String sanitizeValue(@Nonnull final String value) {
+        return value.replace("\"", "'");
     }
 }

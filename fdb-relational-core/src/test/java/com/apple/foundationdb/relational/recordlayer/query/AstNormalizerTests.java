@@ -227,7 +227,7 @@ public class AstNormalizerTests {
                 Assertions.assertThat(Base64.getEncoder().encodeToString(execParams.getContinuation())).isEqualTo(expectedContinuation);
             }
             if (limit != -1) {
-                final var actualLimit = execParams.getExecutionProperties(execParams.getEvaluationContext()).getReturnedRowLimit();
+                final var actualLimit = execParams.getExecutionProperties().getReturnedRowLimit();
                 Assertions.assertThat(actualLimit).isEqualTo(limit);
             }
             // verify that all queries share exactly the same hash code.

@@ -41,7 +41,7 @@ public interface QueryExecutionParameters {
     }
 
     @Nonnull
-    ExecuteProperties getExecutionProperties(@Nonnull final EvaluationContext evaluationContext);
+    ExecuteProperties getExecutionProperties();
 
     @Nullable
     byte[] getContinuation();

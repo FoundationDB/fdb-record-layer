@@ -53,14 +53,9 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     @Nonnull
     private final EmbeddedRelationalConnection conn;
 
-    // (yhatem) this is to set Cascades configurations, not sure if this is supposed to be the same as in EmbeddedRelationalConnection.Options.
-    @Nonnull
-    private final Options options;
-
     public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) {
         this.sql = sql;
         this.conn = conn;
-        this.options = Options.NONE;
     }
 
     @Override
@@ -171,6 +166,7 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
         conn.ensureTransactionActive();
+        Options options = conn.getOptions();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }

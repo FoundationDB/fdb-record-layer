@@ -61,18 +61,14 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Nullable
     private RelationalResultSet currentResultSet;
 
-    // (yhatem) this is to set Cascades configurations, not sure if this is supposed to be the same as in EmbeddedRelationalConnection.Options.
-    @Nonnull
-    private final Options options;
-
     public EmbeddedRelationalStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
-        this.options = Options.NONE;
     }
 
     @Nonnull
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
         conn.ensureTransactionActive();
+        Options options = conn.getOptions();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
         }
@@ -80,7 +76,11 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
             final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
                     store.getRecordMetaData(), store.getRecordStoreState(), options);
-            final var planContext = PlanContext.Builder.create().fromRecordStore(store).fromDatabase(conn.getRecordLayerDatabase()).withSchemaTemplate(conn.getSchemaTemplate()).build();
+            final var planContext = PlanContext.Builder.create()
+                    .fromRecordStore(store)
+                    .fromDatabase(conn.getRecordLayerDatabase())
+                    .withSchemaTemplate(conn.getSchemaTemplate())
+                    .build();
             final Plan<?> plan = planGenerator.getPlan(query, planContext);
             final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
             if (plan instanceof QueryPlan) {
