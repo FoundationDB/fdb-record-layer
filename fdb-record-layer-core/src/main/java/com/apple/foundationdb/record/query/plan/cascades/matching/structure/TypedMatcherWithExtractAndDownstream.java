@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -59,11 +60,11 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
-        return super.bindMatchesSafely(outerBindings, in)
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+        return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                 .flatMap(bindings ->
                         downstream
-                                .bindMatches(outerBindings, extractor.unapply(in))
+                                .bindMatches(plannerConfiguration, outerBindings, extractor.unapply(plannerConfiguration, in))
                                 .map(bindings::mergedWith));
     }
 

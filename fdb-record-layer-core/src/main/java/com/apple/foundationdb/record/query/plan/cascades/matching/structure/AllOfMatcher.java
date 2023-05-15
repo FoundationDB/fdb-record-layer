@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
@@ -36,9 +37,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A matcher that only matches anything if all of its downstream matchers produce bindings. This matcher is
  * intended to be used to express a logical <em>and</em> between matchers on an object.
- *
+ * <br>
  * As an example
- *
+ * <br>
  * {@code
  * matchingAllOf(greaterThan(0), divisibleBy(2)).matches(2))
  * }
@@ -67,12 +68,12 @@ public class AllOfMatcher<T> implements BindingMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
         for (final BindingMatcher<?> downstream : downstreams) {
             bindingStream = bindingStream
-                    .flatMap(bindings -> downstream.bindMatches(outerBindings, in)
+                    .flatMap(bindings -> downstream.bindMatches(plannerConfiguration, outerBindings, in)
                             .map(bindings::mergedWith));
         }
 

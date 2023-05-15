@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 
 import javax.annotation.Nonnull;
@@ -43,8 +44,8 @@ public class PartialMatchMatchers {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
-                return super.bindMatchesSafely(outerBindings, in)
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.getMatchCandidate().getTraversal().getRootReference() != in.getCandidateRef()) {
                                 return Stream.empty();
@@ -66,8 +67,8 @@ public class PartialMatchMatchers {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
-                return super.bindMatchesSafely(outerBindings, in)
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.getMatchCandidate().getTraversal().getRootReference() == in.getCandidateRef()) {
                                 return Stream.empty();

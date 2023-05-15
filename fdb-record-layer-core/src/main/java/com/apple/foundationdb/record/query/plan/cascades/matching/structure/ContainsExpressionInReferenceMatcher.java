@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
@@ -47,13 +48,14 @@ public class ContainsExpressionInReferenceMatcher extends TypedMatcher<Relationa
      * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
      * expression or attempt to access the members of the given reference.
      *
+     * @param plannerConfiguration planner configuration
      * @param outerBindings preexisting bindings to be used by the matcher
      * @param in the object of type {@code T} we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull RelationalExpression in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final RelationalExpression in) {
         Verify.verify(outerBindings.containsKey(otherMatcher));
 
         final GroupExpressionRef<RelationalExpression> groupExpressionRef = outerBindings.get(otherMatcher);

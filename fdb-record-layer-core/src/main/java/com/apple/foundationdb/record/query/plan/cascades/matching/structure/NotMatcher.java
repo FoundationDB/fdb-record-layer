@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -47,9 +48,9 @@ public class NotMatcher implements BindingMatcher<Object> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Object in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Object in) {
         final Optional<PlannerBindings> nestedBindings =
-                downstream.bindMatches(outerBindings, in)
+                downstream.bindMatches(plannerConfiguration, outerBindings, in)
                         .findFirst();
 
         if (nestedBindings.isPresent()) {

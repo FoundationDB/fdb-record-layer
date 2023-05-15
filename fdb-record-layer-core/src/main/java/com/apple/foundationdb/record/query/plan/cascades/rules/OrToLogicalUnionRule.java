@@ -57,7 +57,6 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -98,13 +97,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
+    public static int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
+
     @Nonnull
     private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
-            RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(combinations(combinationPredicateMatcher)), all(qunMatcher));
+            RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(limitedPredicateCombinations(combinationPredicateMatcher)), all(qunMatcher));
 
     public OrToLogicalUnionRule() {
         super(root);
@@ -152,7 +153,6 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final var fixedPredicates = LinkedIdentitySet.copyOf(bindings.get(combinationPredicateMatcher));
-        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size());
         final var toBeDnfPredicates =
                 selectExpression.getPredicates()
                         .stream()
@@ -172,8 +172,6 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             // it can be that the dnf-predicate is trivial, i.e. it is only an AND of boolean variables
             return;
         }
-
-        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size() + "; creating new union");
 
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
         // there is definitely exactly one quantifier in the needed list
@@ -234,12 +232,19 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
     private static CollectionMatcher<QueryPredicate> nonTrivialPredicates(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
         return CollectionMatcher.fromBindingMatcher(
                 TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<QueryPredicate>>)(Class<?>)Collection.class,
-                        Extractor.of(predicates -> {
-                            if (predicates.stream().allMatch(predicate -> predicate.isAtomic() || (predicate instanceof LeafQueryPredicate))) {
-                                return ImmutableList.of();
-                            }
-                            return predicates;
-                        }, name -> "combinations(" + name + ")"),
+                        Extractor.of(predicates -> predicates.stream()
+                                .filter(predicate -> !predicate.isAtomic() && !(predicate instanceof LeafQueryPredicate))
+                                .collect(ImmutableList.toImmutableList()), name -> "nonTrivialPredicates(" + name + ")"),
                         downstream));
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static CollectionMatcher<QueryPredicate> limitedPredicateCombinations(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+        // We create a regular combinations() matcher that is limited on the number of predicates in a way that
+        // it will only create a combination of size 0, that is we will only transform an existing or into a UNION
+        // without any fixed predicates.
+        return CollectionMatcher.combinations(downstream,
+                (plannerConfiguration, queryPredicates) -> 0,
+                (plannerConfiguration, queryPredicates) -> queryPredicates.size() > plannerConfiguration.getOrToUnionMaxNumConjuncts() ? Math.min(queryPredicates.size(), 1) : queryPredicates.size());
     }
 }

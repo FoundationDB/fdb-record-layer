@@ -903,7 +903,7 @@ public class CascadesPlanner implements QueryPlanner {
             final AtomicInteger numMatches = new AtomicInteger(0);
 
             rule.getMatcher()
-                    .bindMatches(initialBindings, getBindable())
+                    .bindMatches(getConfiguration(), initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, bindings, evaluationContext))
                     .forEach(ruleCall -> {
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {

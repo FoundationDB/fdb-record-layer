@@ -68,7 +68,7 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
     @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
-        return Optional.of(NotPredicate.class);
+        return Optional.empty();
     }
 
     @Override
@@ -88,16 +88,19 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
                         })
                         .collect(Collectors.toList());
 
+        final int numberOfMajors = majorTerms.size();
         BooleanPredicateNormalizer.applyAbsorptionLaw(majorOfMinors);
-
-        final var simplifiedPredicate =
-                with(majorClass, majorOfMinors
-                        .stream()
-                        .map(minor -> with(minorClass, minor))
-                        .collect(Collectors.toList()));
-        call.yield(simplifiedPredicate, ImmutableList.of(QueryPlanConstraint.tautology()));
+        if (majorOfMinors.size() < numberOfMajors) {
+            final var simplifiedPredicate =
+                    with(majorClass, majorOfMinors
+                            .stream()
+                            .map(minor -> with(minorClass, minor))
+                            .collect(Collectors.toList()));
+            call.yield(simplifiedPredicate, ImmutableList.of(QueryPlanConstraint.tautology()));
+        }
     }
 
+    @Nonnull
     private QueryPredicate with(@Nonnull final Class<? extends AndOrPredicate> majorOrMinorClass,
                                 @Nonnull final Collection<? extends QueryPredicate> terms) {
         if (majorOrMinorClass == OrPredicate.class) {
@@ -118,6 +121,7 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
         throw new RecordCoreException("unsupported major");
     }
 
+    @Nonnull
     public static <P extends AndOrPredicate> AbsorptionRule<P> withMajor(@Nonnull final Class<P> majorClass) {
         final var termMatcher = anyPredicate();
         return new AbsorptionRule<>(majorClass,

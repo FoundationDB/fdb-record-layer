@@ -118,12 +118,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             }
         }
 
-//        int unsatisfiedFilterCompare = Integer.compare(PredicateCountProperty.evaluate(a),
-//                PredicateCountProperty.evaluate(b));
-//        if (unsatisfiedFilterCompare != 0) {
-//            return unsatisfiedFilterCompare;
-//        }
-
         int unsatisfiedFilterCompare = Long.compare(MagicPredicateProperty.countNormalizedConjuncts(a),
                 MagicPredicateProperty.countNormalizedConjuncts(b));
         if (unsatisfiedFilterCompare != 0) {

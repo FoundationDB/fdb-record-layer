@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
@@ -225,7 +226,7 @@ public class Simplification {
                 final var rule = ruleIterator.next();
                 final BindingMatcher<? extends BASE> matcher = rule.getMatcher();
 
-                final var matchIterator = matcher.bindMatches(PlannerBindings.empty(), current).iterator();
+                final var matchIterator = matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current).iterator();
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();

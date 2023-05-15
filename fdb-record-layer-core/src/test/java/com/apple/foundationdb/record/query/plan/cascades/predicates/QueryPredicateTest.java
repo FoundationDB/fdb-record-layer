@@ -26,7 +26,11 @@ import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultQueryPredicateRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.QueryPredicateWithCnfRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.QueryPredicateWithDnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -214,7 +218,6 @@ public class QueryPredicateTest {
         assertTrue(AndPredicate.and(p1, OrPredicate.or(p2, p3, p3), p1).equals(AndPredicate.and(OrPredicate.or(p3, p2), p1)));
 
         assertFalse(AndPredicate.and(p1, OrPredicate.or(p2, p3)).equals(AndPredicate.and(OrPredicate.or(p3, p2, p1), p1)));
-
     }
 
     @Test
@@ -252,5 +255,27 @@ public class QueryPredicateTest {
                 DefaultQueryPredicateRuleSet.ofComputationRules());
 
         System.out.println(result.getLeft());
+    }
+
+    @Test
+    void cnfDnfRoundTrip() {
+        final var rcv = rcv();
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var a = field(qov, "a");
+        final var b = field(qov, "b");
+        final var c = field(qov, "c");
+
+        final var p1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello"));
+        final var p2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, "World"));
+        final var p22 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, "World2"));
+        final var p3 = new ValuePredicate(c, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, "Something"));
+        final var p32 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, "Something2"));
+
+        final var predicate = OrPredicate.or(p1, AndPredicate.and(p2, p22), AndPredicate.and(p3, p32));
+
+        final var cnfPredicatePair = Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithCnfRuleSet.ofComputationRules());
+        System.out.println(cnfPredicatePair.getLeft());
+        final var dnfPredicatePair = Simplification.optimize(cnfPredicatePair.getLeft(), EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules());
+        System.out.println(dnfPredicatePair.getLeft());
     }
 }

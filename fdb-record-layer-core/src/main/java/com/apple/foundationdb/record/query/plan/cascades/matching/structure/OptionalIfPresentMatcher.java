@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -49,14 +50,14 @@ public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> 
     @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Optional<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Optional<T> in) {
         return Stream.of(PlannerBindings.from(this, in))
                 .flatMap(bindings -> {
                     if (!in.isPresent()) {
                         return Stream.empty();
                     }
                     return downstream
-                            .bindMatches(outerBindings, in.get())
+                            .bindMatches(plannerConfiguration, outerBindings, in.get())
                             .map(bindings::mergedWith);
                 });
     }
