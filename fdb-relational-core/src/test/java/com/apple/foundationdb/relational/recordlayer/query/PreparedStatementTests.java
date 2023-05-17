@@ -24,11 +24,14 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import org.apache.logging.log4j.Level;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -57,6 +60,11 @@ public class PreparedStatementTests {
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(1)
+    public final LogAppenderRule logAppender = new LogAppenderRule("PreparedStatementsTestLogAppender", PlanGenerator.class, Level.INFO);
+
 
     public PreparedStatementTests() {
         Utils.enableCascadesDebugger();
@@ -267,6 +275,35 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
+        }
+    }
+
+    @Test
+    void withPlanCache() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?val OPTIONS(LOG QUERY)")) {
+                ps.setLong("val", 12);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=miss");
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?val OPTIONS(LOG QUERY)")) {
+                ps.setLong("val", 12);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=hit");
         }
     }
 

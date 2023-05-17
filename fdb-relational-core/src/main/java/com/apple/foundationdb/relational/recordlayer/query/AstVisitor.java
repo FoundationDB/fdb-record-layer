@@ -791,7 +791,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
         }
-        final var literal = new LiteralValue<>(param);
+        final var literal = new LiteralValue<>(Type.primitiveType(Type.typeCodeFromPrimitive(param), true), param);
         return LiteralsUtils.processLiteral(literal, param, context);
     }
 
