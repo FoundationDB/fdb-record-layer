@@ -549,14 +549,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
-                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.andOrTrue(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
+        return "SELECT " + resultValue + " WHERE " + AndPredicate.andOrTrue(getPredicates());
     }
 
     /**

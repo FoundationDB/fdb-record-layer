@@ -68,7 +68,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
         final Collection<? extends Quantifier> quantifiers = bindings.get(innerQuantifiersMatcher);
 
         // create one big conjuncted predicate
-        final QueryPredicate conjunctedPredicate = AndPredicate.and(predicates);
+        final QueryPredicate conjunctedPredicate = AndPredicate.andOrTrue(predicates);
 
         final BooleanPredicateNormalizer cnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
                 BooleanPredicateNormalizer.Mode.CNF,
@@ -79,16 +79,5 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
                         call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 AndPredicate.conjuncts(cnfPredicate))));
-
-        final BooleanPredicateNormalizer dnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
-                BooleanPredicateNormalizer.Mode.DNF,
-                call.getContext().getPlannerConfiguration());
-        System.out.println("old");
-
-        dnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false);
-//                .ifPresent(dnfPredicate ->
-//                        call.yield(new SelectExpression(selectExpression.getResultValue(),
-//                                quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
-//                                ImmutableList.of(dnfPredicate))));
     }
 }

@@ -62,6 +62,7 @@ public abstract class IndexPredicate {
 
     /**
      * Check if a given record should be indexed.
+     * @param <M> the sub type of {@link Message}
      * @param store record store
      * @param savedRecord the updated record
      * @param <M> type of {@link Message} that underlying records will use
@@ -216,7 +217,7 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public QueryPredicate toPredicate(@Nonnull final Value value) {
-            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
+            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.andOrTrue(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
 
         @Override

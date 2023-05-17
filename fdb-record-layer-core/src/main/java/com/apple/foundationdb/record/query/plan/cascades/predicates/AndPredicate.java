@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -145,10 +146,16 @@ public class AndPredicate extends AndOrPredicate {
     }
 
     @Nonnull
-    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
+    public static QueryPredicate andOrTrue(@Nonnull final Collection<? extends QueryPredicate> conjuncts) {
         if (conjuncts.isEmpty()) {
             return ConstantPredicate.TRUE;
         }
+        return of(conjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
+        Verify.verify(!conjuncts.isEmpty());
         if (conjuncts.size() == 1) {
             return Iterables.getOnlyElement(conjuncts);
         }

@@ -1,5 +1,5 @@
 /*
- * PredicateCountProperty.java
+ * NormalizedPredicateProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
@@ -44,16 +43,17 @@ import java.util.Objects;
  * // TODO.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MagicPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
-    private static final MagicPredicateProperty INSTANCE = new MagicPredicateProperty();
+public class NormalizedPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
+    private static final NormalizedPredicateProperty INSTANCE = new NormalizedPredicateProperty();
 
     @Nonnull
     @Override
     public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
         final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
                 .filter(Objects::nonNull)
+                .filter(predicate -> !predicate.isTautology())
                 .collect(ImmutableList.toImmutableList());
-        return OrPredicate.or(predicatesFromQuantifiers);
+        return OrPredicate.orOrTrue(predicatesFromQuantifiers);
     }
 
     @Nonnull
@@ -73,7 +73,7 @@ public class MagicPredicateProperty implements ExpressionProperty<QueryPredicate
                     .forEach(resultPredicatesBuilder::add);
         }
 
-        return AndPredicate.and(resultPredicatesBuilder.build());
+        return AndPredicate.andOrTrue(resultPredicatesBuilder.build());
     }
 
     @Nonnull
@@ -83,23 +83,23 @@ public class MagicPredicateProperty implements ExpressionProperty<QueryPredicate
         return Iterables.getOnlyElement(memberResults);
     }
 
+    @Nonnull
     public static QueryPredicate evaluate(ExpressionRef<? extends RelationalExpression> ref) {
         return Verify.verifyNotNull(ref.acceptPropertyVisitor(INSTANCE));
     }
 
+    @Nonnull
     public static QueryPredicate evaluate(@Nonnull RelationalExpression expression) {
-        QueryPredicate result = expression.acceptPropertyVisitor(INSTANCE);
-        if (result == null) {
-            return new ConstantPredicate(true);
-        }
-        return result;
+        return Verify.verifyNotNull(expression.acceptPropertyVisitor(INSTANCE));
     }
 
     public static long countNormalizedConjuncts(@Nonnull RelationalExpression expression) {
         final var magicPredicate = evaluate(expression);
-        return BooleanPredicateNormalizer
-                .getDefaultInstanceForCnf()
-                .getMetrics(magicPredicate)
-                .getNormalFormFullSize();
+        return magicPredicate.isTautology()
+               ? 0
+               : BooleanPredicateNormalizer
+                       .getDefaultInstanceForCnf()
+                       .getMetrics(magicPredicate)
+                       .getNormalFormFullSize();
     }
 }

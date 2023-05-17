@@ -274,7 +274,7 @@ public class OrPredicate extends AndOrPredicate {
             // take the predicates from each individual expansion, "and" them, and then "or" them
             final var predicates = LinkedIdentitySet.<QueryPredicate>of();
             for (final var childPredicates : childPredicatesList) {
-                predicates.add(AndPredicate.and(childPredicates));
+                predicates.add(AndPredicate.andOrTrue(childPredicates));
             }
             return LinkedIdentitySet.of(OrPredicate.or(predicates));
         });
@@ -298,12 +298,28 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
-    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> children, final boolean isAtomic) {
-        Verify.verify(!children.isEmpty());
-        if (children.size() == 1) {
-            return Iterables.getOnlyElement(children);
+    public static QueryPredicate orOrTrue(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+        if (disjuncts.isEmpty()) {
+            return ConstantPredicate.TRUE;
+        }
+        return of(disjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate orOrFalse(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+        if (disjuncts.isEmpty()) {
+            return ConstantPredicate.FALSE;
+        }
+        return of(disjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> disjuncts, final boolean isAtomic) {
+        Verify.verify(!disjuncts.isEmpty());
+        if (disjuncts.size() == 1) {
+            return Iterables.getOnlyElement(disjuncts);
         }
 
-        return new OrPredicate(ImmutableList.copyOf(children), isAtomic);
+        return new OrPredicate(ImmutableList.copyOf(disjuncts), isAtomic);
     }
 }

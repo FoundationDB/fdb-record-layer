@@ -235,7 +235,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
-                                index.isUnique(),
+                                false,
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
                                 matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
@@ -289,7 +289,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
-                        index.isUnique(),
+                        false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
                         partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));

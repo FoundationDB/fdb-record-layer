@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.rules.OrToLogicalUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.google.common.collect.ImmutableSet;
@@ -291,7 +291,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
-     * Returns the maximum number of conjuncts whose combinations are enumerated when {@link OrToLogicalUnionRule} is
+     * Returns the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
      * applied.
      * @return the maximum number of conjuncts
      */
@@ -343,7 +343,7 @@ public class RecordQueryPlannerConfiguration {
         private boolean planOtherAttemptWholeFilter;
         private int maxNumReplansForInToJoin = 0;
 
-        private int orToUnionMaxNumConjuncts = OrToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
+        private int orToUnionMaxNumConjuncts = PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -570,7 +570,7 @@ public class RecordQueryPlannerConfiguration {
         }
 
         /**
-         * Set the maximum number of conjuncts whose combinations are enumerated when {@link OrToLogicalUnionRule} is
+         * Set the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
          * applied. This option only applies to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
          * @param orToUnionMaxNumConjuncts the maximum number of conjuncts
          * @return this builder

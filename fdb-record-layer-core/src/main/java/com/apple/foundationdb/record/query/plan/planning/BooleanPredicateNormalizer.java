@@ -257,7 +257,7 @@ public class BooleanPredicateNormalizer {
             return true;
         }
 
-        if (isNormalFormVariable(predicate)) {
+        if (isNormalFormVariableOrNotPredicate(predicate)) {
             return true;
         }
 
@@ -266,22 +266,28 @@ public class BooleanPredicateNormalizer {
             if (mode.instanceOfMajorClass(predicate)) {
                 return children.stream()
                         .allMatch(child -> {
-                            if (isNormalFormVariable(child)) {
+                            if (isNormalFormVariableOrNotPredicate(child)) {
                                 return true;
                             }
                             if (mode.instanceOfMinorClass(child)) {
                                 return ((AndOrPredicate)child).getChildren()
                                         .stream()
-                                        .allMatch(BooleanPredicateNormalizer::isNormalFormVariable);
+                                        .allMatch(BooleanPredicateNormalizer::isNormalFormVariableOrNotPredicate);
                             }
                             return false;
                         });
             } else if (mode.instanceOfMinorClass(predicate)) {
                 return children
                         .stream()
-                        .allMatch(BooleanPredicateNormalizer::isNormalFormVariable);
+                        .allMatch(BooleanPredicateNormalizer::isNormalFormVariableOrNotPredicate);
             }
         }
+
+        if (predicate instanceof NotPredicate) {
+            // this is a not(...) over something other than a variable
+            return false;
+        }
+
         throw new RecordCoreException("unknown boolean expression");
     }
 
@@ -476,7 +482,19 @@ public class BooleanPredicateNormalizer {
     }
 
     private static boolean isNormalFormVariable(@Nonnull final QueryPredicate queryPredicate) {
-        return queryPredicate.isAtomic() || queryPredicate instanceof LeafQueryPredicate || queryPredicate instanceof NotPredicate;
+        return queryPredicate.isAtomic() || queryPredicate instanceof LeafQueryPredicate;
+    }
+
+    private static boolean isNormalFormVariableOrNotPredicate(@Nonnull final QueryPredicate queryPredicate) {
+        if (isNormalFormVariable(queryPredicate)) {
+            return true;
+        }
+
+        if (queryPredicate instanceof NotPredicate) {
+            return isNormalFormVariable(((NotPredicate)queryPredicate).getChild());
+        }
+
+        return false;
     }
 
     /**

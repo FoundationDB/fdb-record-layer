@@ -122,7 +122,7 @@ public class GraphExpansion {
 
     @Nonnull
     public QueryPredicate asAndPredicate() {
-        return AndPredicate.and(getPredicates());
+        return AndPredicate.andOrTrue(getPredicates());
     }
 
     @Nonnull

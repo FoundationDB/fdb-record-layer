@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -78,13 +77,7 @@ public class IdentityOrRule extends QueryPredicateComputationRule<EvaluationCont
             }
         }
         final var resultTerms = resultTermsBuilder.build();
-        final QueryPredicate simplifiedPredicate;
-        if (resultTerms.isEmpty()) {
-            // only tautologies
-            simplifiedPredicate = new ConstantPredicate(false);
-        } else {
-            simplifiedPredicate = OrPredicate.or(resultTerms);
-        }
+        final var simplifiedPredicate = OrPredicate.orOrFalse(resultTerms);
         call.yield(simplifiedPredicate, ImmutableList.of());
     }
 }

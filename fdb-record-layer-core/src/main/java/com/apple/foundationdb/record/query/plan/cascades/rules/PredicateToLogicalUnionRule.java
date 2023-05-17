@@ -1,5 +1,5 @@
 /*
- * OrToLogicalUnionRule.java
+ * PredicateToLogicalUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -62,42 +63,58 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 
 /**
- * Convert a filter on an {@linkplain OrPredicate or} expression into a plan on the union. In particular, this will
- * produce a {@link LogicalUnionExpression} with simple filter plans on each child.
+ * Transform a {@link SelectExpression} with a set of {@link QueryPredicate}s into a union operation.
+ * <br>
+ * The basic idea around this transformation: First, the {@link QueryPredicate}s in a {@link SelectExpression}
+ * can be viewed as one conjuncted predicate. This predicate can be assumed to have been transformed into a CNF using
+ * distribute low, deMorgan's law, etc. by {@link NormalizePredicatesRule}. That technically means that the
+ * {@link QueryPredicate}s in the current {@link SelectExpression} only contain
+ * <ol>
+ *     <li> {@link OrPredicate}s, </li>
+ *     <li> boolean variables aka {@link LeafQueryPredicate}s, and</li>
+ *     <li> {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate}s over boolean
+ *          variables</li>
+ * </ol>
  *
- * <pre>
- * {@code
- *     +----------------------------+                 +-----------------------------------+
- *     |                            |                 |                                   |
- *     |  SelectExpression          |                 |  LogicalUnionExpression           |
- *     |       p1 v p2 v ... v pn   |                 |                                   |
- *     |                            |                 +-----------------------------------+
- *     +-------------+--------------+                        /        |               \
- *                   |                    +-->              /         |                \
- *                   | qun                                 /          |                 \
- *                   |                                    /           |                  \
- *                   |                                   /            |                   \
- *                   |                             +--------+    +--------+          +--------+
- *                   |                             |        |    |        |          |        |
- *                   |                             |  SEL   |    |  SEL   |          |  SEL   |
- *                   |                             |    p1' |    |    p2' |   ....   |    pn' |
- *                   |                             |        |    |        |          |        |
- *                   |                             +--------+    +--------+          +--------+
- *                   |                                /              /                   /
- *                   |                               / qun          / qun               / qun
- *            +------+------+  ---------------------+              /                   /
- *            |             |                                     /                   /
- *            |   any ref   |  ----------------------------------+                   /
- *            |             |                                                       /
- *            +-------------+  ----------------------------------------------------+
- * }
- * </pre>
- * Where p1, p2, ..., pn are the or terms of the predicate in the original {@link SelectExpression}.
- *        
+ * Note that this rule currently also attempts the best effort on predicates in non-normal forms (i.e. as written in the
+ * query), but the outcome may not be exhaustive. This is important if the CNF is too complex.
+ * <br>
+ * Let's first assume the CNF is simple, i.e. the number of conjuncts is within the limit given by
+ * {@link RecordQueryPlannerConfiguration#getOrToUnionMaxNumConjuncts()} (defaulted by
+ * {@link #DEFAULT_MAX_NUM_CONJUNCTS}).
+ * The CNF can be repeatedly multiplied out to eventually obtain the DNF. It is, however, beneficial to create all
+ * intermediate forms as well.
+ * <br>
+ * In particular, a CNF represented by {@code a1 ^ a2 ^ ... ^ an} can be transformed into another form by fixing any
+ * combination of {@code k} factors, transforming the remaining factors into their DNF and leaving the fixed factors
+ * untouched.
+ * <br>
+ * For instance, the first three factors in {@code a1 ^ a2 ^ a3 ^ a4 ^ a5} can be fixed to obtain
+ * {@code a1 ^ a2 ^ a3 ^ DNF(a4, a5)}.
+ * <br>
+ * Note that the DNF of the remaining factors (in the example {@code DNF(a4, a5)}) is an {@link OrPredicate} as long as
+ * the DNF is not trivial. The DNF thus can usually be written as {@code o1 v o2 v ... v om}.
+ * <br>
+ * At this stage of the transformation the predicate is of the shape:
+ * {@code AND(fixed factors) ^ OR(transformed (DNF) remaining factors} or written out
+ * {@code af1 ^ af2 ^ ... ^ afk ^ (o1 v o2 v ... v om)}}.
+ * <br>
+ * It is now useful to multiply out the OR against the fixed factors:
+ * {@code (af1 ^ (o1 v o2 v ... v om)) v (af2 ^ (o1 v o2 v ... v om)) v ... v (afk ^ (o1 v o2 v ... v om))}}.
+ * Note that in this term all fixed factors remain intact; they just happen to be repeated per OR term.
+ * <br>
+ * As a final step this term is used to create a {@link LogicalUnionExpression} over {@link SelectExpression}s that
+ * contain each contain a term {@code (ai ^ (o1 v o2 v ... v om))}.
+ * <br>
+ * In order to create all meaningful forms starting with the CNF and ending at the DNF (all factors have been multiplied
+ * out) we need to consider all combinations of factors in the CNF. Note that for a given combination we are not
+ * interested in different permutations of the fixed factors, i.e. it does not matter if we first multiply out some
+ * factor {@code f1} and then {@code f2} or vice versa. We do not want to find all n-ary UNIONs (including all shapes
+ * of UNION-trees).
  */
 @API(API.Status.EXPERIMENTAL)
-public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
-    public static int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
+public class PredicateToLogicalUnionRule extends CascadesRule<SelectExpression> {
+    public static final int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
 
     @Nonnull
     private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
@@ -107,7 +124,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
     private static final BindingMatcher<SelectExpression> root =
             RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(limitedPredicateCombinations(combinationPredicateMatcher)), all(qunMatcher));
 
-    public OrToLogicalUnionRule() {
+    public PredicateToLogicalUnionRule() {
         super(root);
     }
 
@@ -126,6 +143,7 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
         // 2. The result value (which must stay above the newly formed union for duplicate-preserving reasons can
         //    only ever refer to at most one for each quantifier from the owned set of for-each quantifiers.
         // 3. TODO For now we only allow exactly one for-each quantifier.
+        //
 
         final var ownedForEachAliases =
                 quantifiers.stream()
@@ -215,7 +233,6 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
             final ExpressionRef<? extends RelationalExpression> memoizedReference = call.memoizeExpression(unionLegExpression);
             relationalExpressionReferences.add(memoizedReference);
         }
-        //System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(selectExpression)) + "; fixed:" + fixedPredicates.size());
         
         var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
 
@@ -230,6 +247,14 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("unchecked")
     private static CollectionMatcher<QueryPredicate> nonTrivialPredicates(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+        //
+        // We want to subset the predicates in the SelectExpression to only use the factors of the normal form that
+        // are non-trivial, i.e. real ORs as opposed to boolean variables, i.e. comparisons and other leaves.
+        // Note that by doing this we still exhaustively create all desired forms. Any trivial factor remains unfixed
+        // in the DNF of the remaining factors and is repeated for each term in the DNF which is the identical result
+        // to fixing those trivial predicate. In other words, filtering the predicates here eliminates duplicates that
+        // would otherwise be generated by this rule.
+        //
         return CollectionMatcher.fromBindingMatcher(
                 TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<QueryPredicate>>)(Class<?>)Collection.class,
                         Extractor.of(predicates -> predicates.stream()
@@ -240,11 +265,16 @@ public class OrToLogicalUnionRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("SameParameterValue")
     private static CollectionMatcher<QueryPredicate> limitedPredicateCombinations(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+        //
         // We create a regular combinations() matcher that is limited on the number of predicates in a way that
-        // it will only create a combination of size 0, that is we will only transform an existing or into a UNION
+        // it will only create a combination of size 0, that is we will only transform an existing OR into a UNION
         // without any fixed predicates.
+        //
         return CollectionMatcher.combinations(downstream,
                 (plannerConfiguration, queryPredicates) -> 0,
-                (plannerConfiguration, queryPredicates) -> queryPredicates.size() > plannerConfiguration.getOrToUnionMaxNumConjuncts() ? Math.min(queryPredicates.size(), 1) : queryPredicates.size());
+                (plannerConfiguration, queryPredicates) ->
+                        queryPredicates.size() > plannerConfiguration.getOrToUnionMaxNumConjuncts()
+                        ? Math.min(queryPredicates.size(), 1)
+                        : queryPredicates.size());
     }
 }

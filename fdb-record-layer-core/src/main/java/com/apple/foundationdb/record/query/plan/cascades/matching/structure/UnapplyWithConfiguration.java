@@ -34,6 +34,7 @@ public interface UnapplyWithConfiguration<T, U> {
     /**
      * Unapplies this function to the given argument.
      *
+     * @param plannerConfiguration the planner configuration
      * @param t the function argument
      * @return the function result
      */

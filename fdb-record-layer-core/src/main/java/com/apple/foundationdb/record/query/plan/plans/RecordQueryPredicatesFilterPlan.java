@@ -72,7 +72,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
-        this.conjunctedPredicate = AndPredicate.and(this.predicates);
+        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
     }
 
     @Nonnull

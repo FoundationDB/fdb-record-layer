@@ -124,6 +124,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         results.add(value);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public void yieldAndReExplore(@Nonnull RESULT value) {
         Verify.verify(value != current);
         results.add(value);

@@ -341,7 +341,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         for (final var range : ranges) {
             final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
             residuals.addAll(range.getComparisons().stream().map(c -> getValue().withComparison(c)).collect(ImmutableList.toImmutableList()));
-            dnfParts.add(AndPredicate.and(residuals.build()));
+            dnfParts.add(AndPredicate.andOrTrue(residuals.build()));
         }
         return OrPredicate.or(dnfParts.build());
     }
@@ -400,7 +400,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }).flatMap(Optional::stream).collect(Collectors.toSet());
         final ImmutableList.Builder<QueryPredicate> conjunctions = ImmutableList.builder();
         for (final var queryRange : getRanges()) {
-            conjunctions.add(AndPredicate.and(queryRange.getComparisons()
+            conjunctions.add(AndPredicate.andOrTrue(queryRange.getComparisons()
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())

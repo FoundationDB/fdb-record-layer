@@ -229,6 +229,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ExpressionRef<? extends RelationalExpression> memoizeExpression(@Nonnull final RelationalExpression expression) {
         if (expression.getQuantifiers().isEmpty()) {
             return memoizeLeafExpression(expression);
