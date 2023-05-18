@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,6 +89,18 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void highlightedBitsetQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, LuceneIndexTestUtils.TEXT_AND_STORED);
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1623L, "Hello record layer", 1));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: BITSET_CONTAINS(1)"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
     void highlightedSynonymIndex() {
         final String original = "peanut butter and jelly sandwich";
         final String highlighted = "{peanut} butter and jelly sandwich";
@@ -111,6 +124,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                             IndexOrphanBehavior.ERROR));
         }
     }
+
 
     @Test
     void highlightedNgramIndex() {

@@ -58,6 +58,10 @@ public class BitSetQuery extends Query {
         return "BITSET-MASK(" + Long.toBinaryString(bitMask) + ")";
     }
 
+    public String getField() {
+        return field;
+    }
+
     @Override
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     public boolean equals(final Object obj) {
