@@ -122,6 +122,11 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
         inner.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return inner.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

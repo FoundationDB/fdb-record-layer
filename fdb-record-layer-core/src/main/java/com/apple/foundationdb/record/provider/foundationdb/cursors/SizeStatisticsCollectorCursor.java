@@ -162,6 +162,11 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     public void close() {
     }
 
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
     //form a continuation that allows us to restart statistics aggregation from where we left off
     // Note that this continuation SHOULD NOT be used to represent an end continuation
     private static class SizeStatisticsCollectorCursorContinuation implements RecordCursorContinuation {

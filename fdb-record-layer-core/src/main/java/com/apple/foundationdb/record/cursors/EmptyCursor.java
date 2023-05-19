@@ -59,6 +59,11 @@ public class EmptyCursor<T> implements RecordCursor<T> {
         // Nothing to do.
     }
 
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

@@ -128,6 +128,11 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     }
 
     @Override
+    public boolean isClosed() {
+        return pipeline.isEmpty() && outerNextFuture == null && outerCursor.isClosed();
+    }
+
+    @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             outerCursor.accept(visitor);

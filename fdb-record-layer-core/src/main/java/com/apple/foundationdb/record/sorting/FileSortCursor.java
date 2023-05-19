@@ -65,6 +65,7 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
     @Nullable
     private K minimumKey;
     private SortedFileReader<V> fileReader;
+    private boolean closed;
 
     private FileSortCursor(@Nonnull FileSortAdapter<K, V> adapter, @Nonnull FileSorter<K, V> sorter,
                            @Nonnull RecordCursor<V> inputCursor, @Nullable StoreTimer timer,
@@ -75,6 +76,7 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
         this.timer = timer;
         this.skip = skip;
         this.limit = limit;
+        this.closed = false;
     }
 
     @Nonnull
@@ -162,6 +164,12 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
         } catch (IOException ex) {
             throw new RecordCoreException(ex);
         }
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

@@ -80,6 +80,11 @@ public class RangeCursor implements RecordCursor<Integer> {
     }
 
     @Override
+    public boolean isClosed() {
+        return false;
+    }
+
+    @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);

@@ -139,6 +139,12 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         }
     }
 
+    @Override
+    public boolean isClosed() {
+        // TODO Check if indexReader is closed beyond the variable being null
+        return indexReader == null;
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

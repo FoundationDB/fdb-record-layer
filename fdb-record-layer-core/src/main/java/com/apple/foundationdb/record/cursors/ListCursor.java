@@ -83,6 +83,11 @@ public class ListCursor<T> implements RecordCursor<T> {
     }
 
     @Override
+    public boolean isClosed() {
+        return false;
+    }
+
+    @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);

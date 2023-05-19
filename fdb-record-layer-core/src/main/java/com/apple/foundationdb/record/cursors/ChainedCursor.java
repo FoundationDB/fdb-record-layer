@@ -237,6 +237,11 @@ public class ChainedCursor<T> implements BaseCursor<T> {
     public void close() {
     }
 
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

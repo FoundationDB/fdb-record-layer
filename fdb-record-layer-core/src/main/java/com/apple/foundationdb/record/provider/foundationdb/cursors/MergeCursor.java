@@ -315,6 +315,11 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     }
 
     @Override
+    public boolean isClosed() {
+        return cursorStates.stream().allMatch(S::isClosed);
+    }
+
+    @Override
     @Nonnull
     public Executor getExecutor() {
         return executor;

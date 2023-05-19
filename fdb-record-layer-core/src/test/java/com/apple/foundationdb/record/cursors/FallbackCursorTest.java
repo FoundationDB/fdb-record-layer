@@ -178,6 +178,11 @@ public class FallbackCursorTest extends FDBTestBase {
         }
 
         @Override
+        public boolean isClosed() {
+            return false;
+        }
+
+        @Override
         public boolean accept(@Nonnull RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);

@@ -112,6 +112,11 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         inputCursor.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return inputCursor.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

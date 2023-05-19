@@ -43,6 +43,8 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     protected final C iterator;
     protected int valuesSeen;
 
+    private boolean closed;
+
     @Nullable
     protected RecordCursorResult<T> nextResult;
 
@@ -50,6 +52,7 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
         this.executor = executor;
         this.iterator = iterator;
         this.valuesSeen = 0;
+        this.closed = false;
     }
 
     protected RecordCursorResult<T> computeNextResult(boolean hasNext) {
@@ -65,6 +68,12 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     @Override
     public void close() {
         MoreAsyncUtil.closeIterator(iterator);
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

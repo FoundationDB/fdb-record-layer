@@ -141,6 +141,11 @@ class TextCursor implements BaseCursor<IndexEntry> {
         underlying.cancel();
     }
 
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {
