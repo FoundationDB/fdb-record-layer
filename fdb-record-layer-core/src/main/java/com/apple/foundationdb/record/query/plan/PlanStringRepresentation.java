@@ -462,7 +462,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     @Nonnull
     @Override
     public PlanStringRepresentation visitSelectorPlan(@Nonnull RecordQuerySelectorPlan element) {
-        return append("SELECT OR ")
+        return append("SELECTOR OF ")
                 .appendItems(element.getChildren(), " ");
     }
 

@@ -421,7 +421,7 @@ public class PlanStringRepresentationTest {
     @Nonnull
     private static Pair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r, double decay) {
         // Generate a random plan, but use the decay argument to avoid creating trees with too many
-        // levels (and potentially hitting the maximum stack depth). Every time we a plan with
+        // levels (and potentially hitting the maximum stack depth). Every time a plan with
         // child plans is chosen, the decay parameter is decreased, which eventually ensures that
         // a leaf plan is chosen.
         double leafChoice = r.nextDouble();
