@@ -497,7 +497,17 @@ public class PlanStringRepresentationTest {
         Random r = ThreadLocalRandom.current();
         List<RecordQueryPlan> plans = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            plans.add(randomPlanAndString(r).getLeft());
+            RecordQueryPlan plan;
+            while (true) {
+                plan = randomPlanAndString(r).getLeft();
+                try {
+                    plan.isReverse();
+                    break;
+                } catch (RecordCoreException e) {
+                    // Not all plans have a defined reverse-ness. If this happens, generate a new plan
+                }
+            }
+            plans.add(plan);
         }
         final String withoutUnstringable = RecordQueryUnorderedUnionPlan.from(plans).toString();
 
